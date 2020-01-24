@@ -38,3 +38,42 @@ bin/
 
 simWorkspace/
 tmp/
+
+
+.*
+*.o
+*.out
+
+# Vivado Related
+*.log
+*.jou
+*.str
+*.mcs
+*.prm
+*.bit
+
+# Bitstream Related
+*.bin
+*.bit
+*.ll
+*.ltx
+
+# Generated HLS project folder
+# Listed in template file as well
+generated_hls_project/
+generated_vivado_project/
+*.backup/
+
+# Generated IP repositories
+generated_ip/
+
+# Linux Kernel Related
+*.symvers
+*.ko
+*.order
+*.mod.c
+
+# AWS Specific
+awsver.txt
+
+!.gitignore
