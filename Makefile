@@ -62,6 +62,7 @@ all:
 	$(Q)mkdir -p $(GENERATED_IP)
 	$(Q)make -C host
 	$(Q)make -C monitor
+	$(Q)make -C board
 
 #
 # This cleans up everything.
