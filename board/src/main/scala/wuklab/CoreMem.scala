@@ -2,37 +2,9 @@ package wuklab
 
 import wuklab.Utils._
 import spinal.core._
-import spinal.core.internals.Operator
 import spinal.lib._
-import spinal.lib.bus.amba4.axi.Axi4
-import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4ReadOnly}
-import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config, AxiLite4SlaveFactory}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4W, Axi4Aw, Axi4Config, Axi4ReadOnly, Axi4WriteOnly}
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
-
-//Hardware definition
-class MyTopLevel extends Component {
-  val axiliteConfig = new AxiLite4Config(32, 32)
-
-  val io = new Bundle {
-    val configBus = slave (AxiLite4(axiliteConfig))
-    val cond0 = in  Bool
-    val cond1 = in  Bool
-    val flag  = out Bool
-    val state = out UInt(8 bits)
-  }
-  val counter = Reg(UInt(8 bits)) init(0)
-
-  when(io.cond0) {
-    counter := counter + 1
-  }
-
-  val regCtrl = new AxiLite4SlaveFactory(io.configBus)
-  val reg = Reg(UInt(32 bits)) init 0xdead
-  regCtrl.readAndWrite(reg, 0)
-
-  io.state := counter
-  io.flag  := (counter === 0) | io.cond1
-}
 
 class PageFaultUint(addrWidth : Int, numPageSizes : Int) extends Component {
   val cellWidth = 16
@@ -76,6 +48,44 @@ class PageFaultUint(addrWidth : Int, numPageSizes : Int) extends Component {
 
     res
   }
+}
+
+class PageTableWriter(addrWidth : Int) extends Component {
+  val config = Axi4Config(
+    addressWidth = addrWidth,
+    dataWidth = 32,
+    useId = false,
+    useRegion = false,
+    useBurst = true,
+    useLock = false,
+    useQos = false,
+    useLen = true,
+    useResp = false,
+    useProt = false,
+    useCache = false
+  )
+  val io = new Bundle {
+    val bus = master (Axi4WriteOnly(config))
+    val req = slave Stream PTELookupResult(usePteAddr = true)
+  }
+
+  val (cmd, data) = StreamFork2(io.req)
+
+  io.bus.writeCmd << cmd.fmap(r => {
+    val next = new Axi4Aw(config)
+    // TODO: add other fields here
+    next.addr := r.pteAddr
+    next
+  })
+
+  io.bus.writeData << data.fmap(r => {
+    val next = new Axi4W(config)
+    next.data := r.pte.asBits
+    next
+  })
+
+  // TODO: add this feedback to agent
+  io.bus.writeRsp.freeRun()
 }
 
 class FetchUnit(addrWidth : Int) extends Component {
@@ -132,7 +142,7 @@ class FetchUnit(addrWidth : Int) extends Component {
     val ready = Bool
 
     val valid = Reg(Bool) init False
-    val selected = Reg (PTE(48 )
+    val selected = Reg (PTE(48 ))
 
     retFifo.io.pop.ready := ready
     tagFifo.io.pop.ready := retFifo.io.pop.fire
@@ -263,6 +273,7 @@ class UpdateUnit(
 
 }
 
+// TODO: make this a factory
 // Basically control agent is a fifo arbiter. It handles two kinds of FIFOs: Sync ones and Async ones.
 // SoC should make sure the FIFO is not blocked. It also handles the number of the names
 class LookupControlAgent(numAsyncFifos : Int) extends Component {
@@ -274,19 +285,22 @@ class LookupControlAgent(numAsyncFifos : Int) extends Component {
     val asyncFifos = Vec(master Stream UInt(40 bits), numAsyncFifos)
     val shootDownCmd = master Flow UInt(20 bits)
 
-    // master to slave
+    // report to master
     val hitRpt = slave Flow UInt(20 bits)
-    val pageFaultRpt = slave Stream
+    val pageFaultRpt = slave Stream UInt(width = 40 bits)
   }
 
   // Write Command
-  switch (io.cmdOut.cmd) {
-    is (0) {
+  val inputs = StreamDemux(io.cmdIn, io.cmdIn.cid, numAsyncFifos + 1)
+  for (i <- 0 until numAsyncFifos)
+    inputs(i).fmap(_.param32) >> io.asyncFifos(i)
+  inputs(numAsyncFifos).fmap(_.param32).toFlow >> io.shootDownCmd
 
-    }
-
-  }
-
+  // Read Command
+  io.cmdOut << StreamArbiterFactory.sequentialOrder.onArgs(
+    io.hitRpt.asStream.fmap(u => ControlRequest(0x10, param32 = u)),
+    io.pageFaultRpt.fmap(u => ControlRequest(0x11, param32 = u))
+  )
 
 }
 
@@ -322,7 +336,8 @@ class LockCounterRam(numWaits : Int, numCells : Int) extends Component {
     val lockReq   = slave Flow UInt(cellWidth bits)
     val unlockReq = slave Flow UInt(cellWidth bits)
 
-    val freeAddr  = slave Flow UInt(cellWidth bits)
+    // The freed address
+    val freeAddr  = master Flow UInt(cellWidth bits)
     val isLocked  = out Vec(Bool, numCells)
 
     val popReq    = slave Flow UInt(cellWidth bits)
@@ -336,18 +351,22 @@ class LockCounterRam(numWaits : Int, numCells : Int) extends Component {
   }
 
   val lockedReg = Vec (Reg (cellState()) init cellState.idle, numCells)
-  io.isLocked := Vec (lockedReg.map(_ =/= cellState.idle))
+  io.isLocked := Vec (lockedReg.map(_ === cellState.locked))
 
   // LockteCtrl
+  when (io.lockReq.valid) {
+    waitCounts.inc(io.lockReq.payload)
+  }
+
   val conflict = io.lockReq.valid && io.unlockReq.valid && (io.lockReq.payload === io.unlockReq.payload)
   when (!conflict) {
     when(io.lockReq.valid) {
-      // TODO: another imlementation: copy when unlock
-      waitCounts.inc(io.lockReq.payload)
       when(lockCounts.inc(io.lockReq.payload)) {
         lockedReg(io.lockReq.payload) := cellState.locked
       }
-    } elsewhen (io.unlockReq.valid) {
+    }
+
+    when (io.unlockReq.valid) {
       when(lockCounts.dec(io.unlockReq.payload)) {
         lockedReg(io.unlockReq.payload) := cellState.clearing
       }
@@ -355,12 +374,13 @@ class LockCounterRam(numWaits : Int, numCells : Int) extends Component {
   }
 
   // Pop Ctrl
-  io.popReq.valid := False
+  io.freeAddr.valid := False
+  io.freeAddr.payload := io.popReq.payload
   when (io.popReq.fire) {
     val isEmpty = waitCounts.dec(io.popReq.payload)
     when (isEmpty) {
+      io.freeAddr.valid := True
       lockedReg(io.popReq.payload) := cellState.idle
-      io.freeAddr.push(io.popReq.payload)
     }
   }
 
@@ -385,7 +405,6 @@ class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int)
 
   // Internal infomations
   val bypassFifo = new StreamFifoLowLatency(io.req.payloadType, 1)
-  val waitFifo   = new StreamFifo(inputCtrl.beforeWait.payloadType, numWaits)
 
   // Data path
   val inputCtrl = new Area {
@@ -403,16 +422,19 @@ class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int)
     bypassPort.fmap(_.snd) >> bypassFifo.io.push
   }
 
+  val waitFifo   = new StreamFifo(inputCtrl.beforeWait.payloadType, numWaits)
+
   val lockAddrCtrl = new Area {
     // TODO: this is arrow.
     val Seq(existingLock, newLock) = inputCtrl.newLock.demux(inputCtrl.waitPort)
 
     // Bind this two fifos
     val newCmd = ids.io.alloc >*< newLock.fmap(_.snd)
-    val nextCmd = inputCtrl.newLock.mux(existingLock, newCmd)
+    val nextCmd = StreamMux(inputCtrl.newLock.asUInt, Seq(existingLock, newCmd))
+//    val nextCmd =  inputCtrl.newLock.mux(existingLock, newCmd)
 
     nextCmd >> waitFifo.io.push
-    nextCmd.fmap(_.fst).toFlow >> lock.io.lockReq
+    nextCmd.tapAsFlow.fmap(_.fst) >> lock.io.lockReq
   }
 
   val camCtrl = new Area {
@@ -428,7 +450,7 @@ class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int)
     writeCmd.used := insertReq.valid
     writeCmd.value := Mux(deleteReq.valid && insertReq.valid, deleteReq.payload, insertReq.payload.fst)
 
-    cam.io.wr << ReturnFlow (writeCmd, insertReq.valid || deleteReq.valid)
+    cam.io.wr << ReturnFlow(writeCmd, insertReq.valid || deleteReq.valid)
 
     // Return of address
     ids.io.free <-< deleteReq.throwWhen(insertReq.valid)
@@ -437,10 +459,14 @@ class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int)
   val outputCtrl = new Area {
     // unlock forward
     io.unlock >> lock.io.unlockReq
+    waitFifo.io.pop.tapAsFlow.fmap(_.fst) >> lock.io.popReq
 
     // output path
     val unlockLast = ~lock.io.isLocked(waitFifo.io.pop.fst)
-    io.res << StreamArbiterFactory.onArgs(bypassFifo.io.pop, waitFifo.io.pop.continueWhen(unlockLast))
+    io.res << StreamArbiterFactory.onArgs(
+      bypassFifo.io.pop,
+      waitFifo.io.pop.fmap(_.snd).continueWhen(unlockLast)
+    )
   }
 
   def getTagFromRequest (req: InternalMemoryRequest) : UInt = {
@@ -466,7 +492,7 @@ class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int)
 
 class MemoryAccessUnit extends Component {
   val io = new Bundle {
-    val req = slave  Stream (AccessCommand(48))
+    val req = slave  Stream AccessCommand(48)
     val dataIn  = slave Stream UInt(512 bits)
     val dataOut = master Stream UInt(512 bits)
 
@@ -477,14 +503,10 @@ class MemoryAccessUnit extends Component {
     val bus = master (Axi4(Axi4Config(32, 32)))
   }
 
-  val Seq(headerIfc, dataIfc) = StreamDemux(io.dataIn, inputFsm.isActive(inputFsm.busyWrite).asUInt, 2)
-  dataIfc >> io.dataWr
 
+  val header = io.dataIn.payload.as(LegoMemHeader(48))
   val lookback = Stream(UInt(512 bits))
   lookback.continueWhen(inputFsm.forward)
-
-  val rdStream = StreamMux(inputFsm.isActive(inputFsm.busyRead).asUInt, Seq(lookback, io.dataRd))
-  rdStream >> io.dataOut
 
   // State machine here
   // TODO: we can split this FSM into 2 fsms
@@ -492,27 +514,29 @@ class MemoryAccessUnit extends Component {
     val counter = UInt(8 bits)
     val forward = Bool
 
+    val Seq(headerIfc, dataIfc) = StreamDemux(io.dataIn, isActive(busyWrite).asUInt, 2)
+    dataIfc >> io.dataWr
+    headerIfc >> lookback
 
-    val init= new State with EntryPoint {
-      whenIsActive {
-        // if this is valid
-        // if read,
-        // if write,
-        // if this is invalid
+    io.dataOut << StreamMux(isActive(busyRead).asUInt, Seq(lookback, io.dataRd))
+
+    val init= new State with EntryPoint
+    val busyWrite = new State
+    init.whenIsActive {
+      when (io.dataIn.fire) {
+        switch (header.reqType) {
+          is (MemoryRequestType.write) { goto (busyWrite) }
+          is (MemoryRequestType.read) { goto (busyRead) }
+        }
       }
-      onExit {
-        counter := getBeatsHeader(io.dataIn.payload)
-      }
+    }.onExit {
+      counter := getBeatsHeader(header)
     }
 
-    val busyWrite = new State {
-      whenIsActive {
-        when (io.dataIn.fire) {
-          counter := counter - 1
-          when (counter === 1) {
-            goto (init)
-          }
-        }
+    busyWrite.whenIsActive {
+      when (io.dataIn.fire) {
+        when (counter === 1) { goto (init) }
+        counter := counter - 1
       }
     }
 
@@ -520,18 +544,18 @@ class MemoryAccessUnit extends Component {
     }
   }
 
-  def getSeqIdFromHeader(header: UInt): UInt = {
-    header (7 downto 0)
+  def getSeqIdFromHeader(header: LegoMemHeader): UInt = {
+    header.seqId
   }
-  def getBeatsHeader(header: UInt): UInt = {
-    header (7 downto 0)
+  def getBeatsHeader(header: LegoMemHeader): UInt = {
+    header.size
   }
 }
 
 
 class CoreUnit extends Component {
   val io = new Bundle {
-    val ifc = master (LegoMemComponentInterface(LegoMemConfig()))
+    val ifc = master (LegoMemComponentInterface(InterfaceConfig()))
   }
 
   // forward all data to access unit

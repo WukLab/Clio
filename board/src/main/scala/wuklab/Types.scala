@@ -2,11 +2,31 @@ package wuklab
 
 import spinal.core._
 
+case class LegoMemConfig (
+                           physicalAddrWidth : Int,
+                           virtualAddrWidth : Int,
+                           virtualTagWidth : Int,
+                           tagWidth : Int
+                         ){
+}
+
 object MemoryRequestType {
   val write = 0x01
   val read = 0x02
   val alloc = 0x03
   val free = 0x04
+}
+
+case class LegoMemHeader(addrWidth : Int) extends Bundle {
+  val pid       = UInt(16 bits)
+  val seqId     = UInt(16 bits)
+  val reqType   = UInt(8 bits)
+  val reqParam  = UInt(8 bits)
+  val size      = UInt(16 bits)
+  val addr      = UInt(addrWidth bits)
+  // Network infomation
+  val srcIp     = UInt(32 bits)
+  val srcPort   = UInt(8 bits)
 }
 
 // INTO and out of Sequencer
@@ -19,7 +39,7 @@ case class InternalMemoryRequest(addrWidth : Int) extends Bundle {
   val addr      = UInt(addrWidth bits)
 
   def mask : UInt = {
-    reqParam
+    U"64'hfffff_ffff"
   }
 }
 
@@ -62,10 +82,13 @@ case class PTE(addrWidth : Int) extends Bundle {
   val ppa = UInt(48 bits)
 }
 
-case class PTELookupResult(usePteAddr : Boolean, useHitAddr : Boolean) extends Bundle {
+case class PTELookupResult(
+                            usePteAddr : Boolean = false,
+                            useHitAddr : Boolean = false
+                          ) extends Bundle {
   val pte = PTE(48)
   val isMatch = Bool
-  val pteAddr = if (usePteAddr) UInt(16 bits)
-  val hitAddr = if (useHitAddr) UInt(16 bits)
+  val pteAddr = if (usePteAddr) UInt(16 bits) else null
+  val hitAddr = if (useHitAddr) UInt(16 bits) else null
 }
 
