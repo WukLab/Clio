@@ -107,7 +107,7 @@ case class LookupStreamReadInterface(keyWidth : Int,
                                      useWriteValid : Boolean
                                     ) extends LookupInterface {
 
-  val wr = Flow (LookupWrite(keyWidth, valueWidth, useMask, useEnable))
+  val wr = Flow (LookupWrite(keyWidth, valueWidth, useMask, useEnable, useWriteValid))
   val rd = new Bundle with IMasterSlave {
     val req = Stream (LookupReadReq(keyWidth))
     val res = Stream (LookupReadRes(valueWidth))

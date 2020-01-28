@@ -1,41 +1,12 @@
 package wuklab
 
+import wuklab.sim._
+
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
 
 import scala.util.Random
-
-
-//MyTopLevel's testbench
-object MyTopLevelSim {
-  def main(args: Array[String]) {
-    SimConfig.withWave.doSim(new MyTopLevel){dut =>
-      //Fork a process to generate the reset and the clock on the dut
-      dut.clockDomain.forkStimulus(period = 10)
-
-      var modelState = 0
-      for(idx <- 0 to 99){
-        //Drive the dut inputs with random values
-        dut.io.cond0 #= Random.nextBoolean()
-        dut.io.cond1 #= Random.nextBoolean()
-
-        //Wait a rising edge on the clock
-        dut.clockDomain.waitRisingEdge()
-
-        //Check that the dut values match with the reference model ones
-        val modelFlag = modelState == 0 || dut.io.cond1.toBoolean
-        assert(dut.io.state.toInt == modelState)
-        assert(dut.io.flag.toBoolean == modelFlag)
-
-        //Update the reference model value
-        if(dut.io.cond0.toBoolean) {
-          modelState = (modelState + 1) & 0xFF
-        }
-      }
-    }
-  }
-}
 
 object IDPoolSim {
   def main(args: Array[String]): Unit = {
@@ -99,6 +70,14 @@ object LookupTCamSim {
 }
 
 object LookupTCamStoppableSim {
+  implicit def RdReqAssign(key : Int, t : LookupReadReq) = { t.key #= key }
+  implicit def WrReqAssign(a : (Int, Int, Int, Boolean), t : LookupWrite) = {
+    val (key, mask, value, enable) = a
+    t.key #= key
+    t.mask #= mask
+    t.value #= value
+  }
+
   def main(args: Array[String]): Unit = {
     SimConfig.withWave.doSim(new LookupTCamStoppable(32, 8, false)) { dut =>
       dut.clockDomain.forkStimulus(5)
@@ -107,29 +86,61 @@ object LookupTCamStoppableSim {
       dut.io.rd.req.valid #= false
       dut.io.rd.res.ready #= false
 
-
       dut.clockDomain.waitRisingEdge(5)
-
-      dut.io.wr.key   #= 0x4321
-      dut.io.wr.mask  #= 0xFFF0
-      dut.io.wr.value #= 7
-      dut.io.wr.valid #= true
-
-      dut.clockDomain.waitRisingEdge(1)
-      dut.io.wr.valid #= false
-
       dut.io.rd.res.ready #= true
-      dut.io.rd.req.valid #= true
-      dut.io.rd.req.key   #= 0x4322
-      dut.clockDomain.waitRisingEdge(1)
-      dut.io.rd.res.ready #= false
 
-      dut.io.rd.req.key   #= 0x4332
-      dut.clockDomain.waitRisingEdge(1)
-      dut.io.rd.req.valid #= false
+      val wrFlow = new FlowDriver(dut.io.wr, dut.clockDomain)
+      wrFlow #= SeqDataGen(
+        (0x4321, 0xFFF0, 4, true),
+        (0x5321, 0xFFF0, 6, true)
+      )
+
+      val masterSim = new StreamDriver(dut.io.rd.req, dut.clockDomain)
+      masterSim #= SeqDataGen(0x4322, 0x5322, 0x7332, 0x6332, 0x7332)
 
       dut.clockDomain.waitRisingEdge(5)
 
     }
   }
+}
+
+object SequencerSim {
+  import AssignmentFunctions._
+  def main(args: Array[String]): Unit = {
+    SimConfig.withWave.doSim(new Sequencer(64, 40, 128, 32)) { dut =>
+      dut.clockDomain.forkStimulus(5)
+    }
+  }
+
+}
+
+object LockCounterRamSim {
+  import AssignmentFunctions._
+  def main(args: Array[String]): Unit = {
+    SimConfig.withWave.doSim(new LockCounterRam(128, 128)) { dut =>
+      dut.clockDomain.forkStimulus(5)
+
+      val lockDriver = new FlowDriver(dut.io.lockReq, dut.clockDomain)
+      val unlockDriver = new FlowDriver(dut.io.unlockReq, dut.clockDomain)
+      val popDriver = new FlowDriver(dut.io.popReq, dut.clockDomain)
+
+      dut.clockDomain.waitRisingEdge(5)
+
+      joinAll (
+        fork {
+          lockDriver #= SeqDataGen(1, 1, 2, 3, 4, 5)
+        },
+        fork {
+          dut.clockDomain.waitRisingEdge(1)
+          unlockDriver #= SeqDataGen(1, 1, 2, 3, 4, 5)
+        },
+        fork {
+          dut.clockDomain.waitRisingEdge(10)
+          popDriver #= SeqDataGen(2, 5, 4, 1, 3, 1)
+        }
+      )
+
+    }
+  }
+
 }

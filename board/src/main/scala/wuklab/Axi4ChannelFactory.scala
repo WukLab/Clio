@@ -120,13 +120,13 @@ class Axi4ChannelFactory(bus : LegoMemBus) extends Area {
 
 }
 
-case class LegoMemConfig(name : Int = 0,
+case class InterfaceConfig(name : Int = 0,
                          numCmdIn : Int = 1,
                          numCmdOut : Int = 1 ) {
 
 }
 
-case class LegoMemComponentInterface(config : LegoMemConfig) extends Bundle with IMasterSlave {
+case class LegoMemComponentInterface(config : InterfaceConfig) extends Bundle with IMasterSlave {
   val cmdIn   = Stream (new LegoCmd)
   val cmdOut  = Stream (new LegoCmd)
   val dataIn  = Stream (UInt(512 bits))

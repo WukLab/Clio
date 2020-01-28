@@ -63,6 +63,10 @@ object Utils {
       stream ~~ f
     }
 
+    def lift[T2 <: Data](implicit f : T => T2) : Stream[T2] = {
+      stream ~~ f
+    }
+
     def branch() : (Stream[T], Stream[T]) = {
       val next = Stream(stream.payload)
       next.payload := stream.payload
@@ -83,8 +87,16 @@ object Utils {
       StreamJoin.arg(stream, r).translateWith(Pair(stream.payload, r.payload))
     }
 
+    // tap means tap the fire event
     def tapAsFlow : Flow[T] = {
       val next = Flow(stream.payloadType())
+      next.valid := stream.fire
+      next.payload := stream.payload
+      next
+    }
+
+    def tap: Stream[T] = {
+      val next = Stream(stream.payloadType())
       next.valid := stream.fire
       next.payload := stream.payload
       next
@@ -147,7 +159,7 @@ object Utils {
   }
 
   implicit class BoolUtils(b : Bool) {
-    def mux[T <: Data](streams : Stream[T]*): Stream[T] = {
+    def mux[T <: Data](streams : Stream[T] *): Stream[T] = {
       assert(streams.size == 2)
       StreamMux(b.asUInt, streams)
     }
@@ -169,11 +181,12 @@ object Utils {
   }
 }
 
-object Pair {
-  def apply[T1 <: Data, T2 <: Data](fst: T1, snd: T2): Pair[T1, T2] = new Pair(fst, snd)
+case class Pair[T1 <: Data, T2 <: Data](fstValue: T1, sndValue: T2) extends Bundle {
+  val fst = cloneOf(fstValue)
+  val snd = cloneOf(sndValue)
+  fst := fstValue
+  snd := sndValue
 }
-
-class Pair[T1 <: Data, T2 <: Data](val fst : T1, val snd : T2) extends Bundle {}
 
 object ReturnStream {
   def apply[T <: Data](payload : T, valid : Bool = True) : Stream[T] = {
@@ -193,6 +206,7 @@ object ReturnFlow {
   }
 }
 
+// MISC
 object FlowMux {
   def apply[T <: Data](sel : UInt)(flows : Flow[T]*) : Flow[T] = {
     val next = cloneOf (flows(0))
