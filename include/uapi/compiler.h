@@ -7,6 +7,11 @@
  * the linux kernel.
  */
 
+#include <assert.h>
+
+#define BUG()			(assert(0))
+#define BUG_ON(cond)		(assert(!!!(cond)))
+
 #define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))
 #define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
 
