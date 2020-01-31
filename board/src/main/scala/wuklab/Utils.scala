@@ -46,9 +46,30 @@ object WaterMarkFifo {
   }
 }
 
+trait WithValid[T <: Data] {
+  def getValid : Bool
+}
+
 object Utils {
   // Definations
   type Valid[T <: Data] = Flow[T]
+
+  implicit class IntUtils(i : Int) {
+    def countBy (n : Int): Range = {
+      (i + n - 1) downto n
+    }
+
+    def downBy (n : Int): Range = {
+      i - 1 downto (i - n)
+    }
+  }
+
+  implicit class DataUtils[T <: Data](t : T) {
+    def @= (that : T) = {
+      t := that
+      t
+    }
+  }
 
   // Another way is stopable pipeline
   implicit class StreamUtils[T <: Data](stream : Stream[T]) {
@@ -119,6 +140,10 @@ object Utils {
     }
     def fmapSnd [T <: Data](f : T2 => T): Stream[Pair[T1, T]] = {
       stream.fmap(p => Pair(p.fst, f(p.snd)))
+    }
+
+    def bimap [T <: Data](f : (T1, T2) => T) : Stream[T] = {
+      stream.fmap(p => f(p.fst, p.snd))
     }
   }
 

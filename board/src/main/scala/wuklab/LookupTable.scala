@@ -2,23 +2,14 @@ package wuklab
 
 import wuklab.Utils._
 import spinal.core._
+import spinal.core.internals.Operator
 import spinal.lib._
-
-
-case class LookupResult() extends Bundle {
-  val pa = UInt(32 bits)
-  val pte = PTE
-  val isMatch = Bool
-  val cell = UInt(16 bits)
-}
 
 case class LookupWrite(keyWidth : Int, valueWidth : Int,
                        useMask : Boolean = true,
-                       useEnable : Boolean = false,
                        useWriteValid : Boolean = false
                       ) extends Bundle {
   val mask  = if (useMask) UInt(keyWidth bits) else null
-  val enable = if (useEnable) Bool else null
   val used = if (useWriteValid) Bool else null
   val key   = UInt(keyWidth bits)
   val value = UInt(valueWidth bits)
@@ -107,7 +98,7 @@ case class LookupStreamReadInterface(keyWidth : Int,
                                      useWriteValid : Boolean
                                     ) extends LookupInterface {
 
-  val wr = Flow (LookupWrite(keyWidth, valueWidth, useMask, useEnable, useWriteValid))
+  val wr = Flow (LookupWrite(keyWidth, valueWidth, useMask, useWriteValid))
   val rd = new Bundle with IMasterSlave {
     val req = Stream (LookupReadReq(keyWidth))
     val res = Stream (LookupReadRes(valueWidth))
@@ -118,6 +109,43 @@ case class LookupStreamReadInterface(keyWidth : Int,
     }
   }
 
+}
+
+trait RequestResponseInterface extends IMasterSlave {
+  val req : IMasterSlave
+  val res : IMasterSlave
+
+  override def asMaster(): Unit = {
+    master(req)
+    slave (res)
+  }
+}
+
+case class LookupStreamInterface(
+                                  keyWidth : Int,
+                                  valueWidth : Int,
+                                  cellWidth : Int,
+                                  useMask : Boolean
+                                ) extends LookupInterface {
+
+  override val useEnable = true
+  override val useWriteValid = false
+
+  val wr = new Bundle with IMasterSlave {
+    val req = Stream (LookupWrite(keyWidth, valueWidth, useMask, useWriteValid))
+    val res = Flow (UInt(cellWidth bits))
+    val shootDown = Flow (UInt(cellWidth bits))
+
+    override def asMaster(): Unit = {
+      master (req)
+      slave (res)
+      master (shootDown)
+    }
+  }
+  val rd = new Bundle with RequestResponseInterface {
+    val req = Stream (LookupReadReq(keyWidth))
+    val res = Stream (LookupReadRes(valueWidth))
+  }
 }
 
 class LookupTCamStoppable(keyWidth : Int, valueWidth : Int, useWriteValid : Boolean) extends Component with StoppablePipeline {
@@ -145,6 +173,51 @@ class LookupTCamStoppable(keyWidth : Int, valueWidth : Int, useWriteValid : Bool
 
 }
 
+class LookupTableStoppable(keyWidth : Int, valueWidth : Int, numCells : Int) extends Component with StoppablePipeline {
+  assert(isPow2(numCells))
+  val cellWidth = log2Up(numCells)
+
+  override def pipelineDelay : Int = 2
+  override def enableSignal : Bool = io.rd.res.ready
+
+  val io = slave (LookupStreamInterface(keyWidth, valueWidth, cellWidth, useMask = true))
+
+  val cam = new LookupTCamStoppable(keyWidth, cellWidth, true)
+  val ids = new IDPool(numCells)
+  val mem = new Mem(Bits(valueWidth bits), numCells)
+
+  // The external source remember the cell
+  val wrCell = io.wr.req *> ids.io.alloc
+
+  val addrFlow = StreamFlowArbiter(wrCell, io.wr.shootDown)
+  cam.io.wr << addrFlow.fmap(cell => {
+    val next = cloneOf(cam.io.wr.payload)
+    next.key := io.wr.req.key
+    next.mask := io.wr.req.mask
+    next.used := wrCell.valid
+    next.value := cell
+    next
+  })
+
+  // Stage here for one cycle delay
+  mem.write(wrCell.payload, io.wr.req.value.asBits, wrCell.valid)
+
+  // write to data
+  ids.io.alloc.tapAsFlow >> io.wr.res
+  io.wr.shootDown >> ids.io.free
+
+  //Read path. stage 1
+  io.rd.req >> cam.io.rd.req
+  //Read path. stage 2
+  io.rd.res.hit := RegNextWhen(cam.io.rd.res.hit, io.rd.res.ready) init False
+  io.rd.res.valid := RegNextWhen(cam.io.rd.res.valid, io.rd.res.ready) init False
+  io.rd.res.value := mem.readSync(cam.io.rd.res.value).asUInt
+  cam.io.rd.res.ready := io.rd.res.ready
+
+}
+
+// Enable for stall,
+// Write Valid for Write Valid
 class TernaryCAM(keyWidth : Int, addrWidth : Int,
                  useEnable : Boolean = false, useWriteValid : Boolean = false) extends Component {
 
@@ -187,4 +260,3 @@ class TernaryCAM(keyWidth : Int, addrWidth : Int,
   }
 
 }
-
