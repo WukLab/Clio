@@ -1,5 +1,7 @@
 /*
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ *
+ * Adopted from Linux Kernel.
  */
 
 #ifndef _LEGOMEM_UAPI_LIST_H_
