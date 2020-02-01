@@ -1,0 +1,987 @@
+#-----------------------------------------------------------
+# Vivado v2019.1 (64-bit)
+# SW Build 2552052 on Fri May 24 14:47:09 MDT 2019
+# IP Build 2548770 on Fri May 24 18:01:18 MDT 2019
+# Start of session at: Sat May 25 00:49:02 2019
+# Process ID: 5875
+# Current directory: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1
+# Command line: vivado -log design_1_auto_ds_0.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source design_1_auto_ds_0.tcl
+# Log file: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/design_1_auto_ds_0.vds
+# Journal file: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/vivado.jou
+#-----------------------------------------------------------
+Sourcing tcl script '/tmp/tmp.uj6Pgihdhk/dummy.tcl'
+100 Beta devices matching pattern found, 100 enabled.
+enable_beta_device: Time (s): cpu = 00:00:07 ; elapsed = 00:00:08 . Memory (MB): peak = 1539.125 ; gain = 10.516 ; free physical = 83041 ; free virtual = 492805
+source design_1_auto_ds_0.tcl -notrace
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/tmp/tmp.uj6Pgihdhk/ip'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip'.
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:rts_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/rts_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/rts_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:cal_freeze_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/cal_freeze_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/cal_freeze_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:drp_mon_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/drp_mon_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/drp_mon_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:diff_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/diff_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/diff_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:user:hsams_data_sink_ctrl:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/hsams_data_sink_ctrl.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/hsams_data_sink_ctrl.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:debug_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/debug_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/debug_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:user:hsams_data_source_ctrl:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/hsams_data_source_ctrl.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/hsams_data_source_ctrl.xml'
+update_ip_catalog: Time (s): cpu = 00:00:03 ; elapsed = 00:00:07 . Memory (MB): peak = 1561.906 ; gain = 22.781 ; free physical = 90271 ; free virtual = 500001
+Command: synth_design -top design_1_auto_ds_0 -part xczu7ev-ffvc1156-2-e -mode out_of_context
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xczu7ev'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xczu7ev'
+INFO: [Device 21-403] Loading part xczu7ev-ffvc1156-2-e
+INFO: Launching helper process for spawning children vivado processes
+INFO: Helper process launched with PID 19461 
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:09 ; elapsed = 00:00:30 . Memory (MB): peak = 2561.727 ; gain = 0.000 ; free physical = 88006 ; free virtual = 498452
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_ds_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/synth/design_1_auto_ds_0.v:58]
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_top' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:14462]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_AXI_PROTOCOL bound to: 0 - type: integer 
+	Parameter C_S_AXI_ID_WIDTH bound to: 16 - type: integer 
+	Parameter C_SUPPORTS_ID bound to: 1 - type: integer 
+	Parameter C_AXI_ADDR_WIDTH bound to: 40 - type: integer 
+	Parameter C_S_AXI_DATA_WIDTH bound to: 128 - type: integer 
+	Parameter C_M_AXI_DATA_WIDTH bound to: 32 - type: integer 
+	Parameter C_AXI_SUPPORTS_WRITE bound to: 1 - type: integer 
+	Parameter C_AXI_SUPPORTS_READ bound to: 1 - type: integer 
+	Parameter C_FIFO_MODE bound to: 0 - type: integer 
+	Parameter C_S_AXI_ACLK_RATIO bound to: 1 - type: integer 
+	Parameter C_M_AXI_ACLK_RATIO bound to: 2 - type: integer 
+	Parameter C_AXI_IS_ACLK_ASYNC bound to: 0 - type: integer 
+	Parameter C_MAX_SPLIT_BEATS bound to: 256 - type: integer 
+	Parameter C_PACKING_LEVEL bound to: 1 - type: integer 
+	Parameter C_SYNCHRONIZER_STAGE bound to: 3 - type: integer 
+	Parameter C_S_AXI_BYTES_LOG bound to: 4 - type: integer 
+	Parameter C_M_AXI_BYTES_LOG bound to: 2 - type: integer 
+	Parameter C_RATIO bound to: 4 - type: integer 
+	Parameter C_RATIO_LOG bound to: 2 - type: integer 
+	Parameter P_AXI4 bound to: 0 - type: integer 
+	Parameter P_AXI3 bound to: 1 - type: integer 
+	Parameter P_AXILITE bound to: 2 - type: integer 
+	Parameter P_CONVERSION bound to: 2 - type: integer 
+	Parameter P_MAX_SPLIT_BEATS bound to: 256 - type: integer 
+INFO: [Synth 8-5534] Detected attribute (* KEEP = "TRUE" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:14513]
+INFO: [Synth 8-5534] Detected attribute (* KEEP = "TRUE" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:14514]
+INFO: [Synth 8-5534] Detected attribute (* KEEP = "TRUE" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:14562]
+INFO: [Synth 8-5534] Detected attribute (* KEEP = "TRUE" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:14563]
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_axi_downsizer' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:2380]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_AXI_PROTOCOL bound to: 0 - type: integer 
+	Parameter C_S_AXI_ID_WIDTH bound to: 16 - type: integer 
+	Parameter C_SUPPORTS_ID bound to: 1 - type: integer 
+	Parameter C_AXI_ADDR_WIDTH bound to: 40 - type: integer 
+	Parameter C_S_AXI_DATA_WIDTH bound to: 128 - type: integer 
+	Parameter C_M_AXI_DATA_WIDTH bound to: 32 - type: integer 
+	Parameter C_AXI_SUPPORTS_WRITE bound to: 1 - type: integer 
+	Parameter C_AXI_SUPPORTS_READ bound to: 1 - type: integer 
+	Parameter C_MAX_SPLIT_BEATS bound to: 256 - type: integer 
+	Parameter C_S_AXI_BYTES_LOG bound to: 4 - type: integer 
+	Parameter C_M_AXI_BYTES_LOG bound to: 2 - type: integer 
+	Parameter C_RATIO bound to: 4 - type: integer 
+	Parameter C_RATIO_LOG bound to: 2 - type: integer 
+	Parameter P_AXI_ADDR_WIDTH bound to: 40 - type: integer 
+	Parameter P_AXI4 bound to: 0 - type: integer 
+	Parameter P_AXI3 bound to: 1 - type: integer 
+	Parameter P_AXILITE bound to: 2 - type: integer 
+	Parameter P_MAX_SPLIT_BEATS bound to: 256 - type: integer 
+	Parameter P_MAX_SPLIT_BEATS_LOG bound to: 8 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_b_downsizer' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1251]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_AXI_ID_WIDTH bound to: 16 - type: integer 
+	Parameter C_RESP_OKAY bound to: 2'b00 
+	Parameter C_RESP_EXOKAY bound to: 2'b01 
+	Parameter C_RESP_SLVERROR bound to: 2'b10 
+	Parameter C_RESP_DECERR bound to: 2'b11 
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_b_downsizer' (1#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1251]
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_a_downsizer' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:64]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_AXI_PROTOCOL bound to: 0 - type: integer 
+	Parameter C_AXI_ID_WIDTH bound to: 16 - type: integer 
+	Parameter C_SUPPORTS_ID bound to: 1 - type: integer 
+	Parameter C_AXI_ADDR_WIDTH bound to: 40 - type: integer 
+	Parameter C_S_AXI_DATA_WIDTH bound to: 128 - type: integer 
+	Parameter C_M_AXI_DATA_WIDTH bound to: 32 - type: integer 
+	Parameter C_AXI_CHANNEL bound to: 0 - type: integer 
+	Parameter C_MAX_SPLIT_BEATS bound to: 256 - type: integer 
+	Parameter C_MAX_SPLIT_BEATS_LOG bound to: 8 - type: integer 
+	Parameter C_S_AXI_BYTES_LOG bound to: 4 - type: integer 
+	Parameter C_M_AXI_BYTES_LOG bound to: 2 - type: integer 
+	Parameter C_RATIO_LOG bound to: 2 - type: integer 
+	Parameter C_S_AXI_NATIVE_SIZE bound to: 3'b100 
+	Parameter C_M_AXI_NATIVE_SIZE bound to: 3'b010 
+	Parameter C_DOUBLE_LEN bound to: 48'b000000000000000000000000000000000000000011111111 
+	Parameter C_FIX_BURST bound to: 2'b00 
+	Parameter C_INCR_BURST bound to: 2'b01 
+	Parameter C_WRAP_BURST bound to: 2'b10 
+	Parameter C_FIFO_DEPTH_LOG bound to: 5 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'axi_data_fifo_v2_1_18_axic_fifo' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:64]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_FIFO_DEPTH_LOG bound to: 5 - type: integer 
+	Parameter C_FIFO_WIDTH bound to: 9 - type: integer 
+	Parameter C_FIFO_TYPE bound to: lut - type: string 
+INFO: [Synth 8-6157] synthesizing module 'axi_data_fifo_v2_1_18_fifo_gen' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:168]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_COMMON_CLOCK bound to: 1 - type: integer 
+	Parameter C_SYNCHRONIZER_STAGE bound to: 3 - type: integer 
+	Parameter C_FIFO_DEPTH_LOG bound to: 5 - type: integer 
+	Parameter C_FIFO_WIDTH bound to: 9 - type: integer 
+	Parameter C_FIFO_TYPE bound to: lut - type: string 
+	Parameter C_MEMORY_TYPE bound to: 2 - type: integer 
+	Parameter C_IMPLEMENTATION_TYPE bound to: 0 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'xpm_cdc_async_rst' [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:1175]
+INFO: [Synth 8-5534] Detected attribute (* ASYNC_REG = "TRUE" *) [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:1226]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_cdc_async_rst' (2#1) [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:1175]
+INFO: [Synth 8-6155] done synthesizing module 'axi_data_fifo_v2_1_18_fifo_gen' (20#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:168]
+INFO: [Synth 8-6155] done synthesizing module 'axi_data_fifo_v2_1_18_axic_fifo' (21#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:64]
+INFO: [Synth 8-6157] synthesizing module 'axi_data_fifo_v2_1_18_axic_fifo__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:64]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_FIFO_DEPTH_LOG bound to: 5 - type: integer 
+	Parameter C_FIFO_WIDTH bound to: 29 - type: integer 
+	Parameter C_FIFO_TYPE bound to: lut - type: string 
+INFO: [Synth 8-6157] synthesizing module 'axi_data_fifo_v2_1_18_fifo_gen__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:168]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_COMMON_CLOCK bound to: 1 - type: integer 
+	Parameter C_SYNCHRONIZER_STAGE bound to: 3 - type: integer 
+	Parameter C_FIFO_DEPTH_LOG bound to: 5 - type: integer 
+	Parameter C_FIFO_WIDTH bound to: 29 - type: integer 
+	Parameter C_FIFO_TYPE bound to: lut - type: string 
+	Parameter C_MEMORY_TYPE bound to: 2 - type: integer 
+	Parameter C_IMPLEMENTATION_TYPE bound to: 0 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'axi_data_fifo_v2_1_18_fifo_gen__parameterized0' (21#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:168]
+INFO: [Synth 8-6155] done synthesizing module 'axi_data_fifo_v2_1_18_axic_fifo__parameterized0' (21#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/5b9c/hdl/axi_data_fifo_v2_1_vl_rfs.v:64]
+WARNING: [Synth 8-6014] Unused sequential element cmd_empty_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1053]
+WARNING: [Synth 8-6014] Unused sequential element cmd_depth_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1054]
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_a_downsizer' (22#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:64]
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_w_downsizer' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:2016]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_S_AXI_DATA_WIDTH bound to: 128 - type: integer 
+	Parameter C_M_AXI_DATA_WIDTH bound to: 32 - type: integer 
+	Parameter C_S_AXI_BYTES_LOG bound to: 4 - type: integer 
+	Parameter C_M_AXI_BYTES_LOG bound to: 2 - type: integer 
+	Parameter C_RATIO_LOG bound to: 2 - type: integer 
+	Parameter C_DOUBLE_LEN bound to: 24'b000000000000000011111111 
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_w_downsizer' (23#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:2016]
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_a_downsizer__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:64]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_AXI_PROTOCOL bound to: 0 - type: integer 
+	Parameter C_AXI_ID_WIDTH bound to: 16 - type: integer 
+	Parameter C_SUPPORTS_ID bound to: 1 - type: integer 
+	Parameter C_AXI_ADDR_WIDTH bound to: 40 - type: integer 
+	Parameter C_S_AXI_DATA_WIDTH bound to: 128 - type: integer 
+	Parameter C_M_AXI_DATA_WIDTH bound to: 32 - type: integer 
+	Parameter C_AXI_CHANNEL bound to: 1 - type: integer 
+	Parameter C_MAX_SPLIT_BEATS bound to: 256 - type: integer 
+	Parameter C_MAX_SPLIT_BEATS_LOG bound to: 8 - type: integer 
+	Parameter C_S_AXI_BYTES_LOG bound to: 4 - type: integer 
+	Parameter C_M_AXI_BYTES_LOG bound to: 2 - type: integer 
+	Parameter C_RATIO_LOG bound to: 2 - type: integer 
+	Parameter C_S_AXI_NATIVE_SIZE bound to: 3'b100 
+	Parameter C_M_AXI_NATIVE_SIZE bound to: 3'b010 
+	Parameter C_DOUBLE_LEN bound to: 48'b000000000000000000000000000000000000000011111111 
+	Parameter C_FIX_BURST bound to: 2'b00 
+	Parameter C_INCR_BURST bound to: 2'b01 
+	Parameter C_WRAP_BURST bound to: 2'b10 
+	Parameter C_FIFO_DEPTH_LOG bound to: 5 - type: integer 
+WARNING: [Synth 8-6014] Unused sequential element cmd_b_push_block_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:976]
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_a_downsizer__parameterized0' (23#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:64]
+INFO: [Synth 8-6157] synthesizing module 'axi_dwidth_converter_v2_1_19_r_downsizer' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1533]
+	Parameter C_FAMILY bound to: zynquplus - type: string 
+	Parameter C_AXI_ID_WIDTH bound to: 16 - type: integer 
+	Parameter C_S_AXI_DATA_WIDTH bound to: 128 - type: integer 
+	Parameter C_M_AXI_DATA_WIDTH bound to: 32 - type: integer 
+	Parameter C_S_AXI_BYTES_LOG bound to: 4 - type: integer 
+	Parameter C_M_AXI_BYTES_LOG bound to: 2 - type: integer 
+	Parameter C_RATIO_LOG bound to: 2 - type: integer 
+	Parameter C_RESP_OKAY bound to: 2'b00 
+	Parameter C_RESP_EXOKAY bound to: 2'b01 
+	Parameter C_RESP_SLVERROR bound to: 2'b10 
+	Parameter C_RESP_DECERR bound to: 2'b11 
+	Parameter C_DOUBLE_LEN bound to: 24'b000000000000000011111111 
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_r_downsizer' (24#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1533]
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_axi_downsizer' (25#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:2380]
+INFO: [Synth 8-6155] done synthesizing module 'axi_dwidth_converter_v2_1_19_top' (26#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:14462]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_ds_0' (27#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/synth/design_1_auto_ds_0.v:58]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port SRST_FULL_FF
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_RST
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port SRST
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port SAFETY_CKT_WR_RST
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS2[4]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS2[3]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS2[2]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS2[1]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS2[0]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS3[4]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS3[3]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS3[2]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS3[1]
+WARNING: [Synth 8-3331] design wr_status_flags_ss has unconnected port WR_PNTR_PLUS3[0]
+WARNING: [Synth 8-3331] design wr_bin_cntr has unconnected port SRST
+WARNING: [Synth 8-3331] design wr_logic has unconnected port WR_EN_INTO_LOGIC
+WARNING: [Synth 8-3331] design wr_logic has unconnected port WR_RST_INTO_LOGIC
+WARNING: [Synth 8-3331] design wr_logic has unconnected port RD_EN
+WARNING: [Synth 8-3331] design wr_logic has unconnected port WR_RST_BUSY
+WARNING: [Synth 8-3331] design wr_logic has unconnected port EMPTY
+WARNING: [Synth 8-3331] design wr_logic has unconnected port ALMOST_EMPTY
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH[4]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH[3]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH[2]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH[1]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH[0]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_ASSERT[4]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_ASSERT[3]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_ASSERT[2]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_ASSERT[1]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_ASSERT[0]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_NEGATE[4]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_NEGATE[3]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_NEGATE[2]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_NEGATE[1]
+WARNING: [Synth 8-3331] design wr_logic has unconnected port PROG_FULL_THRESH_NEGATE[0]
+WARNING: [Synth 8-3331] design rd_fwft has unconnected port SRST
+WARNING: [Synth 8-3331] design rd_fwft has unconnected port SAFETY_CKT_RD_RST
+WARNING: [Synth 8-3331] design rd_fwft has unconnected port RAM_ALMOST_EMPTY
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port SRST
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port SAFETY_CKT_RD_RST
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port RD_PNTR_PLUS2[4]
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port RD_PNTR_PLUS2[3]
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port RD_PNTR_PLUS2[2]
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port RD_PNTR_PLUS2[1]
+WARNING: [Synth 8-3331] design rd_status_flags_ss has unconnected port RD_PNTR_PLUS2[0]
+WARNING: [Synth 8-3331] design rd_bin_cntr has unconnected port SRST
+WARNING: [Synth 8-3331] design rd_logic has unconnected port RD_EN_INTO_LOGIC
+WARNING: [Synth 8-3331] design rd_logic has unconnected port RD_RST_INTO_LOGIC
+WARNING: [Synth 8-3331] design rd_logic has unconnected port RD_RST_BUSY
+WARNING: [Synth 8-3331] design rd_logic has unconnected port RST_FULL_FF
+WARNING: [Synth 8-3331] design rd_logic has unconnected port ALMOST_FULL_FB
+WARNING: [Synth 8-3331] design rd_logic has unconnected port FULL
+WARNING: [Synth 8-3331] design rd_logic has unconnected port WR_PNTR_PLUS1_RD[4]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port WR_PNTR_PLUS1_RD[3]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port WR_PNTR_PLUS1_RD[2]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port WR_PNTR_PLUS1_RD[1]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port WR_PNTR_PLUS1_RD[0]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH[4]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH[3]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH[2]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH[1]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH[0]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_ASSERT[4]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_ASSERT[3]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_ASSERT[2]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_ASSERT[1]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_ASSERT[0]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_NEGATE[4]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_NEGATE[3]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_NEGATE[2]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_NEGATE[1]
+WARNING: [Synth 8-3331] design rd_logic has unconnected port PROG_EMPTY_THRESH_NEGATE[0]
+WARNING: [Synth 8-3331] design dmem__parameterized0 has unconnected port SRST
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port FAB_REGOUT_EN
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port SFT_RST
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port SRST
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port SAFETY_CKT_RD_RST
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port SLEEP
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port INJECTDBITERR
+WARNING: [Synth 8-3331] design memory__parameterized0 has unconnected port INJECTSBITERR
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port ALMOST_FULL_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port PROG_FULL_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port ALMOST_EMPTY_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port PROG_EMPTY_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port WR_ACK_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port VALID_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port OVERFLOW_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port UNDERFLOW_I
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port DATA_COUNT_I[5]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port DATA_COUNT_I[4]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port DATA_COUNT_I[3]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port DATA_COUNT_I[2]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port DATA_COUNT_I[1]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port DATA_COUNT_I[0]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port WR_DATA_COUNT_I[5]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port WR_DATA_COUNT_I[4]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port WR_DATA_COUNT_I[3]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port WR_DATA_COUNT_I[2]
+WARNING: [Synth 8-3331] design output_blk__parameterized0 has unconnected port WR_DATA_COUNT_I[1]
+INFO: [Common 17-14] Message 'Synth 8-3331' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:59 ; elapsed = 00:01:32 . Memory (MB): peak = 2634.047 ; gain = 72.320 ; free physical = 97379 ; free virtual = 510341
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:59 ; elapsed = 00:01:33 . Memory (MB): peak = 2639.980 ; gain = 78.254 ; free physical = 97323 ; free virtual = 510317
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:59 ; elapsed = 00:01:33 . Memory (MB): peak = 2639.980 ; gain = 78.254 ; free physical = 97322 ; free virtual = 510316
+---------------------------------------------------------------------------------
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/design_1_auto_ds_0_ooc.xdc] for cell 'inst'
+create_clock: Time (s): cpu = 00:00:08 ; elapsed = 00:00:12 . Memory (MB): peak = 2811.699 ; gain = 0.000 ; free physical = 92949 ; free virtual = 506685
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/design_1_auto_ds_0_ooc.xdc] for cell 'inst'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/dont_touch.xdc]
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/dont_touch.xdc]
+Sourcing Tcl File [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl] for cell 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/cmd_queue/inst/fifo_gen_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst'
+Finished Sourcing Tcl File [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl] for cell 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/cmd_queue/inst/fifo_gen_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst'
+Sourcing Tcl File [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl] for cell 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/USE_B_CHANNEL.cmd_b_queue/inst/fifo_gen_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst'
+Finished Sourcing Tcl File [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl] for cell 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/USE_B_CHANNEL.cmd_b_queue/inst/fifo_gen_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst'
+Sourcing Tcl File [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl] for cell 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/cmd_queue/inst/fifo_gen_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst'
+Finished Sourcing Tcl File [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl] for cell 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/cmd_queue/inst/fifo_gen_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst'
+INFO: [Project 1-236] Implementation specific constraints were found while reading constraint file [/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xpm/xpm_cdc/tcl/xpm_cdc_async_rst.tcl]. These constraints will be ignored for synthesis but will be used in implementation. Impacted constraints are listed in the file [.Xil/design_1_auto_ds_0_propImpl.xdc].
+Resolution: To avoid this warning, move constraints listed in [.Xil/design_1_auto_ds_0_propImpl.xdc] to another XDC file and exclude this new file from synthesis with the used_in_synthesis property (File Properties dialog in GUI) and re-run elaboration/synthesis.
+WARNING: [Constraints 18-5210] No constraints selected for write.
+Resolution: This message can indicate that there are no constraints for the design, or it can indicate that the used_in flags are set such that the constraints are ignored. This later case is used when running synth_design to not write synthesis constraints to the resulting checkpoint. Instead, project constraints are read when the synthesized design is opened.
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2811.699 ; gain = 0.000 ; free physical = 93118 ; free virtual = 506871
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00.09 ; elapsed = 00:00:00.20 . Memory (MB): peak = 2812.195 ; gain = 0.496 ; free physical = 92906 ; free virtual = 506662
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:01:17 ; elapsed = 00:02:06 . Memory (MB): peak = 2812.195 ; gain = 250.469 ; free physical = 92157 ; free virtual = 506700
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xczu7ev-ffvc1156-2-e
+INFO: [Synth 8-6742] Reading net delay rules and data
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:01:17 ; elapsed = 00:02:06 . Memory (MB): peak = 2812.195 ; gain = 250.469 ; free physical = 92133 ; free virtual = 506683
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+Applied set_property DONT_TOUCH = true for inst. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/dont_touch.xdc, line 9).
+Applied set_property DONT_TOUCH = true for inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst /\USE_WRITE.write_addr_inst /\USE_B_CHANNEL.cmd_b_queue /inst/fifo_gen_inst/inst_fifo_gen/\gconvfifo.rf /\grf.rf /rstblk/\ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst . (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst /\USE_WRITE.write_addr_inst /cmd_queue/inst/fifo_gen_inst/inst_fifo_gen/\gconvfifo.rf /\grf.rf /rstblk/\ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst . (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst /\USE_READ.read_addr_inst /cmd_queue/inst/fifo_gen_inst/inst_fifo_gen/\gconvfifo.rf /\grf.rf /rstblk/\ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst . (constraint file  auto generated constraint, line ).
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:01:18 ; elapsed = 00:02:06 . Memory (MB): peak = 2812.195 ; gain = 250.469 ; free physical = 92180 ; free virtual = 506753
+---------------------------------------------------------------------------------
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1135]
+INFO: [Synth 8-5544] ROM "cmd_step_i" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "split_addr_mask" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "size_mask" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "fix_len" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-4471] merging register 'first_mi_word_reg' into 'first_word_reg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:2256]
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1056]
+INFO: [Synth 8-5544] ROM "cmd_step_i" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "split_addr_mask" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "size_mask" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "fix_len" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-4471] merging register 'first_word_reg' into 'first_mi_word_reg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/e578/hdl/axi_dwidth_converter_v2_1_vlsyn_rfs.v:1780]
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:01:19 ; elapsed = 00:02:08 . Memory (MB): peak = 2812.195 ; gain = 250.469 ; free physical = 91705 ; free virtual = 506570
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input     40 Bit       Adders := 2     
+	   2 Input      8 Bit       Adders := 7     
+	   3 Input      8 Bit       Adders := 2     
+	   2 Input      6 Bit       Adders := 2     
+	   2 Input      5 Bit       Adders := 6     
+	   2 Input      4 Bit       Adders := 4     
++---XORs : 
+	   2 Input      1 Bit         XORs := 60    
++---Registers : 
+	               40 Bit    Registers := 8     
+	               32 Bit    Registers := 4     
+	               29 Bit    Registers := 4     
+	               16 Bit    Registers := 4     
+	               12 Bit    Registers := 2     
+	                9 Bit    Registers := 2     
+	                8 Bit    Registers := 13    
+	                7 Bit    Registers := 2     
+	                6 Bit    Registers := 2     
+	                5 Bit    Registers := 14    
+	                4 Bit    Registers := 15    
+	                3 Bit    Registers := 4     
+	                2 Bit    Registers := 14    
+	                1 Bit    Registers := 62    
++---Muxes : 
+	   8 Input     40 Bit        Muxes := 2     
+	   2 Input     40 Bit        Muxes := 4     
+	   4 Input     32 Bit        Muxes := 1     
+	   2 Input     32 Bit        Muxes := 4     
+	   2 Input     12 Bit        Muxes := 2     
+	   2 Input      8 Bit        Muxes := 11    
+	   8 Input      7 Bit        Muxes := 2     
+	   8 Input      5 Bit        Muxes := 2     
+	   2 Input      4 Bit        Muxes := 4     
+	   8 Input      4 Bit        Muxes := 4     
+	   4 Input      4 Bit        Muxes := 1     
+	   2 Input      3 Bit        Muxes := 2     
+	   2 Input      2 Bit        Muxes := 26    
+	   5 Input      2 Bit        Muxes := 3     
+	   3 Input      1 Bit        Muxes := 3     
+	   2 Input      1 Bit        Muxes := 27    
+	   4 Input      1 Bit        Muxes := 7     
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Hierarchical Component Statistics 
+---------------------------------------------------------------------------------
+Hierarchical RTL Component report 
+Module axi_dwidth_converter_v2_1_19_b_downsizer 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input      8 Bit       Adders := 1     
++---Registers : 
+	                8 Bit    Registers := 1     
+	                2 Bit    Registers := 1     
+	                1 Bit    Registers := 1     
++---Muxes : 
+	   2 Input      8 Bit        Muxes := 1     
+	   2 Input      2 Bit        Muxes := 4     
+Module xpm_cdc_async_rst 
+Detailed RTL Component Info : 
++---Registers : 
+	                2 Bit    Registers := 1     
+Module reset_blk_ramfifo__xdcDup__1 
+Detailed RTL Component Info : 
++---Registers : 
+	                4 Bit    Registers := 1     
+Module dmem 
+Detailed RTL Component Info : 
++---Registers : 
+	                9 Bit    Registers := 1     
+Module memory 
+Detailed RTL Component Info : 
++---Registers : 
+	                9 Bit    Registers := 1     
+Module rd_bin_cntr 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input      5 Bit       Adders := 1     
++---Registers : 
+	                5 Bit    Registers := 2     
+Module compare 
+Detailed RTL Component Info : 
++---XORs : 
+	   2 Input      1 Bit         XORs := 5     
+Module rd_status_flags_ss 
+Detailed RTL Component Info : 
++---Registers : 
+	                1 Bit    Registers := 2     
+Module rd_fwft 
+Detailed RTL Component Info : 
++---Registers : 
+	                2 Bit    Registers := 1     
+	                1 Bit    Registers := 6     
++---Muxes : 
+	   2 Input      2 Bit        Muxes := 4     
+	   5 Input      2 Bit        Muxes := 1     
+	   3 Input      1 Bit        Muxes := 1     
+	   2 Input      1 Bit        Muxes := 3     
+	   4 Input      1 Bit        Muxes := 2     
+Module wr_bin_cntr 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input      5 Bit       Adders := 1     
++---Registers : 
+	                5 Bit    Registers := 2     
+Module wr_status_flags_ss 
+Detailed RTL Component Info : 
++---Registers : 
+	                1 Bit    Registers := 2     
+Module reset_blk_ramfifo__xdcDup__2 
+Detailed RTL Component Info : 
++---Registers : 
+	                4 Bit    Registers := 1     
+Module dmem__parameterized0 
+Detailed RTL Component Info : 
++---Registers : 
+	               29 Bit    Registers := 1     
+Module memory__parameterized0 
+Detailed RTL Component Info : 
++---Registers : 
+	               29 Bit    Registers := 1     
+Module axi_dwidth_converter_v2_1_19_a_downsizer 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input     40 Bit       Adders := 1     
+	   2 Input      8 Bit       Adders := 2     
+	   3 Input      8 Bit       Adders := 1     
+	   2 Input      6 Bit       Adders := 1     
++---Registers : 
+	               40 Bit    Registers := 4     
+	               16 Bit    Registers := 2     
+	               12 Bit    Registers := 1     
+	                8 Bit    Registers := 5     
+	                7 Bit    Registers := 1     
+	                6 Bit    Registers := 1     
+	                5 Bit    Registers := 1     
+	                4 Bit    Registers := 5     
+	                3 Bit    Registers := 2     
+	                2 Bit    Registers := 3     
+	                1 Bit    Registers := 15    
++---Muxes : 
+	   8 Input     40 Bit        Muxes := 1     
+	   2 Input     40 Bit        Muxes := 2     
+	   2 Input     12 Bit        Muxes := 1     
+	   2 Input      8 Bit        Muxes := 4     
+	   8 Input      7 Bit        Muxes := 1     
+	   8 Input      5 Bit        Muxes := 1     
+	   2 Input      4 Bit        Muxes := 1     
+	   8 Input      4 Bit        Muxes := 1     
+	   2 Input      3 Bit        Muxes := 1     
+	   2 Input      2 Bit        Muxes := 4     
+	   2 Input      1 Bit        Muxes := 9     
+Module axi_dwidth_converter_v2_1_19_w_downsizer 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input      8 Bit       Adders := 1     
+	   2 Input      4 Bit       Adders := 2     
++---Registers : 
+	                8 Bit    Registers := 1     
+	                4 Bit    Registers := 1     
+	                1 Bit    Registers := 1     
++---Muxes : 
+	   4 Input     32 Bit        Muxes := 1     
+	   2 Input      8 Bit        Muxes := 2     
+	   8 Input      4 Bit        Muxes := 1     
+	   2 Input      4 Bit        Muxes := 1     
+	   4 Input      4 Bit        Muxes := 1     
+Module reset_blk_ramfifo 
+Detailed RTL Component Info : 
++---Registers : 
+	                4 Bit    Registers := 1     
+Module axi_dwidth_converter_v2_1_19_a_downsizer__parameterized0 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input     40 Bit       Adders := 1     
+	   2 Input      8 Bit       Adders := 2     
+	   3 Input      8 Bit       Adders := 1     
+	   2 Input      6 Bit       Adders := 1     
++---Registers : 
+	               40 Bit    Registers := 4     
+	               16 Bit    Registers := 2     
+	               12 Bit    Registers := 1     
+	                8 Bit    Registers := 5     
+	                7 Bit    Registers := 1     
+	                6 Bit    Registers := 1     
+	                5 Bit    Registers := 1     
+	                4 Bit    Registers := 5     
+	                3 Bit    Registers := 2     
+	                2 Bit    Registers := 3     
+	                1 Bit    Registers := 14    
++---Muxes : 
+	   8 Input     40 Bit        Muxes := 1     
+	   2 Input     40 Bit        Muxes := 2     
+	   2 Input     12 Bit        Muxes := 1     
+	   2 Input      8 Bit        Muxes := 2     
+	   8 Input      7 Bit        Muxes := 1     
+	   8 Input      5 Bit        Muxes := 1     
+	   2 Input      4 Bit        Muxes := 1     
+	   8 Input      4 Bit        Muxes := 1     
+	   2 Input      3 Bit        Muxes := 1     
+	   2 Input      2 Bit        Muxes := 4     
+	   2 Input      1 Bit        Muxes := 8     
+Module axi_dwidth_converter_v2_1_19_r_downsizer 
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input      8 Bit       Adders := 1     
+	   2 Input      4 Bit       Adders := 2     
++---Registers : 
+	               32 Bit    Registers := 4     
+	                8 Bit    Registers := 1     
+	                4 Bit    Registers := 1     
+	                2 Bit    Registers := 1     
+	                1 Bit    Registers := 1     
++---Muxes : 
+	   2 Input     32 Bit        Muxes := 4     
+	   2 Input      8 Bit        Muxes := 2     
+	   8 Input      4 Bit        Muxes := 1     
+	   2 Input      4 Bit        Muxes := 1     
+	   2 Input      2 Bit        Muxes := 2     
+	   2 Input      1 Bit        Muxes := 1     
+	   4 Input      1 Bit        Muxes := 1     
+---------------------------------------------------------------------------------
+Finished RTL Hierarchical Component Statistics
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 1728 (col length:144)
+BRAMs: 624 (col length: RAMB18 144 RAMB36 72)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+Warning: Parallel synthesis criteria is not met 
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/size_mask_q_reg[2]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/size_mask_q_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/size_mask_q_reg[3]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[7]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/size_mask_q_reg[2]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/size_mask_q_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/size_mask_q_reg[3]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[7]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[9]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[7]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[9]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[7]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[7]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[8]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[8]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[10]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[10]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[11]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[12]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[13]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[13]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[14]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[14]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[15]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[15]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[16]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[16]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[17]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[17]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[18]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[18]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[19]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[19]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[20]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[20]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[21]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[21]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[22]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[22]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[23]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[23]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[24]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[24]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[25]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[25]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[26]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[26]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[27]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[27]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[28]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[28]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[29]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[29]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[30]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[30]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[31]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[31]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[32]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[32]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[33]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[33]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[34]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[34]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[35]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[35]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[36]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[36]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[37]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[37]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[38]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[38]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[39]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[7]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[8]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[8]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[10]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[10]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[11]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[12]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[13]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[13]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[14]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[14]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[15]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[15]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[16]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[16]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[17]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[17]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[18]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[18]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[19]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[19]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[20]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[20]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[21]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[21]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[22]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[22]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[23]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[23]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[24]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[24]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[25]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[25]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[26]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[26]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[27]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[27]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[28]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[28]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[29]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[29]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[30]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[30]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[31]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[31]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[32]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[32]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[33]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[33]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[34]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[34]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[35]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[35]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[36]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[36]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[37]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[37]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[38]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[38]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[39]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/areset_d_reg[0]' (FD) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/areset_d_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/areset_d_reg[1]' (FD) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/areset_d_reg[1]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[4]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[5]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[6]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[7]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[8]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[9]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[10]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/num_transactions_q_reg[11] )
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/next_mi_addr_reg[0]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/next_mi_addr_reg[1]'
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/next_mi_addr_reg[1] )
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[4]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[5]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[6]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[7]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[8]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[9]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[10]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11]'
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/num_transactions_q_reg[11] )
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/next_mi_addr_reg[0]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/next_mi_addr_reg[1]'
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/next_mi_addr_reg[1] )
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/size_mask_q_reg[0]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/size_mask_q_reg[1]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/split_addr_mask_q_reg[1]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/size_mask_q_reg[0]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/size_mask_q_reg[1]' (FDRE) to 'inst/gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/split_addr_mask_q_reg[1]'
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:01:29 ; elapsed = 00:02:19 . Memory (MB): peak = 2812.195 ; gain = 250.469 ; free physical = 92920 ; free virtual = 508517
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP and Shift Register Reporting
+---------------------------------------------------------------------------------
+
+Distributed RAM: Preliminary Mapping  Report (see note below)
++------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------+----------------+----------------------+----------------+
+|Module Name                                                                                                                         | RTL Object                                                                    | Inference      | Size (Depth x Width) | Primitives     | 
++------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------+----------------+----------------------+----------------+
+|inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/USE_B_CHANNEL.cmd_b_queue/inst/fifo_gen_inst  | inst_fifo_gen/gconvfifo.rf/grf.rf/gntv_or_sync_fifo.mem/gdm.dm_gen.dm/RAM_reg | User Attribute | 32 x 9               | RAM32M16 x 1   | 
+|inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/cmd_queue/inst/fifo_gen_inst                  | inst_fifo_gen/gconvfifo.rf/grf.rf/gntv_or_sync_fifo.mem/gdm.dm_gen.dm/RAM_reg | User Attribute | 32 x 29              | RAM32M16 x 3   | 
+|inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/cmd_queue/inst/fifo_gen_inst                    | inst_fifo_gen/gconvfifo.rf/grf.rf/gntv_or_sync_fifo.mem/gdm.dm_gen.dm/RAM_reg | User Attribute | 32 x 29              | RAM32M16 x 3   | 
++------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------+----------------+----------------------+----------------+
+
+Note: The table above is a preliminary report that shows the Distributed RAMs at the current stage of the synthesis flow. Some Distributed RAMs may be reimplemented as non Distributed RAM primitives later in the synthesis flow. Multiple instantiated RAMs are reported only once.
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP and Shift Register Reporting
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:01:51 ; elapsed = 00:03:19 . Memory (MB): peak = 3133.367 ; gain = 571.641 ; free physical = 90716 ; free virtual = 510305
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:01:58 ; elapsed = 00:03:27 . Memory (MB): peak = 3229.820 ; gain = 668.094 ; free physical = 88491 ; free virtual = 508483
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP and Shift Register Reporting
+---------------------------------------------------------------------------------
+
+Distributed RAM: Final Mapping  Report
++------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------+----------------+----------------------+----------------+
+|Module Name                                                                                                                         | RTL Object                                                                    | Inference      | Size (Depth x Width) | Primitives     | 
++------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------+----------------+----------------------+----------------+
+|inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/USE_B_CHANNEL.cmd_b_queue/inst/fifo_gen_inst  | inst_fifo_gen/gconvfifo.rf/grf.rf/gntv_or_sync_fifo.mem/gdm.dm_gen.dm/RAM_reg | User Attribute | 32 x 9               | RAM32M16 x 1   | 
+|inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_WRITE.write_addr_inst/cmd_queue/inst/fifo_gen_inst                  | inst_fifo_gen/gconvfifo.rf/grf.rf/gntv_or_sync_fifo.mem/gdm.dm_gen.dm/RAM_reg | User Attribute | 32 x 29              | RAM32M16 x 3   | 
+|inst/\gen_downsizer.gen_simple_downsizer.axi_downsizer_inst/USE_READ.read_addr_inst/cmd_queue/inst/fifo_gen_inst                    | inst_fifo_gen/gconvfifo.rf/grf.rf/gntv_or_sync_fifo.mem/gdm.dm_gen.dm/RAM_reg | User Attribute | 32 x 29              | RAM32M16 x 3   | 
++------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------+----------------+----------------------+----------------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP and Shift Register Reporting
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:01:59 ; elapsed = 00:03:28 . Memory (MB): peak = 3237.828 ; gain = 676.102 ; free physical = 88943 ; free virtual = 508949
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:02:00 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89202 ; free virtual = 509558
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:02:00 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89196 ; free virtual = 509556
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:02:01 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89176 ; free virtual = 509530
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:02:01 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89195 ; free virtual = 509548
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:02:01 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89240 ; free virtual = 509580
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:02:01 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89233 ; free virtual = 509573
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+---------+------+
+|      |Cell     |Count |
++------+---------+------+
+|1     |CARRY8   |     8|
+|2     |LUT1     |    22|
+|3     |LUT2     |    85|
+|4     |LUT3     |    82|
+|5     |LUT4     |    75|
+|6     |LUT5     |   255|
+|7     |LUT6     |   394|
+|8     |RAM32M16 |     7|
+|9     |FDCE     |    69|
+|10    |FDPE     |    33|
+|11    |FDRE     |   817|
+|12    |FDSE     |     5|
++------+---------+------+
+
+Report Instance Areas: 
++------+----------------------------------------------------------------------------+-----------------------------------------------------------+------+
+|      |Instance                                                                    |Module                                                     |Cells |
++------+----------------------------------------------------------------------------+-----------------------------------------------------------+------+
+|1     |top                                                                         |                                                           |  1852|
+|2     |  inst                                                                      |axi_dwidth_converter_v2_1_19_top                           |  1852|
+|3     |    \gen_downsizer.gen_simple_downsizer.axi_downsizer_inst                  |axi_dwidth_converter_v2_1_19_axi_downsizer                 |  1852|
+|4     |      \USE_READ.read_addr_inst                                              |axi_dwidth_converter_v2_1_19_a_downsizer__parameterized0   |   811|
+|5     |        cmd_queue                                                           |axi_data_fifo_v2_1_18_axic_fifo__parameterized0            |   365|
+|6     |          inst                                                              |axi_data_fifo_v2_1_18_fifo_gen__parameterized0             |   365|
+|7     |            fifo_gen_inst                                                   |fifo_generator_v13_2_4__parameterized0                     |   127|
+|8     |              inst_fifo_gen                                                 |fifo_generator_v13_2_4_synth__parameterized0               |   127|
+|9     |                \gconvfifo.rf                                               |fifo_generator_top__parameterized0                         |   127|
+|10    |                  \grf.rf                                                   |fifo_generator_ramfifo__parameterized0                     |   127|
+|11    |                    \gntv_or_sync_fifo.gl0.rd                               |rd_logic_7                                                 |    32|
+|12    |                      \gr1.gr1_int.rfwft                                    |rd_fwft_13                                                 |    15|
+|13    |                      \grss.rsts                                            |rd_status_flags_ss_14                                      |     2|
+|14    |                      rpntr                                                 |rd_bin_cntr_15                                             |    15|
+|15    |                    \gntv_or_sync_fifo.gl0.wr                               |wr_logic_8                                                 |    28|
+|16    |                      \gwss.wsts                                            |wr_status_flags_ss_11                                      |     5|
+|17    |                      wpntr                                                 |wr_bin_cntr_12                                             |    23|
+|18    |                    \gntv_or_sync_fifo.mem                                  |memory__parameterized0_9                                   |    61|
+|19    |                      \gdm.dm_gen.dm                                        |dmem__parameterized0_10                                    |    32|
+|20    |                    rstblk                                                  |reset_blk_ramfifo                                          |     6|
+|21    |                      \ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst  |xpm_cdc_async_rst                                          |     2|
+|22    |      \USE_READ.read_data_inst                                              |axi_dwidth_converter_v2_1_19_r_downsizer                   |   168|
+|23    |      \USE_WRITE.USE_SPLIT.write_resp_inst                                  |axi_dwidth_converter_v2_1_19_b_downsizer                   |    34|
+|24    |      \USE_WRITE.write_addr_inst                                            |axi_dwidth_converter_v2_1_19_a_downsizer                   |   806|
+|25    |        \USE_B_CHANNEL.cmd_b_queue                                          |axi_data_fifo_v2_1_18_axic_fifo                            |    98|
+|26    |          inst                                                              |axi_data_fifo_v2_1_18_fifo_gen                             |    98|
+|27    |            fifo_gen_inst                                                   |fifo_generator_v13_2_4                                     |    85|
+|28    |              inst_fifo_gen                                                 |fifo_generator_v13_2_4_synth                               |    85|
+|29    |                \gconvfifo.rf                                               |fifo_generator_top                                         |    85|
+|30    |                  \grf.rf                                                   |fifo_generator_ramfifo                                     |    85|
+|31    |                    \gntv_or_sync_fifo.gl0.rd                               |rd_logic_0                                                 |    32|
+|32    |                      \gr1.gr1_int.rfwft                                    |rd_fwft_4                                                  |    15|
+|33    |                      \grss.rsts                                            |rd_status_flags_ss_5                                       |     2|
+|34    |                      rpntr                                                 |rd_bin_cntr_6                                              |    15|
+|35    |                    \gntv_or_sync_fifo.gl0.wr                               |wr_logic_1                                                 |    28|
+|36    |                      \gwss.wsts                                            |wr_status_flags_ss_2                                       |     5|
+|37    |                      wpntr                                                 |wr_bin_cntr_3                                              |    23|
+|38    |                    \gntv_or_sync_fifo.mem                                  |memory                                                     |    19|
+|39    |                      \gdm.dm_gen.dm                                        |dmem                                                       |    10|
+|40    |                    rstblk                                                  |reset_blk_ramfifo__xdcDup__1                               |     6|
+|41    |                      \ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst  |xpm_cdc_async_rst__3                                       |     2|
+|42    |        cmd_queue                                                           |axi_data_fifo_v2_1_18_axic_fifo__parameterized0__xdcDup__1 |   258|
+|43    |          inst                                                              |axi_data_fifo_v2_1_18_fifo_gen__parameterized0__xdcDup__1  |   258|
+|44    |            fifo_gen_inst                                                   |fifo_generator_v13_2_4__parameterized0__xdcDup__1          |   125|
+|45    |              inst_fifo_gen                                                 |fifo_generator_v13_2_4_synth__parameterized0__xdcDup__1    |   125|
+|46    |                \gconvfifo.rf                                               |fifo_generator_top__parameterized0__xdcDup__1              |   125|
+|47    |                  \grf.rf                                                   |fifo_generator_ramfifo__parameterized0__xdcDup__1          |   125|
+|48    |                    \gntv_or_sync_fifo.gl0.rd                               |rd_logic                                                   |    32|
+|49    |                      \gr1.gr1_int.rfwft                                    |rd_fwft                                                    |    15|
+|50    |                      \grss.rsts                                            |rd_status_flags_ss                                         |     2|
+|51    |                      rpntr                                                 |rd_bin_cntr                                                |    15|
+|52    |                    \gntv_or_sync_fifo.gl0.wr                               |wr_logic                                                   |    28|
+|53    |                      \gwss.wsts                                            |wr_status_flags_ss                                         |     5|
+|54    |                      wpntr                                                 |wr_bin_cntr                                                |    23|
+|55    |                    \gntv_or_sync_fifo.mem                                  |memory__parameterized0                                     |    59|
+|56    |                      \gdm.dm_gen.dm                                        |dmem__parameterized0                                       |    31|
+|57    |                    rstblk                                                  |reset_blk_ramfifo__xdcDup__2                               |     6|
+|58    |                      \ngwrdrst.grst.g7serrst.gnsckt_wrst.rst_wr_reg2_inst  |xpm_cdc_async_rst__4                                       |     2|
+|59    |      \USE_WRITE.write_data_inst                                            |axi_dwidth_converter_v2_1_19_w_downsizer                   |    33|
++------+----------------------------------------------------------------------------+-----------------------------------------------------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:02:01 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.832 ; gain = 676.105 ; free physical = 89233 ; free virtual = 509572
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 1606 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:01:48 ; elapsed = 00:03:06 . Memory (MB): peak = 3237.832 ; gain = 503.891 ; free physical = 89267 ; free virtual = 509607
+Synthesis Optimization Complete : Time (s): cpu = 00:02:01 ; elapsed = 00:03:29 . Memory (MB): peak = 3237.836 ; gain = 676.105 ; free physical = 89268 ; free virtual = 509608
+INFO: [Project 1-571] Translating synthesized netlist
+INFO: [Netlist 29-17] Analyzing 15 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3281.723 ; gain = 0.000 ; free physical = 89087 ; free virtual = 509433
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 7 instances were transformed.
+  RAM32M16 => RAM32M16 (RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMD32, RAMS32, RAMS32): 7 instances
+
+INFO: [Common 17-83] Releasing license: Synthesis
+154 Infos, 111 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:02:13 ; elapsed = 00:03:56 . Memory (MB): peak = 3281.723 ; gain = 1708.348 ; free physical = 88394 ; free virtual = 508743
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3281.723 ; gain = 0.000 ; free physical = 88425 ; free virtual = 508774
+WARNING: [Constraints 18-5210] No constraints selected for write.
+Resolution: This message can indicate that there are no constraints for the design, or it can indicate that the used_in flags are set such that the constraints are ignored. This later case is used when running synth_design to not write synthesis constraints to the resulting checkpoint. Instead, project constraints are read when the synthesized design is opened.
+INFO: [Common 17-1381] The checkpoint '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/design_1_auto_ds_0.dcp' has been generated.
+WARNING: [Common 17-576] 'use_project_ipc' is deprecated. This option is deprecated and no longer used.
+INFO: [Coretcl 2-1648] Added synthesis output to IP cache for IP design_1_auto_ds_0, cache-ID = 9b46315e7d1867e0
+INFO: [Coretcl 2-1174] Renamed 58 cell refs.
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3305.738 ; gain = 0.000 ; free physical = 88966 ; free virtual = 509403
+WARNING: [Constraints 18-5210] No constraints selected for write.
+Resolution: This message can indicate that there are no constraints for the design, or it can indicate that the used_in flags are set such that the constraints are ignored. This later case is used when running synth_design to not write synthesis constraints to the resulting checkpoint. Instead, project constraints are read when the synthesized design is opened.
+INFO: [Common 17-1381] The checkpoint '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_auto_ds_0_synth_1/design_1_auto_ds_0.dcp' has been generated.
+INFO: [runtcl-4] Executing : report_utilization -file design_1_auto_ds_0_utilization_synth.rpt -pb design_1_auto_ds_0_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Sat May 25 00:53:30 2019...

@@ -1,0 +1,63 @@
+Copyright 1986-2019 Xilinx, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2019.1 (lin64) Build 2552052 Fri May 24 14:47:09 MDT 2019
+| Date         : Sat May 25 01:27:08 2019
+| Host         : xcosswbld06 running 64-bit Red Hat Enterprise Linux Workstation release 7.2 (Maipo)
+| Command      : report_drc -file design_1_wrapper_drc_routed.rpt -pb design_1_wrapper_drc_routed.pb -rpx design_1_wrapper_drc_routed.rpx
+| Design       : design_1_wrapper
+| Device       : xczu7ev-ffvc1156-2-e
+| Speed File   : -2
+| Design State : Fully Routed
+------------------------------------------------------------------------------------------------------------------------------------------
+
+Report DRC
+
+Table of Contents
+-----------------
+1. REPORT SUMMARY
+2. REPORT DETAILS
+
+1. REPORT SUMMARY
+-----------------
+            Netlist: netlist
+          Floorplan: design_1
+      Design limits: <entire design considered>
+           Ruledeck: default
+             Max violations: <unlimited>
+             Violations found: 5
++-----------+----------+------------------------+------------+
+| Rule      | Severity | Description            | Violations |
++-----------+----------+------------------------+------------+
+| DPOP-3    | Warning  | PREG Output pipelining | 2          |
+| DPOP-4    | Warning  | MREG Output pipelining | 2          |
+| RTSTAT-10 | Warning  | No routable loads      | 1          |
++-----------+----------+------------------------+------------+
+
+2. REPORT DETAILS
+-----------------
+DPOP-3#1 Warning
+PREG Output pipelining  
+DSP design_1_i/v_frmbuf_rd_0/inst/Block_proc_U0/v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_U5/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p output design_1_i/v_frmbuf_rd_0/inst/Block_proc_U0/v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_U5/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+Related violations: <none>
+
+DPOP-3#2 Warning
+PREG Output pipelining  
+DSP design_1_i/v_frmbuf_wr_0/inst/Block_proc5_U0/v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_U1/design_1_v_frmbuf_wr_0_0_v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p output design_1_i/v_frmbuf_wr_0/inst/Block_proc5_U0/v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_U1/design_1_v_frmbuf_wr_0_0_v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p/P[47:0] is not pipelined (PREG=0). Pipelining the DSP48 output will improve performance and often saves power so it is suggested whenever possible to fully pipeline this function.  If this DSP48 function was inferred, it is suggested to describe an additional register stage after this function.  If the DSP48 was instantiated in the design, it is suggested to set the PREG attribute to 1.
+Related violations: <none>
+
+DPOP-4#1 Warning
+MREG Output pipelining  
+DSP design_1_i/v_frmbuf_rd_0/inst/Block_proc_U0/v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_U5/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p multiplier stage design_1_i/v_frmbuf_rd_0/inst/Block_proc_U0/v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_U5/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+Related violations: <none>
+
+DPOP-4#2 Warning
+MREG Output pipelining  
+DSP design_1_i/v_frmbuf_wr_0/inst/Block_proc5_U0/v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_U1/design_1_v_frmbuf_wr_0_0_v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p multiplier stage design_1_i/v_frmbuf_wr_0/inst/Block_proc5_U0/v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_U1/design_1_v_frmbuf_wr_0_0_v_frmbuf_wr_mul_mul_16ns_14ns_30_1_1_DSP48_0_U/p/P[47:0] is not pipelined (MREG=0). Pipelining the multiplier function will improve performance and will save significant power so it is suggested whenever possible to fully pipeline this function.  If this multiplier was inferred, it is suggested to describe an additional register stage after this function.  If there is no registered adder/accumulator following the multiply function, two pipeline stages are suggested to allow both the MREG and PREG registers to be used.  If the DSP48 was instantiated in the design, it is suggested to set both the MREG and PREG attributes to 1 when performing multiply functions.
+Related violations: <none>
+
+RTSTAT-10#1 Warning
+No routable loads  
+374 net(s) have no routable loads. The problem bus(es) and/or net(s) are design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureArbTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureBankTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureCSTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Rd1_BurstGenRd/i_BurstGenCmd/MeasureData[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Wr1_BurstGenWr/i_BurstGenCmd/MeasureData[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Wr0_BurstGenWr/i_BurstGenCmd/MeasureData[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Rd0_BurstGenRd/i_BurstGenCmd/MeasureData[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureIdleTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureRdWrTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureRefreshTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_SdramCtrl/i_Reorder/MeasureTransferTime[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Rd1_BurstGenRd/MeasureU_Cmd_Pass[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Wr1_BurstGenWr/MeasureU_Cmd_Pass[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Rd0_BurstGenRd/MeasureU_Cmd_Pass[7:0], design_1_i/vcu_ddr4_controller_0/inst/i_DDR4Ctrl/i_Wr0_BurstGenWr/MeasureU_Cmd_Pass[7:0] (the first 15 of 232 listed).
+Related violations: <none>
+
+

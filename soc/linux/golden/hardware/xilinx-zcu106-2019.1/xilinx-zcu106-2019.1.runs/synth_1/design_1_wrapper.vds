@@ -1,0 +1,1111 @@
+#-----------------------------------------------------------
+# Vivado v2019.1 (64-bit)
+# SW Build 2552052 on Fri May 24 14:47:09 MDT 2019
+# IP Build 2548770 on Fri May 24 18:01:18 MDT 2019
+# Start of session at: Sat May 25 00:55:50 2019
+# Process ID: 6302
+# Current directory: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1
+# Command line: vivado -log design_1_wrapper.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source design_1_wrapper.tcl
+# Log file: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/design_1_wrapper.vds
+# Journal file: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/vivado.jou
+#-----------------------------------------------------------
+Sourcing tcl script '/tmp/tmp.uj6Pgihdhk/dummy.tcl'
+100 Beta devices matching pattern found, 100 enabled.
+enable_beta_device: Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 1524.574 ; gain = 40.516 ; free physical = 99384 ; free virtual = 523537
+source design_1_wrapper.tcl -notrace
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/tmp/tmp.uj6Pgihdhk/ip'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip'.
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:rts_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/rts_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/rts_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:cal_freeze_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/cal_freeze_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/cal_freeze_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:drp_mon_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/drp_mon_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/drp_mon_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:diff_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/diff_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/diff_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:user:hsams_data_sink_ctrl:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/hsams_data_sink_ctrl.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/hsams_data_sink_ctrl.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:debug_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/debug_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/debug_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:user:hsams_data_source_ctrl:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/hsams_data_source_ctrl.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/hsams_data_source_ctrl.xml'
+update_ip_catalog: Time (s): cpu = 00:00:03 ; elapsed = 00:00:07 . Memory (MB): peak = 1562.262 ; gain = 36.188 ; free physical = 96628 ; free virtual = 522658
+WARNING: [filemgmt 56-316] Unable to set the workflow value for memory map. The only allowable values are simulation or implementation. You specified a value of , this is not allowed.
+WARNING: [filemgmt 56-316] Unable to set the workflow value for memory map. The only allowable values are simulation or implementation. You specified a value of , this is not allowed.
+WARNING: [filemgmt 56-316] Unable to set the workflow value for memory map. The only allowable values are simulation or implementation. You specified a value of , this is not allowed.
+WARNING: [filemgmt 56-316] Unable to set the workflow value for memory map. The only allowable values are simulation or implementation. You specified a value of , this is not allowed.
+add_files: Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 1607.508 ; gain = 45.246 ; free physical = 96449 ; free virtual = 522519
+Command: synth_design -top design_1_wrapper -part xczu7ev-ffvc1156-2-e
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xczu7ev'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xczu7ev'
+INFO: [Device 21-403] Loading part xczu7ev-ffvc1156-2-e
+INFO: Launching helper process for spawning children vivado processes
+INFO: Helper process launched with PID 11282 
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:02 ; elapsed = 00:00:04 . Memory (MB): peak = 2615.121 ; gain = 0.000 ; free physical = 100116 ; free virtual = 524065
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'design_1_wrapper' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/hdl/design_1_wrapper.v:12]
+INFO: [Synth 8-6157] synthesizing module 'design_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:2288]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_O7FAN0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:15753]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_0' (1#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'auto_cc' of module 'design_1_auto_cc_0' has 74 connections declared, but only 64 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:16047]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_8' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_8_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_8' (2#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_8_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_O7FAN0' (3#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:15753]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_0_0' (4#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:2288]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_1_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:2618]
+INFO: [Synth 8-6157] synthesizing module 'm00_couplers_imp_1FDLJBY' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:8716]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_1_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_1' (5#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_1_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_m00_regslice_4' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_4_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_m00_regslice_4' (6#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_4_stub.v:6]
+WARNING: [Synth 8-7023] instance 'm00_regslice' of module 'design_1_m00_regslice_4' has 80 connections declared, but only 70 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9129]
+INFO: [Synth 8-6155] done synthesizing module 'm00_couplers_imp_1FDLJBY' (7#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:8716]
+INFO: [Synth 8-6157] synthesizing module 'm01_couplers_imp_NZRVUN' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10850]
+INFO: [Synth 8-6157] synthesizing module 'design_1_m01_regslice_2' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m01_regslice_2_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_m01_regslice_2' (8#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m01_regslice_2_stub.v:6]
+WARNING: [Synth 8-7023] instance 'm01_regslice' of module 'design_1_m01_regslice_2' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11169]
+INFO: [Synth 8-6155] done synthesizing module 'm01_couplers_imp_NZRVUN' (9#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10850]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_HS4N6K' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:15353]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_9' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_9_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_9' (10#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_9_stub.v:6]
+WARNING: [Synth 8-7023] instance 's00_regslice' of module 'design_1_s00_regslice_9' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:15672]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_HS4N6K' (11#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:15353]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xbar_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xbar_0' (12#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_1_0' (13#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:2618]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_2_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:3504]
+INFO: [Synth 8-6157] synthesizing module 'm00_couplers_imp_ZLTC2M' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9834]
+INFO: [Synth 8-6157] synthesizing module 'design_1_m00_regslice_5' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_5_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_m00_regslice_5' (14#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_5_stub.v:6]
+WARNING: [Synth 8-7023] instance 'm00_regslice' of module 'design_1_m00_regslice_5' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10153]
+INFO: [Synth 8-6155] done synthesizing module 'm00_couplers_imp_ZLTC2M' (15#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9834]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_XOWISC' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:16787]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_10' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_10_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_10' (16#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_10_stub.v:6]
+WARNING: [Synth 8-7023] instance 's00_regslice' of module 'design_1_s00_regslice_10' has 72 connections declared, but only 70 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:17066]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_XOWISC' (17#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:16787]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_mmu_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_mmu_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_mmu_0' (18#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_mmu_0_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 's01_couplers_imp_15OSRGD' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:17139]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s01_regslice_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s01_regslice_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s01_regslice_0' (19#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s01_regslice_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 's01_regslice' of module 'design_1_s01_regslice_0' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:17458]
+INFO: [Synth 8-6155] done synthesizing module 's01_couplers_imp_15OSRGD' (20#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:17139]
+INFO: [Synth 8-6157] synthesizing module 's02_couplers_imp_YLTK7Z' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:17539]
+INFO: [Synth 8-6155] done synthesizing module 's02_couplers_imp_YLTK7Z' (21#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:17539]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xbar_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_1_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xbar_1' (22#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_1_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_2_0' (23#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:3504]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_3_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:5128]
+INFO: [Synth 8-6157] synthesizing module 'm00_couplers_imp_1614QE6' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:8356]
+INFO: [Synth 8-6157] synthesizing module 'design_1_m00_regslice_6' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_6_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_m00_regslice_6' (24#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_6_stub.v:6]
+WARNING: [Synth 8-7023] instance 'm00_regslice' of module 'design_1_m00_regslice_6' has 72 connections declared, but only 70 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:8643]
+INFO: [Synth 8-6155] done synthesizing module 'm00_couplers_imp_1614QE6' (25#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:8356]
+INFO: [Synth 8-6157] synthesizing module 'm01_couplers_imp_XC9BB3' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11250]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_2' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_2_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_2' (26#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_2_stub.v:6]
+WARNING: [Synth 8-7023] instance 'auto_cc' of module 'design_1_auto_cc_2' has 74 connections declared, but only 64 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11509]
+INFO: [Synth 8-6155] done synthesizing module 'm01_couplers_imp_XC9BB3' (27#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11250]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_ULGAU4' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:16187]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_rs_w_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_rs_w_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_rs_w_0' (28#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_rs_w_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'auto_rs_w' of module 'design_1_auto_rs_w_0' has 72 connections declared, but only 70 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:16556]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_us_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_us_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_us_0' (29#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_us_0_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_11' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_11_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_11' (30#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_11_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_ULGAU4' (31#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:16187]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xbar_2' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_2_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xbar_2' (32#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_2_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_3_0' (33#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:5128]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_5_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:5932]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_7YPZDO' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14153]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_12' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_12_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_12' (34#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_12_stub.v:6]
+WARNING: [Synth 8-7023] instance 's00_regslice' of module 'design_1_s00_regslice_12' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14472]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_7YPZDO' (35#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14153]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_5_0' (36#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:5932]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_6_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:6342]
+INFO: [Synth 8-6157] synthesizing module 'm00_couplers_imp_1PAYOV2' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9202]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_3' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_3_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_3' (37#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_3_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_m00_regslice_7' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_7_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_m00_regslice_7' (38#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m00_regslice_7_stub.v:6]
+WARNING: [Synth 8-7023] instance 'm00_regslice' of module 'design_1_m00_regslice_7' has 80 connections declared, but only 70 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9615]
+INFO: [Synth 8-6155] done synthesizing module 'm00_couplers_imp_1PAYOV2' (39#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9202]
+INFO: [Synth 8-6157] synthesizing module 'm01_couplers_imp_EBOYBJ' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10440]
+INFO: [Synth 8-6157] synthesizing module 'design_1_m01_regslice_3' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m01_regslice_3_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_m01_regslice_3' (40#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_m01_regslice_3_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'm01_couplers_imp_EBOYBJ' (41#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10440]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_AHKUFW' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14553]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_13' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_13_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_13' (42#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_13_stub.v:6]
+WARNING: [Synth 8-7023] instance 's00_regslice' of module 'design_1_s00_regslice_13' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14872]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_AHKUFW' (43#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14553]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xbar_3' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_3_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xbar_3' (44#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_3_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_6_0' (45#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:6342]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_7_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:7238]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_E4CS0S' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14953]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_14' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_14_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_14' (46#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_14_stub.v:6]
+WARNING: [Synth 8-7023] instance 's00_regslice' of module 'design_1_s00_regslice_14' has 80 connections declared, but only 78 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:15272]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_E4CS0S' (47#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:14953]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_7_0' (48#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:7238]
+INFO: [Synth 8-6157] synthesizing module 'design_1_clk_wiz_1_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_clk_wiz_1_0_stub.v:5]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_clk_wiz_1_0' (49#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_clk_wiz_1_0_stub.v:5]
+INFO: [Synth 8-6157] synthesizing module 'design_1_interrupts_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_interrupts_0/synth/design_1_interrupts_0.v:58]
+INFO: [Synth 8-6157] synthesizing module 'xlconcat_v2_1_3_xlconcat' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/442e/hdl/xlconcat_v2_1_vl_rfs.v:14]
+	Parameter IN0_WIDTH bound to: 1 - type: integer 
+	Parameter IN1_WIDTH bound to: 1 - type: integer 
+	Parameter IN2_WIDTH bound to: 1 - type: integer 
+	Parameter IN3_WIDTH bound to: 1 - type: integer 
+	Parameter IN4_WIDTH bound to: 1 - type: integer 
+	Parameter IN5_WIDTH bound to: 1 - type: integer 
+	Parameter IN6_WIDTH bound to: 1 - type: integer 
+	Parameter IN7_WIDTH bound to: 1 - type: integer 
+	Parameter IN8_WIDTH bound to: 1 - type: integer 
+	Parameter IN9_WIDTH bound to: 1 - type: integer 
+	Parameter IN10_WIDTH bound to: 1 - type: integer 
+	Parameter IN11_WIDTH bound to: 1 - type: integer 
+	Parameter IN12_WIDTH bound to: 1 - type: integer 
+	Parameter IN13_WIDTH bound to: 1 - type: integer 
+	Parameter IN14_WIDTH bound to: 1 - type: integer 
+	Parameter IN15_WIDTH bound to: 1 - type: integer 
+	Parameter IN16_WIDTH bound to: 1 - type: integer 
+	Parameter IN17_WIDTH bound to: 1 - type: integer 
+	Parameter IN18_WIDTH bound to: 1 - type: integer 
+	Parameter IN19_WIDTH bound to: 1 - type: integer 
+	Parameter IN20_WIDTH bound to: 1 - type: integer 
+	Parameter IN21_WIDTH bound to: 1 - type: integer 
+	Parameter IN22_WIDTH bound to: 1 - type: integer 
+	Parameter IN23_WIDTH bound to: 1 - type: integer 
+	Parameter IN24_WIDTH bound to: 1 - type: integer 
+	Parameter IN25_WIDTH bound to: 1 - type: integer 
+	Parameter IN26_WIDTH bound to: 1 - type: integer 
+	Parameter IN27_WIDTH bound to: 1 - type: integer 
+	Parameter IN28_WIDTH bound to: 1 - type: integer 
+	Parameter IN29_WIDTH bound to: 1 - type: integer 
+	Parameter IN30_WIDTH bound to: 1 - type: integer 
+	Parameter IN31_WIDTH bound to: 1 - type: integer 
+	Parameter dout_width bound to: 3 - type: integer 
+	Parameter NUM_PORTS bound to: 3 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'xlconcat_v2_1_3_xlconcat' (50#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/442e/hdl/xlconcat_v2_1_vl_rfs.v:14]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_interrupts_0' (51#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_interrupts_0/synth/design_1_interrupts_0.v:58]
+INFO: [Synth 8-6157] synthesizing module 'mpsoc_ss_imp_1MVILT1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11782]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_8' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:7648]
+INFO: [Synth 8-6157] synthesizing module 'm00_couplers_imp_1Y9KNA1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9688]
+INFO: [Synth 8-6155] done synthesizing module 'm00_couplers_imp_1Y9KNA1' (52#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:9688]
+INFO: [Synth 8-6157] synthesizing module 'm01_couplers_imp_5414JC' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10234]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_4' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_4_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_4' (53#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_4_stub.v:6]
+WARNING: [Synth 8-7023] instance 'auto_cc' of module 'design_1_auto_cc_4' has 42 connections declared, but only 40 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10397]
+INFO: [Synth 8-6155] done synthesizing module 'm01_couplers_imp_5414JC' (54#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:10234]
+INFO: [Synth 8-6157] synthesizing module 'm02_couplers_imp_1X2CH96' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11576]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_5' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_5_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_5' (55#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_5_stub.v:6]
+WARNING: [Synth 8-7023] instance 'auto_cc' of module 'design_1_auto_cc_5' has 42 connections declared, but only 40 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11739]
+INFO: [Synth 8-6155] done synthesizing module 'm02_couplers_imp_1X2CH96' (56#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11576]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_13ZJBV' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13249]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_ds_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_ds_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_ds_0' (57#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_ds_0_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_pc_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_pc_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_pc_0' (58#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_pc_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_13ZJBV' (59#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13249]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xbar_4' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_4_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xbar_4' (60#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_xbar_4_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_8' (61#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:7648]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_interconnect_2_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:4758]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_1MHPP94' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13659]
+INFO: [Synth 8-6157] synthesizing module 'design_1_auto_cc_6' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_6_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_auto_cc_6' (62#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_auto_cc_6_stub.v:6]
+WARNING: [Synth 8-7023] instance 'auto_cc' of module 'design_1_auto_cc_6' has 86 connections declared, but only 74 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13991]
+INFO: [Synth 8-6157] synthesizing module 'design_1_s00_regslice_15' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_15_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_s00_regslice_15' (63#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_s00_regslice_15_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_1MHPP94' (64#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13659]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_interconnect_2_1' (65#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:4758]
+INFO: [Synth 8-6157] synthesizing module 'design_1_proc_sys_reset_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_proc_sys_reset_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_proc_sys_reset_0_0' (66#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_proc_sys_reset_0_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'proc_sys_reset_0' of module 'design_1_proc_sys_reset_0_0' has 10 connections declared, but only 7 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:12988]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xlslice_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlslice_0_0/synth/design_1_xlslice_0_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'xlslice_v1_0_2_xlslice' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/f044/hdl/xlslice_v1_0_vl_rfs.v:13]
+	Parameter DIN_WIDTH bound to: 95 - type: integer 
+	Parameter DIN_FROM bound to: 0 - type: integer 
+	Parameter DIN_TO bound to: 0 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'xlslice_v1_0_2_xlslice' (67#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/f044/hdl/xlslice_v1_0_vl_rfs.v:13]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xlslice_0_0' (68#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlslice_0_0/synth/design_1_xlslice_0_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xlslice_1_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlslice_1_0/synth/design_1_xlslice_1_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'xlslice_v1_0_2_xlslice__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/f044/hdl/xlslice_v1_0_vl_rfs.v:13]
+	Parameter DIN_WIDTH bound to: 95 - type: integer 
+	Parameter DIN_FROM bound to: 1 - type: integer 
+	Parameter DIN_TO bound to: 1 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'xlslice_v1_0_2_xlslice__parameterized0' (68#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/f044/hdl/xlslice_v1_0_vl_rfs.v:13]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xlslice_1_0' (69#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlslice_1_0/synth/design_1_xlslice_1_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xlslice_2_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlslice_2_0/synth/design_1_xlslice_2_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'xlslice_v1_0_2_xlslice__parameterized1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/f044/hdl/xlslice_v1_0_vl_rfs.v:13]
+	Parameter DIN_WIDTH bound to: 95 - type: integer 
+	Parameter DIN_FROM bound to: 2 - type: integer 
+	Parameter DIN_TO bound to: 2 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'xlslice_v1_0_2_xlslice__parameterized1' (69#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/f044/hdl/xlslice_v1_0_vl_rfs.v:13]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xlslice_2_0' (70#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlslice_2_0/synth/design_1_xlslice_2_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'design_1_zynq_ultra_ps_e_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_zynq_ultra_ps_e_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_zynq_ultra_ps_e_0_0' (71#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_zynq_ultra_ps_e_0_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'zynq_ultra_ps_e_0' of module 'design_1_zynq_ultra_ps_e_0_0' has 246 connections declared, but only 241 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13005]
+INFO: [Synth 8-6155] done synthesizing module 'mpsoc_ss_imp_1MVILT1' (72#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:11782]
+INFO: [Synth 8-6157] synthesizing module 'design_1_proc_sys_reset_1_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_proc_sys_reset_1_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_proc_sys_reset_1_0' (73#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_proc_sys_reset_1_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'proc_sys_reset_1' of module 'design_1_proc_sys_reset_1_0' has 10 connections declared, but only 6 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:1754]
+INFO: [Synth 8-6157] synthesizing module 'design_1_proc_sys_reset_2_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_proc_sys_reset_2_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_proc_sys_reset_2_0' (74#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_proc_sys_reset_2_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'proc_sys_reset_2' of module 'design_1_proc_sys_reset_2_0' has 10 connections declared, but only 6 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:1761]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_v_frmbuf_rd_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0' (75#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_v_frmbuf_rd_0_0_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_wr_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_v_frmbuf_wr_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_wr_0_0' (76#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_v_frmbuf_wr_0_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'v_frmbuf_wr_0' of module 'design_1_v_frmbuf_wr_0_0' has 64 connections declared, but only 62 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:1833]
+INFO: [Synth 8-6157] synthesizing module 'design_1_vcu_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_vcu_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_vcu_0_0' (77#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_vcu_0_0_stub.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_vcu_ddr4_controller_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_vcu_ddr4_controller_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_vcu_ddr4_controller_0_0' (78#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/.Xil/Vivado-6302-xcosswbld06/realtime/design_1_vcu_ddr4_controller_0_0_stub.v:6]
+WARNING: [Synth 8-7023] instance 'vcu_ddr4_controller_0' of module 'design_1_vcu_ddr4_controller_0_0' has 172 connections declared, but only 167 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:2116]
+INFO: [Synth 8-6157] synthesizing module 'design_1_xlconstant_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlconstant_0_0/synth/design_1_xlconstant_0_0.v:57]
+INFO: [Synth 8-6157] synthesizing module 'xlconstant_v1_1_6_xlconstant' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/66e7/hdl/xlconstant_v1_1_vl_rfs.v:23]
+	Parameter CONST_VAL bound to: 0 - type: integer 
+	Parameter CONST_WIDTH bound to: 1 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'xlconstant_v1_1_6_xlconstant' (79#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ipshared/66e7/hdl/xlconstant_v1_1_vl_rfs.v:23]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_xlconstant_0_0' (80#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xlconstant_0_0/synth/design_1_xlconstant_0_0.v:57]
+INFO: [Synth 8-6155] done synthesizing module 'design_1' (81#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/synth/design_1.v:13]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_wrapper' (82#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/hdl/design_1_wrapper.v:12]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[94]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[93]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[92]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[91]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[90]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[89]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[88]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[87]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[86]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[85]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[84]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[83]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[82]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[81]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[80]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[79]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[78]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[77]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[76]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[75]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[74]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[73]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[72]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[71]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[70]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[69]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[68]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[67]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[66]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[65]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[64]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[63]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[62]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[61]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[60]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[59]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[58]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[57]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[56]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[55]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[54]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[53]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[52]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[51]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[50]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[49]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[48]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[47]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[46]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[45]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[44]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[43]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[42]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[41]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[40]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[39]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[38]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[37]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[36]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[35]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[34]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[33]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[32]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[31]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[30]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[29]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[28]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[27]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[26]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[25]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[24]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[23]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[22]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[21]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[20]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[19]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[18]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[17]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[16]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[15]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[14]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[13]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[12]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[11]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[10]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[9]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[8]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[7]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[6]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[5]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[4]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[3]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[1]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized1 has unconnected port Din[0]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized0 has unconnected port Din[94]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized0 has unconnected port Din[93]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized0 has unconnected port Din[92]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized0 has unconnected port Din[91]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized0 has unconnected port Din[90]
+WARNING: [Synth 8-3331] design xlslice_v1_0_2_xlslice__parameterized0 has unconnected port Din[89]
+INFO: [Common 17-14] Message 'Synth 8-3331' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:06 . Memory (MB): peak = 2615.621 ; gain = 0.500 ; free physical = 99950 ; free virtual = 523900
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 2626.500 ; gain = 11.379 ; free physical = 99959 ; free virtual = 523910
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 2626.500 ; gain = 11.379 ; free physical = 99959 ; free virtual = 523910
+---------------------------------------------------------------------------------
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/zynq_ultra_ps_e_0'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/zynq_ultra_ps_e_0'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_0/design_1_xbar_0/design_1_xbar_3_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/xbar'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_0/design_1_xbar_0/design_1_xbar_3_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/xbar'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_1/design_1_xbar_1/design_1_xbar_1_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/xbar'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_1/design_1_xbar_1/design_1_xbar_1_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/xbar'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_2/design_1_xbar_2/design_1_xbar_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/xbar'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_2/design_1_xbar_2/design_1_xbar_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/xbar'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_3/design_1_xbar_3/design_1_xbar_3_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/xbar'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_3/design_1_xbar_3/design_1_xbar_3_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/xbar'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0_in_context.xdc] for cell 'design_1_i/clk_wiz_1'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0_in_context.xdc] for cell 'design_1_i/clk_wiz_1'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_4/design_1_xbar_4/design_1_xbar_4_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/xbar'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_xbar_4/design_1_xbar_4/design_1_xbar_4_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/xbar'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_0_0/design_1_proc_sys_reset_0_0/design_1_proc_sys_reset_0_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/proc_sys_reset_0'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_0_0/design_1_proc_sys_reset_0_0/design_1_proc_sys_reset_0_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/proc_sys_reset_0'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_1_0/design_1_proc_sys_reset_1_0/design_1_proc_sys_reset_1_0_in_context.xdc] for cell 'design_1_i/proc_sys_reset_1'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_1_0/design_1_proc_sys_reset_1_0/design_1_proc_sys_reset_1_0_in_context.xdc] for cell 'design_1_i/proc_sys_reset_1'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_2_0/design_1_proc_sys_reset_2_0/design_1_proc_sys_reset_2_0_in_context.xdc] for cell 'design_1_i/proc_sys_reset_2'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_2_0/design_1_proc_sys_reset_2_0/design_1_proc_sys_reset_2_0_in_context.xdc] for cell 'design_1_i/proc_sys_reset_2'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0_in_context.xdc] for cell 'design_1_i/v_frmbuf_rd_0'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0_in_context.xdc] for cell 'design_1_i/v_frmbuf_rd_0'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_wr_0_0/design_1_v_frmbuf_wr_0_0/design_1_v_frmbuf_wr_0_0_in_context.xdc] for cell 'design_1_i/v_frmbuf_wr_0'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_wr_0_0/design_1_v_frmbuf_wr_0_0/design_1_v_frmbuf_wr_0_0_in_context.xdc] for cell 'design_1_i/v_frmbuf_wr_0'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_0_0/design_1_vcu_0_0/design_1_vcu_0_0_in_context.xdc] for cell 'design_1_i/vcu_0'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_0_0/design_1_vcu_0_0/design_1_vcu_0_0_in_context.xdc] for cell 'design_1_i/vcu_0'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc] for cell 'design_1_i/vcu_ddr4_controller_0'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc] for cell 'design_1_i/vcu_ddr4_controller_0'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_8/design_1_s00_regslice_8/design_1_s00_regslice_8_in_context.xdc] for cell 'design_1_i/axi_interconnect_0/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_8/design_1_s00_regslice_8/design_1_s00_regslice_8_in_context.xdc] for cell 'design_1_i/axi_interconnect_0/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_0/design_1_auto_cc_0/design_1_auto_cc_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_0/s00_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_0/design_1_auto_cc_0/design_1_auto_cc_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_0/s00_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_9/design_1_s00_regslice_9/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_9/design_1_s00_regslice_9/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_4/design_1_m00_regslice_4/design_1_m00_regslice_4_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/m00_couplers/m00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_4/design_1_m00_regslice_4/design_1_m00_regslice_4_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/m00_couplers/m00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_1/design_1_auto_cc_1/design_1_auto_cc_1_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/m00_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_1/design_1_auto_cc_1/design_1_auto_cc_1_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/m00_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m01_regslice_2/design_1_m01_regslice_2/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/m01_couplers/m01_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m01_regslice_2/design_1_m01_regslice_2/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_1/m01_couplers/m01_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_10/design_1_s00_regslice_10/design_1_s00_regslice_10_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_10/design_1_s00_regslice_10/design_1_s00_regslice_10_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s01_regslice_0/design_1_s01_regslice_0/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/s01_couplers/s01_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s01_regslice_0/design_1_s01_regslice_0/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/s01_couplers/s01_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_5/design_1_m00_regslice_5/design_1_m00_regslice_5_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/m00_couplers/m00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_5/design_1_m00_regslice_5/design_1_m00_regslice_5_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/m00_couplers/m00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_mmu_0/design_1_s00_mmu_0/design_1_s00_mmu_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/s00_mmu'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_mmu_0/design_1_s00_mmu_0/design_1_s00_mmu_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_2/s00_mmu'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_11/design_1_s00_regslice_11/design_1_s00_regslice_11_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_11/design_1_s00_regslice_11/design_1_s00_regslice_11_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_us_0/design_1_auto_us_0/design_1_auto_us_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/s00_couplers/auto_us'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_us_0/design_1_auto_us_0/design_1_auto_us_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/s00_couplers/auto_us'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_rs_w_0/design_1_auto_rs_w_0/design_1_auto_rs_w_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/s00_couplers/auto_rs_w'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_rs_w_0/design_1_auto_rs_w_0/design_1_auto_rs_w_0_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/s00_couplers/auto_rs_w'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_6/design_1_m00_regslice_6/design_1_m00_regslice_6_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/m00_couplers/m00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_6/design_1_m00_regslice_6/design_1_m00_regslice_6_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/m00_couplers/m00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_2/design_1_auto_cc_2/design_1_auto_cc_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/m01_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_2/design_1_auto_cc_2/design_1_auto_cc_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_3/m01_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_12/design_1_s00_regslice_12/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_5/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_12/design_1_s00_regslice_12/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_5/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_13/design_1_s00_regslice_13/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_13/design_1_s00_regslice_13/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_7/design_1_m00_regslice_7/design_1_m00_regslice_4_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/m00_couplers/m00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m00_regslice_7/design_1_m00_regslice_7/design_1_m00_regslice_4_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/m00_couplers/m00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_3/design_1_auto_cc_3/design_1_auto_cc_1_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/m00_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_3/design_1_auto_cc_3/design_1_auto_cc_1_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/m00_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m01_regslice_3/design_1_m01_regslice_3/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/m01_couplers/m01_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_m01_regslice_3/design_1_m01_regslice_3/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_6/m01_couplers/m01_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_14/design_1_s00_regslice_14/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_7/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_14/design_1_s00_regslice_14/design_1_m01_regslice_2_in_context.xdc] for cell 'design_1_i/axi_interconnect_7/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/design_1_auto_ds_0/design_1_auto_ds_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/s00_couplers/auto_ds'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/design_1_auto_ds_0/design_1_auto_ds_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/s00_couplers/auto_ds'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0/design_1_auto_pc_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/s00_couplers/auto_pc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0/design_1_auto_pc_0_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/s00_couplers/auto_pc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_4/design_1_auto_cc_4/design_1_auto_cc_5_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/m01_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_4/design_1_auto_cc_4/design_1_auto_cc_5_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/m01_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_5/design_1_auto_cc_5/design_1_auto_cc_5_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/m02_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_5/design_1_auto_cc_5/design_1_auto_cc_5_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect/m02_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_15/design_1_s00_regslice_15/design_1_s00_regslice_15_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect_2/s00_couplers/s00_regslice'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_s00_regslice_15/design_1_s00_regslice_15/design_1_s00_regslice_15_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect_2/s00_couplers/s00_regslice'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_6/design_1_auto_cc_6/design_1_auto_cc_6_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect_2/s00_couplers/auto_cc'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_cc_6/design_1_auto_cc_6/design_1_auto_cc_6_in_context.xdc] for cell 'design_1_i/mpsoc_ss/axi_interconnect_2/s00_couplers/auto_cc'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/constrs_1/imports/xdc/vcu_uc2_pll.xdc]
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/constrs_1/imports/xdc/vcu_uc2_pll.xdc]
+INFO: [Project 1-236] Implementation specific constraints were found while reading constraint file [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/constrs_1/imports/xdc/vcu_uc2_pll.xdc]. These constraints will be ignored for synthesis but will be used in implementation. Impacted constraints are listed in the file [.Xil/design_1_wrapper_propImpl.xdc].
+Resolution: To avoid this warning, move constraints listed in [.Xil/design_1_wrapper_propImpl.xdc] to another XDC file and exclude this new file from synthesis with the used_in_synthesis property (File Properties dialog in GUI) and re-run elaboration/synthesis.
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/dont_touch.xdc]
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/dont_touch.xdc]
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2839.879 ; gain = 0.000 ; free physical = 102614 ; free virtual = 526804
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2840.371 ; gain = 0.492 ; free physical = 102613 ; free virtual = 526803
+WARNING: [Timing 38-316] Clock period '30.000' specified during out-of-context synthesis of instance 'design_1_i/vcu_0' at clock pin 'pll_ref_clk' is different from the actual clock period '29.997', this can lead to different synthesis results.
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:19 ; elapsed = 00:00:23 . Memory (MB): peak = 2853.750 ; gain = 238.629 ; free physical = 101491 ; free virtual = 526849
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xczu7ev-ffvc1156-2-e
+INFO: [Synth 8-6742] Reading net delay rules and data
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:19 ; elapsed = 00:00:23 . Memory (MB): peak = 2853.750 ; gain = 238.629 ; free physical = 101492 ; free virtual = 526849
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+Applied set_property IO_BUFFER_TYPE = NONE for si570_user_clk_n. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0_in_context.xdc, line 4).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for si570_user_clk_n. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0_in_context.xdc, line 5).
+Applied set_property IO_BUFFER_TYPE = NONE for si570_user_clk_p. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0_in_context.xdc, line 6).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for si570_user_clk_p. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0/design_1_clk_wiz_1_0_in_context.xdc, line 7).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_act_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 3).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_act_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 4).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 5).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 6).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[10]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 7).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[10]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 8).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[11]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 9).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[11]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 10).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[12]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 11).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[12]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 12).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[13]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 13).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[13]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 14).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[14]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 15).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[14]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 16).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[15]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 17).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[15]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 18).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[16]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 19).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[16]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 20).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 21).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 22).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 23).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 24).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 25).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 26).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 27).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 28).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 29).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 30).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 31).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 32).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 33).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 34).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[8]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 35).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[8]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 36).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_adr[9]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 37).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_adr[9]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 38).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_ba[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 39).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_ba[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 40).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_ba[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 41).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_ba[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 42).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_bg[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 43).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_bg[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 44).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_ck_c[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 45).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_ck_c[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 46).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_ck_t[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 47).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_ck_t[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 48).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_cke[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 49).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_cke[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 50).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_cs_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 51).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_cs_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 52).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 53).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 54).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 55).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 56).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 57).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 58).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 59).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 60).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 61).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 62).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 63).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 64).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 65).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 66).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dm_n[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 67).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dm_n[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 68).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 69).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 70).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[10]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 71).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[10]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 72).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[11]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 73).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[11]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 74).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[12]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 75).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[12]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 76).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[13]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 77).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[13]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 78).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[14]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 79).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[14]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 80).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[15]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 81).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[15]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 82).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[16]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 83).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[16]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 84).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[17]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 85).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[17]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 86).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[18]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 87).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[18]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 88).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[19]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 89).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[19]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 90).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 91).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 92).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[20]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 93).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[20]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 94).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[21]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 95).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[21]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 96).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[22]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 97).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[22]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 98).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[23]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 99).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[23]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 100).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[24]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 101).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[24]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 102).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[25]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 103).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[25]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 104).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[26]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 105).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[26]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 106).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[27]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 107).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[27]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 108).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[28]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 109).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[28]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 110).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[29]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 111).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[29]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 112).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 113).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 114).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[30]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 115).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[30]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 116).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[31]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 117).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[31]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 118).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[32]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 119).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[32]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 120).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[33]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 121).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[33]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 122).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[34]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 123).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[34]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 124).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[35]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 125).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[35]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 126).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[36]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 127).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[36]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 128).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[37]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 129).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[37]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 130).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[38]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 131).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[38]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 132).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[39]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 133).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[39]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 134).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 135).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 136).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[40]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 137).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[40]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 138).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[41]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 139).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[41]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 140).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[42]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 141).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[42]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 142).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[43]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 143).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[43]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 144).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[44]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 145).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[44]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 146).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[45]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 147).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[45]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 148).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[46]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 149).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[46]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 150).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[47]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 151).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[47]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 152).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[48]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 153).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[48]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 154).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[49]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 155).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[49]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 156).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 157).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 158).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[50]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 159).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[50]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 160).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[51]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 161).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[51]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 162).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[52]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 163).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[52]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 164).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[53]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 165).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[53]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 166).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[54]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 167).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[54]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 168).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[55]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 169).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[55]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 170).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[56]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 171).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[56]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 172).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[57]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 173).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[57]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 174).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[58]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 175).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[58]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 176).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[59]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 177).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[59]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 178).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 179).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 180).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[60]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 181).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[60]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 182).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[61]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 183).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[61]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 184).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[62]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 185).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[62]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 186).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[63]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 187).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[63]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 188).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 189).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 190).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 191).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 192).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[8]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 193).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[8]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 194).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dq[9]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 195).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dq[9]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 196).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 197).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 198).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 199).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 200).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 201).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 202).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 203).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 204).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 205).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 206).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 207).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 208).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 209).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 210).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 211).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_c[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 212).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 213).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 214).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 215).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[1]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 216).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 217).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[2]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 218).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 219).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[3]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 220).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 221).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[4]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 222).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 223).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[5]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 224).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 225).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[6]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 226).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 227).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_dqs_t[7]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 228).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_odt[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 229).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_odt[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 230).
+Applied set_property IO_BUFFER_TYPE = NONE for C0_DDR4_reset_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 231).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for C0_DDR4_reset_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 232).
+Applied set_property IO_BUFFER_TYPE = NONE for mig_sys_clk_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 233).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for mig_sys_clk_n[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 234).
+Applied set_property IO_BUFFER_TYPE = NONE for mig_sys_clk_p[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 235).
+Applied set_property CLOCK_BUFFER_TYPE = NONE for mig_sys_clk_p[0]. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0/design_1_vcu_ddr4_controller_0_0_in_context.xdc, line 236).
+Applied set_property DONT_TOUCH = true for design_1_i. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/zynq_ultra_ps_e_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_1/xbar. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_1. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_2/xbar. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_2. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3/xbar. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_5. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_6/xbar. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_6. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_7. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/clk_wiz_1. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/interrupts. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect/xbar. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect_2. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/proc_sys_reset_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/xlslice_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/xlslice_1. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/xlslice_2. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/proc_sys_reset_1. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/proc_sys_reset_2. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/v_frmbuf_rd_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/v_frmbuf_wr_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/vcu_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/vcu_ddr4_controller_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/xlconstant_0. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_0/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_0/s00_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_1/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_1/m00_couplers/m00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_1/m00_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_1/m01_couplers/m01_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_2/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_2/s01_couplers/s01_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_2/m00_couplers/m00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_2/s00_mmu. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3/s00_couplers/auto_us. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3/s00_couplers/auto_rs_w. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3/m00_couplers/m00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_3/m01_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_5/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_6/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_6/m00_couplers/m00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_6/m00_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_6/m01_couplers/m01_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/axi_interconnect_7/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect/s00_couplers/auto_ds. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect/s00_couplers/auto_pc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect/m01_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect/m02_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect_2/s00_couplers/s00_regslice. (constraint file  auto generated constraint, line ).
+Applied set_property DONT_TOUCH = true for design_1_i/mpsoc_ss/axi_interconnect_2/s00_couplers/auto_cc. (constraint file  auto generated constraint, line ).
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:19 ; elapsed = 00:00:23 . Memory (MB): peak = 2853.750 ; gain = 238.629 ; free physical = 101508 ; free virtual = 526866
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:20 ; elapsed = 00:00:24 . Memory (MB): peak = 2853.750 ; gain = 238.629 ; free physical = 101022 ; free virtual = 526640
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Hierarchical Component Statistics 
+---------------------------------------------------------------------------------
+Hierarchical RTL Component report 
+---------------------------------------------------------------------------------
+Finished RTL Hierarchical Component Statistics
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 1728 (col length:144)
+BRAMs: 624 (col length: RAMB18 144 RAMB36 72)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+Warning: Parallel synthesis criteria is not met 
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:21 ; elapsed = 00:00:25 . Memory (MB): peak = 2853.750 ; gain = 238.629 ; free physical = 101268 ; free virtual = 526875
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+INFO: [Synth 8-5578] Moved timing constraint from pin 'design_1_i/mpsoc_ss/zynq_ultra_ps_e_0/pl_clk0' to pin 'design_1_i/mpsoc_ss/zynq_ultra_ps_e_0/bbstub_pl_clk0/O'
+INFO: [Synth 8-5578] Moved timing constraint from pin 'design_1_i/clk_wiz_1/clk_out1' to pin 'design_1_i/clk_wiz_1/bbstub_clk_out1/O'
+INFO: [Synth 8-5578] Moved timing constraint from pin 'design_1_i/clk_wiz_1/clk_out2' to pin 'design_1_i/clk_wiz_1/bbstub_clk_out2/O'
+INFO: [Synth 8-5578] Moved timing constraint from pin 'design_1_i/vcu_ddr4_controller_0/UsrClk' to pin 'design_1_i/vcu_ddr4_controller_0/bbstub_UsrClk/O'
+INFO: [Synth 8-5819] Moved 4 constraints on hierarchical pins to their respective driving/loading pins
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:00:42 ; elapsed = 00:01:22 . Memory (MB): peak = 3184.887 ; gain = 569.766 ; free physical = 93115 ; free virtual = 522762
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:42 ; elapsed = 00:01:22 . Memory (MB): peak = 3186.387 ; gain = 571.266 ; free physical = 93099 ; free virtual = 522747
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:43 ; elapsed = 00:01:23 . Memory (MB): peak = 3200.590 ; gain = 585.469 ; free physical = 92996 ; free virtual = 522643
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:44 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93030 ; free virtual = 522677
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:44 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93031 ; free virtual = 522678
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:44 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93013 ; free virtual = 522660
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:44 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93011 ; free virtual = 522658
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:44 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93010 ; free virtual = 522657
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:45 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93010 ; free virtual = 522657
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++------+---------------------------------+----------+
+|      |BlackBox name                    |Instances |
++------+---------------------------------+----------+
+|1     |design_1_auto_cc_0               |         1|
+|2     |design_1_s00_regslice_8          |         1|
+|3     |design_1_xbar_0                  |         1|
+|4     |design_1_auto_cc_1               |         1|
+|5     |design_1_m00_regslice_4          |         1|
+|6     |design_1_m01_regslice_2          |         1|
+|7     |design_1_s00_regslice_9          |         1|
+|8     |design_1_s00_mmu_0               |         1|
+|9     |design_1_xbar_1                  |         1|
+|10    |design_1_m00_regslice_5          |         1|
+|11    |design_1_s00_regslice_10         |         1|
+|12    |design_1_s01_regslice_0          |         1|
+|13    |design_1_xbar_2                  |         1|
+|14    |design_1_m00_regslice_6          |         1|
+|15    |design_1_auto_cc_2               |         1|
+|16    |design_1_auto_rs_w_0             |         1|
+|17    |design_1_auto_us_0               |         1|
+|18    |design_1_s00_regslice_11         |         1|
+|19    |design_1_s00_regslice_12         |         1|
+|20    |design_1_xbar_3                  |         1|
+|21    |design_1_auto_cc_3               |         1|
+|22    |design_1_m00_regslice_7          |         1|
+|23    |design_1_m01_regslice_3          |         1|
+|24    |design_1_s00_regslice_13         |         1|
+|25    |design_1_s00_regslice_14         |         1|
+|26    |design_1_clk_wiz_1_0             |         1|
+|27    |design_1_proc_sys_reset_1_0      |         1|
+|28    |design_1_proc_sys_reset_2_0      |         1|
+|29    |design_1_v_frmbuf_rd_0_0         |         1|
+|30    |design_1_v_frmbuf_wr_0_0         |         1|
+|31    |design_1_vcu_0_0                 |         1|
+|32    |design_1_vcu_ddr4_controller_0_0 |         1|
+|33    |design_1_xbar_4                  |         1|
+|34    |design_1_auto_cc_4               |         1|
+|35    |design_1_auto_cc_5               |         1|
+|36    |design_1_auto_ds_0               |         1|
+|37    |design_1_auto_pc_0               |         1|
+|38    |design_1_auto_cc_6               |         1|
+|39    |design_1_s00_regslice_15         |         1|
+|40    |design_1_proc_sys_reset_0_0      |         1|
+|41    |design_1_zynq_ultra_ps_e_0_0     |         1|
++------+---------------------------------+----------+
+
+Report Cell Usage: 
++------+---------------------------------+------+
+|      |Cell                             |Count |
++------+---------------------------------+------+
+|1     |design_1_auto_cc_0               |     1|
+|2     |design_1_auto_cc_1               |     1|
+|3     |design_1_auto_cc_2               |     1|
+|4     |design_1_auto_cc_3               |     1|
+|5     |design_1_auto_cc_4               |     1|
+|6     |design_1_auto_cc_5               |     1|
+|7     |design_1_auto_cc_6               |     1|
+|8     |design_1_auto_ds_0               |     1|
+|9     |design_1_auto_pc_0               |     1|
+|10    |design_1_auto_rs_w_0             |     1|
+|11    |design_1_auto_us_0               |     1|
+|12    |design_1_clk_wiz_1_0             |     1|
+|13    |design_1_m00_regslice_4          |     1|
+|14    |design_1_m00_regslice_5          |     1|
+|15    |design_1_m00_regslice_6          |     1|
+|16    |design_1_m00_regslice_7          |     1|
+|17    |design_1_m01_regslice_2          |     1|
+|18    |design_1_m01_regslice_3          |     1|
+|19    |design_1_proc_sys_reset_0_0      |     1|
+|20    |design_1_proc_sys_reset_1_0      |     1|
+|21    |design_1_proc_sys_reset_2_0      |     1|
+|22    |design_1_s00_mmu_0               |     1|
+|23    |design_1_s00_regslice_10         |     1|
+|24    |design_1_s00_regslice_11         |     1|
+|25    |design_1_s00_regslice_12         |     1|
+|26    |design_1_s00_regslice_13         |     1|
+|27    |design_1_s00_regslice_14         |     1|
+|28    |design_1_s00_regslice_15         |     1|
+|29    |design_1_s00_regslice_8          |     1|
+|30    |design_1_s00_regslice_9          |     1|
+|31    |design_1_s01_regslice_0          |     1|
+|32    |design_1_v_frmbuf_rd_0_0         |     1|
+|33    |design_1_v_frmbuf_wr_0_0         |     1|
+|34    |design_1_vcu_0_0                 |     1|
+|35    |design_1_vcu_ddr4_controller_0_0 |     1|
+|36    |design_1_xbar_0                  |     1|
+|37    |design_1_xbar_1                  |     1|
+|38    |design_1_xbar_2                  |     1|
+|39    |design_1_xbar_3                  |     1|
+|40    |design_1_xbar_4                  |     1|
+|41    |design_1_zynq_ultra_ps_e_0_0     |     1|
++------+---------------------------------+------+
+
+Report Instance Areas: 
++------+-------------------------+------------------------------+------+
+|      |Instance                 |Module                        |Cells |
++------+-------------------------+------------------------------+------+
+|1     |top                      |                              | 18745|
+|2     |  design_1_i             |design_1                      | 18745|
+|3     |    axi_interconnect_0   |design_1_axi_interconnect_0_0 |   948|
+|4     |      s00_couplers       |s00_couplers_imp_O7FAN0       |   948|
+|5     |    axi_interconnect_1   |design_1_axi_interconnect_1_0 |  2506|
+|6     |      m00_couplers       |m00_couplers_imp_1FDLJBY      |   852|
+|7     |      m01_couplers       |m01_couplers_imp_NZRVUN       |   450|
+|8     |      s00_couplers       |s00_couplers_imp_HS4N6K       |   450|
+|9     |    axi_interconnect_2   |design_1_axi_interconnect_2_0 |  2488|
+|10    |      m00_couplers       |m00_couplers_imp_ZLTC2M       |   468|
+|11    |      s00_couplers       |s00_couplers_imp_XOWISC       |   410|
+|12    |      s01_couplers       |s01_couplers_imp_15OSRGD      |   450|
+|13    |    axi_interconnect_3   |design_1_axi_interconnect_3_0 |  2604|
+|14    |      m00_couplers       |m00_couplers_imp_1614QE6      |   444|
+|15    |      m01_couplers       |m01_couplers_imp_XC9BB3       |   410|
+|16    |      s00_couplers       |s00_couplers_imp_ULGAU4       |  1020|
+|17    |    axi_interconnect_5   |design_1_axi_interconnect_5_0 |   450|
+|18    |      s00_couplers       |s00_couplers_imp_7YPZDO       |   450|
+|19    |    axi_interconnect_6   |design_1_axi_interconnect_6_0 |  2506|
+|20    |      m00_couplers       |m00_couplers_imp_1PAYOV2      |   852|
+|21    |      m01_couplers       |m01_couplers_imp_EBOYBJ       |   450|
+|22    |      s00_couplers       |s00_couplers_imp_AHKUFW       |   450|
+|23    |    axi_interconnect_7   |design_1_axi_interconnect_7_0 |   450|
+|24    |      s00_couplers       |s00_couplers_imp_E4CS0S       |   450|
+|25    |    interrupts           |design_1_interrupts_0         |     0|
+|26    |    xlconstant_0         |design_1_xlconstant_0_0       |     0|
+|27    |    mpsoc_ss             |mpsoc_ss_imp_1MVILT1          |  3674|
+|28    |      axi_interconnect   |design_1_axi_interconnect_8   |  1145|
+|29    |        m01_couplers     |m01_couplers_imp_5414JC       |   102|
+|30    |        m02_couplers     |m02_couplers_imp_1X2CH96      |   102|
+|31    |        s00_couplers     |s00_couplers_imp_13ZJBV       |   519|
+|32    |      axi_interconnect_2 |design_1_axi_interconnect_2_1 |  1044|
+|33    |        s00_couplers     |s00_couplers_imp_1MHPP94      |  1044|
+|34    |      xlslice_0          |design_1_xlslice_0_0          |     0|
+|35    |      xlslice_1          |design_1_xlslice_1_0          |     0|
+|36    |      xlslice_2          |design_1_xlslice_2_0          |     0|
++------+-------------------------+------------------------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:45 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.469 ; gain = 598.348 ; free physical = 93009 ; free virtual = 522657
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 368 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:34 ; elapsed = 00:01:12 . Memory (MB): peak = 3213.469 ; gain = 371.098 ; free physical = 93044 ; free virtual = 522691
+Synthesis Optimization Complete : Time (s): cpu = 00:00:45 ; elapsed = 00:01:24 . Memory (MB): peak = 3213.473 ; gain = 598.348 ; free physical = 93044 ; free virtual = 522691
+INFO: [Project 1-571] Translating synthesized netlist
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3269.125 ; gain = 0.000 ; free physical = 92905 ; free virtual = 522552
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+INFO: [Common 17-83] Releasing license: Synthesis
+188 Infos, 135 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:56 ; elapsed = 00:01:47 . Memory (MB): peak = 3283.062 ; gain = 1675.555 ; free physical = 91877 ; free virtual = 521524
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3283.062 ; gain = 0.000 ; free physical = 91864 ; free virtual = 521512
+WARNING: [Constraints 18-5210] No constraints selected for write.
+Resolution: This message can indicate that there are no constraints for the design, or it can indicate that the used_in flags are set such that the constraints are ignored. This later case is used when running synth_design to not write synthesis constraints to the resulting checkpoint. Instead, project constraints are read when the synthesized design is opened.
+INFO: [Common 17-1381] The checkpoint '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/synth_1/design_1_wrapper.dcp' has been generated.
+INFO: [runtcl-4] Executing : report_utilization -file design_1_wrapper_utilization_synth.rpt -pb design_1_wrapper_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Sat May 25 00:58:08 2019...

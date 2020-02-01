@@ -1,0 +1,1087 @@
+#-----------------------------------------------------------
+# Vivado v2019.1 (64-bit)
+# SW Build 2552052 on Fri May 24 14:47:09 MDT 2019
+# IP Build 2548770 on Fri May 24 18:01:18 MDT 2019
+# Start of session at: Sat May 25 00:43:10 2019
+# Process ID: 122446
+# Current directory: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1
+# Command line: vivado -log design_1_v_frmbuf_rd_0_0.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source design_1_v_frmbuf_rd_0_0.tcl
+# Log file: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/design_1_v_frmbuf_rd_0_0.vds
+# Journal file: /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/vivado.jou
+#-----------------------------------------------------------
+Sourcing tcl script '/tmp/tmp.uj6Pgihdhk/dummy.tcl'
+100 Beta devices matching pattern found, 100 enabled.
+enable_beta_device: Time (s): cpu = 00:00:09 ; elapsed = 00:00:10 . Memory (MB): peak = 1525.316 ; gain = 19.516 ; free physical = 118378 ; free virtual = 521804
+source design_1_v_frmbuf_rd_0_0.tcl -notrace
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/tmp/tmp.uj6Pgihdhk/ip'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip'.
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:rts_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/rts_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/rts_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:cal_freeze_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/cal_freeze_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/cal_freeze_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:drp_mon_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/drp_mon_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/drp_mon_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:diff_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/diff_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/diff_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:user:hsams_data_sink_ctrl:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/hsams_data_sink_ctrl.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/hsams_data_sink_ctrl.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:display_usp_rf_data_converter:debug_pins:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/debug_pins.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/debug_pins.xml'
+WARNING: [IP_Flow 19-4830] Duplicate Interface found for 'xilinx.com:user:hsams_data_source_ctrl:1.0'. The one found in location '/tmp/tmp.uj6Pgihdhk/ip/usp_rf_data_converter_v1_1/interfaces/hsams_data_source_ctrl.xml' will take precedence over the same Interface in location '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip/xilinx/usp_rf_data_converter_v2_1/interfaces/hsams_data_source_ctrl.xml'
+update_ip_catalog: Time (s): cpu = 00:00:04 ; elapsed = 00:00:09 . Memory (MB): peak = 1560.035 ; gain = 34.219 ; free physical = 115538 ; free virtual = 519336
+
+****** Vivado(TM) HLS - High-Level Synthesis from C, C++ and SystemC v2019.1 (64-bit)
+  **** SW Build 2552052 on Fri May 24 14:47:09 MDT 2019
+  **** IP Build 2548770 on Fri May 24 18:01:18 MDT 2019
+    ** Copyright 1986-2019 Xilinx, Inc. All Rights Reserved.
+
+Sourcing tcl script '/tmp/tmp.uj6Pgihdhk/dummy.tcl'
+invalid command name "enable_beta_device"
+    while executing
+"enable_beta_device *"
+    (file "/tmp/tmp.uj6Pgihdhk/dummy.tcl" line 1)
+source /proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/scripts/vivado_hls/hls.tcl -notrace
+INFO: [HLS 200-10] Running '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/bin/unwrapped/lnx64.o/vivado_hls'
+INFO: [HLS 200-10] For user 'xbrbbot' on host 'xcosswbld06' (Linux_x86_64 version 3.10.0-327.el7.x86_64) on Sat May 25 00:43:41 MDT 2019
+INFO: [HLS 200-10] On os "Red Hat Enterprise Linux Workstation release 7.2 (Maipo)"
+INFO: [HLS 200-10] In directory '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1'
+Sourcing Tcl script '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/runhls.tcl'
+INFO: [HLS 200-10] Creating and opening project '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/design_1_v_frmbuf_rd_0_0'.
+INFO: [HLS 200-10] Adding design file '/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd_config.h' to the project
+INFO: [HLS 200-10] Adding design file '/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp' to the project
+INFO: [HLS 200-10] Adding design file '/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.h' to the project
+INFO: [HLS 200-10] Creating and opening solution '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/design_1_v_frmbuf_rd_0_0/prj'.
+INFO: [HLS 200-10] Setting target device to 'xczu7ev-ffvc1156-2-e'
+INFO: [SYN 201-201] Setting up clock 'ap_clk' with a period of 3.019ns.
+INFO: [SCHED 204-61] Option 'relax_ii_for_timing' is enabled, will increase II to preserve clock frequency constraints.
+INFO: [HLS 200-10] Analyzing design file '/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp' ... 
+INFO: [HLS 200-111] Finished Linking Time (s): cpu = 00:00:29 ; elapsed = 00:00:36 . Memory (MB): peak = 942.441 ; gain = 128.000 ; free physical = 88839 ; free virtual = 495668
+INFO: [HLS 200-111] Finished Checking Pragmas Time (s): cpu = 00:00:29 ; elapsed = 00:00:36 . Memory (MB): peak = 942.441 ; gain = 128.000 ; free physical = 88833 ; free virtual = 495662
+INFO: [HLS 200-10] Starting code transformations ...
+INFO: [HLS 200-111] Finished Standard Transforms Time (s): cpu = 00:00:32 ; elapsed = 00:00:39 . Memory (MB): peak = 1006.441 ; gain = 192.000 ; free physical = 86618 ; free virtual = 493504
+INFO: [HLS 200-10] Checking synthesizability ...
+WARNING: [SYNCHK 200-23] /tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:248: variable-indexed range selection may cause suboptimal QoR.
+INFO: [SYNCHK 200-10] 0 error(s), 1 warning(s).
+INFO: [HLS 200-111] Finished Checking Synthesizability Time (s): cpu = 00:00:33 ; elapsed = 00:00:40 . Memory (MB): peak = 1006.441 ; gain = 192.000 ; free physical = 85932 ; free virtual = 492849
+INFO: [XFORM 203-502] Unrolling all sub-loops inside loop 'Loop-2.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:221) in function 'MultiPixStream2AXIvideo' for pipelining.
+INFO: [XFORM 203-502] Unrolling all sub-loops inside loop 'Loop-1.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:435) in function 'Bytes2MultiPixStream' for pipelining.
+INFO: [XFORM 203-502] Unrolling all sub-loops inside loop 'Loop-2.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:476) in function 'Bytes2MultiPixStream' for pipelining.
+INFO: [XFORM 203-502] Unrolling all sub-loops inside loop 'Loop-3.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:980) in function 'Bytes2MultiPixStream' for pipelining.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.1' (/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/common/technology/autopilot/hls/hls_video_core.h:180) in function 'MultiPixStream2AXIvideo' completely with a factor of 6.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.2' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:242) in function 'MultiPixStream2AXIvideo' completely with a factor of 2.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.2.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:244) in function 'MultiPixStream2AXIvideo' completely with a factor of 3.
+INFO: [HLS 200-489] Unrolling loop 'Loop-1.1.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:446) in function 'Bytes2MultiPixStream' completely with a factor of 8.
+INFO: [HLS 200-489] Unrolling loop 'Loop-1.1.1.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:448) in function 'Bytes2MultiPixStream' completely with a factor of 2.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:483) in function 'Bytes2MultiPixStream' completely with a factor of 4.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.2' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:495) in function 'Bytes2MultiPixStream' completely with a factor of 4.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.3' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:501) in function 'Bytes2MultiPixStream' completely with a factor of 6.
+INFO: [HLS 200-489] Unrolling loop 'Loop-2.1.3.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:503) in function 'Bytes2MultiPixStream' completely with a factor of 2.
+INFO: [HLS 200-489] Unrolling loop 'Loop-3.1.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:987) in function 'Bytes2MultiPixStream' completely with a factor of 8.
+INFO: [HLS 200-489] Unrolling loop 'Loop-3.1.1.1' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:989) in function 'Bytes2MultiPixStream' completely with a factor of 2.
+INFO: [XFORM 203-102] Automatically partitioning streamed array 'img.V.val.V' .
+INFO: [XFORM 203-101] Partitioning array 'pix.val.V' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:165) in dimension 1 completely.
+INFO: [XFORM 203-101] Partitioning array 'map.V' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:211) in dimension 1 completely.
+INFO: [XFORM 203-101] Partitioning array 'tmp.val.V'  in dimension 1 completely.
+INFO: [XFORM 203-101] Partitioning array 'pix.val.V' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:432) in dimension 1 completely.
+INFO: [XFORM 203-101] Partitioning array 'pix.val.V.2' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:473) in dimension 1 completely.
+INFO: [XFORM 203-101] Partitioning array 'pix.val.V.3' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:977) in dimension 1 completely.
+INFO: [XFORM 203-712] Applying dataflow to function 'v_frmbuf_rd' , detected/extracted 5 process function(s): 
+	 'Block__proc'
+	 'AXIMMvideo2Bytes'
+	 'Bytes2MultiPixStream'
+	 'Block__proc60'
+	 'MultiPixStream2AXIvideo'.
+WARNING: [XFORM 203-561] Updating loop upper bound from 4320 to 4095 for loop 'loop_Y_UV8_Y_UV8_420' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:430:5) in function 'Bytes2MultiPixStream'.
+WARNING: [XFORM 203-561] Updating loop upper bound from 4320 to 4095 for loop 'loop_Y_UV10_Y_UV10_420' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:471:5) in function 'Bytes2MultiPixStream'.
+WARNING: [XFORM 203-561] Updating loop upper bound from 4320 to 4095 for loop 'loop_Y8' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:975:5) in function 'Bytes2MultiPixStream'.
+WARNING: [XFORM 203-561] Updating loop upper bound from 4320 to 4095 for loop 'loop_AXIMMvideo2Bytes_2planes' in function 'AXIMMvideo2Bytes'.
+INFO: [HLS 200-111] Finished Pre-synthesis Time (s): cpu = 00:00:37 ; elapsed = 00:00:45 . Memory (MB): peak = 1006.445 ; gain = 192.004 ; free physical = 83719 ; free virtual = 490752
+WARNING: [XFORM 203-561] Updating loop upper bound from 4096 to 2048 for loop 'Loop-0-0' in function 'Bytes2MultiPixStream'.
+WARNING: [XFORM 203-561] Updating loop upper bound from 4096 to 2048 for loop 'Loop-1-0' in function 'Bytes2MultiPixStream'.
+WARNING: [XFORM 203-561] Updating loop upper bound from 4096 to 2048 for loop 'Loop-2-0' in function 'Bytes2MultiPixStream'.
+WARNING: [XFORM 203-631] Renaming function 'MultiPixStream2AXIvideo' to 'MultiPixStream2AXIvi' (/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/src/v_frmbuf_rd.cpp:139:53)
+INFO: [HLS 200-444] Inferring multiple bus burst read of variable length on port 'srcImg.V' with 2 times. These data requests might be further partitioned to multiple requests during RTL generation, based on max_read_burst_length or max_write_burst_length settings.
+INFO: [HLS 200-111] Finished Architecture Synthesis Time (s): cpu = 00:00:40 ; elapsed = 00:00:48 . Memory (MB): peak = 1134.441 ; gain = 320.000 ; free physical = 83253 ; free virtual = 490361
+INFO: [HLS 200-10] Starting hardware synthesis ...
+INFO: [HLS 200-10] Synthesizing 'v_frmbuf_rd' ...
+WARNING: [SYN 201-103] Legalizing function name 'v_frmbuf_rd.entry4' to 'v_frmbuf_rd_entry4'.
+WARNING: [SYN 201-103] Legalizing function name 'Block__proc' to 'Block_proc'.
+WARNING: [SYN 201-103] Legalizing function name 'Block__proc60' to 'Block_proc60'.
+WARNING: [SYN 201-103] Legalizing function name 'reg<unsigned short>' to 'reg_unsigned_short_s'.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'v_frmbuf_rd_entry4' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 48.32 seconds; current allocated memory: 294.543 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 0.16 seconds; current allocated memory: 294.622 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'Block_proc' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 0.26 seconds; current allocated memory: 294.857 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 0.4 seconds; current allocated memory: 295.023 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'AXIMMvideo2Bytes' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining loop 'loop_AXIMMvideo2Bytes_2planes.1'.
+INFO: [SCHED 204-61] Pipelining result : Target II = 1, Final II = 1, Depth = 3.
+INFO: [SCHED 204-61] Pipelining loop 'loop_AXIMMvideo2Bytes_2planes.2'.
+INFO: [SCHED 204-61] Pipelining result : Target II = 1, Final II = 1, Depth = 3.
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 0.93 seconds; current allocated memory: 295.841 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 4.38 seconds; current allocated memory: 297.179 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'Bytes2MultiPixStream' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining loop 'loop_Y8.1'.
+INFO: [SCHED 204-61] Pipelining result : Target II = 8, Final II = 8, Depth = 9.
+INFO: [SCHED 204-61] Pipelining loop 'loop_Y_UV10_Y_UV10_420.1'.
+INFO: [SCHED 204-61] Pipelining result : Target II = 6, Final II = 6, Depth = 8.
+INFO: [SCHED 204-61] Pipelining loop 'loop_Y_UV8_Y_UV8_420.1'.
+INFO: [SCHED 204-61] Pipelining result : Target II = 8, Final II = 8, Depth = 10.
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 4.6 seconds; current allocated memory: 298.770 MB.
+INFO: [HLS 200-434] Only 3 loops out of a total 6 loops have been pipelined in this design.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 8.12 seconds; current allocated memory: 301.016 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'Block_proc60' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 7.35 seconds; current allocated memory: 301.197 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 0.06 seconds; current allocated memory: 301.250 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'reg_unsigned_short_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 0.07 seconds; current allocated memory: 301.266 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 0.06 seconds; current allocated memory: 301.310 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'MultiPixStream2AXIvi' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining loop 'Loop 2.1'.
+INFO: [SCHED 204-61] Pipelining result : Target II = 1, Final II = 1, Depth = 3.
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 0.16 seconds; current allocated memory: 301.653 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 1.68 seconds; current allocated memory: 302.245 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'v_frmbuf_rd' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111]  Elapsed time: 1.66 seconds; current allocated memory: 302.460 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111]  Elapsed time: 1.07 seconds; current allocated memory: 303.276 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'v_frmbuf_rd_entry4' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'v_frmbuf_rd_entry4'.
+INFO: [HLS 200-111]  Elapsed time: 0.78 seconds; current allocated memory: 303.497 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'Block_proc' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Generating core module 'v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1': 1 instance(s).
+INFO: [RTGEN 206-100] Finished creating RTL model for 'Block_proc'.
+INFO: [HLS 200-111]  Elapsed time: 0.23 seconds; current allocated memory: 304.109 MB.
+INFO: [WVHDL 200-304] Encrypting RTL VHDL done.
+INFO: [WVHDL 200-304] Encrypting RTL Verilog done.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'AXIMMvideo2Bytes' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'AXIMMvideo2Bytes'.
+INFO: [HLS 200-111]  Elapsed time: 0.59 seconds; current allocated memory: 303.300 MB.
+INFO: [WVHDL 200-304] Encrypting RTL VHDL done.
+INFO: [WVHDL 200-304] Encrypting RTL Verilog done.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'Bytes2MultiPixStream' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Generating core module 'v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1': 1 instance(s).
+INFO: [RTGEN 206-100] Finished creating RTL model for 'Bytes2MultiPixStream'.
+INFO: [HLS 200-111]  Elapsed time: 3.98 seconds; current allocated memory: 306.695 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'Block_proc60' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'Block_proc60'.
+INFO: [HLS 200-111]  Elapsed time: 8.84 seconds; current allocated memory: 314.733 MB.
+INFO: [WVHDL 200-304] Encrypting RTL VHDL done.
+INFO: [WVHDL 200-304] Encrypting RTL Verilog done.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'reg_unsigned_short_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'reg_unsigned_short_s'.
+INFO: [HLS 200-111]  Elapsed time: 0.11 seconds; current allocated memory: 314.886 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'MultiPixStream2AXIvi' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Generating core module 'v_frmbuf_rd_mux_63_10_1_1': 6 instance(s).
+INFO: [RTGEN 206-100] Finished creating RTL model for 'MultiPixStream2AXIvi'.
+INFO: [HLS 200-111]  Elapsed time: 0.16 seconds; current allocated memory: 316.344 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'v_frmbuf_rd' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/mm_video' to 'm_axi'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/HwReg_width' to 's_axilite & ap_stable'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/HwReg_height' to 's_axilite & ap_stable'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/HwReg_stride' to 's_axilite & ap_stable'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/HwReg_video_format' to 's_axilite & ap_stable'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/HwReg_frm_buffer_V' to 's_axilite & ap_none'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/HwReg_frm_buffer2_V' to 's_axilite & ap_none'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_data_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_keep_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_strb_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_user_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_last_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_id_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'v_frmbuf_rd/m_axis_video_V_dest_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on function 'v_frmbuf_rd' to 's_axilite & ap_ctrl_hs'.
+INFO: [RTGEN 206-100] Bundling port 'HwReg_width', 'HwReg_height', 'HwReg_stride', 'HwReg_video_format', 'HwReg_frm_buffer_V', 'HwReg_frm_buffer2_V' and 'return' to AXI-Lite port CTRL.
+INFO: [RTGEN 206-100] Finished creating RTL model for 'v_frmbuf_rd'.
+INFO: [HLS 200-111]  Elapsed time: 2.15 seconds; current allocated memory: 319.626 MB.
+INFO: [WVHDL 200-304] Encrypting RTL VHDL done.
+INFO: [WVHDL 200-304] Encrypting RTL Verilog done.
+INFO: [RTMG 210-279] Implementing memory 'design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL_rom' using distributed ROMs.
+INFO: [RTMG 210-282] Generating pipelined core: 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div'
+INFO: [RTMG 210-279] Implementing memory 'design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE_rom' using distributed ROMs.
+INFO: [RTMG 210-279] Implementing memory 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp_rom' using distributed ROMs.
+INFO: [RTMG 210-285] Implementing FIFO 'HwReg_frm_buffer_V_c_U(design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'HwReg_frm_buffer2_V_s_30_U(design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'trunc_ln131_loc_c_U(design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'trunc_ln131_1_loc_c_U(design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'HwReg_height_cast9_l_U(design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'HwReg_height_cast9_l_1_U(design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'HwReg_height_cast9_l_2_U(design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'bytePlanes_plane0_V_s_U(design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B)' using Block RAMs.
+INFO: [RTMG 210-285] Implementing FIFO 'bytePlanes_plane1_V_s_U(design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B)' using Block RAMs.
+INFO: [RTMG 210-285] Implementing FIFO 'trunc_ln131_loc_c11_U(design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'trunc_ln131_1_loc_c1_U(design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'img_V_val_0_V_U(design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'img_V_val_1_V_U(design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'img_V_val_2_V_U(design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'img_V_val_3_V_U(design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'img_V_val_4_V_U(design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'img_V_val_5_V_U(design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'trunc_ln139_loc_c_U(design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A)' using Shift Registers.
+INFO: [HLS 200-111] Finished generating all RTL models Time (s): cpu = 00:01:28 ; elapsed = 00:01:39 . Memory (MB): peak = 1134.941 ; gain = 320.500 ; free physical = 77330 ; free virtual = 485377
+INFO: [VHDL 208-304] Generating VHDL RTL for v_frmbuf_rd with prefix design_1_v_frmbuf_rd_0_0_.
+INFO: [VLOG 209-307] Generating Verilog RTL for v_frmbuf_rd with prefix design_1_v_frmbuf_rd_0_0_.
+INFO: [IMPL 213-8] Exporting RTL as a Vivado IP.
+
+****** Vivado v2019.1 (64-bit)
+  **** SW Build 2552052 on Fri May 24 14:47:09 MDT 2019
+  **** IP Build 2548770 on Fri May 24 18:01:18 MDT 2019
+    ** Copyright 1986-2019 Xilinx, Inc. All Rights Reserved.
+
+Sourcing tcl script '/tmp/tmp.uj6Pgihdhk/dummy.tcl'
+100 Beta devices matching pattern found, 100 enabled.
+enable_beta_device: Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 1524.875 ; gain = 24.516 ; free physical = 74204 ; free virtual = 482562
+source run_ippack.tcl -notrace
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/proj/xbuilds/2019.1_0524_1430/installs/lin64/Vivado/2019.1/data/ip'.
+INFO: [Common 17-206] Exiting Vivado at Sat May 25 00:45:43 2019...
+INFO: [HLS 200-112] Total elapsed time: 122.7 seconds; peak allocated memory: 319.626 MB.
+INFO: [Common 17-206] Exiting vivado_hls at Sat May 25 00:45:43 2019...
+compile_c: Time (s): cpu = 00:01:50 ; elapsed = 00:02:06 . Memory (MB): peak = 1573.477 ; gain = 0.004 ; free physical = 74295 ; free virtual = 482664
+Command: synth_design -top design_1_v_frmbuf_rd_0_0 -part xczu7ev-ffvc1156-2-e -mode out_of_context
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xczu7ev'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xczu7ev'
+INFO: [Device 21-403] Loading part xczu7ev-ffvc1156-2-e
+INFO: Launching helper process for spawning children vivado processes
+INFO: Helper process launched with PID 181894 
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:04 . Memory (MB): peak = 2558.887 ; gain = 0.000 ; free physical = 84273 ; free virtual = 492546
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/synth/design_1_v_frmbuf_rd_0_0.v:58]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi.v:6]
+INFO: [Synth 8-155] case statement is not full and has no default [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi.v:242]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi' (1#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi.v:6]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:8]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_throttl' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:718]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_throttl' (2#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:718]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:1720]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo' (3#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:324]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice' (4#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:324]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized0' (4#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_buffer' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:537]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_buffer' (5#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:537]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized1' (5#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized2' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized2' (5#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+WARNING: [Synth 8-6014] Unused sequential element sect_end_buf_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:2093]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write' (6#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:1720]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:914]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_buffer__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:537]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_buffer__parameterized0' (6#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:537]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice__parameterized0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:324]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice__parameterized0' (6#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:324]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized3' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_fifo__parameterized3' (6#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:428]
+WARNING: [Synth 8-6014] Unused sequential element sect_end_buf_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:1267]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read' (7#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:914]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi' (8#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:8]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_entry4' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_entry4.v:10]
+INFO: [Synth 8-5534] Detected attribute (* fsm_encoding = "none" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_entry4.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_entry4' (9#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_entry4.v:10]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL.v:39]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL_rom' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL.v:6]
+INFO: [Synth 8-5534] Detected attribute (* ram_style = "distributed" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL.v:18]
+INFO: [Synth 8-3876] $readmem data file './design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL_rom.dat' is read successfully [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL.v:21]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL_rom' (10#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL' (11#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL.v:39]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1.v:13]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_DSP48_0' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1.v:4]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1_DSP48_0' (12#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1.v:4]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1' (13#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mul_mul_16ns_14ns_30_1_1.v:13]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:10]
+INFO: [Synth 8-5534] Detected attribute (* fsm_encoding = "none" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:160]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1.v:154]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1.v:82]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1.v:7]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u' (16#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1.v:7]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div' (17#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1.v:82]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1' (18#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1.v:154]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:2706]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:2708]
+WARNING: [Synth 8-589] replacing case/wildcard equality operator === with logical equality operator == [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:2710]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream' (19#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:10]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE.v:39]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE_rom' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE.v:6]
+INFO: [Synth 8-5534] Detected attribute (* ram_style = "distributed" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE.v:18]
+INFO: [Synth 8-3876] $readmem data file './design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE_rom.dat' is read successfully [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE.v:21]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE_rom' (20#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE' (21#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE.v:39]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:10]
+INFO: [Synth 8-5534] Detected attribute (* fsm_encoding = "none" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:112]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp.v:39]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp_rom' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp.v:6]
+INFO: [Synth 8-5534] Detected attribute (* ram_style = "distributed" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp.v:18]
+INFO: [Synth 8-3876] $readmem data file './design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp_rom.dat' is read successfully [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp.v:21]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp_rom' (23#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp' (24#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp.v:39]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_reg_unsigned_short_s' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_reg_unsigned_short_s.v:10]
+INFO: [Synth 8-5534] Detected attribute (* fsm_encoding = "none" *) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_reg_unsigned_short_s.v:38]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_reg_unsigned_short_s' (25#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_reg_unsigned_short_s.v:10]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mux_63_10_1_1' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mux_63_10_1_1.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mux_63_10_1_1' (26#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mux_63_10_1_1.v:8]
+WARNING: [Synth 8-6014] Unused sequential element AXI_video_strm_V_dest_V_1_sel_rd_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:528]
+WARNING: [Synth 8-6014] Unused sequential element AXI_video_strm_V_id_V_1_sel_rd_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:554]
+WARNING: [Synth 8-6014] Unused sequential element AXI_video_strm_V_keep_V_1_sel_rd_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:580]
+WARNING: [Synth 8-6014] Unused sequential element AXI_video_strm_V_strb_V_1_sel_rd_reg was removed.  [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:642]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi' (27#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:10]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A_shiftReg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A_shiftReg' (28#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A' (29#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w64_d3_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A_shiftReg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A_shiftReg' (30#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A' (31#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w15_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A_shiftReg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A_shiftReg' (32#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A' (33#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w8_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A_shiftReg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A_shiftReg' (34#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A' (35#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w12_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B' (36#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B.v:8]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A_shiftReg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A_shiftReg' (37#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A' (38#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w10_d2_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A.v:42]
+INFO: [Synth 8-6157] synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A_shiftReg' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A_shiftReg' (39#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A.v:8]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A' (40#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w3_d4_A.v:42]
+WARNING: [Synth 8-7023] instance 'inst' of module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd' has 74 connections declared, but only 64 given [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/synth/design_1_v_frmbuf_rd_0_0.v:269]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_v_frmbuf_rd_0_0' (42#1) [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/synth/design_1_v_frmbuf_rd_0_0.v:58]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi_mapComp has unconnected port reset
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[14]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[13]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[12]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60_MEMORY2LIVE has unconnected port reset
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[14]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[13]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[12]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[11]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[10]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[9]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[8]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[7]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc60 has unconnected port HwReg_video_format[6]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[14]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[13]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[12]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_AWREADY
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_WREADY
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_RLAST
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_RID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_RUSER[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_RRESP[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_RRESP[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_BVALID
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_BRESP[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_BRESP[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_BID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_BUSER[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg_V_offset_dout[3]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg_V_offset_dout[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg_V_offset_dout[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg_V_offset_dout[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg2_V_offset_dout[3]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg2_V_offset_dout[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg2_V_offset_dout[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port srcImg2_V_offset_dout[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port StrideInBytes[3]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port StrideInBytes[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port StrideInBytes[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port StrideInBytes[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc_BYTES_PER_PIXEL has unconnected port reset
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc has unconnected port HwReg_width[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc has unconnected port HwReg_height[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc has unconnected port HwReg_height[14]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc has unconnected port HwReg_height[13]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Block_proc has unconnected port HwReg_height[12]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port RID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port RUSER[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_cache[3]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_cache[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_cache[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_cache[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_prot[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_prot[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_prot[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_read has unconnected port rreq_user[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port BID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port BUSER[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_cache[3]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_cache[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_cache[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_cache[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_prot[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_prot[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_prot[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wreq_user[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_write has unconnected port wdata_user[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWSIZE[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWSIZE[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWSIZE[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWBURST[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWBURST[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWLOCK[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_AWLOCK[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_WID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_WLAST
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARID[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARSIZE[2]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARSIZE[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARSIZE[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARBURST[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARBURST[0]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARLOCK[1]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi has unconnected port I_ARLOCK[0]
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:05 ; elapsed = 00:00:07 . Memory (MB): peak = 2577.395 ; gain = 18.508 ; free physical = 84841 ; free virtual = 493146
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:06 ; elapsed = 00:00:09 . Memory (MB): peak = 2598.203 ; gain = 39.316 ; free physical = 84760 ; free virtual = 493088
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:06 ; elapsed = 00:00:09 . Memory (MB): peak = 2598.203 ; gain = 39.316 ; free physical = 84760 ; free virtual = 493088
+---------------------------------------------------------------------------------
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0_ooc.xdc] for cell 'inst'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0_ooc.xdc] for cell 'inst'
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/dont_touch.xdc]
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/dont_touch.xdc]
+Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0.xdc] for cell 'inst'
+Finished Parsing XDC File [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/design_1_v_frmbuf_rd_0_0.xdc] for cell 'inst'
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2869.422 ; gain = 0.000 ; free physical = 85286 ; free virtual = 493447
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.41 . Memory (MB): peak = 2877.359 ; gain = 7.938 ; free physical = 85478 ; free virtual = 493641
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:22 ; elapsed = 00:00:28 . Memory (MB): peak = 2877.359 ; gain = 318.473 ; free physical = 91037 ; free virtual = 498046
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xczu7ev-ffvc1156-2-e
+INFO: [Synth 8-6742] Reading net delay rules and data
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:22 ; elapsed = 00:00:28 . Memory (MB): peak = 2877.359 ; gain = 318.473 ; free physical = 91067 ; free virtual = 498075
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+Applied set_property DONT_TOUCH = true for inst. (constraint file  /tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/dont_touch.xdc, line 9).
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:22 ; elapsed = 00:00:28 . Memory (MB): peak = 2877.359 ; gain = 318.473 ; free physical = 91023 ; free virtual = 498032
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'wstate_reg' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi'
+INFO: [Synth 8-802] inferred FSM for state register 'rstate_reg' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi'
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:516]
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice'
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:516]
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:620]
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:516]
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:516]
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.v:620]
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice__parameterized0'
+INFO: [Synth 8-5542] Attribute ram_style/rom_style = distributed specified for ROM  "ram". This will be implemented in logic
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-4471] merging register 'zext_ln422_1_reg_2685_reg[12:12]' into 'zext_ln967_1_reg_2618_reg[12:12]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:2524]
+INFO: [Synth 8-4471] merging register 'zext_ln463_1_reg_2795_reg[12:12]' into 'zext_ln967_1_reg_2618_reg[12:12]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:2548]
+WARNING: [Synth 8-3936] Found unconnected internal register 'p_Val2_6_reg_2885_reg' and it is trimmed from '128' to '120' bits. [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream.v:1070]
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-5542] Attribute ram_style/rom_style = distributed specified for ROM  "ram". This will be implemented in logic
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-5542] Attribute ram_style/rom_style = distributed specified for ROM  "ram". This will be implemented in logic
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-4471] merging register 'map_V_1_07_i_i_fu_214_reg[4:3]' into 'map_V_0_06_i_i_fu_210_reg[4:3]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:1431]
+INFO: [Synth 8-4471] merging register 'map_V_2_08_i_i_fu_218_reg[4:3]' into 'map_V_0_06_i_i_fu_210_reg[4:3]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:1433]
+INFO: [Synth 8-4471] merging register 'map_V_3_09_i_i_fu_222_reg[4:3]' into 'map_V_0_06_i_i_fu_210_reg[4:3]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:1435]
+INFO: [Synth 8-4471] merging register 'map_V_4_010_i_i_fu_226_reg[4:3]' into 'map_V_0_06_i_i_fu_210_reg[4:3]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:1437]
+INFO: [Synth 8-4471] merging register 'map_V_5_011_i_i_fu_230_reg[4:3]' into 'map_V_0_06_i_i_fu_210_reg[4:3]' [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:1439]
+WARNING: [Synth 8-3936] Found unconnected internal register 'sub_ln321_reg_759_reg' and it is trimmed from '5' to '4' bits. [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi.v:922]
+INFO: [Synth 8-4490] FSM extraction disabled for register 'ap_CS_fsm_reg' through user attribute
+INFO: [Synth 8-5818] HDL ADVISOR - The operator resource <adder> is shared. To prevent sharing consider applying a KEEP on the output of the operator [/tmp/tmp.uj6Pgihdhk/temp/project_1.srcs/sources_1/bd/design_1/ip/design_1_v_frmbuf_rd_0_0/hdl/verilog/design_1_v_frmbuf_rd_0_0_fifo_w128_d480_B.v:90]
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  iSTATE |                             0001 |                               11
+*
+                  WRIDLE |                             0010 |                               00
+                  WRDATA |                             0100 |                               01
+                  WRRESP |                             1000 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'wstate_reg' using encoding 'one-hot' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  iSTATE |                              001 |                               10
+*
+                  RDIDLE |                              010 |                               00
+                  RDDATA |                              100 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'rstate_reg' using encoding 'one-hot' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi_reg_slice__parameterized0'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:29 ; elapsed = 00:00:35 . Memory (MB): peak = 2877.359 ; gain = 318.473 ; free physical = 88916 ; free virtual = 496140
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Hierarchical Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Hierarchical Component Statistics
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 1728 (col length:144)
+BRAMs: 624 (col length: RAMB18 144 RAMB36 72)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+Warning: Parallel synthesis criteria is not met 
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[14]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[13]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_MultiPixStream2AXIvi has unconnected port HwReg_width[12]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[15]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[14]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[13]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_Bytes2MultiPixStream has unconnected port HwReg_width[12]
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_AWREADY
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_WREADY
+WARNING: [Synth 8-3331] design design_1_v_frmbuf_rd_0_0_AXIMMvideo2Bytes has unconnected port m_axi_srcImg_V_RLAST
+INFO: [Common 17-14] Message 'Synth 8-3331' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-5784] Optimized 144 bits of RAM "bus_write/buff_wdata/mem_reg" due to constant propagation. Old ram width 144 bits, new ram width 0 bits.
+WARNING: [Synth 8-5785] Removed RAM "bus_write/buff_wdata/mem_reg" due to constant propagation. Write data stuck at zero 
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/Bytes2MultiPixStream_U0/\v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/divisor0_reg[0] )
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/zext_ln364_cast_i_reg_648_reg[60]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[30]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/zext_ln364_reg_643_reg[60]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[30]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/zext_ln364_reg_643_reg[61]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[30]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[30]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[29]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[28]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[27]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[26]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[25]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[24]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[23]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[22]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[21]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[20]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[19]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[18]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[17]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[16]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[15]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[14]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[13]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[12]' (FD) to 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[31]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[11]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[10]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[10]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[9]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[9]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[8]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[8]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[7]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[7]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[6]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[6]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[5]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[5]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[4]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[4]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[3]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[2]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[2]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[1]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[1]'
+INFO: [Synth 8-3886] merging instance 'inst/AXIMMvideo2Bytes_U0/empty_reg_688_reg[0]' (FDE) to 'inst/AXIMMvideo2Bytes_U0/trunc_ln_i_reg_668_reg[0]'
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/AXIMMvideo2Bytes_U0/\empty_reg_688_reg[31] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[0] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[1] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[2] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[3] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[4] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[5] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[6] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[7] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[8] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[9] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[10] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[11] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[12] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[13] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[14] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[15] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[16] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[17] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[18] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[19] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[20] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[21] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[22] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[23] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[24] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[25] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[26] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[27] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[28] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[29] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[30] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[31] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[32] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[33] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[34] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[35] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[36] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[37] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[38] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[39] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[40] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[41] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[42] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[43] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[44] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[45] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[46] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[47] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[48] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[49] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[50] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[51] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[52] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[53] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[54] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[55] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[56] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[57] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[58] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[59] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[94] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[93] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[92] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[91] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[90] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[89] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[88] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[87] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[86] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[85] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[84] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[83] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[82] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[81] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[80] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[79] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[78] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[77] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[76] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[75] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[74] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[73] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[72] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[71] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[70] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[69] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[68] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[67] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[66] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[65] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[64] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/v_frmbuf_rd_mm_video_m_axi_U/\bus_write/rs_wreq/data_p2_reg[95] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/Bytes2MultiPixStream_U0/\v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/divisor0_reg[1] )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (inst/Bytes2MultiPixStream_U0/\v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/divisor0_reg[2] )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (inst/Bytes2MultiPixStream_U0/\v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/divisor0_reg[3] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/Bytes2MultiPixStream_U0/\v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/divisor0_reg[4] )
+INFO: [Synth 8-3886] merging instance 'inst/Bytes2MultiPixStream_U0/v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u_0/divisor0_reg[1]' (FDE) to 'inst/Bytes2MultiPixStream_U0/v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u_0/divisor0_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/Bytes2MultiPixStream_U0/v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u_0/divisor0_reg[2]' (FDE) to 'inst/Bytes2MultiPixStream_U0/v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u_0/divisor0_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/Bytes2MultiPixStream_U0/v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u_0/divisor0_reg[4]' (FDE) to 'inst/Bytes2MultiPixStream_U0/v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_U24/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_U/design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_urem_12ns_5ns_12_16_seq_1_div_u_0/divisor0_reg[0]'
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/MultiPixStream2AXIvi_U0/\sub_ln321_reg_759_reg[0] )
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (inst/Bytes2MultiPixStream_U0/\zext_ln967_1_reg_2618_reg[12] )
+INFO: [Common 17-14] Message 'Synth 8-3333' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/start_addr_reg[0]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/start_addr_reg[1]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/align_len_reg[0]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/align_len_reg[1]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/start_addr_reg[1]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/start_addr_reg[2]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/align_len_reg[1]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/align_len_reg[2]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/start_addr_reg[2]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/start_addr_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/start_addr_reg[0]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/start_addr_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/align_len_reg[0]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/align_len_reg[2]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/start_addr_reg[1]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/start_addr_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/align_len_reg[1]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/align_len_reg[2]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/start_addr_reg[2]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/start_addr_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[128]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[129]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[130]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[131]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[132]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[133]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[134]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[135]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[136]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[137]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[138]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[139]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[140]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[141]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[142]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[143]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[0]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[1]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[1]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[2]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[2]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[3]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[3]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[4]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[4]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[5]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[5]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[6]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[6]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[7]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[7]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[8]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[8]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[9]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[9]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[10]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[10]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[11]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[11]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[12]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[12]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[13]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[13]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[14]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[14]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[15]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[15]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[16]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[16]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[17]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[17]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[18]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[18]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[19]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[19]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[20]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[20]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[21]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[21]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[22]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[22]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[23]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[23]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[24]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[24]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[25]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[25]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[26]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[26]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[27]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[27]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[28]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[28]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[29]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[29]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[30]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[30]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[31]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[31]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[32]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[32]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[33]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[33]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[34]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[34]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[35]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[35]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[36]'
+INFO: [Synth 8-3886] merging instance 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[36]' (FDRE) to 'inst/v_frmbuf_rd_mm_video_m_axi_U/bus_write/buff_wdata/q_tmp_reg[37]'
+INFO: [Common 17-14] Message 'Synth 8-3886' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+WARNING: [Synth 8-3332] Sequential element (FSM_onehot_wstate_reg[0]) is unused and will be removed from module design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi.
+WARNING: [Synth 8-3332] Sequential element (FSM_onehot_rstate_reg[0]) is unused and will be removed from module design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_CTRL_s_axi.
+WARNING: [Synth 8-3332] Sequential element (bus_write/rs_wreq/FSM_sequential_state_reg[1]) is unused and will be removed from module design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.
+WARNING: [Synth 8-3332] Sequential element (bus_write/rs_wreq/FSM_sequential_state_reg[0]) is unused and will be removed from module design_1_v_frmbuf_rd_0_0_v_frmbuf_rd_mm_video_m_axi.
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:01:11 ; elapsed = 00:01:19 . Memory (MB): peak = 2877.359 ; gain = 318.473 ; free physical = 90818 ; free virtual = 498867
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6837] The timing for the instance inst/v_frmbuf_rd_mm_video_m_axi_U/i_2_57/bus_read/buff_rdata/mem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/v_frmbuf_rd_mm_video_m_axi_U/i_2_57/bus_read/buff_rdata/mem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane0_V_s_U/i_2_7/mem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane0_V_s_U/i_2_7/mem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane1_V_s_U/i_2_7/mem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane1_V_s_U/i_2_7/mem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:01:35 ; elapsed = 00:02:24 . Memory (MB): peak = 3173.844 ; gain = 614.957 ; free physical = 76355 ; free virtual = 485976
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:02:04 ; elapsed = 00:02:53 . Memory (MB): peak = 3257.855 ; gain = 698.969 ; free physical = 76195 ; free virtual = 485225
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6837] The timing for the instance inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/buff_rdata/mem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/v_frmbuf_rd_mm_video_m_axi_U/bus_read/buff_rdata/mem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane0_V_s_U/mem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane0_V_s_U/mem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane1_V_s_U/mem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+INFO: [Synth 8-6837] The timing for the instance inst/bytePlanes_plane1_V_s_U/mem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the block ram. Providing additional output register may help in improving timing.
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:02:08 ; elapsed = 00:02:58 . Memory (MB): peak = 3265.863 ; gain = 706.977 ; free physical = 76667 ; free virtual = 485655
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:02:10 ; elapsed = 00:02:59 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76473 ; free virtual = 485535
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:02:10 ; elapsed = 00:02:59 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76470 ; free virtual = 485543
+---------------------------------------------------------------------------------
+
+Report RTL Partitions: 
++-+--------------+------------+----------+
+| |RTL Partition |Replication |Instances |
++-+--------------+------------+----------+
++-+--------------+------------+----------+
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:02:11 ; elapsed = 00:03:00 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76085 ; free virtual = 485365
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:02:11 ; elapsed = 00:03:00 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76070 ; free virtual = 485355
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:02:11 ; elapsed = 00:03:01 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76174 ; free virtual = 485472
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:02:11 ; elapsed = 00:03:01 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76200 ; free virtual = 485499
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+----------------+------+
+|      |Cell            |Count |
++------+----------------+------+
+|1     |CARRY8          |    86|
+|2     |DSP_ALU         |     1|
+|3     |DSP_A_B_DATA_1  |     1|
+|4     |DSP_C_DATA      |     1|
+|5     |DSP_MULTIPLIER  |     1|
+|6     |DSP_M_DATA      |     1|
+|7     |DSP_OUTPUT      |     1|
+|8     |DSP_PREADD      |     1|
+|9     |DSP_PREADD_DATA |     1|
+|10    |LUT1            |    74|
+|11    |LUT2            |   289|
+|12    |LUT3            |   897|
+|13    |LUT4            |   464|
+|14    |LUT5            |   303|
+|15    |LUT6            |  1085|
+|16    |MUXF7           |   150|
+|17    |MUXF8           |    72|
+|18    |RAMB36E2        |     6|
+|19    |SRL16E          |   125|
+|20    |SRLC32E         |   296|
+|21    |FDRE            |  4631|
+|22    |FDSE            |    60|
++------+----------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:02:11 ; elapsed = 00:03:01 . Memory (MB): peak = 3265.867 ; gain = 706.980 ; free physical = 76196 ; free virtual = 485495
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 83 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:01:59 ; elapsed = 00:02:46 . Memory (MB): peak = 3265.867 ; gain = 427.824 ; free physical = 76286 ; free virtual = 485584
+Synthesis Optimization Complete : Time (s): cpu = 00:02:12 ; elapsed = 00:03:01 . Memory (MB): peak = 3265.871 ; gain = 706.980 ; free physical = 76289 ; free virtual = 485588
+INFO: [Project 1-571] Translating synthesized netlist
+INFO: [Netlist 29-17] Analyzing 309 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3309.852 ; gain = 0.000 ; free physical = 75707 ; free virtual = 485178
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 1 instances were transformed.
+  DSP48E2 => DSP48E2 (DSP_ALU, DSP_A_B_DATA, DSP_C_DATA, DSP_MULTIPLIER, DSP_M_DATA, DSP_OUTPUT, DSP_PREADD_DATA, DSP_PREADD): 1 instances
+
+INFO: [Common 17-83] Releasing license: Synthesis
+362 Infos, 124 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:02:26 ; elapsed = 00:03:29 . Memory (MB): peak = 3309.852 ; gain = 1736.375 ; free physical = 75995 ; free virtual = 485470
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3309.852 ; gain = 0.000 ; free physical = 76002 ; free virtual = 485477
+WARNING: [Constraints 18-5210] No constraints selected for write.
+Resolution: This message can indicate that there are no constraints for the design, or it can indicate that the used_in flags are set such that the constraints are ignored. This later case is used when running synth_design to not write synthesis constraints to the resulting checkpoint. Instead, project constraints are read when the synthesized design is opened.
+INFO: [Common 17-1381] The checkpoint '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/design_1_v_frmbuf_rd_0_0.dcp' has been generated.
+WARNING: [Common 17-576] 'use_project_ipc' is deprecated. This option is deprecated and no longer used.
+INFO: [Coretcl 2-1648] Added synthesis output to IP cache for IP design_1_v_frmbuf_rd_0_0, cache-ID = 5f027c84dea6a304
+INFO: [Coretcl 2-1174] Renamed 61 cell refs.
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3336.836 ; gain = 0.000 ; free physical = 81116 ; free virtual = 490696
+WARNING: [Constraints 18-5210] No constraints selected for write.
+Resolution: This message can indicate that there are no constraints for the design, or it can indicate that the used_in flags are set such that the constraints are ignored. This later case is used when running synth_design to not write synthesis constraints to the resulting checkpoint. Instead, project constraints are read when the synthesized design is opened.
+INFO: [Common 17-1381] The checkpoint '/tmp/tmp.uj6Pgihdhk/temp/project_1.runs/design_1_v_frmbuf_rd_0_0_synth_1/design_1_v_frmbuf_rd_0_0.dcp' has been generated.
+INFO: [runtcl-4] Executing : report_utilization -file design_1_v_frmbuf_rd_0_0_utilization_synth.rpt -pb design_1_v_frmbuf_rd_0_0_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Sat May 25 00:49:20 2019...
