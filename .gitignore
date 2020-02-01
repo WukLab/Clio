@@ -77,3 +77,4 @@ generated_ip/
 awsver.txt
 
 !.gitignore
+!.clang-format
