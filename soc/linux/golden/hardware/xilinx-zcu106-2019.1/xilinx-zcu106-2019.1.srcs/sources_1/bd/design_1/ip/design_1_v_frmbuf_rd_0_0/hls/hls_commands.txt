@@ -1,5 +1,0 @@
-                 
-config_rtl -enable_axiFlushable
-
-
-config_interface -input_reg_mode both -output_reg_mode both -m_axi_addr64
