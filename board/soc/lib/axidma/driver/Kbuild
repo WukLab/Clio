@@ -1,0 +1,24 @@
+# Kbuild
+#
+# Date: March 21, 2017
+# Author: Brandon Perez
+# Author: Jared Choi
+#
+# The build file for compiling the AXI DMA driver against the kernel. This is
+# used by the kernel to determine how to compile the driver.
+
+# Indicate that this module should be compiled to the kernel Makefile, and the
+# files to use to compile it.
+$(AXIDMA_MODULE_NAME)-objs = $(patsubst %.c,%.o,$(filter %.c,$(AXIDMA_FILES)))
+obj-m += $(AXIDMA_MODULE_NAME).o
+
+# Set the CFLAGS for compiling the module, adding the include flags. Note that
+# the src variable points to the module's directory.
+INC_FLAGS = $(addprefix -I ,$(AXIDMA_INC_DIRS))
+ccflags-y = $(INC_FLAGS) -Werror -ggdb
+
+# If specified, define the macro to fixup the path for the Xilinx DMA include.
+# In some 4.x Xilinx kernels, the file is still in the old path from 3.x.
+ifneq ($(origin XILINX_DMA_INCLUDE_PATH_FIXUP),undefined)
+    ccflags-y += -DXILINX_DMA_INCLUDE_PATH_FIXUP
+endif
