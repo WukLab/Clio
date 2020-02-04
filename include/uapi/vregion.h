@@ -4,6 +4,8 @@
 #ifndef _INCLUDE_UAPI_VREGION_
 #define _INCLUDE_UAPI_VREGION_
 
+#include <uapi/rbtree.h>
+
 /*
  * Parameter: virtual address space width in number of bits
  */
@@ -17,10 +19,5 @@
 
 #define NR_VREGIONS_SHIFT 	(VIRTUAL_ADDR_SHIFT-VREGION_SIZE_SHIFT)
 #define NR_VREGIONS		(1 << NR_VREGIONS_SHIFT)
-
-struct vregion_info {
-	unsigned int flags;
-	unsigned long board_id;
-};
 
 #endif /* _INCLUDE_UAPI_VREGION_ */

@@ -110,6 +110,12 @@
 #define is_log2(v)		(((v) & ((v) - 1)) == 0)
 
 /*
+ * swap - swap value of @a and @b
+ */
+#define swap(a, b) \
+	do { typeof(a) __tmp = (a); (a) = (b); (b) = __tmp; } while (0)
+
+/*
  * Use "__ignore_value" to avoid a warning when using a function declared with
  * gcc's warn_unused_result attribute, but for which you really do want to
  * ignore the result.  Traditionally, people have used a "(void)" cast to
