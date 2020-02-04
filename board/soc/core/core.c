@@ -13,9 +13,7 @@
 #include <pthread.h>
 
 LIST_HEAD(proc_list);
-LIST_HEAD(board_list);
 pthread_spinlock_t proc_lock;
-pthread_spinlock_t board_lock;
 
 static struct proc_info *
 add_proc(char *proc_name, char *host_name, unsigned int host_ip)
@@ -47,43 +45,6 @@ add_proc(char *proc_name, char *host_name, unsigned int host_ip)
 	return pi;
 }
 
-static struct board_info *
-add_board(char *board_name, unsigned int board_ip, unsigned long mem_total)
-{
-	struct board_info *bi;
-
-	bi = malloc(sizeof(*bi));
-	if (!bi)
-		return NULL;
-
-	INIT_LIST_HEAD(&bi->list);
-	strncpy(bi->name, board_name, BOARD_NAME_LEN);
-	bi->board_ip = board_ip;
-	bi->mem_total = mem_total;
-	bi->mem_avail = mem_total;
-
-	pthread_spin_lock(&board_lock);
-	list_add(&bi->list, &board_list);
-	pthread_spin_unlock(&board_lock);
-
-	return bi;
-}
-
-static void dump_boards(void)
-{
-	struct board_info *bi;
-	int i = 0;
-
-	printf("Dumping Boards Info:\n");
-	pthread_spin_lock(&board_lock);
-	list_for_each_entry (bi, &board_list, list) {
-		printf("[%2d] %16s %lu %lu\n", i, bi->name, bi->mem_total,
-		       bi->mem_avail);
-		i++;
-	}
-	pthread_spin_unlock(&board_lock);
-}
-
 static void dump_procs(void)
 {
 	struct proc_info *pi;
@@ -101,18 +62,60 @@ static void dump_procs(void)
 static int handle_alloc(void)
 {
 }
+
+unsigned long alloc_va(struct proc_info *proc, struct vregion_info *vi,
+		       unsigned long len, unsigned long permission,
+		       unsigned long flags);
+
+int free_va(struct proc_info *proc,
+	struct vregion_info *vi, unsigned long start, unsigned long len);
+
+void test_va_alloc(struct proc_info *pi)
+{
+	unsigned long addr;
+	struct vregion_info *vi;
+
+	printf("From vregion 0\n");
+	vi = pi->vregion + 0;
+	addr = alloc_va(pi, vi, 0x1000, 0, 0);
+	printf("%#lx\n", addr);
+	addr = alloc_va(pi, vi, 0x1000, 0, VM_UNMAPPED_AREA_TOPDOWN);
+	printf("%#lx\n", addr);
+
+	printf("From vregion 1\n");
+
+	vi = pi->vregion + 1;
+	addr = alloc_va(pi, vi, 0x10000000, 0, VM_UNMAPPED_AREA_TOPDOWN);
+	printf("1 %#lx\n", addr);
+
+	addr = alloc_va(pi, vi, 0x10000000, 0, VM_UNMAPPED_AREA_TOPDOWN);
+	printf("2 %#lx\n", addr);
+
+	addr = alloc_va(pi, vi, 0x10000000, 0, 0);
+	printf("3 %#lx\n", addr);
+
+	addr = alloc_va(pi, vi, 0x10000000, 0, 0);
+	printf("4 %#lx\n", addr);
+
+	free_va(pi, vi, addr, 0x10000000);
+	printf("free %#lx\n", addr);
+
+	addr = alloc_va(pi, vi, 0x2000, 0, 0);
+	printf("5 %#lx\n", addr);
+
+	addr = alloc_va(pi, vi, 0x2000, 0, 0);
+	printf("6 %#lx\n", addr);
+}
+
 int main(int argc, char **argv)
 {
 	struct proc_info *pi;
 
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&board_lock, PTHREAD_PROCESS_PRIVATE);
-
-	add_board("board_0", 123, 4096);
-	add_board("board_1", 786, 9192);
-	dump_boards();
 
 	add_proc("proc_0", "host_0", 123);
 	pi = add_proc("proc_1", "host_0", 123);
 	dump_procs();
+
+	test_va_alloc(pi);
 }
