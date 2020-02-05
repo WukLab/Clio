@@ -22,12 +22,30 @@ object AssignmentFunctions {
     t.key #= key
     t.mask #= mask
     t.value #= value
+    t.enable #= enable
+  }
+  implicit def WrReqAssign(a : (Int, Int, Int, Boolean, Int), t : LookupWrite) = {
+    assert(t.useUsed)
+    val (key, mask, value, used, usedCell) = a
+    t.key #= key
+    t.mask #= mask
+    t.value #= value
+    t.used #= used
+    t.usedCell #= usedCell
   }
   implicit def WrReqAssign(a : (Int, Int, Int), t : LookupWrite) = {
     val (key, mask, value) = a
     t.key #= key
     t.mask #= mask
     t.value #= value
+    if (t.useUsed) t.used #= false
+  }
+  implicit def AddressLookupRequestAssign(a : (Int, Int, Int, Int), t : AddressLookupRequest): Unit = {
+    val (pid, seq, reqType, va) = a
+    t.pid #= pid
+    t.seqId #= seq
+    t.reqType #= reqType
+    t.va #= va
   }
 
   def joinAll( simThreads: SimThread *): Unit = {
@@ -192,13 +210,16 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
         memory(addr + idx) = data(idx)
       }
     }
+    this
   }
 
   def =# (bus : Axi4ReadOnly) : Unit = {
     val config = bus.config
     // We do not join this thread, since it is a service not a simulating components
     fork {
-      var cnt = 0
+      bus.readCmd.ready #= false
+      bus.readRsp.valid #= false
+      waitUntil(clockDomain.isResetDeasserted)
       while (true) {
         // State action
         bus.readCmd.ready #= false
@@ -246,8 +267,12 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
     val config = bus.config
     // We do not join this thread, since it is a service not a simulating components
     fork {
+      // init value
+      bus.writeCmd.ready #= false
+      bus.writeData.ready #= false
+      bus.writeRsp.valid #= false
+      waitUntil(clockDomain.isResetDeasserted)
       while (true) {
-
         // Data assignment
         bus.writeCmd.ready #= false
         bus.writeData.ready #= false

@@ -41,20 +41,31 @@ object MemoryRegisterInterfaceSim {
 }
 
 object FetchUnitSim {
-
+  import AssignmentFunctions._
   def main(args: Array[String]): Unit = {
-    SimConfig.withWave.doSim(new FetchUnit(42)) { dut =>
+    SimConfig.withWave.doSim(new FetchUnit(24)) { dut =>
 
       dut.clockDomain.forkStimulus(5)
 
-      dut.clockDomain.waitRisingEdge(5)
-
-      val bram = new Axi4SlaveMemoryDriver(dut.clockDomain, 4096)
-      bram.init(
+      dut.io.res.ready #= false
+      val bram = new Axi4SlaveMemoryDriver(dut.clockDomain, 65536) init (
         (0, Seq[Byte](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16) )
       )
+      bram =# dut.io.bus
 
-      dut.io.req
+      val wrReq = new StreamDriver(dut.io.req, dut.clockDomain)
+
+      dut.clockDomain.waitRisingEdge(5)
+
+      dut.io.res.ready #= true
+
+      wrReq #= SeqDataGen(
+        (0, 0, 0, 0),
+        (0, 0, 0, 0)
+      )
+
+      dut.clockDomain.waitRisingEdge(20)
+
     }
   }
 }
@@ -152,7 +163,10 @@ object LookupTableStoppableSim {
 
   import AssignmentFunctions._
   def main(args: Array[String]): Unit = {
-    SimConfig.withWave.doSim(new LookupTableStoppable(32, 32, 16)) { dut =>
+    SimConfig.withWave.doSim(
+      new LookupTableStoppable(32, 32, 16,
+        useUsed = true, autoUpdate = true, useHitReport = true)
+    ) { dut =>
       dut.clockDomain.forkStimulus(5)
 
       dut.io.wr.req.valid #= false
@@ -176,7 +190,7 @@ object LookupTableStoppableSim {
 
       fork {
         dut.clockDomain.waitRisingEdge(2)
-        val insertSeq = (0 until 20).map(i => (0x4320 + i, 0xF0FF, 0x1230 + i))
+        val insertSeq = (0 until 30).map(i => (0x4320 + i, 0xF0FF, 0x1230 + i, true, i % 16))
         wrReq #= SeqDataGen(insertSeq : _*)
       }
 
@@ -184,7 +198,7 @@ object LookupTableStoppableSim {
         dut.clockDomain.waitRisingEdge(10)
         rdReq #= SeqDataGen(0x4321, 0x4325, 0x432F)
 
-        wrShoot #= SeqDataGen(5)
+        wrShoot #= SeqDataGen(5, 6)
 
         rdReq #= SeqDataGen(0x4321, 0x4325, 0x432F)
       }
