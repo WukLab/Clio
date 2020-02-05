@@ -14,10 +14,20 @@ case class LegoMemConfig (
 }
 
 object MemoryRequestType {
-  val write = 0x01
-  val read = 0x02
-  val alloc = 0x03
-  val free = 0x04
+  val write = 0x02
+  val writeResp = 0x03
+  val read = 0x04
+  val readResp = 0x05
+  val alloc = 0x06
+  val allocResp = 0x07
+  val free = 0x08
+  val freeResp = 0x09
+}
+
+object MemoryRequestStatus {
+  val okay = 0x00
+  val errInvalid = 0x01
+  val errPermission = 0x02
 }
 
 case class LegoMemHeader(addrWidth : Int) extends Bundle {
@@ -74,6 +84,14 @@ case class AccessCommand(addrWidth : Int) extends Bundle {
   val cmd = UInt(4 bits)
   val seqId = UInt(16 bits)
   val phyPage = UInt(addrWidth bit)
+}
+
+object PageTableEntry {
+  def compact(pte : PageTableEntry, bits : Bits) : PageTableEntry = {
+    val next = cloneOf(pte)
+    next.fromCompactBits(bits)
+    next
+  }
 }
 
 // TODO: optional abstract
@@ -154,6 +172,7 @@ case class PageTableEntry(
 
     if (usePpa) ppa := (if (entry.usePpa) entry.ppa else U"0")
     if (useTag) tag := (if (entry.useTag) entry.tag else U"0")
+    if (usePteAddr) pteAddr := (if (entry.usePteAddr) entry.pteAddr else U"0")
     // TODO: other fields
   }
 
@@ -164,7 +183,8 @@ case class PageTableEntry(
 case class AddressLookupRequest(addrWidth : Int) extends Bundle {
   val pid       = UInt(16 bits)
   val seqId     = UInt(16 bits)
-  val va        = UInt(64 bits)
+  val reqType   = UInt(2 bits)
+  val va        = UInt(addrWidth bits)
 
   def tag : UInt = {
     va

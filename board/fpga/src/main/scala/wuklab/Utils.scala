@@ -38,10 +38,8 @@ object StreamJoinMaster{
 // The first way to solve a pipeline problem, a almostfull fifo
 object WaterMarkFifo {
   def apply[T <: Data](from : Stream[T], waterMark: Int, halt : Bool = False) : Stream[T] = {
-    val fifo = new StreamFifo(from.payload, waterMark * 2)
-    from.haltWhen(halt && fifo.io.availability < waterMark)
-    from >> fifo.io.push
-
+    val fifo = new StreamFifo(from.payloadType, waterMark * 2)
+    fifo.io.push << from.haltWhen(halt && fifo.io.availability < waterMark)
     fifo.io.pop
   }
 }
@@ -56,7 +54,7 @@ object Utils {
 
   implicit class IntUtils(i : Int) {
     def countBy (n : Int): Range = {
-      (i + n - 1) downto n
+      (i + n - 1) downto i
     }
 
     def downBy (n : Int): Range = {
@@ -122,6 +120,7 @@ object Utils {
       next.payload := stream.payload
       next
     }
+
   }
 
   implicit class StreamPairUtils[T1 <: Data, T2 <: Data](stream : Stream[Pair[T1, T2]]) {
@@ -170,6 +169,10 @@ object Utils {
       next.payload := flow.payload
       next
     }
+
+    def takeBy(f : T => Bool) : Flow[T] = {
+      flow.takeWhen(f(flow.payload))
+    }
   }
 
   implicit class BundleUtils[T <: Bundle](bundle: T) {
@@ -184,7 +187,7 @@ object Utils {
   }
 
   implicit class BoolUtils(b : Bool) {
-    def mux[T <: Data](streams : Stream[T] *): Stream[T] = {
+    def select[T <: Data](streams : Stream[T] *): Stream[T] = {
       assert(streams.size == 2)
       StreamMux(b.asUInt, streams)
     }
@@ -258,7 +261,7 @@ trait Pipeline {
 
 }
 
-trait NonStopablePipeline extends Pipeline {
+trait NonStoppablePipeline extends Pipeline {
 
   def delay [T <: Data](t : T) : T = {
     Delay(t, pipelineDelay)
@@ -270,5 +273,26 @@ trait StoppablePipeline extends Pipeline {
 
   def delay [T <: Data](t : T) : T = {
     Delay(t, pipelineDelay, enableSignal)
+  }
+
+  def delayFlow[T <: Data](t : T, valid : Bool) : Flow[T] = {
+    val flow = Flow(t)
+    flow.valid := Delay(valid, pipelineDelay, enableSignal) init False
+    flow.payload := Delay(t, pipelineDelay, enableSignal)
+    flow
+  }
+
+  // We should make sure the ready is enable signal
+  def delayStream[T <: Data](t : T, valid : Bool) : Stream[T] = {
+    val stream = Stream(t)
+    stream.valid := Delay(valid, pipelineDelay, enableSignal) init False
+    stream.payload := Delay(t, pipelineDelay, enableSignal)
+    stream
+  }
+
+  // Since this is not a stream, we only have this direction
+  // Without driving stream's ready
+  def <|| [T <: Data](stream : Stream[T]) : Stream[T] = {
+    delayStream(stream.payload, stream.valid)
   }
 }
