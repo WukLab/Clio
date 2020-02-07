@@ -67,6 +67,15 @@ object Utils {
       t := that
       t
     }
+
+    def clearAll = {
+      t.flatten.filter(_ != null).foreach {
+        case u : UInt => u := 0
+        case b : Bits => b := 0
+        case b : Bool => b := False
+      }
+      t
+    }
   }
 
   // Another way is stopable pipeline
@@ -104,6 +113,20 @@ object Utils {
 
     def >*< [T2 <: Data](r : Stream[T2]) : Stream[Pair[T, T2]] = {
       StreamJoin.arg(stream, r).translateWith(Pair(stream.payload, r.payload))
+    }
+
+    def joinWhen[T2 <: Data](r : Stream[T2], byPassWhen : Bool) : Stream[T2] = {
+      val next = Stream(r.payloadType)
+//      stream.ready := Mux(byPassWhen, next.ready, next.ready && r.valid)
+//      r.ready := !byPassWhen && next.ready && stream.valid
+//      afterAlloc.valid := Mux(noAlloc, lookupResult.valid, lookupResult.valid && selectedAddr.valid)
+//      afterAlloc.payload.fst := noAlloc
+//      afterAlloc.payload.snd := lookupResult.payload
+//      when (!lookupResult.used) {
+//        afterAlloc.snd.used := True
+//        afterAlloc.snd.ppa := selectedAddr.payload
+//      }
+      next
     }
 
     // tap means tap the fire event
@@ -164,7 +187,7 @@ object Utils {
     }
 
     def asStream : Stream[T] = {
-      val next = Stream(flow.payloadType())
+      val next = Stream(flow.payload)
       next.valid := flow.valid
       next.payload := flow.payload
       next
@@ -186,6 +209,9 @@ object Utils {
 
   }
 
+
+
+
   implicit class BoolUtils(b : Bool) {
     def select[T <: Data](streams : Stream[T] *): Stream[T] = {
       assert(streams.size == 2)
@@ -193,6 +219,14 @@ object Utils {
     }
     def demux[T <: Data](stream : Stream[T]): Seq[Stream[T]] = {
       StreamDemux(stream, b.asUInt, 2)
+    }
+    def demux[T <: Data](flow : Flow[T]): Seq[Flow[T]] = {
+      (0 until 2).map(idx => {
+        val f = Flow(flow.payloadType)
+        f.payload := flow.payload
+        f.valid := idx === b.asUInt
+        f
+      })
     }
   }
 
@@ -264,29 +298,38 @@ trait Pipeline {
 trait NonStoppablePipeline extends Pipeline {
 
   def delay [T <: Data](t : T) : T = {
-    Delay(t, pipelineDelay)
+    import Utils._
+    val init = cloneOf(t).clearAll
+    Delay(t, pipelineDelay, init = init)
   }
 }
 
 trait StoppablePipeline extends Pipeline {
   def enableSignal : Bool
 
+  // These methods DO change the internal value, so do not chain these methods
+  def haltWhen(cond : Bool) : Unit = enableSignal := !cond
+  def continueWhen(cond : Bool) : Unit = enableSignal := cond
+
+  // TODO: find a way to initialize this delayed register
   def delay [T <: Data](t : T) : T = {
-    Delay(t, pipelineDelay, enableSignal)
+    import Utils._
+    val init = cloneOf(t).clearAll
+    Delay(t, pipelineDelay, enableSignal, init)
   }
 
   def delayFlow[T <: Data](t : T, valid : Bool) : Flow[T] = {
     val flow = Flow(t)
-    flow.valid := Delay(valid, pipelineDelay, enableSignal) init False
-    flow.payload := Delay(t, pipelineDelay, enableSignal)
+    flow.valid := delay(valid)
+    flow.payload := delay(t)
     flow
   }
 
   // We should make sure the ready is enable signal
   def delayStream[T <: Data](t : T, valid : Bool) : Stream[T] = {
     val stream = Stream(t)
-    stream.valid := Delay(valid, pipelineDelay, enableSignal) init False
-    stream.payload := Delay(t, pipelineDelay, enableSignal)
+    stream.valid := delay(valid)
+    stream.payload := delay(t)
     stream
   }
 

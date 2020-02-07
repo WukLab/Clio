@@ -3,14 +3,62 @@ package wuklab
 import spinal.core._
 import wuklab.Utils._
 
-case class LegoMemConfig (
-                           numCacheCells : Int,
-                           physicalAddrWidth : Int,
-                           virtualAddrWidth : Int,
-                           virtualTagWidth : Int,
-                           tagWidth : Int,
-                           ppaWidth : Int
-                         ){
+trait CoreMemConfig {
+  // Memory service config
+  val  physicalAddrWidth : Int
+  val  virtualAddrWidth : Int
+  val  hashtableAddrWidth : Int
+  val  tagWidth : Int
+  val  ppaWidth : Int
+  val  pageSizes : Seq[Int]
+  // Cache config
+  val  numCacheCells : Int
+  val  numPageFaultCacheCells : Int
+  // Hash Table Config
+  // | ------------ Physical Address Width -----  |
+  // | ------ | -----  Hash Table Address Width - |
+  // | ------ | Pte Addr Width | Pte offset Width |
+  val  hashtableBaseAddr : Int
+  val  pteAddrWidth : Int    // The minimal bits of PTE addr
+
+  val  ptePerLine : Int
+  val  ptePerBucket : Int
+
+  // Help Methods
+  // Page Table Related functions
+  def pageFaultCellWidth = log2Up(numPageFaultCacheCells)
+  def numPageSizes = pageSizes.size
+
+  def linePerBucket = ptePerBucket / ptePerLine
+  def getPteBusAddr(addr : UInt): UInt = {
+    assert(addr.getWidth == pteAddrWidth, "Wrong Pte Addr Width")
+    U(hashtableBaseAddr, hashtableAddrWidth bits) + (addr << pteAddrOffsetWidth)
+  }
+
+  def getMask(pageType : UInt) : UInt = {
+    pageType.mux(
+      0 -> U(0, tagWidth bits),
+      1 -> U(1, tagWidth bits),
+      2 -> U(2, tagWidth bits),
+      default -> U(3, tagWidth bits)
+    )
+  }
+  // Core component
+//  assert(isPow2(numCacheCells), "Number of memory cells should be power of 2")
+  def cacheCellWidth = log2Up(numCacheCells)
+
+  // Types
+  def lookupReqType = AddressLookupRequest(tagWidth)
+
+  def pteWithAddrType = PageTableEntry(ppaWidth = ppaWidth, tagWidth = tagWidth, pteAddrWidth = pteAddrWidth)
+  def pteResType = PageTableEntry(ppaWidth = ppaWidth, useTag = false)
+  def pteWithPpaType = PageTableEntry(ppaWidth = ppaWidth, tagWidth = tagWidth)
+
+  def pteFullWidth = pteWithAddrType.packedWidth
+  def pteFullBytes = pteFullWidth / 8
+  def pteCompactWidth = pteWithAddrType.compactWidth
+
+  def pteAddrOffsetWidth = log2Up(pteFullBytes)
 }
 
 object MemoryRequestType {
@@ -58,11 +106,17 @@ case class InternalMemoryRequest(addrWidth : Int) extends Bundle {
 object ControlRequest {
   def apply(
              cid : UInt,
+             cmd : UInt = 0,
+             beats : UInt = 1,
              param8 : UInt = 0,
-             param32 : UInt = 0
+             param32 : UInt = 0,
+             addr : UInt = 0
            ): ControlRequest = {
     val req = apply()
+    req.addr := addr
     req.cid := cid
+    req.cmd := cmd
+    req.beats := beats
     req.param8 := param8
     req.param32 := param32
     req
@@ -90,6 +144,15 @@ object PageTableEntry {
   def compact(pte : PageTableEntry, bits : Bits) : PageTableEntry = {
     val next = cloneOf(pte)
     next.fromCompactBits(bits)
+    next.seqId := pte.seqId
+    if (next.useTag) next.tag := pte.tag
+    if (next.usePteAddr) next.pteAddr := pte.pteAddr
+    next
+  }
+  def full(pte : PageTableEntry, bits : Bits) : PageTableEntry = {
+    val next = cloneOf(pte)
+    next := pte
+    next.fromBits(bits)
     next
   }
 }
@@ -100,23 +163,23 @@ case class PageTableEntry(
                            ppaWidth : Int = 0,
                            useTag : Boolean = true,
                            tagWidth : Int = 0,
-                           usePteAddr : Boolean = false,
-                           useHitAddr : Boolean = false
+                           pteAddrWidth : Int = 0
                          ) extends Bundle {
 
   assert (!useTag || (useTag && tagWidth != 0))
   assert (!usePpa || (usePpa && ppaWidth != 0))
 
+  def usePteAddr = pteAddrWidth > 0
+
   val seqId = UInt(16 bits)
-  val ppa = if (usePpa) UInt(48 bits) else null
+  val ppa = if (usePpa) UInt(ppaWidth bits) else null
   val used = Bool
-  val valid = Bool
+  val allocated = Bool
   val pageType = UInt(2 bits)
 
-  val tag = if (useTag) UInt(ppaWidth bits) else null
+  val tag = if (useTag) UInt(tagWidth bits) else null
 
-  val pteAddr = if (usePteAddr) UInt(16 bits) else null
-  val hitAddr = if (useHitAddr) UInt(16 bits) else null
+  val pteAddr = if (usePteAddr) UInt(pteAddrWidth bits) else null
 
   // This function decides the physical layout of a PTE
   val packedWidth : Int = 128
@@ -124,10 +187,11 @@ case class PageTableEntry(
     assert(usePpa && useTag)
 
     val bits = Bits(packedWidth bits)
+    bits := 0
     bits(64 countBy tagWidth) := tag.asBits
     bits(0 countBy ppaWidth) := ppa.asBits
     bits(63) := used
-    bits(62) := valid
+    bits(62) := allocated
     bits(61 downto 60) := pageType.asBits
     bits
   }
@@ -138,7 +202,7 @@ case class PageTableEntry(
     tag := bits(64 countBy tagWidth).asUInt
     ppa := bits(0 countBy ppaWidth).asUInt
     used := bits(63)
-    valid := bits(62)
+    allocated := bits(62)
     pageType := bits(61 downto 60).asUInt
     this
   }
@@ -148,7 +212,7 @@ case class PageTableEntry(
     val bits = Bits(compactWidth bits)
     bits(0 countBy ppaWidth) := ppa.asBits
     bits(ppaWidth) := used
-    bits(ppaWidth + 1) := valid
+    bits(ppaWidth + 1) := allocated
     bits(ppaWidth + 2 countBy 2) := pageType.asBits
     bits
   }
@@ -156,7 +220,7 @@ case class PageTableEntry(
     assert(bits.getWidth == compactWidth)
     ppa := bits(0 countBy ppaWidth).asUInt
     used := bits(ppaWidth)
-    valid := bits(ppaWidth + 1)
+    allocated := bits(ppaWidth + 1)
     pageType := bits(ppaWidth + 2 countBy 2).asUInt
     this
   }
@@ -166,14 +230,13 @@ case class PageTableEntry(
   def := (entry: PageTableEntry) = {
     // a complex assignment
     used := entry.used
-    valid := entry.valid
+    allocated := entry.allocated
     pageType := entry.pageType
     seqId := entry.seqId
 
     if (usePpa) ppa := (if (entry.usePpa) entry.ppa else U"0")
     if (useTag) tag := (if (entry.useTag) entry.tag else U"0")
     if (usePteAddr) pteAddr := (if (entry.usePteAddr) entry.pteAddr else U"0")
-    // TODO: other fields
   }
 
 }

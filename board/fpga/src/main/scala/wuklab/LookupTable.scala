@@ -157,7 +157,7 @@ case class LookupStreamInterface(
 class LookupTCamStoppable(keyWidth : Int, valueWidth : Int, useEnable : Boolean) extends Component with StoppablePipeline {
 
   override def pipelineDelay: Int = 1
-  override def enableSignal : Bool = io.rd.res.ready
+  override def enableSignal : Bool = io.rd.res.ready || !io.rd.res.valid
 
   val io = slave (LookupStreamReadInterface(keyWidth, valueWidth, true, false, useEnable))
 
@@ -193,7 +193,7 @@ class LookupTableStoppable(
   val cellWidth = log2Up(numCells)
 
   override def pipelineDelay : Int = 2
-  override def enableSignal : Bool = io.rd.res.ready
+  override def enableSignal : Bool = io.rd.res.ready || !io.rd.res.valid
 
   val io = new Bundle {
     val wr = new Bundle {
@@ -248,13 +248,13 @@ class LookupTableStoppable(
     //Read path. stage 1
     io.rd.req >> cam.io.rd.req
     //Read path. stage 2
-    io.rd.res.hit := RegNextWhen(cam.io.rd.res.hit, io.rd.res.ready) init False
-    io.rd.res.valid := RegNextWhen(cam.io.rd.res.valid, io.rd.res.ready) init False
+    io.rd.res.hit := RegNextWhen(cam.io.rd.res.hit, enableSignal) init False
+    io.rd.res.valid := RegNextWhen(cam.io.rd.res.valid, enableSignal) init False
     io.rd.res.value := mem.readSync(cam.io.rd.res.value).asUInt
-    cam.io.rd.res.ready := io.rd.res.ready
+    cam.io.rd.res.ready := enableSignal
     // report path
     if (useHitReport)
-      io.rd.rpt << cam.io.rd.res.tapAsFlow.takeBy(_.hit).fmap(_.value)
+      io.rd.rpt << cam.io.rd.res.tapAsFlow.takeBy(_.hit).stage().fmap(_.value)
   }
 
 }
@@ -299,7 +299,7 @@ class TernaryCAM(keyWidth : Int, addrWidth : Int,
 
   def matchCell(key : UInt, mask : UInt) : Bool = {
     val valid = (~(key ^ io.rdkey) | ~mask).andR
-    if (useEnable) RegNextWhen(valid, io.enable) else RegNext(valid)
+    if (useEnable) RegNextWhen(valid, io.enable).init(False) else RegNext(valid).init(False)
   }
 
 }
