@@ -47,6 +47,14 @@ object AssignmentFunctions {
     t.reqType #= reqType
     t.va #= va
   }
+  implicit def PageTableEntryAssign(a : (Int, Int, Boolean, Boolean, Int), pte : PageTableEntry): Unit = {
+    val (tag, ppa, valid, used, pteAddr) = a
+    if (pte.useTag) pte.tag #= tag
+    if (pte.usePpa) pte.ppa #= ppa
+    pte.allocated #= valid
+    pte.used #= used
+    if (pte.usePteAddr) pte.pteAddr #= pteAddr
+  }
 
   def joinAll( simThreads: SimThread *): Unit = {
     simThreads.foreach(_.join())
@@ -109,6 +117,11 @@ object SeqDataGen {
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
 
   stream.valid #= false
+  stream.payload.flatten.filter(p => p != null).foreach {
+    case uint: UInt => uint #= 0
+    case bits: Bits => bits #= 0
+    case bool: Bool => bool #= false
+  }
 
   def #= (gen : T => Driver[T]) = {
     val driver = gen(stream.payload)
@@ -128,6 +141,11 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
 class FlowDriver[T <: Data](flow : Flow[T], clockDomain: ClockDomain) {
 
   flow.valid #= false
+  flow.payload.flatten.filter(p => p != null).foreach {
+    case uint: UInt => uint #= 0
+    case bits: Bits => bits #= 0
+    case bool: Bool => bool #= false
+  }
 
   def #= (gen : T => Driver[T]) = {
     val driver = gen(flow.payload)
@@ -199,7 +217,7 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
 
   def memoryWrite(addr : Int, size : Int, data : BigInt) : Unit = {
     val buffer = data.toByteArray
-    for (idx <- 0 until size) {
+    for (idx <- 0 until Math.min(size, buffer.size)) {
       memory(idx + addr) = buffer(idx)
     }
   }
@@ -286,7 +304,7 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
           }
           case 2 => {
             bus.writeRsp.valid #= true
-            bus.writeRsp.resp #= Axi4.resp.OKAY.toInt
+            bus.writeRsp.resp #= 0
           }
         }
 
@@ -297,7 +315,7 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
           case 0 => {
             if (bus.writeCmd.valid.toBoolean) {
               write.beats = if (config.useLen) bus.writeCmd.len.toInt else 0
-              write.burst = if (config.useBurst) bus.writeCmd.burst.toInt else Axi4.burst.FIXED.toInt
+              write.burst = if (config.useBurst) bus.writeCmd.burst.toInt else 0
               write.addr = bus.writeCmd.addr.toInt * config.bytePerWord
               write.state = 1
             }

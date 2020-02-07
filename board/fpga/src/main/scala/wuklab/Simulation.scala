@@ -2,12 +2,26 @@ package wuklab
 
 import wuklab.sim._
 import spinal.core._
-import spinal.sim._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4CrossbarFactory}
-import spinal.lib._
 
-import scala.util.Random
+case class CoreMemSimConfig() extends CoreMemConfig {
+   val physicalAddrWidth = 32
+   val virtualAddrWidth = 64
+   val hashtableAddrWidth = 16
+   val tagWidth = 48
+   val ppaWidth = 16
+   val pageSizes = Seq[Int](1,2,3)
+   // Cache config
+   val numCacheCells = 128
+   val numPageFaultCacheCells = 16
+   // Hash Table Config
+   val hashtableBaseAddr = 0
+   val pteAddrWidth = 4
+
+   val ptePerLine = 4
+   val ptePerBucket = 16
+}
+
 
 object MemoryRegisterInterfaceSim {
 
@@ -42,8 +56,9 @@ object MemoryRegisterInterfaceSim {
 
 object FetchUnitSim {
   import AssignmentFunctions._
+  val config = CoreMemSimConfig()
   def main(args: Array[String]): Unit = {
-    SimConfig.withWave.doSim(new FetchUnit(24)) { dut =>
+    SimConfig.withWave.doSim(new FetchUnit()(config)) { dut =>
 
       dut.clockDomain.forkStimulus(5)
 
@@ -68,6 +83,76 @@ object FetchUnitSim {
 
     }
   }
+}
+
+object MySpinalConfig extends SpinalConfig(
+  defaultConfigForClockDomains = ClockDomainConfig(
+    resetActiveLevel = LOW
+  )
+)
+
+object PageFaultUnitSim {
+  import AssignmentFunctions._
+  class FullPageFault extends Component {
+    val ppaWidth = 16
+    val tagWidth = 48
+    val numPageSizes = 3
+    val fault = new PageFaultUint()(CoreMemSimConfig())
+    val writer = new PageTableWriter()(CoreMemSimConfig())
+    fault.io.memWriteData >> writer.io.reqData
+    fault.io.memWriteUser >> writer.io.reqUser
+    fault.io.memWriteRes << writer.io.res
+
+    fault.io.simPublic()
+    writer.io.simPublic()
+  }
+
+  def main(args: Array[String]): Unit = {
+    SimConfig.withConfig(MySpinalConfig).withWave.doSim(
+      new FullPageFault
+    ) { dut =>
+      dut.clockDomain.forkStimulus(5)
+      // We have to add this line to bring the assignment up for submodules
+      dut.clockDomain.waitSampling
+
+      dut.fault.io.res.ready #= true
+      val req = new StreamDriver(dut.fault.io.req, dut.clockDomain)
+      val fifos = dut.fault.io.addrFifos.map(f => new StreamDriver(f, dut.clockDomain))
+      val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 1024)
+      mem =# dut.writer.io.bus
+
+      dut.clockDomain.waitRisingEdge(5)
+
+      for ((fifo, idx) <- fifos.zipWithIndex) {
+        fork {
+          val seq = (1 to 5).map(_ + 0x10 * idx)
+          fifo #= SeqDataGen(seq: _*)
+        }
+      }
+
+      req #= SeqDataGen(
+        (1, 2, true, true, 3),
+        (4, 5, true, false, 6)
+      )
+
+      dut.clockDomain.waitRisingEdge(20)
+
+    }
+  }
+}
+
+object AddressLookupUnitSim {
+  import AssignmentFunctions._
+
+  def main(args: Array[String]): Unit = {
+    SimConfig.withConfig(MySpinalConfig).withWave.doSim (
+      new AddressLookupUnit()(CoreMemSimConfig())
+    ) { dut =>
+      dut.clockDomain.forkStimulus(5)
+
+    }
+  }
+
 }
 
 object IDPoolSim {
@@ -184,7 +269,11 @@ object LookupTableStoppableSim {
       fork {
         dut.clockDomain.waitRisingEdge(12)
         dut.io.rd.res.ready #= false
-        dut.clockDomain.waitRisingEdge(3)
+        dut.clockDomain.waitRisingEdge(2)
+        dut.io.rd.res.ready #= true
+        dut.clockDomain.waitRisingEdge(2)
+        dut.io.rd.res.ready #= false
+        dut.clockDomain.waitRisingEdge(5)
         dut.io.rd.res.ready #= true
       }
 

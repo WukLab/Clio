@@ -3,106 +3,118 @@ package wuklab
 import wuklab.Utils._
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4W, Axi4Aw, Axi4Config, Axi4ReadOnly, Axi4WriteOnly}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Aw, Axi4Config, Axi4ReadOnly, Axi4W, Axi4WriteOnly, Axi4WriteOnlyUpsizer}
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
 
 // Input : Pte Without physical addr (ppa)
 // Output : Pte With ppa
-class PageFaultUint(addrWidth : Int, numPageSizes : Int) extends Component {
-  val numCells = 32
-  val cellWidth = log2Up(numCells)
+// (ppaWidth : Int, tagWidth : Int, numPageSizes : Int)
 
-  val pteStreamType = PageTableEntry(ppaWidth = 24, tagWidth = 48, usePteAddr = true)
+class PageFaultUint(implicit config : CoreMemConfig) extends Component {
+  // TODO: init unused registers
 
   val io = new Bundle {
-    val req       = slave  Stream pteStreamType
-    val res       = master Stream PageTableEntry(ppaWidth = 24, useTag = false)
-    val rpt       = master Flow pteStreamType
-    val addrFifos = Vec(slave Stream UInt(40 bits), numPageSizes)
+    val req       = slave  Stream config.pteWithAddrType
+    val res       = master Stream config.pteResType
+    val rpt       = master Flow config.pteWithAddrType
+    val addrFifos = Vec(slave Stream UInt(config.ppaWidth bits), config.numPageSizes)
 
-    val repRes = slave Flow UInt(cellWidth bits)
-    val memWriteData = master Stream pteStreamType
-    val memWriteUser = master Stream UInt(cellWidth bits)
+    val memWriteRes = slave Flow UInt(config.pageFaultCellWidth bits)
+    val memWriteData = master Stream config.pteWithAddrType
+    val memWriteUser = master Stream UInt(config.pageFaultCellWidth bits)
   }
 
-  val cam = new LookupTableStoppable(48, pteStreamType.packedWidth, numCells)
+  val cam = new LookupTableStoppable(config.tagWidth, config.pteCompactWidth, config.numPageFaultCacheCells)
 
   // The page fault Path
   val pageFaultPath = new Area {
-    cam.io.wr.shootDown << io.repRes
+    cam.io.wr.shootDown << io.memWriteRes
 
     cam.io.rd.req.translateFrom (io.req) ((cmd, pte) => cmd.key := pte.tag)
 
     // delayed pipeline interface
     val originalPte = cam.delay(io.req.payload)
     val lookupResult = cam.io.rd.res.fmap(r => {
-      val sel = r.hit && originalPte.used)
-      Mux(sel, PageTableEntry.compact(pteStreamType, r.value.asBits), originalPte)
+      val sel = r.hit && originalPte.used
+      Mux(sel, PageTableEntry.compact(originalPte, r.value.asBits), originalPte)
     })
-    // TODO: this may stall the system
 
     val selectedAddr = StreamMux(lookupResult.pageType, io.addrFifos.toSeq)
-    val afterAlloc = (lookupResult >*< selectedAddr).bimap ((pte, ppa) => {
-      when (!pte.used) { pte.ppa := ppa }
-      pte
-    })
+    // merge when
+    val afterAlloc = Stream(Pair(Bool, lookupResult.payloadType()))
+    val mergeCtrl = new Area {
+      val noAlloc = lookupResult.used || !lookupResult.allocated
+      lookupResult.ready := Mux(noAlloc, afterAlloc.ready, afterAlloc.ready && selectedAddr.valid)
+      selectedAddr.ready := !noAlloc && afterAlloc.ready && lookupResult.valid
+      afterAlloc.valid := Mux(noAlloc, lookupResult.valid, lookupResult.valid && selectedAddr.valid)
+      afterAlloc.payload.fst := noAlloc
+      afterAlloc.payload.snd := lookupResult.payload
+      when (!noAlloc) {
+        afterAlloc.snd.used := True
+        afterAlloc.snd.ppa := selectedAddr.payload
+      }
+    }
   }
 
   // Report to the control agent
   // Send to the write unit
-  val Seq(faultRpt, faultFwd) = StreamFork(pageFaultPath.afterAlloc, 2)
+  val Seq(bramWr, faultRpt, faultFwd) = StreamFork(pageFaultPath.afterAlloc.stage, 3)
 
-  cam.io.wr.req.translateFrom (faultRpt) ((next, pte) => {
-    next.value := pte.asBits.asUInt
-    next.key := pte.tag
+  // TODO: check this write path, add new content
+  cam.io.wr.req.translateFrom (bramWr.throwWhen(bramWr.fst)) ((next, pte) => {
+    next.value := pte.snd.asCompactBits.asUInt
+    next.key := pte.snd.tag
     next.mask := 0
-    next.enable := True
   })
 
-  io.memWriteData << faultRpt
+  val pageFaults = faultRpt.throwWhen(faultRpt.fst).fmap(_.snd)
+  io.memWriteData << pageFaults
   io.memWriteUser << cam.io.wr.res.asStream
 
-  io.rpt << faultRpt.tapAsFlow
+  io.rpt << pageFaults.tapAsFlow
 
-  io.res <-< faultFwd
+  io.res << faultFwd.fmap(_.snd)
 }
 
-class PageTableWriter(addrWidth : Int, userWidth : Int) extends Component {
-  val pteType = PageTableEntry(ppaWidth = 24, tagWidth = 48, usePteAddr = true)
-  val config = Axi4Config(
-    addressWidth = addrWidth,
-    dataWidth = pteType.packedWidth,
+// (ppaWidth : Int, tagWidth : Int, busAddrWidth : Int, userWidth : Int)
+class PageTableWriter(implicit config: CoreMemConfig) extends Component {
+  val memoryLatency = 32
+  val memConfig = Axi4Config(
+    addressWidth = config.hashtableAddrWidth,
+    dataWidth = config.pteWithAddrType.packedWidth,
     useId = false,
     useRegion = false,
     useBurst = false,
     useLock = false,
     useQos = false,
     useLen = false,
-    useResp = false,
+    useResp = true,
     useProt = false,
     useCache = false,
-    wUserWidth = userWidth
+    useLast = false,
+    useStrb = false
   )
-  val io = new Bundle {
-    val bus = master (Axi4WriteOnly(config))
-    val reqData = slave Stream pteType
-    val reqUser = slave Stream UInt(userWidth bits)
-    val res = slave Flow UInt(userWidth bits)
 
+  val io = new Bundle {
+    val bus = master (Axi4WriteOnly(memConfig))
+    val reqData = slave Stream config.pteWithAddrType
+    val reqUser = slave Stream UInt(config.pageFaultCellWidth bits)
+    val res = master Flow UInt(config.pageFaultCellWidth bits)
   }
 
-  val dataIn = io.reqData >*< io.reqUser
+  val userFifo = StreamFifo(UInt(config.pageFaultCellWidth bits), memoryLatency)
 
-  val (cmd, data) = StreamFork2(dataIn)
+  io.reqUser >> userFifo.io.push
 
-  io.bus.writeCmd.translateFrom  (cmd)  ((cmd, pte) => cmd.addr := pte.fst.pteAddr)
-  io.bus.writeData.translateFrom (data) ((cmd, pte) => {
-    cmd.data := pte.fst.asBits
-    cmd.user := pte.snd.asBits
+  val (cmd, data) = StreamFork2(io.reqData)
+  io.bus.writeCmd.translateFrom  (cmd)  ((cmd, pte) => {
+    cmd.addr := config.getPteBusAddr(pte.pteAddr)
+    cmd.size := Axi4.size.BYTE_16.asUInt
   })
+  io.bus.writeData.translateFrom (data) ((cmd, pte) => cmd.data := pte.asBits)
 
-  io.res << io.bus.writeRsp.toFlow.fmap(_.user.asUInt)
+  io.res << (io.bus.writeRsp.stage() *> userFifo.io.pop).toFlow
 }
 
 trait HashFunction extends StoppablePipeline {
@@ -120,17 +132,12 @@ class LinearHashFunction(val outputWidth: Int, enable : Bool) extends HashFuncti
 
 }
 
-class FetchUnit(busAddrWidth : Int) extends Component {
+class FetchUnit(implicit config: CoreMemConfig) extends Component {
 
-  val inflightSize = 0
-  val numLines = 4
-  val entryWidth = 128
-  val tagWidth = 48
-  val offsetWidth = 16
-  val hashTableBaseAddr = U(0, busAddrWidth bits)
+  val hashTableBaseAddr = U(0, config.hashtableAddrWidth bits)
 
   val axi4Config = Axi4Config(
-    addressWidth = busAddrWidth,
+    addressWidth = config.hashtableAddrWidth,
     dataWidth = 512,
     useId = false,
     useRegion = false,
@@ -143,11 +150,10 @@ class FetchUnit(busAddrWidth : Int) extends Component {
     useCache = false
   )
 
-  val outputPteType = PageTableEntry(ppaWidth = 48, tagWidth = 48, usePteAddr = true)
   val io = new Bundle {
     val bus = master (Axi4ReadOnly(axi4Config))
-    val req = slave Stream AddressLookupRequest(48)
-    val res = master Stream outputPteType
+    val req = slave Stream config.lookupReqType
+    val res = master Stream config.pteWithAddrType
   }
 
   val fifo = new StreamFifoLowLatency(io.bus.readCmd.payloadType, 1, 0)
@@ -155,24 +161,23 @@ class FetchUnit(busAddrWidth : Int) extends Component {
 
   // These fifos are part of the watermark system
   val retFifo = StreamFifo(Bits(512 bits), 64)
-  val reqFifoType = new Bundle {
+  val reqFifo = StreamFifo(new Bundle {
     val tag = cloneOf(io.req.tag)
     val seqId = cloneOf(io.req.seqId)
-    val offset = UInt(offsetWidth bits)
-  }
-  val reqFifo = StreamFifo(reqFifoType, 64)
+    val addr = UInt(config.pteAddrWidth bits)
+  }, 64)
 
   val hashCtrl = new Area {
     io.req.ready := almostFull.ready
 
-    val hashFunc = new LinearHashFunction(offsetWidth, almostFull.ready)
-    val readAddr = new Flow(UInt(offsetWidth bits))
+    val hashFunc = new LinearHashFunction(config.pteAddrWidth, almostFull.ready)
+    val readAddr = new Flow(UInt(config.pteAddrWidth bits))
     readAddr.payload := hashFunc.hash(io.req.tag)
     readAddr.valid := hashFunc.delay(io.req.fire) init False
 
     val delayedReq = hashFunc.delayFlow(io.req.payload, io.req.fire)
     reqFifo.io.push.tag := delayedReq.tag
-    reqFifo.io.push.offset := readAddr.payload
+    reqFifo.io.push.addr := readAddr.payload
     reqFifo.io.push.seqId := delayedReq.seqId
     reqFifo.io.push.valid := io.bus.readCmd.fire
   }
@@ -184,20 +189,19 @@ class FetchUnit(busAddrWidth : Int) extends Component {
     val readValid = hashCtrl.readAddr.valid & fifo.io.push.ready
 
     fifo.io.push.valid := readValid
-    fifo.io.push.addr := hashTableBaseAddr + hashCtrl.readAddr.payload
+    fifo.io.push.addr := config.getPteBusAddr(hashCtrl.readAddr.payload)
     fifo.io.push.size := Axi4.size.BYTE_64.asUInt
-    fifo.io.push.len := numLines - 1
+    fifo.io.push.len := config.linePerBucket - 1
     fifo.io.push.setBurstINCR
   }
 
   val matchCtrl = new Area {
-    val numPTEperBeat = 512 / entryWidth
     // TODO : find back pressure signal
     val ready = True
 
     val valid = RegNext(retFifo.io.pop.fire) init False
     val hit = Reg(Bool) init False
-    val selected = Reg (outputPteType)
+    val selected = Reg (config.pteWithAddrType)
 
     io.bus.r.fmap(_.data) >> retFifo.io.push
 
@@ -206,14 +210,14 @@ class FetchUnit(busAddrWidth : Int) extends Component {
 
     when (retFifo.io.pop.fire) {
       val ptes = retFifo.io.pop.payload
-        .as(Vec(Bits(entryWidth bits), numPTEperBeat))
-        .map(cloneOf(outputPteType).fromBits(_))
+        .as(Vec(Bits(config.pteFullWidth bits), config.ptePerLine))
+        .map(cloneOf(config.pteWithAddrType).fromBits(_))
       // TODO: Change tag fifo to this
       for ((pte, i) <- ptes.zipWithIndex) {
         pte.seqId := reqFifo.io.pop.seqId
-        pte.pteAddr := reqFifo.io.pop.offset + i * (entryWidth / 8)
+        pte.pteAddr := reqFifo.io.pop.addr + (U(i, config.pteAddrWidth bits) |<< log2Up(config.pteFullBytes))
       }
-      val matchVec = ptes.map(pte => pte.valid && pte.tag === reqFifo.io.pop.tag)
+      val matchVec = ptes.map(pte => pte.allocated && pte.tag === reqFifo.io.pop.tag)
 
       selected := PriorityMux(matchVec, ptes)
       hit := matchVec.reduce(_ || _)
@@ -221,11 +225,11 @@ class FetchUnit(busAddrWidth : Int) extends Component {
   }
 
   val writeCtrl = new Area {
-    val counter = Counter(0 until numLines, matchCtrl.valid)
+    val counter = Counter(0 until config.linePerBucket, matchCtrl.valid)
     val pte = RegNextWhen(matchCtrl.selected, matchCtrl.hit && matchCtrl.valid)
 
     when (counter.willOverflow) {
-      pte.valid.clear()
+      pte.allocated.clear()
       pte.used.clear()
     }
 
@@ -243,79 +247,83 @@ object UpdateFunctions {
 }
 
 class UpdateUnit(
-                  tagWidth : Int,
-                  pteWidth : Int,
-                  numCells : Int,
                   updateFunction : (Flow[UInt], Flow[UInt], Flow[UInt]) => Stream[UInt]
-                ) extends Component {
-
-  assert(isPow2(numCells))
-  val cellWidth = log2Up(numCells)
+                )(implicit config : CoreMemConfig) extends Component {
 
   val io = new Bundle {
     // Communication FIFOs
     val rpt = new Bundle {
-      val hit = slave Flow UInt(cellWidth bits)
-      val shootDown = slave Flow UInt(cellWidth bits)
-      val alloc = slave Flow UInt(cellWidth bits)
-      val update = slave Flow PageTableEntry(ppaWidth = 24, tagWidth = 48, usePteAddr = true)
+      val hit = slave Flow UInt(config.cacheCellWidth bits)
+      val shootDown = slave Flow UInt(config.cacheCellWidth bits)
+      val alloc = slave Flow UInt(config.cacheCellWidth bits)
+      val update = slave Flow config.pteWithPpaType
     }
 
-    val insertReq = master Stream LookupWrite(48, 48)
+    val insertReq = master Stream LookupWrite(config.tagWidth, rpt.update.compactWidth, useUsed = true, usedWidth = config.cacheCellWidth)
   }
 
   // This flow is always ready
-  val nextEvictionId = new Stream(UInt(cellWidth bits))
+  val nextEvictionId = new Stream(UInt(config.cacheCellWidth bits))
   nextEvictionId << updateFunction(io.rpt.alloc, io.rpt.hit, io.rpt.shootDown)
 
   io.insertReq.translateFrom (io.rpt.update.asStream >*< nextEvictionId)((cmd, p) => {
     val Pair(pte, id) = p
     cmd.usedCell := id
-    cmd.key := pte.ppa
+    cmd.key := pte.tag
+    cmd.mask := config.getMask(pte.pageType)
     cmd.value := pte.asCompactBits.asUInt
   })
 
 }
 
 // Wrapper of the cache, change io to the request, add mux and demux
-class BramCache(tagWidth : Int, numCells : Int) extends Component {
-  val cellWidth = log2Up(numCells)
-  val tableValueWidth = 10
+class BramCache(implicit config : CoreMemConfig) extends Component {
 
-  val table = new LookupTableStoppable(tagWidth, tableValueWidth, numCells,
+  val table = new LookupTableStoppable(config.tagWidth, config.pteCompactWidth, config.numCacheCells,
     useUsed = true, autoUpdate = true, useHitReport = true)
 
   val io = new Bundle {
     val cmd = new Bundle {
-      val req = slave Stream AddressLookupRequest(48)
-      val fwd = master Stream AddressLookupRequest(48)
-      val res = master Stream PageTableEntry(ppaWidth = 48, tagWidth = 48)
+      val req = slave Stream config.lookupReqType
+      val fwd = master Stream config.lookupReqType
+      val res = master Stream config.pteWithPpaType
     }
 
     val ctrl = new Bundle {
-      val insertReq = slave Stream cloneOf(table.io.wr.req)
-      val hitRpt = master Flow UInt(cellWidth bits)
-      val allocRpt = master Flow UInt(cellWidth bits)
-      val shootDownRpt = master Flow UInt(cellWidth bits)
+      val insertReq = slave Stream table.io.wr.req.payloadType()
+      val hitRpt = master Flow UInt(config.cacheCellWidth bits)
+      val allocRpt = master Flow UInt(config.cacheCellWidth bits)
+      val shootDownRpt = master Flow UInt(config.cacheCellWidth bits)
     }
 
   }
 
   io.ctrl.insertReq >> table.io.wr.req
   io.ctrl.allocRpt << table.io.wr.res
-  io.ctrl.hitRpt << table.io.rd.rpt
 
   val lookupCtrl = new Area {
     io.cmd.req.fmap(r => LookupReadReq(r.tag)) >> table.io.rd.req
     // read out
-    val Seq(fwd, res) = table.io.rd.res.hit.demux(table.io.rd.res)
-    // forward path
+    // TODO: fix this constant for shoot down
     val delayedCmd = table <|| io.cmd.req
+    val isShootDown = delayedCmd.reqType === 1
+    val isResult = table.io.rd.res.hit
+
+    val Seq(fwd, res) = isResult.demux(table.io.rd.res.throwWhen(isShootDown))
+    // forward path
     io.cmd.fwd <-< (delayedCmd <* fwd)
     // result path
+    // TODO: change this assignment
     val pte = io.cmd.res.payloadType()
+    pte.seqId := delayedCmd.seqId
     io.cmd.res << res.fmap(r => pte.fromCompactBits(r.value.asBits))
+
+    val Seq(hitRpt, shootDownRpt) = isShootDown.demux(table.io.rd.rpt)
+    io.ctrl.hitRpt << hitRpt
+    io.ctrl.shootDownRpt << shootDownRpt
+    table.io.wr.shootDown << shootDownRpt
   }
+
 
 
 }
@@ -323,33 +331,37 @@ class BramCache(tagWidth : Int, numCells : Int) extends Component {
 // TODO: make this a factory
 // Basically control agent is a fifo arbiter. It handles two kinds of FIFOs: Sync ones and Async ones.
 // SoC should make sure the FIFO is not blocked. It also handles the number of the names
-class LookupControlAgent(numAsyncFifos : Int) extends Component {
+class LookupControlAgent(implicit config : CoreMemConfig) extends Component {
   val io = new Bundle {
     val cmdIn = slave Stream ControlRequest()
-    val cmdOut = slave Stream ControlRequest()
+    val cmdOut = master Stream ControlRequest()
 
     // master control signals
-    val asyncFifos = Vec(master Stream UInt(40 bits), numAsyncFifos)
-    val shootDownCmd = master Flow UInt(20 bits)
+    val asyncFifos = Vec(master Stream UInt(config.ppaWidth bits), config.numPageSizes)
 
     // report to master
-    val hitRpt = slave Flow UInt(20 bits)
-    val pageFaultRpt = slave Stream UInt(width = 40 bits)
+    val hitRpt = slave Flow UInt(config.cacheCellWidth bits)
+    val pageFaultRpt = slave Flow UInt(config.pteAddrWidth bits)
   }
 
   // TODO: add fifo length here
 
   // Write Command
-  val inputs = StreamDemux(io.cmdIn, io.cmdIn.cid, numAsyncFifos + 1)
-  for (i <- 0 until numAsyncFifos)
-    inputs(i).fmap(_.param32) >> io.asyncFifos(i)
-  inputs(numAsyncFifos).fmap(_.param32).toFlow >> io.shootDownCmd
+  val numOutputFifos = config.numPageSizes
+  val inputs = StreamDemux(io.cmdIn, io.cmdIn.cid(log2Up(numOutputFifos)-1 downto 0), numOutputFifos)
+  for (i <- 0 until numOutputFifos)
+    inputs(i).fmap(resizeParam(_, config.ppaWidth)) >> io.asyncFifos(i)
 
   // Read Command
-  io.cmdOut << StreamArbiterFactory.sequentialOrder.onArgs(
-    io.hitRpt.asStream.fmap(u => ControlRequest(0x10, param32 = u)),
-    io.pageFaultRpt.fmap(u => ControlRequest(0x11, param32 = u))
+  io.cmdOut << StreamArbiterFactory.onArgs(
+    io.hitRpt.asStream.fmap(u => ControlRequest(0x10, param32 = u.resize(32))),
+    io.pageFaultRpt.asStream.fmap(u => ControlRequest(0x11, param32 = u.resize(32)))
   )
+
+  def resizeParam(req : ControlRequest, size : Int): UInt = {
+    assert(size <= 40, "over sized prameter")
+    (req.param8 ## req.param32).resize(size).asUInt
+  }
 
 }
 
@@ -543,7 +555,7 @@ class MemoryAccessUnit(phyAddrWidth : Int) extends Component {
   val lookbackSize = 256
 
   val io = new Bundle {
-    val req = slave  Stream AccessCommand(48)
+    val req = slave  Stream PageTableEntry(useTag = false, ppaWidth = 24)
     val dataIn  = slave Stream UInt(512 bits)
     val dataOut = master Stream UInt(512 bits)
 
@@ -621,51 +633,74 @@ class MemoryAccessUnit(phyAddrWidth : Int) extends Component {
 }
 
 
-class AddressLookupUnit extends Component {
-  val tagWidth = 28
-  val numCacheCells = 128
-  val tableAddrWidth = 16
-  val numPageSizes = 3
+class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
+  val axi4Config = Axi4Config(
+    addressWidth = config.hashtableAddrWidth,
+    dataWidth = 512,
+    useId = false,
+    useRegion = false,
+    useBurst = true,
+    useLock = false,
+    useQos = false,
+    useLen = true,
+    useResp = false,
+    useProt = false,
+    useCache = false,
+    useStrb = false
+  )
+
   // input: request
   val io = new Bundle {
-    val req = slave Stream AddressLookupRequest(48)
-    val res = master Stream PageTableEntry(usePpa = false, tagWidth = 48, usePteAddr = false)
+    val req = slave Stream config.lookupReqType
+    val res = master Stream config.pteResType
     val ctrl = new Bundle {
       val in = slave Stream ControlRequest()
-      val out = slave Stream ControlRequest()
+      val out = master Stream ControlRequest()
     }
+    val bus = master (new Axi4(axi4Config))
   }
 
   // TODO: rething this arrows. if theres timing violation, first add pipelines here
   // Control Agent
-  val agent = new LookupControlAgent(3)
+  val agent = new LookupControlAgent
   io.ctrl.in >> agent.io.cmdIn
-  io.ctrl.out >> agent.io.cmdOut
+  io.ctrl.out << agent.io.cmdOut
 
   // bram cache & update unit
-  val cache = new BramCache(tagWidth, numCacheCells)
-  val update = new UpdateUnit(48, 48, 48, UpdateFunctions.fifoUpdate)
+  val cache = new BramCache
+  val update = new UpdateUnit(UpdateFunctions.fifoUpdate)
   cache.io.cmd.req << io.req
   cache.io.ctrl.insertReq << update.io.insertReq
   update.io.rpt.hit << cache.io.ctrl.hitRpt
   update.io.rpt.alloc << cache.io.ctrl.allocRpt
+  update.io.rpt.shootDown << cache.io.ctrl.shootDownRpt
+
+  cache.io.ctrl.hitRpt >> agent.io.hitRpt
 
   // fetch unit
-  val fetch = new FetchUnit(tableAddrWidth)
-  fetch.io.req << cache.io.cmd.fwd
+  val fetcher = new FetchUnit
+  fetcher.io.req << cache.io.cmd.fwd
 
   // pagefault unit
-  val pageFault = new PageFaultUint(tableAddrWidth, numPageSizes)
-  val writer = new PageTableWriter(tableAddrWidth, 16)
-  pageFault.io.req << fetch.io.res
-  pageFault.io.repRes << writer.io.res
+  val pageFault = new PageFaultUint
+  val writer = new PageTableWriter
+  pageFault.io.req << fetcher.io.res
+  pageFault.io.memWriteRes << writer.io.res
   (pageFault.io.addrFifos, agent.io.asyncFifos).zipped map (_ << _)
   writer.io.reqData << pageFault.io.memWriteData
   writer.io.reqUser << pageFault.io.memWriteUser
 
   pageFault.io.rpt >> update.io.rpt.update
+  pageFault.io.rpt.fmap(_.pteAddr) >> agent.io.pageFaultRpt
+
+  // bus assignment
+  val writeAdapter = Axi4WriteOnlyNonBurstUpsizer(writer.io.bus.config, io.bus.config)
+  writer.io.bus >> writeAdapter.io.input
+  writeAdapter.io.output >> io.bus
+  fetcher.io.bus >> io.bus
 
   // merge here
+  // TODO: make this a component
   val counter = Counter(16 bits, io.res.fire)
   val streams = Seq(cache.io.cmd.res, pageFault.io.res)
   io.res << StreamMux(OHToUInt(streams.map(_.seqId === counter.value)), streams)
