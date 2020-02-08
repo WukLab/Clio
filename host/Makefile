@@ -1,7 +1,12 @@
 INCLUDE := -I../include
-CFLAGS :=
+CFLAGS := -libverbs -lpthread
 
-SRCS := $(wildcard *.c)
+SRCS := core.c \
+	net/core.c \
+	net/raw_verbs.c
 
-all: $(SRCS)
+all: $(SRCS) 
 	gcc -o host.o $(CFLAGS) $(INCLUDE) $(SRCS)
+
+clean:
+	rm *.o

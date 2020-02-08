@@ -7,9 +7,9 @@
 #include <uapi/list.h>
 #include <uapi/err.h>
 
-#include "net.h"
+#include "net/net.h"
 
 int main (int argc, char **argv)
 {
-	test_raw_socket();
+	init_net();
 }
