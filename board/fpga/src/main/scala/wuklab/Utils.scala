@@ -11,7 +11,7 @@ trait XilinxAXI4Toplevel {
     this.noIoPrefix()
     for (wire <- this.getAllIo) {
       val newName = wire.getName().replaceAll("(a?[wrb])_(payload_)?", "$1")
-      println(wire, wire.getName(), newName)
+      println(f"Xilinx: Rename $wire, ${wire.getName()} -> $newName")
       wire.setName(newName)
     }
   }
@@ -39,7 +39,7 @@ object StreamJoinMaster{
 object WaterMarkFifo {
   def apply[T <: Data](from : Stream[T], waterMark: Int, halt : Bool = False) : Stream[T] = {
     val fifo = new StreamFifo(from.payloadType, waterMark * 2)
-    fifo.io.push << from.haltWhen(halt && fifo.io.availability < waterMark)
+    fifo.io.push << from.haltWhen(halt || fifo.io.availability < waterMark)
     fifo.io.pop
   }
 }
@@ -51,6 +51,8 @@ trait WithValid[T <: Data] {
 object Utils {
   // Definations
   type Valid[T <: Data] = Flow[T]
+  // We only need an extra last for this type
+  type AxiStream[T <: Data] = Stream[Fragment[T]]
 
   implicit class IntUtils(i : Int) {
     def countBy (n : Int): Range = {
@@ -195,6 +197,10 @@ object Utils {
 
     def takeBy(f : T => Bool) : Flow[T] = {
       flow.takeWhen(f(flow.payload))
+    }
+
+    def throwBy(f : T => Bool) : Flow[T] = {
+      flow.throwWhen(f(flow.payload))
     }
   }
 
