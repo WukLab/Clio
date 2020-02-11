@@ -1,27 +1,31 @@
 package wuklab
 
-import wuklab.sim._
+import wuklab.sim.{AddressLookupRequestSim, _}
 import spinal.core._
 import spinal.core.sim._
 
 case class CoreMemSimConfig() extends CoreMemConfig {
-   val physicalAddrWidth = 32
-   val virtualAddrWidth = 64
-   val hashtableAddrWidth = 16
-   val tagWidth = 48
-   val ppaWidth = 16
-   val pageSizes = Seq[Int](1,2,3)
-   // Cache config
-   val numCacheCells = 128
-   val numPageFaultCacheCells = 16
-   // Hash Table Config
-   val hashtableBaseAddr = 0
-   val pteAddrWidth = 4
+  val physicalAddrWidth = 32
+  val virtualAddrWidth = 64
+  val hashtableAddrWidth = 16
+  val tagWidth = 48
+  val ppaWidth = 16
+  val pageSizes = Seq[Int](2,4,8)
+  // Cache config
+  val numCacheCells = 128
+  val numPageFaultCacheCells = 16
+  // Hash Table Config
+  val hashtableBaseAddr = 0
+  val pteAddrWidth = 4
 
-   val ptePerLine = 4
-   val ptePerBucket = 16
+  val ptePerLine = 4
+  val ptePerBucket = 16
 }
 
+object SimContext {
+  implicit val config : CoreMemConfig = CoreMemSimConfig()
+}
+import SimContext._
 
 object MemoryRegisterInterfaceSim {
 
@@ -56,9 +60,8 @@ object MemoryRegisterInterfaceSim {
 
 object FetchUnitSim {
   import AssignmentFunctions._
-  val config = CoreMemSimConfig()
   def main(args: Array[String]): Unit = {
-    SimConfig.withWave.doSim(new FetchUnit()(config)) { dut =>
+    SimConfig.withWave.doSim(new FetchUnit) { dut =>
 
       dut.clockDomain.forkStimulus(5)
 
@@ -75,8 +78,8 @@ object FetchUnitSim {
       dut.io.res.ready #= true
 
       wrReq #= SeqDataGen(
-        (0, 0, 0, 0),
-        (0, 0, 0, 0)
+        (0, 0, 0),
+        (0, 0, 0)
       )
 
       dut.clockDomain.waitRisingEdge(20)
@@ -118,7 +121,7 @@ object PageFaultUnitSim {
       dut.fault.io.res.ready #= true
       val req = new StreamDriver(dut.fault.io.req, dut.clockDomain)
       val fifos = dut.fault.io.addrFifos.map(f => new StreamDriver(f, dut.clockDomain))
-      val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 1024)
+      val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 65536)
       mem =# dut.writer.io.bus
 
       dut.clockDomain.waitRisingEdge(5)
@@ -143,12 +146,48 @@ object PageFaultUnitSim {
 
 object AddressLookupUnitSim {
   import AssignmentFunctions._
+  import SimConversions._
 
   def main(args: Array[String]): Unit = {
     SimConfig.withConfig(MySpinalConfig).withWave.doSim (
-      new AddressLookupUnit()(CoreMemSimConfig())
+      new AddressLookupUnit
     ) { dut =>
       dut.clockDomain.forkStimulus(5)
+
+      dut.io.res.ready #= true
+      val req = new StreamDriver(dut.io.req, dut.clockDomain)
+      val ctrl = new StreamDriver(dut.io.ctrl.in, dut.clockDomain)
+      val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 65536)
+      val ptes = Seq(
+        (0x200, PageTableEntrySim(ppa = 0x1234, tag = 0x12, pageType = 0, used = true, allocated = true)),
+        (0x400, PageTableEntrySim(ppa = 0x5678, tag = 0x14, pageType = 1, used = true, allocated = true)),
+        (0x800, PageTableEntrySim(ppa = 0x9985, tag = 0x18, pageType = 2, used = false, allocated = true))
+      )
+      mem.init(ptes : _*)
+      mem =# dut.io.bus
+
+      dut.clockDomain.waitRisingEdge(5)
+
+      val ctrlMsgs = (0 until 3).map (i => (i, 0, 0x00F0 + i))
+      ctrl #= SeqDataGen(ctrlMsgs : _*)
+
+      req #= SeqDataGen(
+        AddressLookupRequestSim(seqId = 0, tag = 0x12, reqType = 0),
+        AddressLookupRequestSim(seqId = 1, tag = 0x14, reqType = 0),
+        AddressLookupRequestSim(seqId = 2, tag = 0x18, reqType = 0),
+        AddressLookupRequestSim(seqId = 3, tag = 0x22, reqType = 0)
+      )
+
+      dut.clockDomain.waitRisingEdge(80)
+
+      req #= SeqDataGen(
+        AddressLookupRequestSim(seqId = 4, tag = 0x13, reqType = 0),
+        AddressLookupRequestSim(seqId = 5, tag = 0x17, reqType = 0),
+        AddressLookupRequestSim(seqId = 6, tag = 0x1F, reqType = 0),
+        AddressLookupRequestSim(seqId = 7, tag = 0x22, reqType = 0)
+      )
+
+      dut.clockDomain.waitRisingEdge(80)
 
     }
   }

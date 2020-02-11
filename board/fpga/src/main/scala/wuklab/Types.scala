@@ -32,16 +32,20 @@ trait CoreMemConfig {
   def linePerBucket = ptePerBucket / ptePerLine
   def getPteBusAddr(addr : UInt): UInt = {
     assert(addr.getWidth == pteAddrWidth, "Wrong Pte Addr Width")
-    U(hashtableBaseAddr, hashtableAddrWidth bits) + (addr << pteAddrOffsetWidth)
+    U(hashtableBaseAddr, hashtableAddrWidth bits) + (addr << bucketAddrOffsetWidth)
   }
 
+  def pageOffsets = pageSizes.map(log2Up(_))
+  def pageMasks : Seq[UInt] = pageOffsets.map(i => {
+    val mask = UInt(tagWidth bits)
+    mask(tagWidth-1 downto i).setAll()
+    mask(i-1 downto 0).clearAll()
+    mask
+  })
   def getMask(pageType : UInt) : UInt = {
-    pageType.mux(
-      0 -> U(0, tagWidth bits),
-      1 -> U(1, tagWidth bits),
-      2 -> U(2, tagWidth bits),
-      default -> U(3, tagWidth bits)
-    )
+    assert(pageMasks.size == pageSizes.size)
+    val masks = pageMasks.zipWithIndex.map(_.swap)
+    pageType.muxList(U(0, tagWidth bits), masks)
   }
   // Core component
 //  assert(isPow2(numCacheCells), "Number of memory cells should be power of 2")
@@ -50,15 +54,27 @@ trait CoreMemConfig {
   // Types
   def lookupReqType = AddressLookupRequest(tagWidth)
 
-  def pteWithAddrType = PageTableEntry(ppaWidth = ppaWidth, tagWidth = tagWidth, pteAddrWidth = pteAddrWidth)
-  def pteResType = PageTableEntry(ppaWidth = ppaWidth, useTag = false)
-  def pteWithPpaType = PageTableEntry(ppaWidth = ppaWidth, tagWidth = tagWidth)
+  def pteWithAddrType = cloneOf(PageTableEntry(ppaWidth = ppaWidth, tagWidth = tagWidth, pteAddrWidth = pteAddrWidth))
+  def pteResType = cloneOf(PageTableEntry(ppaWidth = ppaWidth, useTag = false))
+  def pteWithPpaType = cloneOf(PageTableEntry(ppaWidth = ppaWidth, tagWidth = tagWidth))
 
   def pteFullWidth = pteWithAddrType.packedWidth
   def pteFullBytes = pteFullWidth / 8
   def pteCompactWidth = pteWithAddrType.compactWidth
 
   def pteAddrOffsetWidth = log2Up(pteFullBytes)
+  def bucketAddrOffsetWidth = log2Up(pteFullBytes * ptePerBucket)
+
+  def ppaOffsetWidth = physicalAddrWidth - ppaWidth
+
+  // Memory Access
+  def va2pa(pte : PageTableEntry, va : UInt): UInt = {
+    assert(va.getWidth == virtualAddrWidth)
+    assert(pte.usePpa)
+
+    val mask = ~getMask(pte.pageType)
+    (pte.ppa << ppaOffsetWidth) | (va.resize(physicalAddrWidth) & mask.resize(physicalAddrWidth))
+  }
 }
 
 object MemoryRequestType {
@@ -78,13 +94,13 @@ object MemoryRequestStatus {
   val errPermission = 0x02
 }
 
-case class LegoMemHeader(addrWidth : Int) extends Bundle {
+case class LegoMemHeader(virtAddrWidth : Int) extends Bundle {
   val pid       = UInt(16 bits)
   val seqId     = UInt(16 bits)
   val reqType   = UInt(8 bits)
   val reqParam  = UInt(8 bits)
   val size      = UInt(16 bits)
-  val addr      = UInt(addrWidth bits)
+  val addr      = UInt(virtAddrWidth bits)
   // Network infomation
   val srcIp     = UInt(32 bits)
   val srcPort   = UInt(8 bits)
@@ -130,6 +146,27 @@ case class ControlRequest() extends Bundle {
   val beats = UInt(4 bits)
   val param8  = UInt(8 bits)
   val param32 = UInt(32 bits)
+
+  override def asBits : Bits = {
+    val bits = Bits(64 bits)
+    bits(31 downto 0) := param32.asBits
+    bits(39 downto 32) := param8.asBits
+    bits(43 downto 40) := beats.asBits
+    bits(47 downto 44) := cmd.asBits
+    bits(55 downto 48) := addr.asBits
+    bits(63 downto 56) := cid.asBits
+    bits
+  }
+
+  override def assignFromBits(bits: Bits): Unit = {
+    assert(bits.getWidth == 64)
+    param32 := bits(31 downto 0).asUInt
+    param8  := bits(39 downto 32).asUInt
+    beats   := bits(43 downto 40).asUInt
+    cmd     := bits(47 downto 44).asUInt
+    addr    := bits(55 downto 48).asUInt
+    cid     := bits(63 downto 56).asUInt
+  }
 }
 
 // From lookup result to Memory Access Unit
@@ -152,7 +189,7 @@ object PageTableEntry {
   def full(pte : PageTableEntry, bits : Bits) : PageTableEntry = {
     val next = cloneOf(pte)
     next := pte
-    next.fromBits(bits)
+    next.fromFullBits(bits)
     next
   }
 }
@@ -172,18 +209,17 @@ case class PageTableEntry(
   def usePteAddr = pteAddrWidth > 0
 
   val seqId = UInt(16 bits)
-  val ppa = if (usePpa) UInt(ppaWidth bits) else null
   val used = Bool
   val allocated = Bool
   val pageType = UInt(2 bits)
 
+  val ppa = if (usePpa) UInt(ppaWidth bits) else null
   val tag = if (useTag) UInt(tagWidth bits) else null
-
   val pteAddr = if (usePteAddr) UInt(pteAddrWidth bits) else null
 
   // This function decides the physical layout of a PTE
   val packedWidth : Int = 128
-  override def asBits : Bits = {
+  def asFullBits : Bits = {
     assert(usePpa && useTag)
 
     val bits = Bits(packedWidth bits)
@@ -196,7 +232,7 @@ case class PageTableEntry(
     bits
   }
 
-  def fromBits(bits : Bits) = {
+  def fromFullBits(bits : Bits) = {
     assert(bits.getWidth == packedWidth)
 
     tag := bits(64 countBy tagWidth).asUInt
@@ -227,35 +263,29 @@ case class PageTableEntry(
 
   def entryAddr : UInt = pteAddr * 128
 
-  def := (entry: PageTableEntry) = {
-    // a complex assignment
-    used := entry.used
-    allocated := entry.allocated
-    pageType := entry.pageType
-    seqId := entry.seqId
-
-    if (usePpa) ppa := (if (entry.usePpa) entry.ppa else U"0")
-    if (useTag) tag := (if (entry.useTag) entry.tag else U"0")
-    if (usePteAddr) pteAddr := (if (entry.usePteAddr) entry.pteAddr else U"0")
-  }
+//  def := (entry: PageTableEntry) = {
+//    // a complex assignment
+//    used := entry.used
+//    allocated := entry.allocated
+//    pageType := entry.pageType
+//    seqId := entry.seqId
+//
+//    if (usePpa) ppa := (if (entry.usePpa) entry.ppa else U"0")
+//    if (useTag) tag := (if (entry.useTag) entry.tag else U"0")
+//    if (usePteAddr) pteAddr := (if (entry.usePteAddr) entry.pteAddr else U"0")
+//  }
 
 }
 
 
 // INTO and out of Sequencer
-case class AddressLookupRequest(addrWidth : Int) extends Bundle {
-  val pid       = UInt(16 bits)
+case class AddressLookupRequest(tagWidth : Int) extends Bundle {
   val seqId     = UInt(16 bits)
   val reqType   = UInt(2 bits)
-  val va        = UInt(addrWidth bits)
-
-  def tag : UInt = {
-    va
-  }
+  val tag       = UInt(tagWidth bits)
 }
 
 case class AddressLookupResult(addrWidth : Int) extends Bundle {
-  val pid       = UInt(16 bits)
   val seqId     = UInt(16 bits)
   val pte       = PageTableEntry(ppaWidth = addrWidth, usePpa = true, useTag = false)
 }

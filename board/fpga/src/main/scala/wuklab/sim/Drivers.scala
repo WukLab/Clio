@@ -6,7 +6,7 @@ import wuklab._
 import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4ReadOnly, Axi4WriteOnly}
+import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Ax, AxiLite4ReadOnly}
 import spinal.sim.SimThread
 
@@ -40,12 +40,11 @@ object AssignmentFunctions {
     t.value #= value
     if (t.useUsed) t.used #= false
   }
-  implicit def AddressLookupRequestAssign(a : (Int, Int, Int, Int), t : AddressLookupRequest): Unit = {
-    val (pid, seq, reqType, va) = a
-    t.pid #= pid
+  implicit def AddressLookupRequestAssign(a : (Int, Int, Int), t : AddressLookupRequest): Unit = {
+    val (seq, reqType, tag) = a
     t.seqId #= seq
     t.reqType #= reqType
-    t.va #= va
+    t.tag #= tag
   }
   implicit def PageTableEntryAssign(a : (Int, Int, Boolean, Boolean, Int), pte : PageTableEntry): Unit = {
     val (tag, ppa, valid, used, pteAddr) = a
@@ -54,6 +53,15 @@ object AssignmentFunctions {
     pte.allocated #= valid
     pte.used #= used
     if (pte.usePteAddr) pte.pteAddr #= pteAddr
+  }
+
+  implicit def ControlRequestAssign(a : (Int, Int, Int), cmd : ControlRequest): Unit = {
+    val (cid, cmdId, param) = a
+    cmd.addr #= 0
+    cmd.cid #= cid
+    cmd.cmd #= cmdId
+    cmd.param32 #= param & 0xFFFFFFFF
+    cmd.param8 #= param >> 32
   }
 
   def joinAll( simThreads: SimThread *): Unit = {
@@ -208,22 +216,25 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
   private val write = ChannelStates()
 
   def memoryRead(addr : Int, size : Int) : BigInt = {
+    println(f"Memory Read @$addr%08X:$size")
     // TODO: deal with unaligned accesses
     val buffer = new Array[Byte](size)
     for (idx <- 0 until size)
       buffer(idx) = memory(addr + idx)
-    new BigInt(new BigInteger(buffer))
+    new BigInt(new BigInteger(buffer.reverse))
   }
 
   def memoryWrite(addr : Int, size : Int, data : BigInt) : Unit = {
+    println(f"Memory Write @$addr%08X:$size")
     val buffer = data.toByteArray
     for (idx <- 0 until Math.min(size, buffer.size)) {
       memory(idx + addr) = buffer(idx)
     }
   }
 
-  def init(values : (Int, Seq[Byte]) *) = {
+  def init(values : (Int, Seq[Byte]) *): Axi4SlaveMemoryDriver = {
     for ((addr, data) <- values) {
+      println(f"Memory Init @$addr%08X:${data.size}")
       for (idx <- 0 until data.size) {
         memory(addr + idx) = data(idx)
       }
@@ -231,26 +242,29 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
     this
   }
 
-  def =# (bus : Axi4ReadOnly) : Unit = {
-    val config = bus.config
+  def init[T](values : (Int, T) *)(implicit assign: T => Seq[Byte]): Axi4SlaveMemoryDriver = {
+    init(values.map(p => (p._1, assign(p._2))) : _*)
+  }
+
+  def handleRead (config : Axi4Config, cmd : Stream[Axi4Ar], rsp : Stream[Axi4R]) : Unit = {
     // We do not join this thread, since it is a service not a simulating components
     fork {
-      bus.readCmd.ready #= false
-      bus.readRsp.valid #= false
+      cmd.ready #= false
+      rsp.valid #= false
       waitUntil(clockDomain.isResetDeasserted)
       while (true) {
         // State action
-        bus.readCmd.ready #= false
-        bus.readRsp.valid #= false
+        cmd.ready #= false
+        rsp.valid #= false
         read.state match {
           case 0 => {
-            bus.readCmd.ready #= true
+            cmd.ready #= true
           }
           case 1 => {
             if (config.useResp)
-              bus.readRsp.resp #= 0
-            bus.readRsp.data #= memoryRead(read.addr, config.bytePerWord)
-            bus.readRsp.valid #= true
+              rsp.resp #= 0
+            rsp.data #= memoryRead(read.addr, config.bytePerWord)
+            rsp.valid #= true
           }
         }
 
@@ -259,15 +273,15 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
         // State trans
         read.state match {
           case 0 => {
-            if (bus.readCmd.valid.toBoolean) {
-              read.beats = if (config.useLen) bus.readCmd.len.toInt else 0
-              read.burst = if (config.useBurst) bus.readCmd.burst.toInt else 0
-              read.addr = bus.readCmd.addr.toInt * config.bytePerWord
+            if (cmd.valid.toBoolean) {
+              read.beats = if (config.useLen) cmd.len.toInt else 0
+              read.burst = if (config.useBurst) cmd.burst.toInt else 0
+              read.addr = cmd.addr.toInt
               read.state = 1
             }
           }
           case 1 => {
-            if (bus.readRsp.ready.toBoolean) {
+            if (rsp.ready.toBoolean) {
               if (read.beats == 0) read.state = 0
               if (read.burst != 0)
                 read.addr += config.bytePerWord
@@ -281,30 +295,29 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
     }
   }
 
-  def =# (bus : Axi4WriteOnly) : Unit = {
-    val config = bus.config
+  def handleWrite (config : Axi4Config, cmd : Stream[Axi4Aw], data : Stream[Axi4W], rsp : Stream[Axi4B]) : Unit = {
     // We do not join this thread, since it is a service not a simulating components
     fork {
       // init value
-      bus.writeCmd.ready #= false
-      bus.writeData.ready #= false
-      bus.writeRsp.valid #= false
+      cmd.ready #= false
+      data.ready #= false
+      rsp.valid #= false
       waitUntil(clockDomain.isResetDeasserted)
       while (true) {
         // Data assignment
-        bus.writeCmd.ready #= false
-        bus.writeData.ready #= false
-        bus.writeRsp.valid #= false
+        cmd.ready #= false
+        data.ready #= false
+        rsp.valid #= false
         write.state match {
           case 0 => {
-            bus.writeCmd.ready #= true
+            cmd.ready #= true
           }
           case 1 => {
-            bus.writeData.ready #= true
+            data.ready #= true
           }
           case 2 => {
-            bus.writeRsp.valid #= true
-            bus.writeRsp.resp #= 0
+            rsp.valid #= true
+            if (config.useResp) rsp.resp #= 0
           }
         }
 
@@ -313,24 +326,24 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
         // State transfer
         write.state match {
           case 0 => {
-            if (bus.writeCmd.valid.toBoolean) {
-              write.beats = if (config.useLen) bus.writeCmd.len.toInt else 0
-              write.burst = if (config.useBurst) bus.writeCmd.burst.toInt else 0
-              write.addr = bus.writeCmd.addr.toInt * config.bytePerWord
+            if (cmd.valid.toBoolean) {
+              write.beats = if (config.useLen) cmd.len.toInt else 0
+              write.burst = if (config.useBurst) cmd.burst.toInt else 0
+              write.addr = cmd.addr.toInt
               write.state = 1
             }
           }
           case 1 => {
-            if (bus.writeData.valid.toBoolean) {
+            if (data.valid.toBoolean) {
               if (write.beats == 0) write.state = 2
-              memoryWrite(write.addr, config.bytePerWord, bus.writeData.data.toBigInt)
+              memoryWrite(write.addr, config.bytePerWord, data.data.toBigInt)
               write.beats -= 1
               if (write.burst != 0)
                 write.addr += config.bytePerWord
             }
           }
           case 2 => {
-            if (bus.writeRsp.ready.toBoolean) write.state = 0
+            if (rsp.ready.toBoolean) write.state = 0
           }
         }
 
@@ -339,9 +352,15 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
     }
   }
 
+  def =# (bus : Axi4WriteOnly): Unit = {
+    handleWrite(bus.config, bus.writeCmd, bus.writeData, bus.writeRsp)
+  }
+  def =# (bus : Axi4ReadOnly): Unit = {
+    handleRead(bus.config, bus.readCmd, bus.readRsp)
+  }
   def =# (bus : Axi4) : Unit = {
-    =# (bus.toWriteOnly())
-    =# (bus.toReadOnly())
+    handleWrite(bus.config, bus.writeCmd, bus.writeData, bus.writeRsp)
+    handleRead(bus.config, bus.readCmd, bus.readRsp)
   }
 
 }

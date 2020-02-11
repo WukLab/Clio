@@ -239,7 +239,8 @@ class LookupTableStoppable(
   // write to data, stage for 1 cycle
   val delayedValue = RegNext(io.wr.req.value.asBits)
   val delayedValid = RegNext(wrCell.valid) init False
-  mem.write(wrCell.payload, delayedValue, delayedValid)
+  val delayedAddr = RegNext(wrCell.payload)
+  mem.write(delayedAddr, delayedValue, delayedValid)
 
   ids.io.alloc.tapAsFlow >> io.wr.res
   io.wr.shootDown >> ids.io.free
