@@ -35,6 +35,15 @@ struct lego_header {
 	int	seq;
 } __attribute__((packed));
 
+#define SEQ_SIZE		(4)
+#define SEQ_WIDTH		(SEQ_SIZE * 8)
+
+struct gbn_header {
+	char	type;
+	char	seqnum[SEQ_SIZE];
+	char	_resv[7-SEQ_SIZE];
+} __attribute__((packed));
+
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
