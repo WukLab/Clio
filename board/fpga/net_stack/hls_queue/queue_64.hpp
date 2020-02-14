@@ -1,0 +1,23 @@
+#ifndef _RELNET_QUEUE64_H_
+#define _RELNET_QUEUE64_H_
+
+#include <fpga/rel_net.h>
+#include <fpga/axis_net.h>
+#include <hls_stream.h>
+#include <fpga/kernel.h>
+#include <uapi/net_header.h>
+
+using hls::stream;
+
+/**
+ * @rd_cmd: read queue command from sender
+ * @wr_cmd: write queue command from sender
+ * @rd_data: payload data sent to sender
+ * @wr_data: payload data received from sender
+ */
+void queue_64(stream<struct bram_cmd>		*rd_cmd,
+	      stream<struct bram_cmd>		*wr_cmd,
+	      stream<struct net_axis_64>	*rd_data,
+	      stream<struct net_axis_64>	*wr_data);
+
+#endif
