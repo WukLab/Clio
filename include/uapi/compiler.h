@@ -64,9 +64,11 @@
  */
 #define barrier()		asm volatile("": : :"memory")
 
+#ifndef container_of
 #define container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
+#endif
 
 #ifndef FIELD_SIZEOF
 # define FIELD_SIZEOF(t, f)	(sizeof(((t*)0)->f))
