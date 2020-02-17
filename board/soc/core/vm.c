@@ -424,14 +424,12 @@ int __vma_adjust(struct vregion_info *vi, struct vm_area_struct *vma,
 		 unsigned long start, unsigned long end,
 		 struct vm_area_struct *insert, struct vm_area_struct *expand)
 {
-	struct vm_area_struct *next = vma->vm_next, *orig_vma = vma;
+	struct vm_area_struct *next = vma->vm_next;
 	bool start_changed = false, end_changed = false;
 	long adjust_next = 0;
 	int remove_next = 0;
 
 	if (next && !insert) {
-		struct vm_area_struct *exporter = NULL, *importer = NULL;
-
 		if (end >= next->vm_end) {
 			/*
 			 * vma expands, overlapping all the next, and
@@ -466,26 +464,12 @@ int __vma_adjust(struct vregion_info *vi, struct vm_area_struct *vma,
 				/* trim end to next, for case 6 first pass */
 				end = next->vm_end;
 			}
-
-			exporter = next;
-			importer = vma;
-
-			/*
-			 * If next doesn't have anon_vma, import from vma after
-			 * next, if the vma overlaps with it.
-			 */
-			if (remove_next == 2)
-				exporter = next->vm_next;
-
 		} else if (end > next->vm_start) {
 			/*
 			 * vma expands, overlapping part of the next:
 			 * mprotect case 5 shifting the boundary up.
 			 */
 			adjust_next = (end - next->vm_start);
-			exporter = next;
-			importer = vma;
-			VM_WARN_ON(expand != importer);
 		} else if (end < vma->vm_end) {
 			/*
 			 * vma shrinks, and !insert tells it's not
@@ -493,9 +477,6 @@ int __vma_adjust(struct vregion_info *vi, struct vm_area_struct *vma,
 			 * mprotect case 4 shifting the boundary down.
 			 */
 			adjust_next = -((vma->vm_end - end));
-			exporter = vma;
-			importer = next;
-			VM_WARN_ON(expand != importer);
 		}
 	}
 again:
@@ -922,7 +903,6 @@ unsigned long vma_tree_new(struct proc_info *proc, struct vregion_info *vi,
 			   unsigned long vm_flags)
 {
 	struct vm_area_struct *vma, *prev;
-	int error;
 	struct rb_node **rb_link, *rb_parent;
 
 	/* Clear old maps */

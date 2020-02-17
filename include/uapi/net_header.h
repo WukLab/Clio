@@ -1,18 +1,19 @@
 /*
  * Copyright (c) 2020，Wuklab, UCSD.
- */
-
-/*
- * All header size macros are in BYTES.
+ *
+ * This file describes the network header related information and helpers.
+ * Note that all header size macros are in BYTES.
  */
 
 #ifndef _UAPI_NET_HEADER_H_
 #define _UAPI_NET_HEADER_H_
 
 #include <unistd.h>
-#include <uapi/compiler.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <uapi/compiler.h>
+#include <uapi/opcode.h>
 
 struct eth_hdr {
 	uint8_t dst_mac[6];
@@ -44,9 +45,12 @@ struct udp_hdr {
 	uint16_t check;
 } __attribute__((packed));
 
-struct lego_header {
-	char	app_id;
-	int	seq;
+/*
+ * This is our layer's header.
+ * See uapi/opcode.h for opcode definitions.
+ */
+struct lego_hdr {
+	uint16_t opcode;
 } __attribute__((packed));
 
 #define SEQ_SIZE_BYTE		(4)

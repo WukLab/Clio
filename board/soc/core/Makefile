@@ -4,7 +4,7 @@ CFLAGS :=
 SRCS := $(wildcard *.c)
 
 all: $(SRCS)
-	gcc -o core.o $(CFLAGS) $(INCLUDE) $(SRCS) -lpthread
+	gcc -Wall -o core.o $(CFLAGS) $(INCLUDE) $(SRCS) -lpthread
 
 clean:
 	find ./ -name "*.o" | xargs rm -rf
