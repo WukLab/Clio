@@ -10,6 +10,8 @@
 #include <uapi/err.h>
 #include <uapi/net_header.h>
 
+int sysctl_link_mtu = 1500;
+
 int net_send(void *buf, size_t buf_size)
 {
 
@@ -28,7 +30,7 @@ void net_send_and_receive(void *send_buf, size_t send_buf_size,
 
 int init_net(void)
 {
-	/* XXX more automatic or use config file */
+	/* TODO more automatic or use config file */
 	struct endpoint_info ei_wuklab02 = {
 		.mac		= { 0xe4, 0x1d, 0x2d, 0xb2, 0xba, 0x51 },
 		.ip		= 0xc0a80102, /* 192.168.1.2 */
@@ -56,7 +58,6 @@ int init_net(void)
 		printf("Fail to create net session\n");
 		exit(1);
 	}
-	printf("%#lx\n", ses);
 	test_ib_raw_packet(ses);
 
 	return 0;

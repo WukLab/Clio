@@ -3,6 +3,8 @@
 
 #include <uapi/net_header.h>
 
+extern int sysctl_link_mtu;
+
 struct session_net {
 	struct endpoint_info local_ei, remote_ei;
 	struct routing_info route;

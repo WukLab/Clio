@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ *
+ * Transport layer over raw packet IB Verbs.
+ * More specific, we use IBV_QPT_RAW_PACKET QPs.
+ */
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdio.h>
@@ -12,9 +18,10 @@
 
 #include "net.h"
 
-#define PORT_NUM 1
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
 #define SQ_NUM_DESC	512	/* maximum number of sends waiting for completion */
+
+int ib_port = 1;
 
 struct session_raw_verbs {
 	struct ibv_pd *pd;
@@ -32,25 +39,40 @@ struct session_raw_verbs {
  * Cook the L2-L4 headers.
  * @len: the length of the whole packet.
  */
-static __always_inline void prepare_headers(struct routing_info *route, void *buf, unsigned int len)
+static __always_inline int
+prepare_headers(struct routing_info *route, void *buf, unsigned int len)
 {
 	struct routing_info *ri;
 
+	if (unlikely(!route || !buf))
+		return -EINVAL;
+
+	if (unlikely(len > sysctl_link_mtu)) {
+		printf("WARNING: Max MTU: %d. Length: %d\n",
+			sysctl_link_mtu, len);
+		return -EINVAL;
+	}
+
+	/*
+	 * Directly copy the provided routing info
+	 * into the packet buffer
+	 */
 	memcpy(buf, route, sizeof(struct routing_info));
 
 	ri = (struct routing_info *)buf;
 	ri->ipv4.tot_len = htons(len - sizeof(struct eth_hdr));
 	ri->ipv4.check = 0;
 	ri->ipv4.check = ip_csum(&ri->ipv4, ri->ipv4.ihl);
-
 	ri->udp.len = htons(len - sizeof(struct eth_hdr) - sizeof(struct ipv4_hdr));
+
+	return 0;
 }
 
 /*
  * This function install the flow control rules for @qp.
  */
 static struct ibv_flow *qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
-			  struct endpoint_info *remote)
+			  struct endpoint_info *remote, unsigned int qp_ib_port)
 {
 	struct raw_eth_flow_attr {
 		struct ibv_flow_attr		attr;
@@ -65,25 +87,35 @@ static struct ibv_flow *qp_create_flow(struct ibv_qp *qp, struct endpoint_info *
 	struct ibv_flow_spec_ipv4	*spec_ipv4;
 	struct ibv_flow_spec_tcp_udp	*spec_tcp_udp;
 
+	if (!qp || !local || !remote)
+		return NULL;
+
+	if (!qp_ib_port)
+		return NULL;
+
 	memset(&flow_attr, 0, sizeof(flow_attr));
 	attr = &flow_attr.attr;
 	spec_eth = &flow_attr.spec_eth;
 	spec_ipv4 = &flow_attr.spec_ipv4;
 	spec_tcp_udp = &flow_attr.spec_tcp_udp;
 
-	attr->comp_mask = 0,
-	attr->type = IBV_FLOW_ATTR_NORMAL,
-	attr->size = sizeof(flow_attr),
-	attr->priority = 1,
-	attr->num_of_specs = 3,
-	attr->port = 1,
-	attr->flags = 0,
+	attr->comp_mask = 0;
+	attr->type = IBV_FLOW_ATTR_NORMAL;
+	attr->size = sizeof(flow_attr);
+	attr->priority = 1;
+	attr->num_of_specs = 3;
+	attr->port = qp_ib_port;
+	attr->flags = 0;
 
 	spec_eth->type = IBV_FLOW_SPEC_ETH;
 	spec_eth->size = sizeof(struct ibv_flow_spec_eth);
 	memcpy(&spec_eth->val.dst_mac, local->mac, 6);
 	memset(&spec_eth->mask.dst_mac, 0xFF, 6);
 
+	/*
+	 * TODO Not sure if we need to have this
+	 * Enable it will lead to segfault
+	 */
 	//memcpy(&spec_eth->val.src_mac, remote->mac, 6);
 	//memset(&spec_eth->mask.src_mac, 0xFF, 6);
 
@@ -108,6 +140,9 @@ void dump_packet_headers(void *packet)
 	struct udp_hdr *udp;
 	int i, j;
 
+	if (unlikely(!packet))
+		return;
+
 	eth = packet;
 	ipv4 = packet + sizeof(*eth);
 	udp = packet + sizeof(*eth) + sizeof(*ipv4);
@@ -125,9 +160,11 @@ void dump_packet_headers(void *packet)
 }
 
 /*
- * XXX
- * Instead of reg/dereg mr every time, we could use
- * a preallocated/register hugepage ring buffer.
+ * TODO
+ * 1) Instead of reg/dereg mr every time, we could use
+ *    a preallocated/register hugepage ring buffer.
+ * 2) We could do batch signaling.
+ * 3) Add timeout to poll_cq
  */
 int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
 {
@@ -140,10 +177,16 @@ int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
 	struct ibv_cq *send_cq;
 	int ret;
 
+	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
+		return -EINVAL;
+
 	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
 	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	send_cq = ses_verbs->send_cq;
+
+	if (unlikely(!ses_verbs || !pd || !qp || !send_cq))
+		return -EINVAL;
 
 	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!mr) {
@@ -165,7 +208,7 @@ int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
 	wr.opcode = IBV_WR_SEND;
 	wr.send_flags = IBV_SEND_INLINE;
 
-	/* XXX We could do batch signalling */
+	/* TODO We could do batch signalling */
 	wr.send_flags |= IBV_SEND_SIGNALED;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
@@ -196,6 +239,11 @@ out:
 }
 
 /*
+ * TODO:
+ * 1) add timeout detection
+ * 2) manage ring buffer
+ * 3) We could do batch post
+ *
  * RECVs were posted beforehand.
  * Current mode is very limited.
  */
@@ -211,12 +259,18 @@ int raw_verbs_receive(struct session_net *ses_net, void **buf, int *buf_size)
 	int ret;
 	void *recv_buf;
 
+	if (unlikely(!ses_net || !buf || !buf_size))
+		return -EINVAL;
+
 	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
 	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	recv_cq = ses_verbs->recv_cq;
 	recv_buf = ses_verbs->recv_buf;
 	recv_mr = ses_verbs->recv_mr;
+
+	if (unlikely(!ses_verbs || !pd || !qp || !recv_cq))
+		return -EINVAL;
 
 	sge.length = BUFFER_SIZE;
 	sge.lkey = recv_mr->lkey;
@@ -242,7 +296,7 @@ int raw_verbs_receive(struct session_net *ses_net, void **buf, int *buf_size)
 		*buf_size = wc.byte_len;
 
 		/*
-		 * XXX
+		 * TODO
 		 * Instead of posting everytime
 		 * we could do batch post
 		 */
@@ -262,7 +316,7 @@ out:
 }
 
 /*
- * Prepare buffers
+ * Internal function to prepare receving buffers.
  */
 static void post_recvs(struct session_raw_verbs *ses_verbs)
 {
@@ -277,6 +331,9 @@ static void post_recvs(struct session_raw_verbs *ses_verbs)
 	struct ibv_pd *pd;
 	struct ibv_cq *recv_cq;
 	int n;
+
+	if (unlikely(!ses_verbs))
+		return;
 
 	qp = ses_verbs->qp;
 	pd = ses_verbs->pd;
@@ -411,7 +468,7 @@ struct session_net *init_ib_raw_packet(struct endpoint_info *local_ei,
 	memset(&qp_attr, 0, sizeof(qp_attr));
 	qp_flags = IBV_QP_STATE | IBV_QP_PORT;
 	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.port_num = 1;
+	qp_attr.port_num = ib_port;
 
 	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
 	if (ret < 0) {
@@ -436,7 +493,7 @@ struct session_net *init_ib_raw_packet(struct endpoint_info *local_ei,
 		goto out_qp;
 	}
 
-	eth_flow = qp_create_flow(qp, local_ei, remote_ei);
+	eth_flow = qp_create_flow(qp, local_ei, remote_ei, ib_port);
 	if (!eth_flow)
 		goto out_qp;
 
