@@ -21,7 +21,7 @@ struct proc_info *alloc_proc(char *proc_name, unsigned int host_ip);
 void free_proc(struct proc_info *pi);
 void dump_proc(struct proc_info *pi);
 void dump_procs(void);
-struct proc_info *find_proc_by_pid(unsigned int pid);
+struct proc_info *get_proc_by_pid(unsigned int pid);
 
 static inline void get_proc_info(struct proc_info *pi)
 {

@@ -42,6 +42,7 @@ struct thpool_buffer {
 static inline void
 set_tb_buffer_size(struct thpool_buffer *tb, unsigned int buffer_size)
 {
+	BUG_ON(buffer_size > THPOOL_BUFFER_SIZE);
 	tb->buffer_size = buffer_size;
 }
 

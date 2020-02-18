@@ -132,11 +132,39 @@ free_thpool_buffer(struct thpool_buffer *tb)
 }
 
 static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
-			     struct thpool_buffer *tb)
+			     struct thpool_buffer *tb, bool is_alloc)
 {
-	//struct proc_info *pi;
-	//struct vregion_info *vi;
+	struct proc_info *pi;
+	struct vregion_info *vi;
+	unsigned int pid;
+	struct op_alloc_free *ops;
+	struct op_alloc_free_ret *reply;
 
+	/* Setup the reply buffer */
+	reply = (struct op_alloc_free_ret *)tb->buffer;
+	set_tb_buffer_size(tb, sizeof(*reply));
+
+	ops = get_op_struct(rx_buf);
+	pid = ops->pid;
+
+	pi = get_proc_by_pid(pid);
+	if (unlikely(!pi)) {
+		printf("WARN: invalid pid %d\n", pid);
+		reply->ret = -EINVAL;
+		return -EINVAL;
+	}
+
+	/*
+	 * TODO:
+	 * There are some corner cases to consider, especially
+	 * given that we must operate on top of a vRegion:
+	 * 1) Alloc: spead multiple vRegions, and ensure contiguous
+	 * 2) Free: same as above..
+	 *
+	 * Iterare over vRegions, then use alloc_va and free_va.
+	 */
+
+	put_proc_info(pi);
 	return 0;
 }
 
@@ -145,7 +173,7 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
  * Send the packet out,
  * use the tb->buffer_size and tb->buffer
  */
-void tx(struct thpool_buffer *tb)
+void net_send(struct thpool_buffer *tb)
 {
 }
 
@@ -165,21 +193,31 @@ void handle_requests(struct thpool_worker *tw, void *rx_buf, size_t rx_buf_size)
 	lego_hdr = (struct lego_hdr *)(rx_buf + LEGO_HEADER_OFFSET);
 	opcode = lego_hdr->opcode;
 
+	/*
+	 * NOTE:
+	 * - Each worker has its own thpool ring buffer
+	 * - Handlers do NOT need to manage any RX/TX buffers
+	 * - Handlers MUST NOT free the buffer
+	 * - Handlers MUST NOT send net requests, this func will do so.
+	 */
 	tb = alloc_thpool_buffer(tw);
 
 	switch (opcode) {
 	case OP_REQ_TEST:
 		break;
 	case OP_REQ_ALLOC:
+		handle_alloc_free(rx_buf, rx_buf_size, tb, true);
+		break;
 	case OP_REQ_FREE:
-		handle_alloc_free(rx_buf, rx_buf_size, tb);
+		handle_alloc_free(rx_buf, rx_buf_size, tb, false);
 		break;
 	default:
 		break;
 	};
 
+	/* Send reply if needed */
 	if (likely(!ThpoolBufferNoreply(tb)))
-		tx(tb);
+		net_send(tb);
 
 	free_thpool_buffer(tb);
 }

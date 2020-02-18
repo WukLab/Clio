@@ -79,6 +79,11 @@ enum pkt_type {
 #define LEGO_HEADER_OFFSET \
 	(GBN_HEADER_OFFSET + GBN_HEADER_SIZE)
 
+static inline void *get_op_struct(void *packet)
+{
+	return packet + LEGO_HEADER_OFFSET + LEGO_HEADER_SIZE;
+}
+
 static void prepare_eth_header(struct eth_hdr *hdr, unsigned char *src_mac,
 			       unsigned char *dst_mac)
 {
