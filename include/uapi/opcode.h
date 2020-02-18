@@ -7,13 +7,17 @@
 #define _LEGOFPGA_OPCODE_H_
 
 enum LEGOFPGA_OPCODE_REQ {
-	OP_REQ_TEST,
-
-	OP_REQ_ALLOC,
+	OP_REQ_ALLOC = 1,
 	OP_REQ_FREE,
 
 	OP_REQ_READ,
 	OP_REQ_WRITE,
+
+	OP_REQ_MIGRATION,
+
+	OP_REQ_SOC_DEBUG,
+	OP_REQ_FPGA_PINGPOING,	/* For measurement */
+	OP_REQ_SOC_PINGPONG,	/* For measurement */
 };
 
 /*

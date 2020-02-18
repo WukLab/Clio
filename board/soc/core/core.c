@@ -180,6 +180,43 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 }
 
 /*
+ * Handle SoC Pingpong testing request.
+ * Simply return and let sender measure RTT.
+ */
+static int handle_soc_pingpong(void *rx_buf, size_t rx_buf_size,
+			       struct thpool_buffer *tb)
+{
+	int *reply;
+
+	reply = (int *)tb->buffer;
+	*reply = 0;
+	set_tb_buffer_size(tb, sizeof(int));
+	return 0;
+}
+
+static int handle_migration(void *rx_buf, size_t rx_buf_size,
+			    struct thpool_buffer *tb)
+{
+	return 0;
+}
+
+/*
+ * This handler is a generic debug handler that could
+ * handle various debugging requests
+ *
+ * TODO:
+ * 1) dump one proc_info based on pid
+ * 2) dump all proc_info
+ * 3) dump vregion info
+ * 4) dump stats
+ */
+static int handle_soc_debug(void *rx_buf, size_t rx_buf_size,
+			    struct thpool_buffer *tb)
+{
+	return 0;
+}
+
+/*
  * TODO:
  * Send the packet out,
  * use the tb->buffer_size and tb->buffer
@@ -214,13 +251,20 @@ void handle_requests(struct thpool_worker *tw, void *rx_buf, size_t rx_buf_size)
 	tb = alloc_thpool_buffer(tw);
 
 	switch (opcode) {
-	case OP_REQ_TEST:
-		break;
 	case OP_REQ_ALLOC:
 		handle_alloc_free(rx_buf, rx_buf_size, tb, true);
 		break;
 	case OP_REQ_FREE:
 		handle_alloc_free(rx_buf, rx_buf_size, tb, false);
+		break;
+	case OP_REQ_MIGRATION:
+		handle_migration(rx_buf, rx_buf_size, tb);
+		break;
+	case OP_REQ_SOC_PINGPONG:
+		handle_soc_pingpong(rx_buf, rx_buf_size, tb);
+		break;
+	case OP_REQ_SOC_DEBUG:
+		handle_soc_debug(rx_buf, rx_buf_size, tb);
 		break;
 	default:
 		break;
