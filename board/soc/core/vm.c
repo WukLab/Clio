@@ -17,6 +17,8 @@
 #include <pthread.h>
 #include <limits.h>
 
+#include "core.h"
+
 #define VM_WARN_ON(cond)                                                       \
 	do {                                                                   \
 	} while (0)
@@ -1165,8 +1167,10 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 {
 	unsigned long addr;
 
-	if (unlikely(len > VREGION_SIZE))
+	if (unlikely(len > VREGION_SIZE)) {
+		BUG();
 		return -EINVAL;
+	}
 
 	addr = __find_va_range(proc, vi, len);
 	if (IS_ERR_VALUE(addr))
@@ -1191,8 +1195,8 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	return addr;
 }
 
-unsigned long alloc_va(struct proc_info *proc, struct vregion_info *vi,
-		       unsigned long len, unsigned long vm_flags)
+unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
+			       unsigned long len, unsigned long vm_flags)
 {
 	unsigned long addr;
 
@@ -1203,7 +1207,7 @@ unsigned long alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	return addr;
 }
 
-int free_va(struct proc_info *proc, struct vregion_info *vi,
+int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 	    unsigned long start, unsigned long len)
 {
 	int ret;
@@ -1213,4 +1217,128 @@ int free_va(struct proc_info *proc, struct vregion_info *vi,
 	pthread_spin_unlock(&vi->lock);
 
 	return ret;
+}
+
+unsigned long alloc_va(struct proc_info *proc, unsigned long len,
+		       unsigned long vm_flags)
+{
+	struct vregion_info *vi;
+	unsigned long addr;
+	int nr_vregions;
+	int i;
+
+	if (!len || !proc)
+		return -EINVAL;
+
+	/*
+	 * If the len only spans one vregion, we can select any regions.
+	 * If it spans more than one vregions, we need to make sure
+	 * they are contiguous. More specific, we need to control the
+	 * topdown and bottomup behavior.
+	 */
+	nr_vregions = DIV_ROUND_UP(len, VREGION_SIZE);
+	if (nr_vregions == 1) {
+		/*
+		 * TODO:
+		 * Instead of scanning the array, we should keep
+		 * a list of available vregions, i.e., assigned by monitor.
+		 */
+		for (i = 0; i < NR_VREGIONS; i++) {
+			vi = proc->vregion + i;
+			addr = alloc_va_vregion(proc, vi, len, vm_flags);
+			if (!IS_ERR_VALUE(addr))
+				return addr;
+		} 
+	} else {
+		printf("TODO\n");
+		BUG();
+	}
+
+	return 0;
+}
+
+/*
+ * Free range: [start, start+len).
+ */
+int free_va(struct proc_info *proc, unsigned long start, unsigned long len)
+{
+	int ret;
+	struct vregion_info *vi;
+	unsigned long vlen, end, vregion_end;
+
+	if (!proc)
+		return -EINVAL;
+
+	if (!len || !start)
+		return -EINVAL;
+
+	end = start + len;
+	if (end < start)
+		return -EINVAL;
+
+	/* Walk through a possible list of vRegions */
+	while (start != end) {
+		vi = va_to_vregion(proc, start);
+
+		vregion_end = vregion_to_end_va(proc, vi);
+		vlen = vregion_end - start;
+		if (vlen > len)
+			vlen = len;
+
+		ret = free_va_vregion(proc, vi, start, vlen);
+		if (ret)
+			break;
+
+		len -= vlen;
+		start += vlen;
+	}
+	return ret;
+}
+
+void test_vm(void)
+{
+	unsigned long addr;
+	struct vregion_info *vi;
+	struct proc_info *pi;
+
+	pi = alloc_proc("proc_1", 123);
+	if (!pi) {
+		printf("fail to create the test pi\n");
+		return;
+	} 
+	dump_procs();
+
+	printf("From vregion 0\n");
+	vi = pi->vregion + 0;
+	addr = alloc_va_vregion(pi, vi, 0x1000, 0);
+	printf("%#lx\n", addr);
+	addr = alloc_va_vregion(pi, vi, 0x1000, 0);
+	printf("%#lx\n", addr);
+
+	printf("From vregion 1\n");
+
+	vi = pi->vregion + 1;
+	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
+	printf("1 %#lx\n", addr);
+
+	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
+	printf("2 %#lx\n", addr);
+
+	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
+	printf("3 %#lx\n", addr);
+
+	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
+	printf("4 %#lx\n", addr);
+
+	free_va(pi, addr, 0x10000000);
+	printf("free %#lx\n", addr);
+
+	addr = alloc_va_vregion(pi, vi, 0x2000, 0);
+	printf("5 %#lx\n", addr);
+
+	addr = alloc_va_vregion(pi, vi, 0x2000, 0);
+	printf("6 %#lx\n", addr);
+
+	addr = alloc_va(pi, 0x2000, 0);
+	printf("7 %#lx\n", addr);
 }

@@ -8,12 +8,13 @@
 #include <uapi/sched.h>
 
 /* VM */
-unsigned long alloc_va(struct proc_info *proc, struct vregion_info *vi,
-		       unsigned long len, unsigned long permission,
-		       unsigned long flags);
-
-int free_va(struct proc_info *proc,
-	struct vregion_info *vi, unsigned long start, unsigned long len);
+unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
+			       unsigned long len, unsigned long vm_flags);
+int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
+	    unsigned long start, unsigned long len);
+unsigned long alloc_va(struct proc_info *proc, unsigned long len, unsigned long vm_flags);
+int free_va(struct proc_info *proc, unsigned long start, unsigned long len);
+void test_vm(void);
 
 /* SCHED */
 int init_proc_subsystem(void);

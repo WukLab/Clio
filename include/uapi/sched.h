@@ -106,6 +106,24 @@ struct vm_area_struct {
 };
 
 static inline unsigned int
+va_to_vregion_index(unsigned long va)
+{
+	unsigned long idx;
+	idx = va >> VREGION_SIZE_SHIFT;
+	return idx;
+}
+
+static inline struct vregion_info *
+va_to_vregion(struct proc_info *p, unsigned long va)
+{
+	unsigned int idx;
+	struct vregion_info *head;
+	head = p->vregion;
+	idx = va_to_vregion_index(va);
+	return head + idx;
+}
+
+static inline unsigned int
 vregion_to_index(struct proc_info *p, struct vregion_info *v)
 {
 	struct vregion_info *head = p->vregion;
@@ -127,6 +145,8 @@ vregion_to_start_va(struct proc_info *p, struct vregion_info *v)
 	unsigned int idx;
 
 	idx = vregion_to_index(p, v);
+
+	/* Exclude the 0-0x1000 VA range*/
 	if (idx == 0)
 		return 0x1000;
 	return vregion_to_index(p, v) * VREGION_SIZE;

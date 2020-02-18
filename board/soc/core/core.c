@@ -135,7 +135,6 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 			     struct thpool_buffer *tb, bool is_alloc)
 {
 	struct proc_info *pi;
-	struct vregion_info *vi;
 	unsigned int pid;
 	struct op_alloc_free *ops;
 	struct op_alloc_free_ret *reply;
@@ -154,15 +153,27 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 		return -EINVAL;
 	}
 
-	/*
-	 * TODO:
-	 * There are some corner cases to consider, especially
-	 * given that we must operate on top of a vRegion:
-	 * 1) Alloc: spead multiple vRegions, and ensure contiguous
-	 * 2) Free: same as above..
-	 *
-	 * Iterare over vRegions, then use alloc_va and free_va.
-	 */
+	if (is_alloc) {
+		/* OP_REQ_ALLOC */
+		unsigned long addr, len, vm_flags;
+
+		len = ops->len;
+		vm_flags = ops->vm_flags;
+		addr = alloc_va(pi, len, vm_flags);
+		if (unlikely(IS_ERR_VALUE(addr)))
+			reply->ret = -ENOMEM;
+		else {
+			reply->ret = 0;
+			reply->addr = addr;
+		}
+	} else {
+		/* OP_REQ_FREE */
+		unsigned long start, len;
+
+		start = ops->addr;
+		len = ops->len;
+		reply->ret = free_va(pi, start, len);
+	}
 
 	put_proc_info(pi);
 	return 0;
@@ -222,51 +233,6 @@ void handle_requests(struct thpool_worker *tw, void *rx_buf, size_t rx_buf_size)
 	free_thpool_buffer(tb);
 }
 
-void test_va_alloc(void)
-{
-	unsigned long addr;
-	struct vregion_info *vi;
-	struct proc_info *pi;
-
-	pi = alloc_proc("proc_1", 123);
-	if (!pi) {
-		printf("fail to create the test pi\n");
-		return;
-	} 
-	dump_procs();
-
-	printf("From vregion 0\n");
-	vi = pi->vregion + 0;
-	addr = alloc_va(pi, vi, 0x1000, 0, 0);
-	printf("%#lx\n", addr);
-	addr = alloc_va(pi, vi, 0x1000, 0, VM_UNMAPPED_AREA_TOPDOWN);
-	printf("%#lx\n", addr);
-
-	printf("From vregion 1\n");
-
-	vi = pi->vregion + 1;
-	addr = alloc_va(pi, vi, 0x10000000, 0, VM_UNMAPPED_AREA_TOPDOWN);
-	printf("1 %#lx\n", addr);
-
-	addr = alloc_va(pi, vi, 0x10000000, 0, VM_UNMAPPED_AREA_TOPDOWN);
-	printf("2 %#lx\n", addr);
-
-	addr = alloc_va(pi, vi, 0x10000000, 0, 0);
-	printf("3 %#lx\n", addr);
-
-	addr = alloc_va(pi, vi, 0x10000000, 0, 0);
-	printf("4 %#lx\n", addr);
-
-	free_va(pi, vi, addr, 0x10000000);
-	printf("free %#lx\n", addr);
-
-	addr = alloc_va(pi, vi, 0x2000, 0, 0);
-	printf("5 %#lx\n", addr);
-
-	addr = alloc_va(pi, vi, 0x2000, 0, 0);
-	printf("6 %#lx\n", addr);
-}
-
 int main(int argc, char **argv)
 {
 	int ret;
@@ -283,7 +249,7 @@ int main(int argc, char **argv)
 		return ret;
 	}
 
-	test_va_alloc();
+	test_vm();
 
 	return 0;
 }
