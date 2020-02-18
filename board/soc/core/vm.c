@@ -367,8 +367,8 @@ static int find_vma_links(struct vregion_info *vi, unsigned long addr,
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
 struct vm_area_struct *find_vma(struct vregion_info *vi, unsigned long addr)
 {
-	struct rb_node *rb_node;
-	struct vm_area_struct *vma;
+	struct rb_node *rb_node = NULL;
+	struct vm_area_struct *vma = NULL;
 
 	rb_node = vi->mm_rb.rb_node;
 
@@ -960,6 +960,10 @@ __find_va_range_bottomup(struct proc_info *proc, struct vregion_info *vi,
 
 	/* Check if rbtree root looks promising */
 	if (RB_EMPTY_ROOT(&vi->mm_rb))
+		goto check_highest;
+
+	vma = rb_entry(vi->mm_rb.rb_node, struct vm_area_struct, vm_rb);
+	if (vma->rb_subtree_gap < length)
 		goto check_highest;
 
 	while (true) {

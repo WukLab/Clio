@@ -8,6 +8,9 @@
 #include <uapi/vregion.h>
 #include <uapi/rbtree.h>
 #include <pthread.h>
+#include <stdatomic.h>
+
+typedef atomic_int atomic_t;
 
 #define BOARD_NAME_LEN		(32)
 #define PROC_NAME_LEN		(32)
@@ -60,14 +63,19 @@ struct proc_info {
 	char			proc_name[PROC_NAME_LEN];
 	unsigned long		flags;
 
-	struct list_head	list;
+	pthread_spinlock_t	lock;
+	atomic_t		refcount;
 
-	char			host_name[PROC_NAME_LEN];
+	struct list_head	list;
+	unsigned int		pid;
+
 	unsigned int		host_ip;
 
 	struct vregion_info	vregion[NR_VREGIONS];
 	int			nr_vmas;
 };
+
+#define PROC_INFO_FLAGS_ALLOCATED	0x1
 
 struct vm_unmapped_area_info {
 #define VM_UNMAPPED_AREA_TOPDOWN 1
@@ -131,19 +139,6 @@ static inline unsigned long
 vregion_to_end_va(struct proc_info *p, struct vregion_info *v)
 {
 	return (vregion_to_index(p, v) + 1) * VREGION_SIZE;
-}
-
-static inline void init_vregion(struct vregion_info *v)
-{
-	BUG_ON(!v);
-
-	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
-	v->mmap = NULL;
-	v->mm_rb = RB_ROOT;
-	v->nr_vmas = 0;
-	v->highest_vm_end = 0;
-
-	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
 }
 
 #endif /* _LEGOMEM_UAPI_SCHED_H_ */
