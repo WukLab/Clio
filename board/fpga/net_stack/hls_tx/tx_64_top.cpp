@@ -74,6 +74,8 @@ void tx_64(stream<struct udp_info>	*tx_header,
 	 */
 	static ap_uint<SEQ_WIDTH> last_ackd_seqnum = 0;
 	static ap_uint<SEQ_WIDTH> last_sent_seqnum = 0;
+	static bool empty;
+	empty = last_sent_seqnum == last_ackd_seqnum;
 
 	// header queue info
 	static struct udp_info unackd_header_queue[WINDOW_SIZE];
@@ -96,6 +98,11 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		timer_rst = false;
 	}
 	if (timer == 0) retrans = true;
+	/**
+	 * if no packet waited to acknowledge
+	 * and no packet to send, disable timer
+	 */ 
+	if (empty) timer = -1;
 	PR("timer: %lld\n", timer);
 
 	static unsigned int pkt_size_cnt = 1;
@@ -124,7 +131,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 	struct udp_info send_udp_info;
 	struct net_axis_64 send_pkt;
 	struct bram_cmd cmd_w;
-	static bool empty;
+	static bool start = false;
 
 	switch (enqueue_state) {
 	case udp_enqueue_wait:
@@ -133,8 +140,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		 */
 		if (last_sent_seqnum < last_ackd_seqnum + WINDOW_SIZE - 1) {
 			enqueue_state = udp_enqueue_head;
-			empty = last_sent_seqnum == last_ackd_seqnum;
-			last_sent_seqnum++;
+			start = empty;
 		}
 		break;
 	case udp_enqueue_head:
@@ -151,6 +157,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		unackd_header_queue[rear] = send_udp_info;
 		tx_header->write(send_udp_info);
 		enqueue_state = udp_enqueue_payload_1;
+		last_sent_seqnum++;
 		break;
 	case udp_enqueue_payload_1:
 		/**
@@ -187,7 +194,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 			enqueue_state = udp_enqueue_wait;
 			pkt_size_cnt = 1;
 			rear = (rear + 1) & WINDOW_INDEX_MSK;
-			timer_rst = empty;
+			timer_rst = start;
 		}
 		break;
 	default:

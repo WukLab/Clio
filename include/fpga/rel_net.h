@@ -27,10 +27,4 @@
  #define TIMEOUT		100000000
 #endif
 
-enum pkt_type {
-	pkt_type_ack = 1,
-	pkt_type_nack = 2,
-	pkt_type_data = 3
-};
-
 #endif

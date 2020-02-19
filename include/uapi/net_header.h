@@ -44,6 +44,12 @@ struct gbn_header {
 	char	_resv[7-SEQ_SIZE];
 } __attribute__((packed));
 
+enum pkt_type {
+	pkt_type_ack = 1,
+	pkt_type_nack = 2,
+	pkt_type_data = 3
+};
+
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)

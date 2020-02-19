@@ -1,3 +1,4 @@
+# Set the reference directory for source file relative paths (by default the value is script directory path)
 set origin_dir "."
 
 # Use origin directory path location variable, if specified in the tcl shell
@@ -96,15 +97,6 @@ set_property -name "mem.enable_memory_map_generation" -value "1" -objects $obj
 set_property -name "sim.central_dir" -value "$proj_dir/${_xil_proj_name_}.ip_user_files" -objects $obj
 set_property -name "sim.ip.auto_export_scripts" -value "1" -objects $obj
 set_property -name "simulator_language" -value "Mixed" -objects $obj
-set_property -name "webtalk.activehdl_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.ies_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.modelsim_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.questa_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.riviera_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.vcs_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.xcelium_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.xsim_export_sim" -value "5" -objects $obj
-set_property -name "webtalk.xsim_launch_sim" -value "11" -objects $obj
 
 # Create 'sources_1' fileset (if not found)
 if {[string equal [get_filesets -quiet sources_1] ""]} {
@@ -136,19 +128,6 @@ set files [list \
  [file normalize "${origin_dir}/lib/eth_axis_tx_64.v"] \
  [file normalize "${origin_dir}/lib/eth_mac_10g.v"] \
  [file normalize "${origin_dir}/lib/eth_mac_10g_fifo.v"] \
- [file normalize "${origin_dir}/lib/ip_64.v"] \
- [file normalize "${origin_dir}/lib/ip_arb_mux.v"] \
- [file normalize "${origin_dir}/lib/ip_complete_64.v"] \
- [file normalize "${origin_dir}/lib/ip_eth_rx_64.v"] \
- [file normalize "${origin_dir}/lib/ip_eth_tx_64.v"] \
- [file normalize "${origin_dir}/lib/lfsr.v"] \
- [file normalize "${origin_dir}/lib/axis/priority_encoder.v"] \
- [file normalize "${origin_dir}/lib/udp_64.v"] \
- [file normalize "${origin_dir}/lib/udp_checksum_gen_64.v"] \
- [file normalize "${origin_dir}/lib/udp_complete_64.v"] \
- [file normalize "${origin_dir}/lib/udp_ip_rx_64.v"] \
- [file normalize "${origin_dir}/lib/udp_ip_tx_64.v"] \
- [file normalize "${origin_dir}/rtl/fpga_core.v"] \
  [file normalize "${origin_dir}/lib/eth_phy_10g.v"] \
  [file normalize "${origin_dir}/lib/eth_phy_10g_rx.v"] \
  [file normalize "${origin_dir}/lib/eth_phy_10g_rx_ber_mon.v"] \
@@ -156,10 +135,24 @@ set files [list \
  [file normalize "${origin_dir}/lib/eth_phy_10g_rx_if.v"] \
  [file normalize "${origin_dir}/lib/eth_phy_10g_tx.v"] \
  [file normalize "${origin_dir}/lib/eth_phy_10g_tx_if.v"] \
+ [file normalize "${origin_dir}/rtl/fpga_core.v"] \
+ [file normalize "${origin_dir}/lib/ip_64.v"] \
+ [file normalize "${origin_dir}/lib/ip_arb_mux.v"] \
+ [file normalize "${origin_dir}/lib/ip_complete_64.v"] \
+ [file normalize "${origin_dir}/lib/ip_eth_rx_64.v"] \
+ [file normalize "${origin_dir}/lib/ip_eth_tx_64.v"] \
+ [file normalize "${origin_dir}/lib/lfsr.v"] \
+ [file normalize "${origin_dir}/lib/axis/priority_encoder.v"] \
  [file normalize "${origin_dir}/rtl/sync_reset.v"] \
- [file normalize "${origin_dir}/rtl/sync_signal.v"] \
+ [file normalize "${origin_dir}/lib/udp_64.v"] \
+ [file normalize "${origin_dir}/lib/udp_checksum_gen_64.v"] \
+ [file normalize "${origin_dir}/lib/udp_complete_64.v"] \
+ [file normalize "${origin_dir}/lib/udp_ip_rx_64.v"] \
+ [file normalize "${origin_dir}/lib/udp_ip_tx_64.v"] \
  [file normalize "${origin_dir}/lib/xgmii_baser_dec_64.v"] \
  [file normalize "${origin_dir}/lib/xgmii_baser_enc_64.v"] \
+ [file normalize "${origin_dir}/rtl/fpga.v"] \
+ [file normalize "${origin_dir}/rtl/sync_signal.v"] \
 ]
 add_files -norecurse -fileset $obj $files
 
@@ -171,7 +164,29 @@ add_files -norecurse -fileset $obj $files
 
 # Set 'sources_1' fileset properties
 set obj [get_filesets sources_1]
-set_property -name "top" -value "fpga_core" -objects $obj
+set_property -name "top" -value "fpga" -objects $obj
+set_property -name "top_auto_set" -value "0" -objects $obj
+
+# Set 'sources_1' fileset object
+set obj [get_filesets sources_1]
+# Import local files from the original project
+set files [list \
+ [file normalize "${origin_dir}/rtl/ip/gtwizard_ultrascale_0.xci"]\
+]
+set imported_files [import_files -fileset sources_1 $files]
+
+# Set 'sources_1' fileset file properties for remote files
+# None
+
+# Set 'sources_1' fileset file properties for local files
+set file "gtwizard_ultrascale_0/gtwizard_ultrascale_0.xci"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "generate_files_for_reference" -value "0" -objects $file_obj
+set_property -name "registered_with_manager" -value "1" -objects $file_obj
+if { ![get_property "is_locked" $file_obj] } {
+  set_property -name "synth_checkpoint_mode" -value "Singular" -objects $file_obj
+}
+
 
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
@@ -202,10 +217,34 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 # Set 'constrs_1' fileset object
 set obj [get_filesets constrs_1]
 
-# Empty (no sources present)
+# Add/Import constrs file and set constrs file properties
+set file "[file normalize "$origin_dir/rtl/fpga.xdc"]"
+set file_added [add_files -norecurse -fileset $obj [list $file]]
+set file "$origin_dir/rtl/fpga.xdc"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
+set_property -name "file_type" -value "XDC" -objects $file_obj
+
+# Add/Import constrs file and set constrs file properties
+set file "[file normalize "$origin_dir/lib/syn/eth_mac_fifo.tcl"]"
+set file_added [add_files -norecurse -fileset $obj [list $file]]
+set file "$origin_dir/lib/syn/eth_mac_fifo.tcl"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
+set_property -name "file_type" -value "TCL" -objects $file_obj
+
+# Add/Import constrs file and set constrs file properties
+set file "[file normalize "$origin_dir/lib/axis/syn/axis_async_fifo.tcl"]"
+set file_added [add_files -norecurse -fileset $obj [list $file]]
+set file "$origin_dir/lib/axis/syn/axis_async_fifo.tcl"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
+set_property -name "file_type" -value "TCL" -objects $file_obj
 
 # Set 'constrs_1' fileset properties
 set obj [get_filesets constrs_1]
+set_property -name "target_constrs_file" -value "[file normalize "$origin_dir/rtl/fpga.xdc"]" -objects $obj
+set_property -name "target_ucf" -value "[file normalize "$origin_dir/rtl/fpga.xdc"]" -objects $obj
 
 # Create 'sim_1' fileset (if not found)
 if {[string equal [get_filesets -quiet sim_1] ""]} {
@@ -238,6 +277,7 @@ set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
 # Set 'sim_1' fileset properties
 set obj [get_filesets sim_1]
+set_property -name "nl.mode" -value "funcsim" -objects $obj
 set_property -name "top" -value "testbench_netstack_2" -objects $obj
 set_property -name "top_auto_set" -value "0" -objects $obj
 set_property -name "top_lib" -value "xil_defaultlib" -objects $obj
@@ -594,6 +634,7 @@ if { $obj != "" } {
 
 }
 set obj [get_runs synth_1]
+set_property -name "needs_refresh" -value "1" -objects $obj
 set_property -name "strategy" -value "Vivado Synthesis Defaults" -objects $obj
 
 # set the current synth run
@@ -807,6 +848,7 @@ set_property -name "options.warn_on_violation" -value "1" -objects $obj
 
 }
 set obj [get_runs impl_1]
+set_property -name "needs_refresh" -value "1" -objects $obj
 set_property -name "strategy" -value "Vivado Implementation Defaults" -objects $obj
 set_property -name "steps.write_bitstream.args.readback_file" -value "0" -objects $obj
 set_property -name "steps.write_bitstream.args.verbose" -value "0" -objects $obj

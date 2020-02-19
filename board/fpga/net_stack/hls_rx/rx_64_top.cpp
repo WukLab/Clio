@@ -57,7 +57,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	static struct udp_info recv_udp_info, resp_udp_info;
 
 	static bool ack_enable = true;
-	static bool deliever_data = true;
+	static bool deliever_data = false;
 
 #ifdef DEBUG_MODE
 	/**
@@ -99,12 +99,12 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		   recv_pkt.data(7, 0).to_uint(),
 		   recv_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
 
+		resp_pkt.last = 1;
+		resp_pkt.keep = 0xff;
 		if (recv_pkt.data(7, 0) == pkt_type_data) {
 			/**
 			 * if received data packet, generate ack/nack response
 			 */
-			resp_pkt.last = 1;
-			resp_pkt.keep = 0xff;
 			if (recv_pkt.data(7 + SEQ_WIDTH, 8) ==
 			    expected_seqnum) {
 				ack_enable = true;
@@ -130,13 +130,16 @@ void rx_64(stream<struct udp_info>	*rx_header,
 				resp_pkt.data(7 + SEQ_WIDTH, 8) =
 				    expected_seqnum - 1;
 			}
-		}
-		else {
+		} else if (recv_pkt.data(7, 0) == pkt_type_ack ||
+			   recv_pkt.data(7, 0) == pkt_type_nack) {
 			/**
 			 * if received ack/nack, forward it to Uack'd packets queue
 			 */
 			ack_header->write(resp_udp_info);
 			ack_payload->write(recv_pkt);
+			deliever_data = false;
+		} else {
+			deliever_data = false;
 		}
 		if (recv_pkt.last == 1)
 			status = udp_recv_udp_head;

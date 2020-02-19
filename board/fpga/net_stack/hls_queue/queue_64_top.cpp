@@ -24,14 +24,9 @@ void queue_64(stream<struct bram_cmd>		*rd_cmd,
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS PIPELINE
 
-/**
- * ! here we assume there is no intra or inter cycle dependency
- * ! since I always enqueue from the rear while dequeue from the head
- * ! but I can not be very sure and further test need to be done
- */
 	static struct net_axis_64 unackd_payload_queue[WINDOW_SIZE][MAX_PACKET_SIZE];
-#pragma HLS dependence variable=unackd_payload_queue intra false
-#pragma HLS dependence variable=unackd_payload_queue inter false
+//#pragma HLS dependence variable=unackd_payload_queue intra false
+//#pragma HLS dependence variable=unackd_payload_queue inter false
 //#pragma HLS ARRAY_PARTITION variable=unackd_payload_queue dim=1
 #pragma HLS DATA_PACK variable=unackd_payload_queue
 
@@ -49,9 +44,7 @@ void queue_64(stream<struct bram_cmd>		*rd_cmd,
 		rd_data->write(rd_pkt);
 		PR("read from [%d][%d]: %llx\n", index, offset,
 		   rd_pkt.data.to_uint64());
-	}
-
-	if (!wr_cmd->empty() && !wr_data->empty()) {
+	} else if (!wr_cmd->empty() && !wr_data->empty()) {
 		cmd_w = wr_cmd->read();
 		wr_pkt = wr_data->read();
 		index = cmd_w.index;
