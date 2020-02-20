@@ -18,10 +18,32 @@
 #include "core.h"
 #include "thpool.h"
 
+/*
+ * Each thpool worker is described by struct thpool_worker,
+ * and it is a standalone thread, running the generic handler only.
+ * We can have one or multiple workers depends on config.
+ *
+ * Each thpool worker maintains its own ring-based thpool buffer.
+ * Thus the buffer is single-producer-single-consumer, no locking needed.
+ *
+ * We try to do as much as we could in generic thpool worker. For
+ * the request handler, it does not need to concern about buffer mgmt etc.
+ *
+ * The flow is:
+ * a) RX network packet
+ * b) allocate ring buffer
+ * c) invoke request handler
+ * d) TX network packet 
+ * e) free ring buffer
+ */
+
 static int TW_HEAD;
 static struct thpool_worker *thpool_worker_map;
 
-/* Init per worker thpool ring buffers */
+/*
+ * Init per worker thpool ring buffers
+ * Called once during boot
+ */
 static int init_thpool_buffer(struct thpool_worker *tw)
 {
 	int i;
@@ -48,8 +70,8 @@ static int init_thpool_buffer(struct thpool_worker *tw)
 }
 
 /*
- * Allocate worker array
- * and then init per worker ring buffer array.
+ * Allocate worker array and then init per worker ring buffer array.
+ * Called once during boot time.
  */
 static int init_thpool(void)
 {
@@ -79,8 +101,7 @@ static int init_thpool(void)
 }
 
 /*
- * Select a worker to handle the next request
- * in a round-robin fashion.
+ * Select a worker to handle the next request in a round-robin fashion.
  */
 static __always_inline struct thpool_worker *
 select_thpool_worker_rr(void)
