@@ -12,4 +12,5 @@
 int main (int argc, char **argv)
 {
 	init_net();
+	return 0;
 }
