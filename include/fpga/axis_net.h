@@ -46,12 +46,6 @@ struct net_axis_512 {
 };
 
 struct udp_info {
-	/* optioanl field */
-	/*
-	ap_uint<6>			ip_dscp = 0;
-	ap_uint<2>			ip_ecn = 0;
-	ap_uint<8>			ip_ttl = 64;
-	*/
 	ap_uint<32>			src_ip;
 	ap_uint<32>			dest_ip;
 	ap_uint<16>			src_port;

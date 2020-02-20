@@ -9,12 +9,6 @@
 
 using hls::stream;
 
-/**
- * @rd_cmd: read queue command from sender
- * @wr_cmd: write queue command from sender
- * @rd_data: payload data sent to sender
- * @wr_data: payload data received from sender
- */
 void queue_64(stream<struct bram_cmd>		*rd_cmd,
 	      stream<struct bram_cmd>		*wr_cmd,
 	      stream<struct net_axis_64>	*rd_data,

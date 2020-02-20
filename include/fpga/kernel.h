@@ -23,8 +23,6 @@
 		printf("\033[0m");          \
 	} while (0)
 
-#define round_up(x, y)		(((x-1) | y-1)+1)
-
 #define HLS_BUG()	\
 	do {		\
 	} while (0)

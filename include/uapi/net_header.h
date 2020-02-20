@@ -35,13 +35,13 @@ struct lego_header {
 	int	seq;
 } __attribute__((packed));
 
-#define SEQ_SIZE		(4)
-#define SEQ_WIDTH		(SEQ_SIZE * 8)
+#define SEQ_SIZE_BYTE		(4)
+#define SEQ_WIDTH		(SEQ_SIZE_BYTE * 8)
 
 struct gbn_header {
-	char	type;
-	char	seqnum[SEQ_SIZE];
-	char	_resv[7-SEQ_SIZE];
+	char		type;
+	unsigned int	seqnum;
+	char		_resv[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
 
 enum pkt_type {
@@ -53,9 +53,12 @@ enum pkt_type {
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
+#define GBN_HEADER_SIZE		(sizeof(struct gbn_header))
 #define LEGO_HEADER_SIZE	(sizeof(struct lego_header))
 
-#define LEGO_HEADER_OFFSET \
+#define GBN_HEADER_OFFSET \
 	(ETHERNET_HEADER_SIZE + IP_HEADER_SIZE + UDP_HEADER_SIZE)
+#define LEGO_HEADER_OFFSET \
+	(GBN_HEADER_OFFSET + GBN_HEADER_SIZE)
 
 #endif /* _UAPI_NET_HEADER_H_ */

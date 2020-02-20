@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	host_addr.sin_addr.s_addr = host_ip.ip;
 
 	struct gbn_header header;
-	memcpy(&header.seqnum, &seqnum, SEQ_SIZE);
+	memcpy(&header.seqnum, &seqnum, SEQ_SIZE_BYTE);
 	header.type = pkt_type_data;
 	memcpy(&buf[0], &header, sizeof(header));
 	buf[1] = 0;

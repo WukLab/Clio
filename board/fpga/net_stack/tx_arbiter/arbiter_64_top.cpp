@@ -17,6 +17,21 @@ enum arb_result {
 	arb_tx
 };
 
+/**
+ * @rsp_header: udp header for ack/nack response
+ * @rsp_payload: udp payload for ack/nack response
+ * @tx_header: udp header sent to network stack
+ * @tx_payload: udp payload sent to network stack
+ * @rt_header: retransmit udp header
+ * @rt_payload: retransmit udp payload
+ * @out_header: final header interface to network stack
+ * @out_payload: final payload interface to network stack
+ * priority:
+ * 1. rsp
+ * 2. retrans
+ * 3. normal trans
+ * TODO: configurable priority
+ */
 void arbiter_64(stream<struct udp_info>		*rsp_header,
 		stream<struct net_axis_64>	*rsp_payload,
 		stream<struct udp_info>		*tx_header,
@@ -79,13 +94,16 @@ void arbiter_64(stream<struct udp_info>		*rsp_header,
 		break;
 	case udp_arbiter_send_payload:
 		if (result == arb_rsp) {
-			if (rsp_payload->empty()) break;
+			if (rsp_payload->empty())
+				break;
 			send_pkt = rsp_payload->read();
 		} else if (result == arb_rt) {
-			if (rt_payload->empty()) break;
+			if (rt_payload->empty())
+				break;
 			send_pkt = rt_payload->read();
 		} else if (result == arb_tx) {
-			if (tx_payload->empty()) break;
+			if (tx_payload->empty())
+				break;
 			send_pkt = tx_payload->read();
 		}
 		out_payload->write(send_pkt);

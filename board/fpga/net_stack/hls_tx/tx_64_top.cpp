@@ -20,6 +20,20 @@ enum udp_dequeue_status {
 	udp_retrans_payload_2
 };
 
+/**
+ * @tx_header: udp header sent to network stack
+ * @tx_payload: udp payload sent to network stack
+ * @usr_tx_header: received udp header from onboard pipeline
+ * @usr_tx_payload: received udp payload from onboard pipeline
+ * @ack_header: udp header of ack/nack from receiver(may not need)
+ * @ack_payload: udp payload of ack/nack from receiver
+ * @queue_rd_cmd: read queue command sent to queue
+ * @queue_wr_cmd: write queue command sent to queue
+ * @queue_wr_data: payload data sent to queue
+ * @queue_rd_data: payload data read from queue
+ * @rt_header: retransmit udp header
+ * @rt_payload: retransmit udp payload
+ */
 void tx_64(stream<struct udp_info>	*tx_header,
 	   stream<struct net_axis_64>	*tx_payload,
 	   stream<struct udp_info>	*usr_tx_header,
@@ -65,7 +79,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 
 	/**
 	 * seqnum info
-	 * 
+	 *
 	 * 		 |<-----window----->|
 	 * ++++++++++++++|----------********|
 	 * 		^	   ^
@@ -94,14 +108,14 @@ void tx_64(stream<struct udp_info>	*tx_header,
 
 	if (timer > 0) timer--;
 	if (timer_rst) {
-		timer = TIMEOUT;
+		timer = RETRANS_TIMEOUT_CYCLE;
 		timer_rst = false;
 	}
 	if (timer == 0) retrans = true;
 	/**
 	 * if no packet waited to acknowledge
 	 * and no packet to send, disable timer
-	 */ 
+	 */
 	if (empty) timer = -1;
 	PR("timer: %lld\n", timer);
 
@@ -144,13 +158,15 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		}
 		break;
 	case udp_enqueue_head:
-		if (usr_tx_header->empty()) break;
+		if (usr_tx_header->empty())
+			break;
 		send_udp_info = usr_tx_header->read();
 		PR("get header from MMU: %x:%d -> %x:%d\n",
 		   send_udp_info.src_ip.to_uint(),
 		   send_udp_info.src_port.to_uint(),
 		   send_udp_info.dest_ip.to_uint(),
 		   send_udp_info.dest_port.to_uint());
+
 		/**
 		 * send udp header to tx port and unack'd queue
 		 */
@@ -171,6 +187,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		PR("send gbn header to net [type %d, seq %lld]\n",
 		   send_pkt.data(7, 0).to_uint(),
 		   send_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
+
 		cmd_w.index = rear;
 		cmd_w.offset = 0;
 		queue_wr_cmd->write(cmd_w);
@@ -181,15 +198,18 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		/**
 		 * send udp payload to tx port and unack'd queue
 		 */
-		if (usr_tx_payload->empty()) break;
+		if (usr_tx_payload->empty())
+			break;
 		send_pkt = usr_tx_payload->read();
 		PR("get payload from MMU: %llx\n", send_pkt.data.to_uint64());
 		cmd_w.index = rear;
 		cmd_w.offset = pkt_size_cnt;
 		pkt_size_cnt++;
+
 		queue_wr_cmd->write(cmd_w);
 		queue_wr_data->write(send_pkt);
 		tx_payload->write(send_pkt);
+
 		if (send_pkt.last == 1) {
 			enqueue_state = udp_enqueue_wait;
 			pkt_size_cnt = 1;
@@ -240,7 +260,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		 * or retransmit unacked packets (nack)
 		 */
 		recv_seqnum = ack_pkt.data(7 + SEQ_WIDTH, 8);
-		
+
 		if (recv_seqnum > last_ackd_seqnum) {
 			/* move head forward */
 			head = (head + (recv_seqnum - last_ackd_seqnum)) &
@@ -275,6 +295,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 			timer_rst = true;
 			break;
 		}
+
 		retrans_udp_info = unackd_header_queue[retrans_i];
 		rt_header->write(retrans_udp_info);
 		PR("retrans udp header: %x:%d -> %x:%d\n",
@@ -289,12 +310,14 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		cmd_r.index = retrans_i;
 		cmd_r.offset = retrans_size_cnt;
 		retrans_size_cnt++;
+
 		queue_rd_cmd->write(cmd_r);
 		dequeue_state = udp_retrans_payload_2;
 		break;
 	case udp_retrans_payload_2:
 		/* retrans payload */
-		if (queue_rd_data->empty()) break;
+		if (queue_rd_data->empty())
+			break;
 		retrans_pkt = queue_rd_data->read();
 		rt_payload->write(retrans_pkt);
 		dequeue_state = udp_retrans_payload_1;
@@ -302,6 +325,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		   retrans_pkt.data.to_uint64(),
 		   retrans_pkt.data(7, 0).to_uint(),
 		   retrans_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
+
 		if (retrans_pkt.last == 1) {
 			dequeue_state = udp_retrans_head;
 			retrans_i = (retrans_i + 1) & WINDOW_INDEX_MSK;

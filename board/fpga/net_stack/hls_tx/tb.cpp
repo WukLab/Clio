@@ -231,7 +231,7 @@ void test2()
 					 &ack_header, &ack_payload);
 	}
 
-	while (cycle < 2 * MAX_CYCLE + TIMEOUT)
+	while (cycle < 2 * MAX_CYCLE + RETRANS_TIMEOUT_CYCLE)
 		tx_64_util.run_one_cycle(&usr_tx_header, &usr_tx_payload,
 					 &ack_header, &ack_payload);
 

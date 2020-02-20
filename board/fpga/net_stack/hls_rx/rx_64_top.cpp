@@ -7,12 +7,21 @@
 #include "rx_64.hpp"
 
 enum udp_recv_status {
-	//udp_recv_check_valid,
 	udp_recv_udp_head,
 	udp_recv_gbn_head,
 	udp_recv_parse_stream
 };
 
+/**
+ * @rx_header: received udp header from network stack
+ * @rx_payload: received udp payload from network stack
+ * @rsp_header: udp header for ack/nack response
+ * @rsp_payload: udp payload for ack/nack response
+ * @ack_header: received ack/nack sent to unack'd queue
+ * @ack_payload: received ack/nack sent to unack'd queue
+ * @usr_rx_header: udp header sent to onboard pipeline
+ * @usr_rx_payload: udp payload sent to onboard pipeline
+ */
 void rx_64(stream<struct udp_info>	*rx_header,
 	   stream<struct net_axis_64>	*rx_payload,
 	   stream<struct udp_info>	*rsp_header,
@@ -76,6 +85,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		if (rx_header->empty())
 			break;
 		recv_udp_info = rx_header->read();
+
 		/* generate response header */
 		resp_udp_info.dest_ip = recv_udp_info.src_ip;
 		resp_udp_info.dest_port = recv_udp_info.src_port;
@@ -102,6 +112,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		resp_pkt.last = 1;
 		resp_pkt.keep = 0xff;
 		if (recv_pkt.data(7, 0) == pkt_type_data) {
+
 			/**
 			 * if received data packet, generate ack/nack response
 			 */
@@ -109,6 +120,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			    expected_seqnum) {
 				ack_enable = true;
 				deliever_data = true;
+
 				/* deliever header */
 				usr_rx_header->write(recv_udp_info);
 				/* generate response packet */
@@ -118,6 +130,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			} else if (ack_enable && (recv_pkt.data(7 + SEQ_WIDTH, 8) >
 						expected_seqnum)) {
 				deliever_data = false;
+
 				resp_pkt.data(7, 0) = pkt_type_nack;
 				/* response latest acked seqnum */
 				resp_pkt.data(7 + SEQ_WIDTH, 8) =
@@ -125,6 +138,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			} else {
 				/* received seqnum < expected seqnum */
 				deliever_data = false;
+
 				resp_pkt.data(7, 0) = pkt_type_ack;
 				/* response latest acked seqnum */
 				resp_pkt.data(7 + SEQ_WIDTH, 8) =
@@ -132,6 +146,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			}
 		} else if (recv_pkt.data(7, 0) == pkt_type_ack ||
 			   recv_pkt.data(7, 0) == pkt_type_nack) {
+
 			/**
 			 * if received ack/nack, forward it to Uack'd packets queue
 			 */
@@ -152,6 +167,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		recv_pkt = rx_payload->read();
 		PR("receive data from net %llx\n", recv_pkt.data.to_uint64());
 		if (deliever_data) {
+
 			/**
 			 * send data packet to onboard pipeline
 			 * ?: what's the interface for onboard pipeline?
@@ -161,6 +177,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		if (recv_pkt.last == 1) {
 			status = udp_recv_udp_head;
 			deliever_data = false;
+
 			/**
 			 * send response udp header and response acknowledgment
 			 * ? when to send response? Right after checking seqnum
@@ -169,8 +186,10 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			if (ack_enable) {
 				rsp_header->write(resp_udp_info);
 				rsp_payload->write(resp_pkt);
+
 				/**
 				 * set ack_enable to false when nack(10b)
+				 * encoding may change if add more pkt types
 				 * ack  = 01b
 				 * nack = 10b
 				 * data = 11b

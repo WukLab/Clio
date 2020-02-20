@@ -8,6 +8,12 @@
 #include "queue_64.hpp"
 #include "../hls_tx/tx_64.hpp"
 
+/**
+ * @rd_cmd: read queue command from sender
+ * @wr_cmd: write queue command from sender
+ * @rd_data: payload data sent to sender
+ * @wr_data: payload data received from sender
+ */
 void queue_64(stream<struct bram_cmd>		*rd_cmd,
 	      stream<struct bram_cmd>		*wr_cmd,
 	      stream<struct net_axis_64>	*rd_data,
@@ -24,6 +30,7 @@ void queue_64(stream<struct bram_cmd>		*rd_cmd,
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS PIPELINE
 
+	// TODO: using one dimensional array to store unacked packets
 	static struct net_axis_64 unackd_payload_queue[WINDOW_SIZE][MAX_PACKET_SIZE];
 //#pragma HLS dependence variable=unackd_payload_queue intra false
 //#pragma HLS dependence variable=unackd_payload_queue inter false

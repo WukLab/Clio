@@ -21,8 +21,8 @@ This is a Go-Back-N based reliable network built on top of UDP network stack. It
 - Priority: rsp > retrans > normal
 
 ## Configuration
-Thereare only a few configurations in `include/fpga/rel_net.h`
+There are only a few configurations in `include/fpga/rel_net.h`
 - `DEBUG_MODE`: define this to run hls c-simulation, undefine this to run hls synthesis
-- `MAX_PACKET_SIZE`: the size in byte of the largest packet that can be stored in the unacked packet queue
-- `WINDOW_SIZE`: the max num of packets that can be sent out without acknowledgement. Since it's a circular queue, the actual capacity is `WINDOWSIZE-1`
-- `TIMEOUT`: retransmission timeout in clock cycles
+- `MAX_PACKET_SIZE`: the size in 8bytes(per transfer size) of the largest packet that can be stored in the unacked packet queue. default value is 4096/8
+- `WINDOW_SIZE`: the max num of packets that can be sent out without acknowledgement. Since it's a circular queue, the actual capacity is `WINDOWSIZE-1`. default value is 8
+- `RETRANS_TIMEOUT_CYCLE`: retransmission timeout in clock cycles
