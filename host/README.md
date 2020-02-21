@@ -5,8 +5,8 @@
 Public APIs
 
 - `net_send`
-- `net_receive`
-- `net_receive_nb`
+- `net_receive`: block until there is a incoming message
+- `net_receive_nb`: a non-blocking version of `net_receive`. It will return immediately if there is no message.
 
 Two layers of implementations
 

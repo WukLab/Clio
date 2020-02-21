@@ -47,4 +47,3 @@ struct transport_net_ops transport_gbn_ops = {
 	.receive_one_nb		= gbn_receive_one_nb,
 	.init			= gbn_init,
 };
-

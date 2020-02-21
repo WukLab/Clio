@@ -13,7 +13,9 @@ extern int sysctl_link_mtu;
 struct session_net {
 	struct endpoint_info	local_ei, remote_ei;
 	struct routing_info	route;
-	void 			*transport_private;
+
+	/* Private data used by raw net layer */
+	void 			*raw_net_private;
 };
 
 struct session_net *init_net(void);

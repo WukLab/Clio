@@ -121,7 +121,7 @@ static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_siz
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
 
-	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	send_cq = ses_verbs->send_cq;
@@ -203,7 +203,7 @@ static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
 
-	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	recv_cq = ses_verbs->recv_cq;
@@ -234,19 +234,7 @@ static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_
 			return -EIO;
 		}
 
-		/*
-		 * TODO
-		 * This extra memcpy of course is not the best implementation.
-		 * LITE uses this approach.
-		 * This is easier for users to use.
-		 *
-		 * We need to avoid this memcpy for best perf. And for that, users
-		 * only need to give us a (void **buf).
-		 *
-		 * However, it's an orthodox. IB needs the recv_buffers to be posted
-		 * beforehand. Users, on the otherhand, may want to have their own
-		 * location, instead of the ring buffer managed by us.
-		 */
+		/* Extra memcpy is needed if user provides buffer */
 		buf_size = wc.byte_len;
 		memcpy(buf, buf_p, buf_size);
 
@@ -368,7 +356,7 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		free(ses_net);
 		return NULL;
 	}
-	ses_net->transport_private = ses_verbs;
+	ses_net->raw_net_private = ses_verbs;
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {

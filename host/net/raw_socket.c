@@ -48,7 +48,7 @@ static int raw_socket_send(struct session_net *ses_net,
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
 
-	ses_socket = (struct session_raw_socket *)ses_net->transport_private;
+	ses_socket = (struct session_raw_socket *)ses_net->raw_net_private;
 	sockfd = ses_socket->sockfd;
 	saddr = &ses_socket->saddr;
 
@@ -72,7 +72,7 @@ static int raw_socket_receive(struct session_net *ses_net,
 	if (unlikely(!ses_net || !buf || !buf_size))
 		return -EINVAL;
 
-	ses_socket = (struct session_raw_socket *)ses_net->transport_private;
+	ses_socket = (struct session_raw_socket *)ses_net->raw_net_private;
 	sockfd = ses_socket->sockfd;
 
 	ret = recvfrom(sockfd, buf, buf_size, 0, NULL, NULL);
@@ -144,7 +144,7 @@ init_raw_socket(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		free(ses_net);
 		return NULL;
 	}
-	ses_net->transport_private = ses_socket;
+	ses_net->raw_net_private = ses_socket;
 
 	sockfd = raw_socket_open(eth_device, &if_idx, &if_mac);
 	if (sockfd < 0) {

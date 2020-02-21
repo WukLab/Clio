@@ -32,6 +32,10 @@ net_receive(struct session_net *net, void *buf, size_t buf_size)
 	return transport_net_ops->receive_one(net, buf, buf_size);
 }
 
+/*
+ * Non-blocking receive. It will return immediately if there is no message upon
+ * calling. It's an optional interface provided by transport layer.
+ */
 static inline int
 net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
 {
@@ -165,6 +169,7 @@ struct session_net *init_net(void)
 		return NULL;
 	}
 
+	//transport_net_ops = &transport_gbn_ops;
 	transport_net_ops = &transport_bypass_ops;
 
 	test_net(ses);
