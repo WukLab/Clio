@@ -66,10 +66,75 @@ void dump_packet_headers(void *packet)
 	printf("  Port %u -> %u\n", ntohs(udp->src_port), ntohs(udp->dst_port));
 }
 
-/* TODO more automatic or use config file */
+void test_net(struct session_net *ses)
+{
+	void *send_buf;
+	void *recv_buf;
+	int buf_size, i, ret;
+	bool server;
+
+	struct dummy_payload {
+		unsigned long mark;
+	};
+	struct dummy_payload *payload;
+
+	buf_size = 256;
+	send_buf = malloc(buf_size);
+	recv_buf = malloc(buf_size);
+	if (!send_buf || !recv_buf)
+		return;
+	memset(send_buf, 0, buf_size);
+	memset(recv_buf, 0, buf_size);
+
+	i = 0;
+
+	/*
+	 * Please tune this during testing.
+	 * One side is server, another is client.
+	 */
+	server = false;
+	if (server) {
+		/* Server, recv msg */
+		while (1) {
+			ret = net_receive(ses, recv_buf, buf_size);
+			if (ret <= 0) {
+				printf("receive error\n");
+				return;
+			}
+
+			dump_packet_headers(recv_buf);
+			payload = recv_buf + 44;
+			printf("Msg %d Payload mark: %lu\n", i, payload->mark);
+			i++;
+		}
+	} else {
+		/* Client, send msg */
+		while (1) {
+			payload = send_buf + 44;
+			payload->mark = i++;
+
+			printf("send %d\n", i-1);
+			ret = net_send(ses, send_buf, buf_size);
+			if (ret <= 0) {
+				printf("send error\n");
+				return;
+			}
+
+			if (i >= 100)
+				break;
+		}
+	}
+}
+
+/* TODO more automatic or use XML file */
 struct endpoint_info ei_wuklab02 = {
 	.mac		= { 0xe4, 0x1d, 0x2d, 0xb2, 0xba, 0x51 },
 	.ip		= 0xc0a80102, /* 192.168.1.2 */
+	.udp_port	= 8888,
+};
+struct endpoint_info ei_wuklab05 = {
+	.mac		= { 0xe4, 0x1d, 0x2d, 0xe4, 0x81, 0x51 },
+	.ip		= 0xc0a80105, /* 192.168.1.5 */
 	.udp_port	= 8888,
 };
 struct endpoint_info board_0 = {
@@ -88,9 +153,10 @@ struct session_net *init_net(void)
 	 * Knobs
 	 */
 	local_ei = &ei_wuklab02;
-	remote_ei = &board_0;
+	remote_ei = &ei_wuklab05;
 
-	raw_net_ops = &raw_verbs_ops;
+	//raw_net_ops = &raw_verbs_ops;
+	raw_net_ops = &raw_socket_ops;
 	printf("Raw Net Layer: using %s\n", raw_net_ops->name);
 
 	ses = raw_net_ops->init(local_ei, remote_ei);
@@ -101,5 +167,6 @@ struct session_net *init_net(void)
 
 	transport_net_ops = &transport_bypass_ops;
 
+	test_net(ses);
 	return ses;
 }

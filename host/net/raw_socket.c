@@ -20,6 +20,12 @@
 #include <uapi/net_header.h>
 #include "net.h"
 
+/*
+ * This is the ethernet device name we are using.
+ * It usually is: p4p1, or ens4 in our machines.
+ */
+static char eth_device[] = "ens4";
+
 struct session_raw_socket {
 	int sockfd;
 	struct ifreq if_idx;
@@ -27,6 +33,10 @@ struct session_raw_socket {
 	struct sockaddr_ll saddr;
 };
 
+/*
+ * Return number of bytes sent out
+ * Return -1 if error 
+ */
 static int raw_socket_send(struct session_net *ses_net,
 			   void *buf, size_t buf_size)
 {
@@ -48,6 +58,10 @@ static int raw_socket_send(struct session_net *ses_net,
 	return ret;
 }
 
+/*
+ * Return number of bytes received.
+ * Return -1 if error.
+ */
 static int raw_socket_receive(struct session_net *ses_net,
 			      void *buf, size_t buf_size)
 {
@@ -96,7 +110,7 @@ static int raw_socket_open(char *if_name, struct ifreq *if_idx,
 	strncpy(if_idx->ifr_name, if_name, IFNAMSIZ);
 	ret = ioctl(sockfd, SIOCGIFINDEX, if_idx);
 	if (ret < 0) {
-		perror("SIOCGIFINDEX");
+		printf("Fail to open device %s. Use ifconfig to check.\n", if_name);
 		return ret;
 	}
 
@@ -110,12 +124,6 @@ static int raw_socket_open(char *if_name, struct ifreq *if_idx,
 	}
 	return sockfd;
 }
-
-/*
- * This is the ethernet device name we are using.
- * It usually is: p4p1, or ens4 in our machines.
- */
-static char eth_device[] = "p4p1";
 
 static struct session_net *
 init_raw_socket(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)

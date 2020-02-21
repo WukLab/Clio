@@ -173,7 +173,7 @@ static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_siz
 		break;
 	}
 
-	ret = 0;
+	ret = buf_size;
 out:
 	ibv_dereg_mr(mr);
 	return ret;
@@ -222,7 +222,7 @@ static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_
 			continue;
 		else if (ret < 0) {
 			perror("Poll CQ:");
-			goto out;
+			return ret;
 		}
 
 		/* Get its position in the ring buffer */
@@ -265,13 +265,12 @@ static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_
 		ret = ibv_post_recv(qp, &recv_wr, &bad_recv_wr);
 		if (ret < 0) {
 			perror("post recv");
-			goto out;
+			return ret;
 		}
 		break;
 	}
 
-	ret = 0;
-out:
+	ret = buf_size;
 	return ret;
 }
 

@@ -11,6 +11,12 @@
 
 int main (int argc, char **argv)
 {
-	init_net();
+	struct session_net *ses;
+
+	ses = init_net();
+	if (!ses) {
+		printf("Fail to init network layer.\n");
+		return 0;
+	}
 	return 0;
 }
