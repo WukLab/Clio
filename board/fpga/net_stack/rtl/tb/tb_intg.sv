@@ -128,7 +128,7 @@ assign {
 } = slv_rx_udp_hdr_data;
 
 fpga_core #(
-	.INTEGRATION_ENABLE(1)
+	.INTEGRATION_MODE(1)
 )
 relnet_core_mst (
 	.clk(clk),
@@ -178,7 +178,7 @@ relnet_core_mst (
 );
 
 fpga_core #(
-	.INTEGRATION_ENABLE(1)
+	.INTEGRATION_MODE(1)
 )
 relnet_core_slv (
 	.clk(clk),

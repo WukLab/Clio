@@ -108,7 +108,7 @@ host_stack master (
 );
 
 fpga_core #(
-	.INTEGRATION_ENABLE(0)
+	.INTEGRATION_MODE(2)
 )
 relnet_core (
 	.clk(clk),

@@ -452,7 +452,7 @@ assign rx_usr_hdr_ready = 1'b1;
 assign rx_usr_payload_axis_tready = 1'b1;
 
 fpga_core #(
-    .INTEGRATION_ENABLE(1)
+    .INTEGRATION_MODE(1)
 )
 core_inst (
     /*

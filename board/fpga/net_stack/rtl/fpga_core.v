@@ -31,7 +31,13 @@ THE SOFTWARE.
  */
 module fpga_core #
 (
-    parameter INTEGRATION_ENABLE = 1
+    /*
+     * MODE:
+     * 1: integration
+     * 0: only rx
+     * other: loop back
+     */
+    parameter INTEGRATION_MODE = 1
 )
 (
     /*
@@ -579,7 +585,7 @@ assign {
 	tx_udp_ip_source_ip
 } = tx_udp_hdr_info;
 
-if (INTEGRATION_ENABLE) begin
+if (INTEGRATION_MODE == 1) begin
     relnet
     relnet_inst (
         .ap_clk(clk),
@@ -625,7 +631,7 @@ if (INTEGRATION_ENABLE) begin
         .usr_tx_payload_tuser(s_usr_payload_axis_tuser),
         .usr_tx_payload_tvalid(s_usr_payload_axis_tvalid)
     );
-end else begin
+end else if (INTEGRATION_MODE == 0) begin
     rx_64_inst
     udp_rx_64 (
         .ap_clk(clk),
@@ -663,6 +669,51 @@ end else begin
         // internal interface: recvd ack
         .ack_header_V_TREADY(1'b1),
         .ack_payload_TREADY(1'b1)
+    );
+end else begin
+    assign tx_udp_ip_source_ip = local_ip;
+    assign tx_udp_ip_dest_ip = rx_udp_ip_source_ip;
+    assign tx_udp_source_port = rx_udp_dest_port;
+    assign tx_udp_dest_port = rx_udp_source_port;
+    assign tx_udp_length = rx_udp_length;
+    assign rx_udp_hdr_ready = tx_eth_hdr_ready;
+    assign tx_udp_hdr_valid = rx_udp_hdr_valid;
+    axis_fifo #(
+        .DEPTH(8192),
+        .DATA_WIDTH(64),
+        .KEEP_ENABLE(1),
+        .KEEP_WIDTH(8),
+        .ID_ENABLE(0),
+        .DEST_ENABLE(0),
+        .USER_ENABLE(1),
+        .USER_WIDTH(1),
+        .FRAME_FIFO(0)
+    )
+    udp_payload_fifo (
+        .clk(clk),
+        .rst(rst),
+        // AXI input
+        .s_axis_tdata(rx_udp_payload_axis_tdata),
+        .s_axis_tkeep(rx_udp_payload_axis_tkeep),
+        .s_axis_tvalid(rx_udp_payload_axis_tvalid),
+        .s_axis_tready(rx_udp_payload_axis_tready),
+        .s_axis_tlast(rx_udp_payload_axis_tlast),
+        .s_axis_tid(0),
+        .s_axis_tdest(0),
+        .s_axis_tuser(rx_udp_payload_axis_tuser),
+        // AXI output
+        .m_axis_tdata(tx_udp_payload_axis_tdata),
+        .m_axis_tkeep(tx_udp_payload_axis_tkeep),
+        .m_axis_tvalid(tx_udp_payload_axis_tvalid),
+        .m_axis_tready(tx_udp_payload_axis_tready),
+        .m_axis_tlast(tx_udp_payload_axis_tlast),
+        .m_axis_tid(),
+        .m_axis_tdest(),
+        .m_axis_tuser(tx_udp_payload_axis_tuser),
+        // Status
+        .status_overflow(),
+        .status_bad_frame(),
+        .status_good_frame()
     );
 end
 
