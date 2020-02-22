@@ -36,39 +36,6 @@ struct session_raw_verbs {
 };
 
 /*
- * Cook the L2-L4 headers.
- * @len: the length of the whole packet.
- */
-static __always_inline int
-prepare_headers(struct routing_info *route, void *buf, unsigned int len)
-{
-	struct routing_info *ri;
-
-	if (unlikely(!route || !buf))
-		return -EINVAL;
-
-	if (unlikely(len > sysctl_link_mtu)) {
-		printf("WARNING: Max MTU: %d. Length: %d\n",
-			sysctl_link_mtu, len);
-		return -EINVAL;
-	}
-
-	/*
-	 * Directly copy the provided routing info
-	 * into the packet buffer
-	 */
-	memcpy(buf, route, sizeof(struct routing_info));
-
-	ri = (struct routing_info *)buf;
-	ri->ipv4.tot_len = htons(len - sizeof(struct eth_hdr));
-	ri->ipv4.check = 0;
-	ri->ipv4.check = ip_csum(&ri->ipv4, ri->ipv4.ihl);
-	ri->udp.len = htons(len - sizeof(struct eth_hdr) - sizeof(struct ipv4_hdr));
-
-	return 0;
-}
-
-/*
  * This function install the flow control rules for @qp.
  */
 static struct ibv_flow *qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
@@ -133,32 +100,6 @@ static struct ibv_flow *qp_create_flow(struct ibv_qp *qp, struct endpoint_info *
 	return eth_flow;
 }
 
-void dump_packet_headers(void *packet)
-{
-	struct eth_hdr *eth;
-	struct ipv4_hdr *ipv4;
-	struct udp_hdr *udp;
-	int i, j;
-
-	if (unlikely(!packet))
-		return;
-
-	eth = packet;
-	ipv4 = packet + sizeof(*eth);
-	udp = packet + sizeof(*eth) + sizeof(*ipv4);
-
-	for (j = 0; j < 6; j++) {
-		printf("%x:", eth->src_mac[j]);
-	}
-	printf(" -> ");
-	for (j = 0; j < 6; j++) {
-		printf("%x:", eth->dst_mac[j]);
-	}
-
-	printf("  IP %x -> %x", ntohl(ipv4->src_ip), ntohl(ipv4->dst_ip));
-	printf("  Port %u -> %u\n", ntohs(udp->src_port), ntohs(udp->dst_port));
-}
-
 /*
  * TODO
  * 1) Instead of reg/dereg mr every time, we could use
@@ -166,7 +107,7 @@ void dump_packet_headers(void *packet)
  * 2) We could do batch signaling.
  * 3) Add timeout to poll_cq
  */
-int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
+static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_sge sge;
@@ -180,7 +121,7 @@ int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
 
-	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	send_cq = ses_verbs->send_cq;
@@ -232,7 +173,7 @@ int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
 		break;
 	}
 
-	ret = 0;
+	ret = buf_size;
 out:
 	ibv_dereg_mr(mr);
 	return ret;
@@ -247,7 +188,7 @@ out:
  * RECVs were posted beforehand.
  * Current mode is very limited.
  */
-int raw_verbs_receive(struct session_net *ses_net, void **buf, int *buf_size)
+static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_pd *pd;
@@ -259,10 +200,10 @@ int raw_verbs_receive(struct session_net *ses_net, void **buf, int *buf_size)
 	int ret;
 	void *recv_buf;
 
-	if (unlikely(!ses_net || !buf || !buf_size))
+	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
 
-	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	recv_cq = ses_verbs->recv_cq;
@@ -271,12 +212,6 @@ int raw_verbs_receive(struct session_net *ses_net, void **buf, int *buf_size)
 
 	if (unlikely(!ses_verbs || !pd || !qp || !recv_cq))
 		return -EINVAL;
-
-	sge.length = BUFFER_SIZE;
-	sge.lkey = recv_mr->lkey;
-	recv_wr.num_sge = 1;
-	recv_wr.sg_list = &sge;
-	recv_wr.next = NULL;
 
 	while (1) {
 		struct ibv_wc wc;
@@ -287,31 +222,43 @@ int raw_verbs_receive(struct session_net *ses_net, void **buf, int *buf_size)
 			continue;
 		else if (ret < 0) {
 			perror("Poll CQ:");
-			goto out;
+			return ret;
 		}
 
+		/* Get its position in the ring buffer */
 		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
 
-		*buf = buf_p;
-		*buf_size = wc.byte_len;
+		if (unlikely(wc.byte_len > buf_size)) {
+			printf("%s(): buf too small (%u %zu)\n",
+				__func__, wc.byte_len, buf_size);
+			return -EIO;
+		}
+
+		/* Extra memcpy is needed if user provides buffer */
+		buf_size = wc.byte_len;
+		memcpy(buf, buf_p, buf_size);
 
 		/*
 		 * TODO
-		 * Instead of posting everytime
-		 * we could do batch post
+		 * Instead of posting everytime we could do batch post
 		 */
+		sge.length = BUFFER_SIZE;
+		sge.lkey = recv_mr->lkey;
 		sge.addr = (uint64_t)buf_p;
 		recv_wr.wr_id = wc.wr_id;
+		recv_wr.num_sge = 1;
+		recv_wr.sg_list = &sge;
+		recv_wr.next = NULL;
+
 		ret = ibv_post_recv(qp, &recv_wr, &bad_recv_wr);
 		if (ret < 0) {
 			perror("post recv");
-			goto out;
+			return ret;
 		}
 		break;
 	}
 
-	ret = 0;
-out:
+	ret = buf_size;
 	return ret;
 }
 
@@ -320,16 +267,13 @@ out:
  */
 static void post_recvs(struct session_raw_verbs *ses_verbs)
 {
-	int ret;
 	void *recv_buf;
 	int recv_buf_size;
 	struct ibv_mr *recv_mr;
 	struct ibv_recv_wr recv_wr, *bad_recv_wr;
-	struct ibv_wc wc;
 	struct ibv_sge sg_entry;
 	struct ibv_qp *qp;
 	struct ibv_pd *pd;
-	struct ibv_cq *recv_cq;
 	int n;
 
 	if (unlikely(!ses_verbs))
@@ -337,7 +281,6 @@ static void post_recvs(struct session_raw_verbs *ses_verbs)
 
 	qp = ses_verbs->qp;
 	pd = ses_verbs->pd;
-	recv_cq = ses_verbs->recv_cq;
 
 	recv_buf_size = BUFFER_SIZE * SQ_NUM_DESC;
 	recv_buf = malloc(recv_buf_size);
@@ -372,8 +315,26 @@ static void post_recvs(struct session_raw_verbs *ses_verbs)
 	}
 }
 
-struct session_net *init_ib_raw_packet(struct endpoint_info *local_ei,
-				       struct endpoint_info *remote_ei)
+void test_ib_raw_packet(struct session_net *ses_net)
+{
+	void *send_buf, *recv_buf;
+	size_t send_buf_size, recv_buf_size;
+	int i;
+
+	send_buf_size = 128;
+	recv_buf_size = 128;
+	send_buf = malloc(send_buf_size);
+	recv_buf = malloc(recv_buf_size);
+
+	for (i = 0; i < 10; i++) {
+		raw_verbs_send(ses_net, send_buf, send_buf_size);
+		raw_verbs_receive(ses_net, recv_buf, recv_buf_size);
+		dump_packet_headers(recv_buf);
+	}
+}
+
+static struct session_net *
+init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 {
 	struct ibv_device **dev_list;
 	struct ibv_device *ib_dev;
@@ -395,7 +356,7 @@ struct session_net *init_ib_raw_packet(struct endpoint_info *local_ei,
 		free(ses_net);
 		return NULL;
 	}
-	ses_net->transport_private = ses_verbs;
+	ses_net->raw_net_private = ses_verbs;
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
@@ -525,20 +486,10 @@ free_session:
 	return NULL;
 }
 
-void test_ib_raw_packet(struct session_net *ses_net)
-{
-	struct session_raw_verbs *ses_verbs;
-	void *send_buf, *recv_buf;
-	int send_buf_size, recv_buf_size;
-	int i;
-
-	ses_verbs = (struct session_raw_verbs *)ses_net->transport_private;
-	send_buf_size = 128;
-	send_buf = malloc(send_buf_size);
-
-	for (i = 0; i < 10; i++) {
-		raw_verbs_send(ses_net, send_buf, send_buf_size);
-		raw_verbs_receive(ses_net, &recv_buf, &recv_buf_size);
-		dump_packet_headers(recv_buf);
-	}
-}
+struct raw_net_ops raw_verbs_ops = {
+	.name			= "raw_verbs",
+	.send_one		= raw_verbs_send,
+	.receive_one		= raw_verbs_receive,
+	.receive_one_nb		= NULL,
+	.init			= init_raw_verbs,
+};
