@@ -16,3 +16,17 @@ Two layers of implementations
 2. Raw Network (`struct raw_net_ops`)
     - Raw IB verbs
     - Raw socket
+
+
+Stack Layout:
+```
+    |---------------------------------------|
+    |              User                     |
+    |---------------------------------------|
+    | (Rel-Go-back-N)   (Bypass)            |  <-   Transport Layer
+    |---------------------------------------|
+    | (Raw Socket)  (Raw IB Verbs)  (DPDK)  |  <-   Raw Net Layer
+    |---------------------------------------|
+    |         Ethernet NIC                  |
+    |---------------------------------------|
+```

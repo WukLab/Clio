@@ -147,10 +147,18 @@ struct endpoint_info board_0 = {
 	.udp_port	= 1234,
 };
 
+/* TODO */
+struct session_net *tmp_global_session;
+struct session_net *find_session(void *packet)
+{
+	return tmp_global_session;
+}
+
 struct session_net *init_net(void)
 {
 	struct session_net *ses;
 	struct endpoint_info *local_ei, *remote_ei;
+	int ret;
 
 	/*
 	 * XXX
@@ -165,13 +173,22 @@ struct session_net *init_net(void)
 
 	ses = raw_net_ops->init(local_ei, remote_ei);
 	if (!ses) {
-		printf("Fail to create net session\n");
+		printf("Fail to init raw net session\n");
 		return NULL;
 	}
 
-	//transport_net_ops = &transport_gbn_ops;
-	transport_net_ops = &transport_bypass_ops;
+	transport_net_ops = &transport_gbn_ops;
+	//transport_net_ops = &transport_bypass_ops;
+	printf("Transport Layer: using %s\n", transport_net_ops->name);
 
-	test_net(ses);
+	ret = transport_net_ops->init(ses);
+	if (ret) {
+		printf("Fail to init transport session\n");
+		return NULL;
+	}
+
+	tmp_global_session = ses;
+
+	//test_net(ses);
 	return ses;
 }

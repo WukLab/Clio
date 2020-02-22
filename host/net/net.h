@@ -10,15 +10,26 @@
 
 extern int sysctl_link_mtu;
 
+/*
+ * This structure describes a specific network connection
+ * between an application and the LegoMem board.
+ */
 struct session_net {
+	/* The endpoint info of this sepcific network session */
 	struct endpoint_info	local_ei, remote_ei;
+
+	/* The Ethernet/IP/UDP header info, 44 bytes */
 	struct routing_info	route;
+
+	/* Private data used by transport layer */
+	void			*transport_private;
 
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
 };
 
 struct session_net *init_net(void);
+struct session_net *find_session(void *packet);
 void dump_packet_headers(void *packet);
 
 struct transport_net_ops {
@@ -39,7 +50,7 @@ struct transport_net_ops {
 	 */
 	int (*receive_one_nb)(struct session_net *, void *, size_t);
 
-	int (*init)(void);
+	int (*init)(struct session_net *);
 };
 
 /*
@@ -75,8 +86,8 @@ struct raw_net_ops {
 
 extern struct raw_net_ops raw_verbs_ops;
 extern struct raw_net_ops raw_socket_ops;
-
 extern struct transport_net_ops transport_bypass_ops;
+extern struct transport_net_ops transport_gbn_ops;
 
 extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;

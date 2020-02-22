@@ -35,7 +35,7 @@ static inline int bypass_receive_one_nb(struct session_net *net,
 	return raw_net_receive_nb(net, buf, buf_size);
 }
 
-static inline int bypass_init(void)
+static inline int bypass_init(struct session_net *ses)
 {
 	return 0;
 }
