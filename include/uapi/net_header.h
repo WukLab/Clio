@@ -72,7 +72,7 @@ enum pkt_type {
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
 #define GBN_HEADER_SIZE		(sizeof(struct gbn_header))
-#define LEGO_HEADER_SIZE	(sizeof(struct lego_header))
+#define LEGO_HEADER_SIZE	(sizeof(struct lego_hdr))
 
 #define GBN_HEADER_OFFSET \
 	(ETHERNET_HEADER_SIZE + IP_HEADER_SIZE + UDP_HEADER_SIZE)

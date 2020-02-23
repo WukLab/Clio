@@ -4,7 +4,7 @@
 #include <uapi/compiler.h>
 
 #define THPOOL_BUFFER_SIZE	(4096)
-#define NR_THPOOL_BUFFER	(64)
+#define NR_THPOOL_BUFFER	(32)
 
 #define NR_THPOOL_WORKERS	(1)
 
@@ -34,16 +34,27 @@ struct tb_padding {
 #define THPOOL_PADDING(name)	struct tb_padding name
 
 struct thpool_buffer {
-	unsigned long		flags;
-	unsigned int		buffer_size;
-	char			buffer[THPOOL_BUFFER_SIZE];
+	unsigned int		flags;
+
+	unsigned int		rx_size;
+	char			rx[THPOOL_BUFFER_SIZE];
+
+	unsigned int		tx_size;
+	char			tx[THPOOL_BUFFER_SIZE];
 };
 
 static inline void
-set_tb_buffer_size(struct thpool_buffer *tb, unsigned int buffer_size)
+set_tb_rx_size(struct thpool_buffer *tb, unsigned int rx_size)
 {
-	BUG_ON(buffer_size > THPOOL_BUFFER_SIZE);
-	tb->buffer_size = buffer_size;
+	BUG_ON(rx_size > THPOOL_BUFFER_SIZE);
+	tb->rx_size = rx_size;
+}
+
+static inline void
+set_tb_tx_size(struct thpool_buffer *tb, unsigned int tx_size)
+{
+	BUG_ON(tx_size > THPOOL_BUFFER_SIZE);
+	tb->tx_size = tx_size;
 }
 
 #define THPOOL_BUFFER_USED	0x1

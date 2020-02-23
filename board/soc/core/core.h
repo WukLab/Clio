@@ -16,13 +16,25 @@ unsigned long alloc_va(struct proc_info *proc, unsigned long len, unsigned long 
 int free_va(struct proc_info *proc, unsigned long start, unsigned long len);
 void test_vm(void);
 
-/* SCHED */
+/*
+ * SCHED APIs
+ *
+ * 1. alloc_proc: create a new proc and insert into hashtable
+ * 2. free_proc: free the proc and delete from hashtable
+ * 3. get_proc_by_pid: find the proc, and then increase refcount
+ * 4. get_proc_info: increase refcount
+ * 5. put_proc_info: decrese refcount
+ *
+ * Developers should use get_proc_by_pid, and put_proc_info in a pair
+ * whenever you are using the proc_info. Never use free_proc directly.
+ */
 int init_proc_subsystem(void);
-struct proc_info *alloc_proc(char *proc_name, unsigned int host_ip);
+struct proc_info *alloc_proc(unsigned int pid, unsigned int node,
+			     char *proc_name, unsigned int host_ip);
 void free_proc(struct proc_info *pi);
+struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node);
 void dump_proc(struct proc_info *pi);
 void dump_procs(void);
-struct proc_info *get_proc_by_pid(unsigned int pid);
 
 static inline void get_proc_info(struct proc_info *pi)
 {

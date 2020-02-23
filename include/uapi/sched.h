@@ -59,17 +59,27 @@ struct vregion_info {
 	pthread_spinlock_t	lock;
 };
 
+/*
+ * HACK: If you change anything, remember to check
+ * if it should be added to init_proc_info().
+ */
 struct proc_info {
-	char			proc_name[PROC_NAME_LEN];
 	unsigned long		flags;
+
+	/*
+	 * For hashtable usage
+	 * pid and host node id uniquely identify a proc
+	 */
+        struct hlist_node	link;
+	unsigned int		pid;
+	unsigned int		node;
 
 	pthread_spinlock_t	lock;
 	atomic_t		refcount;
 
-	struct list_head	list;
-	unsigned int		pid;
-
+	/* For debugging purpose */
 	unsigned int		host_ip;
+	char			proc_name[PROC_NAME_LEN];
 
 	struct vregion_info	vregion[NR_VREGIONS];
 	int			nr_vmas;

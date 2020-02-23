@@ -1,5 +1,8 @@
 /*
  * Copyright (c) 2020. Wuklab. All rights reserved.
+ *
+ * This file describes the SoC side thpool workers and buffers:
+ * they bridge SoC and FPGA together.
  */
 
 #include <uapi/err.h>
@@ -23,85 +26,22 @@
  * and it is a standalone thread, running the generic handler only.
  * We can have one or multiple workers depends on config.
  *
- * Each thpool worker maintains its own ring-based thpool buffer.
- * Thus the buffer is single-producer-single-consumer, no locking needed.
- *
- * We try to do as much as we could in generic thpool worker. For
- * the request handler, it does not need to concern about buffer mgmt etc.
- *
  * The flow is:
- * a) RX network packet
- * b) allocate ring buffer
- * c) invoke request handler
- * d) TX network packet 
- * e) free ring buffer
+ * a) Dispatcher allocate thpool buffer
+ * b) Dispatcher receive network packet from FPGA
+ * c) Dispacther find a worker, and delegate the request
+ * d) The worker handles the req, send reply to FPGA, and free the thpool buffer.
+ *
+ * The thpool buffer is using a simple ring-based design.
  */
-
 static int TW_HEAD;
+static int TB_HEAD;
 static struct thpool_worker *thpool_worker_map;
+static struct thpool_buffer *thpool_buffer_map;
 
 /*
- * Init per worker thpool ring buffers
- * Called once during boot
- */
-static int init_thpool_buffer(struct thpool_worker *tw)
-{
-	int i;
-	size_t buf_sz;
-	struct thpool_buffer *map;
-
-	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
-	map = malloc(buf_sz);
-	if (!map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
-		struct thpool_buffer *tb;
-
-		tb = map + i;
-		tb->flags = 0;
-		memset(&tb->buffer, 0, THPOOL_BUFFER_SIZE);
-	}
-
-	tw->thpool_buffer_map = map;
-	tw->TB_HEAD = 0;
-
-	return 0;
-}
-
-/*
- * Allocate worker array and then init per worker ring buffer array.
- * Called once during boot time.
- */
-static int init_thpool(void)
-{
-	int i, ret;
-	size_t buf_sz;
-
-	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
-	thpool_worker_map = malloc(buf_sz);
-	if (!thpool_worker_map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
-		struct thpool_worker *tw;
-
-		tw = thpool_worker_map + i;
-		tw->cpu = 0;
-		tw->nr_queued = 0;
-		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
-
-		ret = init_thpool_buffer(tw);
-		if (unlikely(ret))
-			return ret;
-	}
-
-	TW_HEAD = 0;
-	return 0;
-}
-
-/*
- * Select a worker to handle the next request in a round-robin fashion.
+ * Select a worker to handle the next request
+ * in a round-robin fashion.
  */
 static __always_inline struct thpool_worker *
 select_thpool_worker_rr(void)
@@ -115,20 +55,15 @@ select_thpool_worker_rr(void)
 	return tw;
 }
 
-/*
- * Allocate a thpool within the worker's ring buffer.
- * Since this func is called within the worker, no sync is needed.
- * However, we do need wait until the next buffer is available.
- */
 static __always_inline struct thpool_buffer *
-alloc_thpool_buffer(struct thpool_worker *tw)
+alloc_thpool_buffer(void)
 {
 	struct thpool_buffer *tb;
 	int idx;
 
-	idx = tw->TB_HEAD % NR_THPOOL_BUFFER;
-	tb = tw->thpool_buffer_map + idx;
-	tw->TB_HEAD++;
+	idx = TB_HEAD % NR_THPOOL_BUFFER;
+	tb = thpool_buffer_map + idx;
+	TB_HEAD++;
 
 	/*
 	 * If this happens during runtime, it means:
@@ -148,7 +83,6 @@ static __always_inline void
 free_thpool_buffer(struct thpool_buffer *tb)
 {
 	tb->flags = 0;
-	tb->buffer_size = 0;
 	barrier();
 }
 
@@ -156,18 +90,19 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 			     struct thpool_buffer *tb, bool is_alloc)
 {
 	struct proc_info *pi;
-	unsigned int pid;
+	unsigned int pid, node;
 	struct op_alloc_free *ops;
 	struct op_alloc_free_ret *reply;
 
 	/* Setup the reply buffer */
-	reply = (struct op_alloc_free_ret *)tb->buffer;
-	set_tb_buffer_size(tb, sizeof(*reply));
+	reply = (struct op_alloc_free_ret *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*reply));
 
 	ops = get_op_struct(rx_buf);
 	pid = ops->pid;
+	node = 0;
 
-	pi = get_proc_by_pid(pid);
+	pi = get_proc_by_pid(pid, node);
 	if (unlikely(!pi)) {
 		printf("WARN: invalid pid %d\n", pid);
 		reply->ret = -EINVAL;
@@ -200,23 +135,78 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 	return 0;
 }
 
+static int handle_create_proc(struct thpool_buffer *tb)
+{
+	struct proc_info *pi;
+	int *reply;
+	unsigned int pid, node;
+	void *rx_buf;
+
+	reply = (int *)tb->tx;
+	set_tb_tx_size(tb, sizeof(int));
+
+	/* TODO: Get PID and NODE from request buffer */
+	rx_buf = tb->rx;
+	pid = 1;
+	node = 0;
+	pi = alloc_proc(pid, node, NULL, 0);
+	if (!pi) {
+		*reply = -ENOMEM;
+	} else
+		*reply = 0;
+	return 0;
+}
+
+static int handle_free_proc(struct thpool_buffer *tb)
+{
+	struct proc_info *pi;
+	int *reply;
+	unsigned int pid, node;
+	void *rx_buf;
+
+	reply = (int *)tb->tx;
+	set_tb_tx_size(tb, sizeof(int));
+
+	/* TODO: Get PID and NODE from request buffer */
+	rx_buf = tb->rx;
+	pid = 1;
+	node = 0;
+	pi = get_proc_by_pid(pid, node);
+	if (!pi) {
+		*reply = -EINVAL;
+		return 0;
+	}
+
+	/* We grabbed one ref above, thus put twice */
+	put_proc_info(pi);
+	put_proc_info(pi);
+	return 0;
+}
+
 /*
  * Handle SoC Pingpong testing request.
  * Simply return and let sender measure RTT.
  */
-static int handle_soc_pingpong(void *rx_buf, size_t rx_buf_size,
-			       struct thpool_buffer *tb)
+static int handle_soc_pingpong(struct thpool_buffer *tb)
 {
 	int *reply;
 
-	reply = (int *)tb->buffer;
+	reply = (int *)tb->tx;
 	*reply = 0;
-	set_tb_buffer_size(tb, sizeof(int));
+	set_tb_tx_size(tb, sizeof(int));
 	return 0;
 }
 
-static int handle_migration(void *rx_buf, size_t rx_buf_size,
-			    struct thpool_buffer *tb)
+/*
+ * This function resets all data structures as if the board just booted.
+ * It would come handy during testing season, no need to reboot board and all.
+ */
+static int handle_reset_all(struct thpool_buffer *tb)
+{
+	return 0;
+}
+
+static int handle_migration(struct thpool_buffer *tb)
 {
 	return 0;
 }
@@ -225,88 +215,175 @@ static int handle_migration(void *rx_buf, size_t rx_buf_size,
  * This handler is a generic debug handler that could
  * handle various debugging requests
  *
- * TODO:
  * 1) dump one proc_info based on pid
  * 2) dump all proc_info
  * 3) dump vregion info
  * 4) dump stats
  */
-static int handle_soc_debug(void *rx_buf, size_t rx_buf_size,
-			    struct thpool_buffer *tb)
+static int handle_soc_debug(struct thpool_buffer *tb)
 {
 	return 0;
 }
 
 /*
- * TODO:
- * Send the packet out,
- * use the tb->buffer_size and tb->buffer
+ * This is the AXI DMA interface.
+ * Each direction has its own channel.
+ * Nonetheless, the interface is simple enough.
  */
-void net_send(struct thpool_buffer *tb)
+#if 0
+int axidma_oneway_transfer(axidma_dev_t dev, int channel, void *buf,
+        size_t len, bool wait);
+#endif
+
+static inline size_t axidma_soc_to_fpga(void *buf, size_t buf_size)
 {
+	return -ENOSYS;
 }
 
-/*
- * TODO:
- * 1) assume rx_buf and rx_buf_size are already prepared.
- * 2) assume rx_buf is the whole packet which includes eth/ip/udp headers.
- *
- * This one is running within a specific thpool worker.
- */
-void handle_requests(struct thpool_worker *tw, void *rx_buf, size_t rx_buf_size)
+static inline size_t axidma_fpga_to_soc(void *buf, size_t buf_size)
+{
+	return -ENOSYS;
+}
+
+static void worker_handle_request(struct thpool_worker *tw,
+				  struct thpool_buffer *tb)
 {
 	struct lego_hdr *lego_hdr;
 	uint16_t opcode;
-	struct thpool_buffer *tb;
+	void *rx_buf;
+	size_t rx_buf_size;
+
+	rx_buf = tb->rx;
+	rx_buf_size = tb->rx_size;
 
 	lego_hdr = (struct lego_hdr *)(rx_buf + LEGO_HEADER_OFFSET);
 	opcode = lego_hdr->opcode;
 
-	/*
-	 * NOTE:
-	 * - Each worker has its own thpool ring buffer
-	 * - Handlers do NOT need to manage any RX/TX buffers
-	 * - Handlers MUST NOT free the buffer
-	 * - Handlers MUST NOT send net requests, this func will do so.
-	 */
-	tb = alloc_thpool_buffer(tw);
-
 	switch (opcode) {
+	/* VM */
 	case OP_REQ_ALLOC:
 		handle_alloc_free(rx_buf, rx_buf_size, tb, true);
 		break;
 	case OP_REQ_FREE:
 		handle_alloc_free(rx_buf, rx_buf_size, tb, false);
 		break;
+
+	/* Proc */
+	case OP_CREATE_PROC:
+		handle_create_proc(tb);
+		break;
+	case OP_FREE_PROC:
+		handle_free_proc(tb);
+		break;
+
 	case OP_REQ_MIGRATION:
-		handle_migration(rx_buf, rx_buf_size, tb);
+		handle_migration(tb);
+		break;
+
+	/* Misc */
+	case OP_RESET_ALL:
+		handle_reset_all(tb);
 		break;
 	case OP_REQ_SOC_PINGPONG:
-		handle_soc_pingpong(rx_buf, rx_buf_size, tb);
+		handle_soc_pingpong(tb);
 		break;
 	case OP_REQ_SOC_DEBUG:
-		handle_soc_debug(rx_buf, rx_buf_size, tb);
+		handle_soc_debug(tb);
 		break;
 	default:
 		break;
 	};
 
-	/* Send reply if needed */
 	if (likely(!ThpoolBufferNoreply(tb)))
-		net_send(tb);
-
+		axidma_fpga_to_soc(tb->tx, tb->tx_size);
 	free_thpool_buffer(tb);
+}
+
+/*
+ * General rules:
+ * The dispatcher will allocate the whole thpool_buffer,
+ * which will be passed to each worker handler, and its
+ * the worker's responsibility to free the thpool buffer.
+ */
+static void dispatcher(void)
+{
+	struct thpool_buffer *tb;
+	struct thpool_worker *tw;
+	size_t ret;
+
+	while (1) {
+		tb = alloc_thpool_buffer();
+		tw = select_thpool_worker_rr();
+
+		ret = axidma_fpga_to_soc(tb->rx, tb->rx_size);
+		if (ret < 0) {
+			printf("axi dma fpga to soc failed\n");
+			return;
+		}
+
+		/* Inline handling for now */
+		worker_handle_request(tw, tb);
+	}
+}
+
+static int init_thpool_buffer(void)
+{
+	int i;
+	size_t buf_sz;
+	struct thpool_buffer *map;
+
+	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
+	map = malloc(buf_sz);
+	if (!map)
+		return -ENOMEM;
+
+	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
+		struct thpool_buffer *tb;
+
+		tb = map + i;
+		tb->flags = 0;
+		tb->rx_size = 0;
+		tb->tx_size = 0;
+		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
+		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
+	}
+
+	thpool_buffer_map = map;
+	TB_HEAD = 0;
+	return 0;
+}
+
+static int init_thpool(void)
+{
+	int i, ret;
+	size_t buf_sz;
+
+	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
+	thpool_worker_map = malloc(buf_sz);
+	if (!thpool_worker_map)
+		return -ENOMEM;
+
+	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
+		struct thpool_worker *tw;
+
+		tw = thpool_worker_map + i;
+		tw->cpu = 0;
+		tw->nr_queued = 0;
+		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
+
+		if (unlikely(ret))
+			return ret;
+	}
+	TW_HEAD = 0;
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	int ret;
 
-	ret = init_thpool();
-	if (ret) {
-		printf("Fail to init thpool\n");
-		return ret;
-	}
+	init_thpool();
+	init_thpool_buffer();
 
 	ret = init_proc_subsystem();
 	if (ret) {

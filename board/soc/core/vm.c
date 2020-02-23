@@ -1300,8 +1300,12 @@ void test_vm(void)
 	unsigned long addr;
 	struct vregion_info *vi;
 	struct proc_info *pi;
+	unsigned int pid, node;
 
-	pi = alloc_proc("proc_1", 123);
+	pid = 100;
+	node = 0;
+
+	pi = alloc_proc(pid, node, "proc_1", 123);
 	if (!pi) {
 		printf("fail to create the test pi\n");
 		return;

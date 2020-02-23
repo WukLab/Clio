@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2020. Wuklab. All rights reserved.
- *
  * This file describes the process/task management part.
  */
 
@@ -9,6 +8,7 @@
 #include <uapi/vregion.h>
 #include <uapi/sched.h>
 #include <uapi/net_header.h>
+#include <uapi/hashtable.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,37 +19,37 @@
 #include "core.h"
 
 /*
- * We are using an array-based implementation for simplicity.
- * Alloc, free, search are fast.
- *
- * However, most API designs are generic and trying to be impl-oblivious,
- * this file can be easily extended to use list, hashtable etc in the future.
+ * For each board, the valid process address spaces are linked
+ * within a hashtable. The key is a combination of PID and Host Node ID.
+ * The PID is assigned by either Host or Monitor.
  */
-#define NR_MAX_PROCS		(16)
-static struct proc_info		proc_info_map[NR_MAX_PROCS];
-static pthread_spinlock_t	alloc_lock;
+#define PID_ARRAY_HASH_BITS	(5)
+static DEFINE_HASHTABLE(proc_hash_array, PID_ARRAY_HASH_BITS);
+static pthread_spinlock_t proc_lock;
 
-#define for_each_proc_info(i, pi)		\
-	for (i = 0, pi = proc_info_map;		\
-	     i < NR_MAX_PROCS; i++, pi++)
+static inline int getKey(unsigned int pid, unsigned int node)
+{
+        return node * 1000000 + pid;
+}
 
 void dump_proc(struct proc_info *pi)
 {
 	if (!pi)
 		return;
-	printf("PID: %d CMD: %s Host: %x\n",
-		pi->pid, pi->proc_name, pi->host_ip);
+	printf("  PID: %d Host Node: %u COMM: %s Host: %x\n",
+		pi->pid, pi->node, pi->proc_name, pi->host_ip);
 }
 
 void dump_procs(void)
 {
-	struct proc_info *pi;
+	struct proc_info *p;
 	int i;
 
-	printf("Dumping Process Address Space Info:\n");
-
-	for_each_proc_info(i, pi)
-		dump_proc(pi);
+	pthread_spin_lock(&proc_lock);
+	hash_for_each(proc_hash_array, i, p, link) {
+		dump_proc(p);
+	}
+	pthread_spin_unlock(&proc_lock);
 }
 
 static void init_vregion(struct vregion_info *v)
@@ -68,111 +68,127 @@ static void init_proc_info(struct proc_info *pi)
 	struct vregion_info *v;
 
 	pi->flags = 0;
-	pi->nr_vmas = 0;
-	INIT_LIST_HEAD(&pi->list);
-	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
 
+	INIT_HLIST_NODE(&pi->link);
+	pi->pid = 0;
+	pi->node = 0;
+
+	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
 	atomic_init(&pi->refcount, 1);
 
+	pi->nr_vmas = 0;
 	for (j = 0; j < NR_VREGIONS; j++) {
 		v = pi->vregion + j;
 		init_vregion(v);
 	}
 }
 
-static struct proc_info *__alloc_proc_info(void)
-{
-	int i;
-	struct proc_info *pi;
-
-	pthread_spin_lock(&alloc_lock);
-	for_each_proc_info(i, pi) {
-		if (pi->flags & PROC_INFO_FLAGS_ALLOCATED)
-			continue;
-
-		/* Find a free one */
-		init_proc_info(pi);
-		pi->flags = PROC_INFO_FLAGS_ALLOCATED;
-		break;
-	}
-	pthread_spin_unlock(&alloc_lock);
-
-	if (unlikely(i == NR_MAX_PROCS))
-		return NULL;
-	return pi;
-}
-
-
 /*
  * This is a public API to allocate a new process address space.
- * Allocate a new proc_info structure, initialize with the info supplied..
+ * The PID and Node can uniquely identify a process.
+ * proc_name and host_ip are optional.
  */
-struct proc_info *alloc_proc(char *proc_name, unsigned int host_ip)
+struct proc_info *alloc_proc(unsigned int pid, unsigned int node,
+			     char *proc_name, unsigned int host_ip)
 {
-	struct proc_info *pi;
+	struct proc_info *new;
+	struct proc_info *old;
+	unsigned key;
 
-	if (!proc_name)
+	new = malloc(sizeof(*new));
+	if (!new)
 		return NULL;
+	init_proc_info(new);
 
-	pi = __alloc_proc_info();
-	if (!pi)
-		return NULL;
+	new->pid = pid;
+	new->node = node;
 
-	strncpy(pi->proc_name, proc_name, PROC_NAME_LEN);
-	pi->host_ip = host_ip;
-	return pi;
+	if (proc_name)
+		strncpy(new->proc_name, proc_name, PROC_NAME_LEN);
+	if (host_ip)
+		new->host_ip = host_ip;
+
+	key = getKey(pid, node);
+
+	/* Insert into the hashtable */
+	pthread_spin_lock(&proc_lock);
+	hash_for_each_possible(proc_hash_array, old, link, key) {
+		if (unlikely(old->pid == pid && old->node == node)) {
+			pthread_spin_unlock(&proc_lock);
+			free(new);
+			printf("alloc_proc: pid %u node %u exists\n",
+				pid, node);
+			return NULL;
+		}
+	}
+	hash_add(proc_hash_array, &new->link, key);
+	pthread_spin_unlock(&proc_lock);
+
+	printf("alloc_proc: new proc pid %u node %u\n", pid, node);
+	return new;
 }
 
+/*
+ * Free the given pi and remove it from the hashtable.
+ * The refcount must be 0 upon invocation.
+ */
 void free_proc(struct proc_info *pi)
 {
+	unsigned int node, pid, key;
+	struct proc_info *tsk;
+
 	if (!pi)
 		return;
 
 	if (atomic_load(&pi->refcount)) {
-		printf("BUG: refcount is not zero.\n");
+		printf("BUG: refcount is not zero. Use put_proc()\n");
 		return;
 	}
 
-	pthread_spin_lock(&alloc_lock);
-	if (likely(pi->flags & PROC_INFO_FLAGS_ALLOCATED)) {
-		pi->flags = 0;
-		barrier();
-	} else {
-		printf("BUG: Invalid proc_info free\n");
-		dump_proc(pi);
+	node = pi->node;
+	pid = pi->pid;
+	key = getKey(pid, node);
+
+	/* Walk through all the possible buckets, check node and pid */
+	pthread_spin_lock(&proc_lock);
+	hash_for_each_possible(proc_hash_array, tsk, link, key) {
+		if (likely(tsk->node == node && tsk->pid == pid)) {
+			hash_del(&tsk->link);
+			pthread_spin_unlock(&proc_lock);
+			free(tsk);
+			return;
+		}
 	}
-	pthread_spin_unlock(&alloc_lock);
+	pthread_spin_unlock(&proc_lock);
+	printf("WARN: Fail to find tsk (node %u pid %d)\n", node, pid);
 }
 
-static inline bool is_pid_valid(unsigned int pid)
-{
-	if (likely(pid < NR_MAX_PROCS))
-		return true;
-	return false;
-}
-
-struct proc_info *get_proc_by_pid(unsigned int pid)
+/*
+ * Find the pi structure by given pid and node.
+ * The refcount is incremented by 1 if found.
+ * The caller must call put_proc() afterwards.
+ */
+struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node)
 {
 	struct proc_info *pi;
+	unsigned int key;
 
-	if (unlikely(!is_pid_valid(pid)))
-		return NULL;
+	key = getKey(pid, node);
 
-	pi = proc_info_map + pid;
-	get_proc_info(pi);
-	return pi;
+	pthread_spin_lock(&proc_lock);
+	hash_for_each_possible(proc_hash_array, pi, link, key) {
+		if (likely(pi->pid == pid && pi->node == node)) {
+			get_proc_info(pi);
+			pthread_spin_unlock(&proc_lock);
+			return pi;
+		}
+	}
+	pthread_spin_unlock(&proc_lock);
+	return NULL;
 }
 
 int init_proc_subsystem(void)
 {
-	int i;
-	struct proc_info *p;
-
-	pthread_spin_init(&alloc_lock, PTHREAD_PROCESS_PRIVATE);
-
-	for_each_proc_info(i, p) {
-		p->pid = i;
-		init_proc_info(p);
-	}
+	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	return 0;
 }
