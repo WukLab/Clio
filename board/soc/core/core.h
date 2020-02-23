@@ -7,6 +7,14 @@
 
 #include <uapi/sched.h>
 
+/*
+ * The maximum number of processes from a host node
+ * allowed to establish connections with a single board.
+ *
+ * This parameter is also used by hash calculation.
+ */
+#define NR_MAX_PROCS_PER_NODE	(100000)
+
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 			       unsigned long len, unsigned long vm_flags);

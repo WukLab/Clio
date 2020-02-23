@@ -29,7 +29,7 @@ static pthread_spinlock_t proc_lock;
 
 static inline int getKey(unsigned int pid, unsigned int node)
 {
-        return node * 1000000 + pid;
+        return node * NR_MAX_PROCS_PER_NODE + pid;
 }
 
 void dump_proc(struct proc_info *pi)
