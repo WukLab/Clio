@@ -1,0 +1,16 @@
+# Details: https://github.com/actions/labeler/blob/master/README.md
+
+host_net:
+ - host/net/*
+
+host:
+ - host/*
+
+monitor:
+ - monitor/*
+
+board_fpga:
+ - board/fpga/*
+
+board_soc:
+ - board/soc/*
