@@ -483,7 +483,7 @@ static inline int gbn_receive_one(struct session_net *net,
 {
 	struct session_gbn *ses;
 	struct buffer_info *info;
-	int ret;
+	size_t ret;
 
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
@@ -512,13 +512,16 @@ retry:
 	if (unlikely(info->buf_size > buf_size)) {
 		printf("gbn: User provided recv buf is too small. (%zu %zu)\n",
 			info->buf_size, buf_size);
-		enqueue_data_buffer_info_head(ses);
+		enqueue_data_buffer_info_head(ses, info);
 		return -ENOMEM;
 	}
 
-	/* That that can be removed too! */
+	/* This should be removed too! */
 	memcpy(buf, info->buf, info->buf_size);
-	return info->buf_size;
+
+	ret = info->buf_size;
+	free_data_buffer_info(info);
+	return ret;
 }
 
 /*
