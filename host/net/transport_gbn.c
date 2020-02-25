@@ -376,18 +376,8 @@ static void handle_data_packet(void *packet, size_t buf_size)
 	info = alloc_data_buffer_info(ses_gbn);
 	if (!info)
 		return;
-
-	/*
-	 * TODO
-	 * Better buffer mgmt
-	 * should avoid the copy here.
-	 */
-	info->buf = malloc(buf_size);
-	if (!info->buf)
-		return;
-	memcpy(info->buf, packet, buf_size);
+	info->buf = packet;
 	info->buf_size = buf_size;
-
 	enqueue_data_buffer_info_tail(ses_gbn, info);
 }
 
@@ -402,16 +392,10 @@ static void *gbn_poll_func(void *arg)
 	struct session_net *ses_net;
 	struct gbn_header *hdr;
 	void *recv_buf;
-	int buf_size, max_buf_size;
+	size_t buf_size;
+	int ret;
 
 	ses_net = (struct session_net *)arg;
-
-	max_buf_size = sysctl_link_mtu;
-	recv_buf = malloc(max_buf_size);
-	if (!recv_buf) {
-		printf("Fail to allocate recv_buf\n");
-		return NULL;
-	}
 
 	while (1) {
 		/*
@@ -420,11 +404,11 @@ static void *gbn_poll_func(void *arg)
 		 * and then some data structures per connection
 		 * as this particular case, we should use the generic one
 		 */
-		buf_size = raw_net_receive(ses_net, recv_buf, max_buf_size);
-		if (unlikely(buf_size < 0)) {
-			gbn_info("receive error %d\n", buf_size);
+		ret = raw_net_receive_zerocopy(ses_net, &recv_buf, &buf_size);
+		if (unlikely(ret < 0)) {
+			gbn_info("receive error %d\n", ret );
 			exit(1);
-		} else if (buf_size == 0)
+		} else if (ret == 0)
 			continue;
 
 		hdr = to_gbn_header(recv_buf);
@@ -516,9 +500,8 @@ retry:
 		return -ENOMEM;
 	}
 
-	/* This should be removed too! */
+	/* This is the only memcpy we have along the stack. */
 	memcpy(buf, info->buf, info->buf_size);
-
 	ret = info->buf_size;
 	free_data_buffer_info(info);
 	return ret;

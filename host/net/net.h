@@ -75,6 +75,12 @@ struct raw_net_ops {
 	int (*receive_one)(struct session_net *, void *, size_t);
 
 	/*
+	 * The callee will return the pointer to the buffer and buf size.
+	 * This function will not do any copy.
+	 */
+	int (*receive_one_zerocopy)(struct session_net *, void **, size_t *);
+
+	/*
 	 * Receive one packet
 	 * Non-blocking call, return immediately.
 	 */
@@ -105,11 +111,19 @@ raw_net_receive(struct session_net *net, void *buf, size_t buf_size)
 }
 
 static inline int
+raw_net_receive_zerocopy(struct session_net *net, void **buf, size_t *buf_size)
+{
+	if (likely(raw_net_ops->receive_one_zerocopy))
+		return raw_net_ops->receive_one_zerocopy(net, buf, buf_size);
+	return -ENOSYS;
+}
+
+static inline int
 raw_net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
 {
-	if (raw_net_ops->receive_one_nb)
+	if (likely(raw_net_ops->receive_one_nb))
 		return raw_net_ops->receive_one_nb(net, buf, buf_size);
-	return 0;
+	return -ENOSYS;
 }
 
 /*

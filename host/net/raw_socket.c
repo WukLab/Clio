@@ -223,6 +223,7 @@ struct raw_net_ops raw_socket_ops = {
 	.name			= "raw_socket",
 	.send_one		= raw_socket_send,
 	.receive_one		= raw_socket_receive,
+	.receive_one_zerocopy	= NULL,
 	.receive_one_nb		= NULL,
 	.init			= init_raw_socket,
 };
