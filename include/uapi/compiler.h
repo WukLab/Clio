@@ -221,4 +221,13 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 	*(volatile typeof(x) *)&(x);				\
 })
 
+#define L1_CACHE_BYTES	(64)
+
+/*
+ * ____cacheline_aligned just make the marked data cache line aligned
+ * __cacheline_aligned will also put the data into a specific section
+ */
+#define ____cacheline_aligned					\
+	__attribute__((__aligned__(L1_CACHE_BYTES)))
+
 #endif /* _LEGOMEM_UAPI_COMPILER_H_ */
