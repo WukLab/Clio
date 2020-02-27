@@ -8,6 +8,9 @@
 #include <uapi/vregion.h>
 #include <uapi/rbtree.h>
 #include <pthread.h>
+#include <stdatomic.h>
+
+typedef atomic_int atomic_t;
 
 #define BOARD_NAME_LEN		(32)
 #define PROC_NAME_LEN		(32)
@@ -56,18 +59,33 @@ struct vregion_info {
 	pthread_spinlock_t	lock;
 };
 
+/*
+ * HACK: If you change anything, remember to check
+ * if it should be added to init_proc_info().
+ */
 struct proc_info {
-	char			proc_name[PROC_NAME_LEN];
 	unsigned long		flags;
 
-	struct list_head	list;
+	/*
+	 * For hashtable usage
+	 * pid and host node id uniquely identify a proc
+	 */
+        struct hlist_node	link;
+	unsigned int		pid;
+	unsigned int		node;
 
-	char			host_name[PROC_NAME_LEN];
+	pthread_spinlock_t	lock;
+	atomic_t		refcount;
+
+	/* For debugging purpose */
 	unsigned int		host_ip;
+	char			proc_name[PROC_NAME_LEN];
 
 	struct vregion_info	vregion[NR_VREGIONS];
 	int			nr_vmas;
 };
+
+#define PROC_INFO_FLAGS_ALLOCATED	0x1
 
 struct vm_unmapped_area_info {
 #define VM_UNMAPPED_AREA_TOPDOWN 1
@@ -98,6 +116,24 @@ struct vm_area_struct {
 };
 
 static inline unsigned int
+va_to_vregion_index(unsigned long va)
+{
+	unsigned long idx;
+	idx = va >> VREGION_SIZE_SHIFT;
+	return idx;
+}
+
+static inline struct vregion_info *
+va_to_vregion(struct proc_info *p, unsigned long va)
+{
+	unsigned int idx;
+	struct vregion_info *head;
+	head = p->vregion;
+	idx = va_to_vregion_index(va);
+	return head + idx;
+}
+
+static inline unsigned int
 vregion_to_index(struct proc_info *p, struct vregion_info *v)
 {
 	struct vregion_info *head = p->vregion;
@@ -119,6 +155,8 @@ vregion_to_start_va(struct proc_info *p, struct vregion_info *v)
 	unsigned int idx;
 
 	idx = vregion_to_index(p, v);
+
+	/* Exclude the 0-0x1000 VA range*/
 	if (idx == 0)
 		return 0x1000;
 	return vregion_to_index(p, v) * VREGION_SIZE;
@@ -131,19 +169,6 @@ static inline unsigned long
 vregion_to_end_va(struct proc_info *p, struct vregion_info *v)
 {
 	return (vregion_to_index(p, v) + 1) * VREGION_SIZE;
-}
-
-static inline void init_vregion(struct vregion_info *v)
-{
-	BUG_ON(!v);
-
-	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
-	v->mmap = NULL;
-	v->mm_rb = RB_ROOT;
-	v->nr_vmas = 0;
-	v->highest_vm_end = 0;
-
-	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
 }
 
 #endif /* _LEGOMEM_UAPI_SCHED_H_ */
