@@ -79,17 +79,32 @@ enum pkt_type {
 #define LEGO_HEADER_OFFSET \
 	(GBN_HEADER_OFFSET + GBN_HEADER_SIZE)
 
-static inline void *get_op_struct(void *packet)
+static inline struct gbn_header *to_gbn_header(void *packet)
 {
-	return packet + LEGO_HEADER_OFFSET + LEGO_HEADER_SIZE;
+	struct gbn_header *hdr;
+	hdr = (struct gbn_header *)(packet + GBN_HEADER_OFFSET);
+	return hdr;
 }
 
-static void prepare_eth_header(struct eth_hdr *hdr, unsigned char *src_mac,
-			       unsigned char *dst_mac)
+static inline struct lego_header *to_lego_header(void *packet)
+{
+	struct lego_header *hdr;
+	hdr = (struct lego_header *)(packet + LEGO_HEADER_OFFSET);
+	return hdr;
+}
+
+static __always_inline void
+prepare_eth_header(struct eth_hdr *hdr, unsigned char *src_mac,
+		   unsigned char *dst_mac)
 {
 	memcpy(hdr->src_mac, src_mac, 6);
 	memcpy(hdr->dst_mac, dst_mac, 6);
 	hdr->eth_type = htons(0x0800);
+}
+
+static inline void *get_op_struct(void *packet)
+{
+	return packet + LEGO_HEADER_OFFSET + LEGO_HEADER_SIZE;
 }
 
 /*

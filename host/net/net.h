@@ -10,15 +10,26 @@
 
 extern int sysctl_link_mtu;
 
+/*
+ * This structure describes a specific network connection
+ * between an application and the LegoMem board.
+ */
 struct session_net {
+	/* The endpoint info of this sepcific network session */
 	struct endpoint_info	local_ei, remote_ei;
+
+	/* The Ethernet/IP/UDP header info, 44 bytes */
 	struct routing_info	route;
+
+	/* Private data used by transport layer */
+	void			*transport_private;
 
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
 };
 
 struct session_net *init_net(void);
+struct session_net *find_session(void *packet);
 void dump_packet_headers(void *packet);
 
 struct transport_net_ops {
@@ -39,7 +50,7 @@ struct transport_net_ops {
 	 */
 	int (*receive_one_nb)(struct session_net *, void *, size_t);
 
-	int (*init)(void);
+	int (*init)(struct session_net *);
 };
 
 /*
@@ -64,6 +75,12 @@ struct raw_net_ops {
 	int (*receive_one)(struct session_net *, void *, size_t);
 
 	/*
+	 * The callee will return the pointer to the buffer and buf size.
+	 * This function will not do any copy.
+	 */
+	int (*receive_one_zerocopy)(struct session_net *, void **, size_t *);
+
+	/*
 	 * Receive one packet
 	 * Non-blocking call, return immediately.
 	 */
@@ -75,8 +92,8 @@ struct raw_net_ops {
 
 extern struct raw_net_ops raw_verbs_ops;
 extern struct raw_net_ops raw_socket_ops;
-
 extern struct transport_net_ops transport_bypass_ops;
+extern struct transport_net_ops transport_gbn_ops;
 
 extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;
@@ -94,11 +111,19 @@ raw_net_receive(struct session_net *net, void *buf, size_t buf_size)
 }
 
 static inline int
+raw_net_receive_zerocopy(struct session_net *net, void **buf, size_t *buf_size)
+{
+	if (likely(raw_net_ops->receive_one_zerocopy))
+		return raw_net_ops->receive_one_zerocopy(net, buf, buf_size);
+	return -ENOSYS;
+}
+
+static inline int
 raw_net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
 {
-	if (raw_net_ops->receive_one_nb)
+	if (likely(raw_net_ops->receive_one_nb))
 		return raw_net_ops->receive_one_nb(net, buf, buf_size);
-	return 0;
+	return -ENOSYS;
 }
 
 /*

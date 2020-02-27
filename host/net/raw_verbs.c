@@ -18,8 +18,24 @@
 
 #include "net.h"
 
+/*
+ * FIXME
+ * The zerocopy trick that used by GBN works if and only if
+ *   GBN window size > BUFFER_SIZE*NR_BUFFER_DEPTH
+ *
+ * Because the ib_raw layer never free any buffers, it simply reuse
+ * the buffer by re-posting it to the RECV_CQ. On the other hand,
+ * GBN layer simply enqueue the buffer into its temporary data list,
+ * waiting apps to call receive_one.
+ *
+ * If ib_raw layer's ring buffer is smaller than the GBN window size,
+ * IB device might override buffer still sitting in the temporary list!
+ * Thus, we need to add such checks in the future.
+ *
+ * also, we need to take number of connections into account.
+ */
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
-#define SQ_NUM_DESC	512	/* maximum number of sends waiting for completion */
+#define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
 
 int ib_port = 1;
 
@@ -179,39 +195,84 @@ out:
 	return ret;
 }
 
-/*
- * TODO:
- * 1) add timeout detection
- * 2) manage ring buffer
- * 3) We could do batch post
- *
- * RECVs were posted beforehand.
- * Current mode is very limited.
- */
-static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_size)
+static inline void post_recvs(struct session_raw_verbs *ses)
+{
+	struct ibv_sge sge;
+	struct ibv_recv_wr recv_wr, *bad_recv_wr;
+	int i;
+
+	sge.lkey = ses->recv_mr->lkey;
+	sge.length = BUFFER_SIZE;
+	recv_wr.num_sge = 1;
+	recv_wr.sg_list = &sge;
+	recv_wr.next = NULL;
+
+	for (i = 0; i < NR_BUFFER_DEPTH; i++) {
+		sge.addr = (uint64_t)(ses->recv_buf + BUFFER_SIZE * i);
+		recv_wr.wr_id = i;
+		if (ibv_post_recv(ses->qp, &recv_wr, &bad_recv_wr) < 0) {
+			printf("Fail to post recv wr\n");
+			exit(1);
+		}
+	}
+}
+
+static int raw_verbs_receive_zerocopy(struct session_net *ses_net,
+				      void **buf, size_t *buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
-	struct ibv_pd *pd;
-	struct ibv_qp *qp;
 	struct ibv_cq *recv_cq;
-	struct ibv_mr *recv_mr;
-	struct ibv_recv_wr recv_wr, *bad_recv_wr;
-	struct ibv_sge sge;
 	int ret;
 	void *recv_buf;
+
+	if (unlikely(!ses_net || !buf || !buf_size))
+		return -EINVAL;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	recv_cq = ses_verbs->recv_cq;
+	recv_buf = ses_verbs->recv_buf;
+
+	while (1) {
+		struct ibv_wc wc;
+		void *buf_p;
+
+		ret = ibv_poll_cq(recv_cq, 1, &wc);
+		if (!ret)
+			continue;
+		else if (ret < 0) {
+			perror("Poll CQ:");
+			return ret;
+		}
+
+		/* Get its position in the ring buffer */
+		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
+
+		*buf = buf_p;
+		*buf_size = wc.byte_len;
+
+		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1)))
+			post_recvs(ses_verbs);
+		break;
+	}
+
+	ret = *buf_size;
+	return ret;
+}
+
+static int raw_verbs_receive(struct session_net *ses_net,
+			     void *buf, size_t buf_size)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_cq *recv_cq;
+	void *recv_buf;
+	int ret;
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
 
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
-	pd = ses_verbs->pd;
-	qp = ses_verbs->qp;
 	recv_cq = ses_verbs->recv_cq;
 	recv_buf = ses_verbs->recv_buf;
-	recv_mr = ses_verbs->recv_mr;
-
-	if (unlikely(!ses_verbs || !pd || !qp || !recv_cq))
-		return -EINVAL;
 
 	while (1) {
 		struct ibv_wc wc;
@@ -238,23 +299,8 @@ static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_
 		buf_size = wc.byte_len;
 		memcpy(buf, buf_p, buf_size);
 
-		/*
-		 * TODO
-		 * Instead of posting everytime we could do batch post
-		 */
-		sge.length = BUFFER_SIZE;
-		sge.lkey = recv_mr->lkey;
-		sge.addr = (uint64_t)buf_p;
-		recv_wr.wr_id = wc.wr_id;
-		recv_wr.num_sge = 1;
-		recv_wr.sg_list = &sge;
-		recv_wr.next = NULL;
-
-		ret = ibv_post_recv(qp, &recv_wr, &bad_recv_wr);
-		if (ret < 0) {
-			perror("post recv");
-			return ret;
-		}
+		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1)))
+			post_recvs(ses_verbs);
 		break;
 	}
 
@@ -264,25 +310,15 @@ static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_
 
 /*
  * Internal function to prepare receving buffers.
+ * Allocate buffer, register, then post recvs.
  */
-static void post_recvs(struct session_raw_verbs *ses_verbs)
+static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 {
 	void *recv_buf;
 	int recv_buf_size;
 	struct ibv_mr *recv_mr;
-	struct ibv_recv_wr recv_wr, *bad_recv_wr;
-	struct ibv_sge sg_entry;
-	struct ibv_qp *qp;
-	struct ibv_pd *pd;
-	int n;
 
-	if (unlikely(!ses_verbs))
-		return;
-
-	qp = ses_verbs->qp;
-	pd = ses_verbs->pd;
-
-	recv_buf_size = BUFFER_SIZE * SQ_NUM_DESC;
+	recv_buf_size = BUFFER_SIZE * NR_BUFFER_DEPTH;
 	recv_buf = malloc(recv_buf_size);
 	if (!recv_buf) {
 		printf("Fail to allocate memory\n");
@@ -290,29 +326,16 @@ static void post_recvs(struct session_raw_verbs *ses_verbs)
 	}
 	memset(recv_buf, 0, recv_buf_size);
 
-	recv_mr = ibv_reg_mr(pd, recv_buf, recv_buf_size, IBV_ACCESS_LOCAL_WRITE);
+	recv_mr = ibv_reg_mr(ses_verbs->pd, recv_buf, recv_buf_size,
+			     IBV_ACCESS_LOCAL_WRITE);
 	if (!recv_mr) {
 		printf("Coundn't register recv mr\n");
 		return;
 	}
-
 	ses_verbs->recv_mr = recv_mr;
 	ses_verbs->recv_buf = recv_buf;
 
-	sg_entry.length = BUFFER_SIZE;
-	sg_entry.lkey = recv_mr->lkey;
-	recv_wr.num_sge = 1;
-	recv_wr.sg_list = &sg_entry;
-	recv_wr.next = NULL;
-
-	for (n = 0; n < SQ_NUM_DESC; n++) {
-		sg_entry.addr = (uint64_t)(recv_buf + BUFFER_SIZE * n);
-		recv_wr.wr_id = n;
-		if (ibv_post_recv(qp, &recv_wr, &bad_recv_wr) < 0) {
-			printf("Fail to post recv wr\n");
-			exit(1);
-		}
-	}
+	post_recvs(ses_verbs);
 }
 
 void test_ib_raw_packet(struct session_net *ses_net)
@@ -386,13 +409,13 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		goto free_session;
 	}
 
-	cq = ibv_create_cq(context, SQ_NUM_DESC, NULL, NULL, 0);
+	cq = ibv_create_cq(context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		goto out_pd;
 	}
 
-	recv_cq = ibv_create_cq(context, SQ_NUM_DESC, NULL, NULL, 0);
+	recv_cq = ibv_create_cq(context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!recv_cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		goto out_send_cq;
@@ -403,8 +426,8 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		.send_cq = cq,
 		.recv_cq = recv_cq,
 		.cap = {
-			.max_send_wr = SQ_NUM_DESC,
-			.max_recv_wr = SQ_NUM_DESC,
+			.max_send_wr = NR_BUFFER_DEPTH,
+			.max_recv_wr = NR_BUFFER_DEPTH,
 			.max_send_sge = 1,
 			.max_recv_sge = 1, 
 			.max_inline_data = 512,
@@ -468,7 +491,8 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 	ses_verbs->qp = qp;
 	ses_verbs->send_cq = cq;
 	ses_verbs->recv_cq = recv_cq;
-	post_recvs(ses_verbs);
+
+	initial_post_recvs(ses_verbs);
 
 	return ses_net;
 
@@ -490,6 +514,7 @@ struct raw_net_ops raw_verbs_ops = {
 	.name			= "raw_verbs",
 	.send_one		= raw_verbs_send,
 	.receive_one		= raw_verbs_receive,
+	.receive_one_zerocopy	= raw_verbs_receive_zerocopy,
 	.receive_one_nb		= NULL,
 	.init			= init_raw_verbs,
 };

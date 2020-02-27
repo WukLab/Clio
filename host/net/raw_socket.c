@@ -24,7 +24,7 @@
  * This is the ethernet device name we are using.
  * It usually is: p4p1, or ens4 in our machines.
  */
-static char eth_device[] = "ens4";
+static char eth_device[] = "p4p1";
 
 struct session_raw_socket {
 	int sockfd;
@@ -223,6 +223,7 @@ struct raw_net_ops raw_socket_ops = {
 	.name			= "raw_socket",
 	.send_one		= raw_socket_send,
 	.receive_one		= raw_socket_receive,
+	.receive_one_zerocopy	= NULL,
 	.receive_one_nb		= NULL,
 	.init			= init_raw_socket,
 };
