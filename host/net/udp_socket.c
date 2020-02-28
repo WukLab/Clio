@@ -48,7 +48,6 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 
 	ret = sendto(sockfd, buf, buf_size, 0, (struct sockaddr *)remote_addr,
 		     sizeof(*remote_addr));
-	printf("send %d bytes.\n", ret);
 	return ret;
 }
 
@@ -77,7 +76,6 @@ static int udp_socket_receive(struct session_net *ses_net, void *buf,
 	buf_size -= GBN_HEADER_OFFSET;
 
 	ret = recvfrom(sockfd, buf, buf_size, 0, (struct sockaddr *)remote_addr, &addr_len);
-	printf("receive %d bytes.\n", ret);
 	return ret;
 }
 

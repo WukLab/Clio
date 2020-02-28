@@ -44,11 +44,17 @@ net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
 	return 0;
 }
 
+struct dummy_payload {
+	unsigned long mark;
+};
+
 void dump_packet_headers(void *packet)
 {
 	struct eth_hdr *eth;
 	struct ipv4_hdr *ipv4;
 	struct udp_hdr *udp;
+	struct gbn_header *gbn;
+	struct dummy_payload *payload;
 	int j;
 
 	if (unlikely(!packet))
@@ -57,6 +63,8 @@ void dump_packet_headers(void *packet)
 	eth = packet;
 	ipv4 = packet + sizeof(*eth);
 	udp = packet + sizeof(*eth) + sizeof(*ipv4);
+	gbn = packet + GBN_HEADER_OFFSET;
+	payload = packet + LEGO_HEADER_OFFSET;
 
 	for (j = 0; j < 6; j++) {
 		printf("%x:", eth->src_mac[j]);
@@ -67,27 +75,32 @@ void dump_packet_headers(void *packet)
 	}
 
 	printf("  IP %x -> %x", ntohl(ipv4->src_ip), ntohl(ipv4->dst_ip));
-	printf("  Port %u -> %u\n", ntohs(udp->src_port), ntohs(udp->dst_port));
+	printf("  Port %u -> %u", ntohs(udp->src_port), ntohs(udp->dst_port));
+	printf("  Seqnum %u, Mark %u\n", gbn->seqnum, payload->mark);
 }
 
 void test_net(struct session_net *ses)
 {
+#define NR_SEND_BUF_SLOTS	(256)
 	void *send_buf;
 	void *recv_buf;
+	struct dummy_payload *send_buf_ring[NR_SEND_BUF_SLOTS];
 	int buf_size, i, ret;
 	bool server;
 
-	struct dummy_payload {
-		unsigned long mark;
-	};
 	struct dummy_payload *payload;
 
 	buf_size = 256;
-	send_buf = malloc(buf_size);
+	
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++) {
+		if(!(send_buf_ring[i] = malloc(buf_size)))
+			return;
+		memset(send_buf_ring[i], 0, buf_size);
+	}
+
 	recv_buf = malloc(buf_size);
-	if (!send_buf || !recv_buf)
+	if (!recv_buf)
 		return;
-	memset(send_buf, 0, buf_size);
 	memset(recv_buf, 0, buf_size);
 
 	i = 0;
@@ -96,7 +109,7 @@ void test_net(struct session_net *ses)
 	 * Please tune this during testing.
 	 * One side is server, another is client.
 	 */
-	server = false;
+	server = true;
 	if (server) {
 		/* Server, recv msg */
 		while (1) {
@@ -107,16 +120,18 @@ void test_net(struct session_net *ses)
 			}
 
 			dump_packet_headers(recv_buf);
-			payload = recv_buf + 44;
+			payload = recv_buf + LEGO_HEADER_OFFSET;
 			printf("Msg %d Payload mark: %lu\n", i, payload->mark);
 			i++;
 		}
 	} else {
 		/* Client, send msg */
 		while (1) {
-			payload = send_buf + 44;
+			send_buf = send_buf_ring[i%NR_SEND_BUF_SLOTS];
+			payload = send_buf + LEGO_HEADER_OFFSET;
 			payload->mark = i++;
 
+			sleep(1);
 			printf("send %d\n", i-1);
 			ret = net_send(ses, send_buf, buf_size);
 			if (ret <= 0) {
@@ -128,6 +143,10 @@ void test_net(struct session_net *ses)
 				break;
 		}
 	}
+
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
+		free(send_buf_ring[i]);
+	free(recv_buf);
 }
 
 /* TODO more automatic or use XML file */
@@ -139,6 +158,11 @@ struct endpoint_info ei_wuklab02 = {
 struct endpoint_info ei_wuklab05 = {
 	.mac		= { 0xe4, 0x1d, 0x2d, 0xe4, 0x81, 0x51 },
 	.ip		= 0xc0a80105, /* 192.168.1.5 */
+	.udp_port	= 8888,
+};
+struct endpoint_info ei_wuklab06 = {
+	.mac		= { 0xe4, 0x1d, 0x2d, 0xb3, 0x54, 0x11 },
+	.ip		= 0xc0a80106, /* 192.168.1.6 */
 	.udp_port	= 8888,
 };
 struct endpoint_info board_0 = {
@@ -165,10 +189,11 @@ struct session_net *init_net(void)
 	 * Knobs
 	 */
 	local_ei = &ei_wuklab02;
-	remote_ei = &ei_wuklab05;
+	remote_ei = &ei_wuklab06;
 
 	//raw_net_ops = &raw_verbs_ops;
-	raw_net_ops = &raw_socket_ops;
+	//raw_net_ops = &raw_socket_ops;
+	raw_net_ops = &udp_socket_ops;
 	printf("Raw Net Layer: using %s\n", raw_net_ops->name);
 
 	ses = raw_net_ops->init(local_ei, remote_ei);
@@ -189,6 +214,6 @@ struct session_net *init_net(void)
 
 	tmp_global_session = ses;
 
-	//test_net(ses);
+	test_net(ses);
 	return ses;
 }
