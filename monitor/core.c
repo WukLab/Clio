@@ -14,6 +14,129 @@
 #include <uapi/hashtable.h>
 #include <uapi/bitops.h>
 #include <uapi/sched.h>
+#include <uapi/thpool.h>
+#include <uapi/opcode.h>
+#include <uapi/net_header.h>
+
+#define NR_THPOOL_WORKERS	(1)
+#define NR_THPOOL_BUFFER	(32)
+
+/*
+ * Each thpool worker is described by struct thpool_worker,
+ * and it is a standalone thread, running the generic handler only.
+ * We can have one or multiple workers depends on config.
+ *
+ * The flow is:
+ * a) Dispatcher allocate thpool buffer
+ * b) Dispatcher receive network packet from FPGA
+ * c) Dispacther find a worker, and delegate the request
+ * d) The worker handles the req, send reply to FPGA, and free the thpool buffer.
+ *
+ * The thpool buffer is using a simple ring-based design.
+ */
+static int TW_HEAD;
+static int TB_HEAD;
+static struct thpool_worker *thpool_worker_map;
+static struct thpool_buffer *thpool_buffer_map;
+
+/*
+ * Select a worker to handle the next request
+ * in a round-robin fashion.
+ */
+static __always_inline struct thpool_worker *
+select_thpool_worker_rr(void)
+{
+	struct thpool_worker *tw;
+	int idx;
+
+	idx = TW_HEAD % NR_THPOOL_WORKERS;
+	tw = thpool_worker_map + idx;
+	TW_HEAD++;
+	return tw;
+}
+
+static __always_inline struct thpool_buffer *
+alloc_thpool_buffer(void)
+{
+	struct thpool_buffer *tb;
+	int idx;
+
+	idx = TB_HEAD % NR_THPOOL_BUFFER;
+	tb = thpool_buffer_map + idx;
+	TB_HEAD++;
+
+	/*
+	 * If this happens during runtime, it means:
+	 * - ring buffer is not large enough
+	 * - some previous handlers are too slow
+	 */
+	while (unlikely(ThpoolBufferUsed(tb))) {
+		;
+	}
+
+	SetThpoolBufferUsed(tb);
+	barrier();
+	return tb;
+}
+
+static __always_inline void
+free_thpool_buffer(struct thpool_buffer *tb)
+{
+	tb->flags = 0;
+	barrier();
+}
+
+static int init_thpool_buffer(void)
+{
+	int i;
+	size_t buf_sz;
+	struct thpool_buffer *map;
+
+	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
+	map = malloc(buf_sz);
+	if (!map)
+		return -ENOMEM;
+
+	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
+		struct thpool_buffer *tb;
+
+		tb = map + i;
+		tb->flags = 0;
+		tb->rx_size = 0;
+		tb->tx_size = 0;
+		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
+		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
+	}
+
+	thpool_buffer_map = map;
+	TB_HEAD = 0;
+	return 0;
+}
+
+static int init_thpool(void)
+{
+	int i, ret;
+	size_t buf_sz;
+
+	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
+	thpool_worker_map = malloc(buf_sz);
+	if (!thpool_worker_map)
+		return -ENOMEM;
+
+	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
+		struct thpool_worker *tw;
+
+		tw = thpool_worker_map + i;
+		tw->cpu = 0;
+		tw->nr_queued = 0;
+		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
+
+		if (unlikely(ret))
+			return ret;
+	}
+	TW_HEAD = 0;
+	return 0;
+}
 
 static LIST_HEAD(board_list);
 static pthread_spinlock_t(board_lock);
@@ -21,12 +144,7 @@ static pthread_spinlock_t(board_lock);
 static DECLARE_BITMAP(pid_map, NR_MAX_PID);
 static pthread_spinlock_t(pid_lock);
 
-/*
- * For each board, the valid process address spaces are linked
- * within a hashtable. The key is a combination of PID and Host Node ID.
- * The PID is assigned by either Host or Monitor.
- */
-#define PID_ARRAY_HASH_BITS	(5)
+#define PID_ARRAY_HASH_BITS	(10)
 static DEFINE_HASHTABLE(proc_hash_array, PID_ARRAY_HASH_BITS);
 static pthread_spinlock_t(proc_lock);
 
@@ -199,8 +317,80 @@ static int handle_alloc(void)
 	return 0;
 }
 
+/* Port current host net */
+static inline size_t net_send(void *buf, size_t buf_size)
+{
+	return -ENOSYS;
+}
+
+static inline size_t net_receive(void *buf, size_t buf_size)
+{
+	return -ENOSYS;
+}
+
+static void worker_handle_request(struct thpool_worker *tw,
+				  struct thpool_buffer *tb)
+{
+	struct lego_hdr *lego_hdr;
+	uint16_t opcode;
+	void *rx_buf;
+	size_t rx_buf_size;
+
+	rx_buf = tb->rx;
+	rx_buf_size = tb->rx_size;
+
+	lego_hdr = (struct lego_hdr *)(rx_buf + LEGO_HEADER_OFFSET);
+	opcode = lego_hdr->opcode;
+
+	switch (opcode) {
+	case OP_REQ_ALLOC:
+		break;
+	case OP_REQ_FREE:
+		break;
+
+	/* Proc */
+	case OP_CREATE_PROC:
+		break;
+	case OP_FREE_PROC:
+		break;
+	default:
+		break;
+	};
+
+	if (likely(!ThpoolBufferNoreply(tb)))
+		net_send(tb->tx, tb->tx_size);
+	free_thpool_buffer(tb);
+}
+
+static void dispatcher(void)
+{
+	struct thpool_buffer *tb;
+	struct thpool_worker *tw;
+	size_t ret;
+
+	while (1) {
+		tb = alloc_thpool_buffer();
+		tw = select_thpool_worker_rr();
+
+		ret = net_receive(tb->rx, tb->rx_size);
+		if (ret < 0) {
+			printf("axi dma fpga to soc failed\n");
+			return;
+		}
+
+		/*
+		 * Inline handling for now
+		 * We will need to pass down the request once go SMP
+		 */
+		worker_handle_request(tw, tb);
+	}
+}
+
 int main(int argc, char **argv)
 {
+	init_thpool();
+	init_thpool_buffer();
+
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&board_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
