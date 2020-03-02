@@ -15,3 +15,5 @@ jobs:
       run: sudo apt-get -y install rdma-core libibverbs1 libibverbs-dev
     - name: make_host
       run: cd host && make
+    - name: make_monitor
+      run: cd monitor && make
