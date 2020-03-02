@@ -10,8 +10,17 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 #include <linux/types.h>
+
+/*
+ * ZCU106 Cortex-A53 is running at 64bit mode.
+ * x86-64 as well.
+ */
+#define BITS_PER_LONG		(64)
+#define BITS_PER_LONG_SHIFT	(6)
 
 #define BUG()			(assert(0))
 #define BUG_ON(cond)		(assert(!!!(cond)))
@@ -229,5 +238,24 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
  */
 #define ____cacheline_aligned					\
 	__attribute__((__aligned__(L1_CACHE_BYTES)))
+
+/*
+ * Tell gcc if a function is cold. The compiler will assume any path
+ * directly leading to the call is unlikely.
+ */
+#if GCC_VERSION >= 40300
+# define __cold				__attribute__((__cold__))
+# define __compiletime_warning(message)	__attribute__((warning(message)))
+# define __compiletime_error(message)	__attribute__((error(message)))
+#else
+# define __cold
+# define __compiletime_warning(message)
+# define __compiletime_error(message)
+#endif
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
 #endif /* _LEGOMEM_UAPI_COMPILER_H_ */

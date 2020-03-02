@@ -10,6 +10,19 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
+/*
+ * The maximum number of processes from a host node
+ * allowed to establish connections with a single board.
+ *
+ * This parameter is also used by hash calculation.
+ */
+#define NR_MAX_PROCS_PER_NODE	(256)
+
+/*
+ * The maximum PID space in a distributed legomem system.
+ */
+#define NR_MAX_PID		(65535)
+
 typedef atomic_int atomic_t;
 
 #define BOARD_NAME_LEN		(32)
