@@ -10,6 +10,7 @@
 #include <uapi/vregion.h>
 #include <uapi/sched.h>
 #include <uapi/net_header.h>
+#include <uapi/thpool.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,7 +20,9 @@
 #include <stdatomic.h>
 
 #include "core.h"
-#include "thpool.h"
+
+#define NR_THPOOL_WORKERS	(1)
+#define NR_THPOOL_BUFFER	(32)
 
 /*
  * Each thpool worker is described by struct thpool_worker,
@@ -84,6 +87,58 @@ free_thpool_buffer(struct thpool_buffer *tb)
 {
 	tb->flags = 0;
 	barrier();
+}
+
+static int init_thpool_buffer(void)
+{
+	int i;
+	size_t buf_sz;
+	struct thpool_buffer *map;
+
+	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
+	map = malloc(buf_sz);
+	if (!map)
+		return -ENOMEM;
+
+	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
+		struct thpool_buffer *tb;
+
+		tb = map + i;
+		tb->flags = 0;
+		tb->rx_size = 0;
+		tb->tx_size = 0;
+		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
+		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
+	}
+
+	thpool_buffer_map = map;
+	TB_HEAD = 0;
+	return 0;
+}
+
+static int init_thpool(void)
+{
+	int i, ret;
+	size_t buf_sz;
+
+	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
+	thpool_worker_map = malloc(buf_sz);
+	if (!thpool_worker_map)
+		return -ENOMEM;
+
+	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
+		struct thpool_worker *tw;
+
+		tw = thpool_worker_map + i;
+		tw->cpu = 0;
+		tw->nr_queued = 0;
+		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
+
+		if (unlikely(ret))
+			return ret;
+	}
+	TW_HEAD = 0;
+	return 0;
 }
 
 static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
@@ -324,58 +379,6 @@ static void dispatcher(void)
 		/* Inline handling for now */
 		worker_handle_request(tw, tb);
 	}
-}
-
-static int init_thpool_buffer(void)
-{
-	int i;
-	size_t buf_sz;
-	struct thpool_buffer *map;
-
-	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
-	map = malloc(buf_sz);
-	if (!map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
-		struct thpool_buffer *tb;
-
-		tb = map + i;
-		tb->flags = 0;
-		tb->rx_size = 0;
-		tb->tx_size = 0;
-		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
-		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
-	}
-
-	thpool_buffer_map = map;
-	TB_HEAD = 0;
-	return 0;
-}
-
-static int init_thpool(void)
-{
-	int i, ret;
-	size_t buf_sz;
-
-	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
-	thpool_worker_map = malloc(buf_sz);
-	if (!thpool_worker_map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
-		struct thpool_worker *tw;
-
-		tw = thpool_worker_map + i;
-		tw->cpu = 0;
-		tw->nr_queued = 0;
-		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
-
-		if (unlikely(ret))
-			return ret;
-	}
-	TW_HEAD = 0;
-	return 0;
 }
 
 int main(int argc, char **argv)

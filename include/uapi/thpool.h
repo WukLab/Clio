@@ -1,12 +1,16 @@
-#ifndef _LEGOFPGA_BOARD_THPOOL_H_
-#define _LEGOFPGA_BOARD_THPOOL_H_
+/*
+ * Copyright (c) 2020. Wuklab. All rights reserved.
+ *
+ * Thread pool and buffer definitions and helpers.
+ */
 
+#ifndef _LEGOFPGA_UAPI_THPOOL_H_
+#define _LEGOFPGA_UAPI_THPOOL_H_
+
+#include <uapi/bitops.h>
 #include <uapi/compiler.h>
 
 #define THPOOL_BUFFER_SIZE	(4096)
-#define NR_THPOOL_BUFFER	(32)
-
-#define NR_THPOOL_WORKERS	(1)
 
 struct thpool_buffer;
 
@@ -15,14 +19,14 @@ struct tw_padding {
 } ____cacheline_aligned;
 #define TW_PADDING(name)	struct tw_padding name
 
+/*
+ * This struct describes a single thread worker.
+ */
 struct thpool_worker {
 	int			cpu;
 	int			nr_queued;
 	pthread_spinlock_t	lock;
 	TW_PADDING(_pad1);
-
-	struct thpool_buffer	*thpool_buffer_map;
-	int			TB_HEAD;
 
 	/* stats */
 	unsigned long		nr_handled;
@@ -33,6 +37,9 @@ struct tb_padding {
 } __aligned(THPOOL_BUFFER_SIZE);
 #define THPOOL_PADDING(name)	struct tb_padding name
 
+/*
+ * This struct describes a holder for both RX and TX buffers.
+ */
 struct thpool_buffer {
 	unsigned int		flags;
 
@@ -93,4 +100,4 @@ static inline void ClearThpoolBufferNoreply(struct thpool_buffer *tb)
 	tb->flags &= ~(unsigned long)THPOOL_BUFFER_NOREPLY;
 }
 
-#endif /* _LEGOFPGA_BOARD_THPOOL_H_ */
+#endif /* _LEGOFPGA_UAPI_THPOOL_H_ */
