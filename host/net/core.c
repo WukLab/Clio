@@ -76,7 +76,7 @@ void dump_packet_headers(void *packet)
 
 	printf("  IP %x -> %x", ntohl(ipv4->src_ip), ntohl(ipv4->dst_ip));
 	printf("  Port %u -> %u", ntohs(udp->src_port), ntohs(udp->dst_port));
-	printf("  Seqnum %u, Mark %u\n", gbn->seqnum, payload->mark);
+	printf("  Seqnum %u, Mark %lu\n", gbn->seqnum, payload->mark);
 }
 
 void test_net(struct session_net *ses)
@@ -109,7 +109,7 @@ void test_net(struct session_net *ses)
 	 * Please tune this during testing.
 	 * One side is server, another is client.
 	 */
-	server = true;
+	server = false;
 	if (server) {
 		/* Server, recv msg */
 		while (1) {
@@ -131,7 +131,6 @@ void test_net(struct session_net *ses)
 			payload = send_buf + LEGO_HEADER_OFFSET;
 			payload->mark = i++;
 
-			sleep(1);
 			printf("send %d\n", i-1);
 			ret = net_send(ses, send_buf, buf_size);
 			if (ret <= 0) {
@@ -143,6 +142,8 @@ void test_net(struct session_net *ses)
 				break;
 		}
 	}
+
+	sleep(3);
 
 	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
 		free(send_buf_ring[i]);
@@ -170,6 +171,11 @@ struct endpoint_info board_0 = {
 	.ip		= 0xc0a801c8, /* 192.168.1.200 */
 	.udp_port	= 1234,
 };
+struct endpoint_info board_1 = {
+	.mac		= { 0xe4, 0x1d, 0x2d, 0xb2, 0x00, 0x00 },
+	.ip		= 0xc0a80180,
+	.udp_port	= 1234,
+};
 
 /* TODO */
 struct session_net *tmp_global_session;
@@ -189,11 +195,11 @@ struct session_net *init_net(void)
 	 * Knobs
 	 */
 	local_ei = &ei_wuklab02;
-	remote_ei = &ei_wuklab06;
+	remote_ei = &ei_wuklab05;
 
-	//raw_net_ops = &raw_verbs_ops;
+	raw_net_ops = &raw_verbs_ops;
 	//raw_net_ops = &raw_socket_ops;
-	raw_net_ops = &udp_socket_ops;
+	//raw_net_ops = &udp_socket_ops;
 	printf("Raw Net Layer: using %s\n", raw_net_ops->name);
 
 	ses = raw_net_ops->init(local_ei, remote_ei);

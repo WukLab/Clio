@@ -1,5 +1,5 @@
 INCLUDE := -I../include
-CFLAGS := -libverbs -lpthread
+CLIBS := -libverbs -pthread
 
 SRCS := core.c \
 	net/core.c \
@@ -10,7 +10,7 @@ SRCS := core.c \
 	net/transport_gbn.c
 
 all: $(SRCS) 
-	gcc -Wall -o host.out $(CFLAGS) $(INCLUDE) $(SRCS)
+	gcc -Wall -o host.o $(INCLUDE) $(SRCS) $(CLIBS)
 
 clean:
-	rm *.out
+	rm *.o
