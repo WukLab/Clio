@@ -184,4 +184,25 @@ vregion_to_end_va(struct proc_info *p, struct vregion_info *v)
 	return (vregion_to_index(p, v) + 1) * VREGION_SIZE;
 }
 
+static inline void get_proc_info(struct proc_info *pi)
+{
+	/*
+	 * fetch_add returns the old value,
+	 * it must have >= 1 refcount before this func.
+	 */
+	if (unlikely(atomic_fetch_add(&pi->refcount, 1) < 1))
+		BUG();
+}
+
+void free_proc(struct proc_info *pi);
+static inline void put_proc_info(struct proc_info *pi)
+{
+	/*
+	 * fetch_sub returns the old value,
+	 * thus we are the last user if it was 1.
+	 */
+	if (atomic_fetch_sub(&pi->refcount, 1) == 1)
+		free_proc(pi);
+}
+
 #endif /* _LEGOMEM_UAPI_SCHED_H_ */

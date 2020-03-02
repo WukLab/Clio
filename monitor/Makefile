@@ -4,4 +4,7 @@ CFLAGS :=
 SRCS := $(wildcard *.c)
 
 all: $(SRCS)
-	gcc -o gmm $(CFLAGS) $(INCLUDE) $(SRCS) -lpthread
+	gcc -o monitor.o $(CFLAGS) $(INCLUDE) $(SRCS) -lpthread
+
+clean:
+	rm -f *.o

@@ -256,6 +256,65 @@ alloc_proc(unsigned int pid, unsigned int node,
 	return new;
 }
 
+/*
+ * Find the pi structure by given pid and node.
+ * The refcount is incremented by 1 if found.
+ * The caller must call put_proc() afterwards.
+ */
+struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node)
+{
+	struct proc_info *pi;
+	unsigned int key;
+
+	key = getKey(pid, node);
+
+	pthread_spin_lock(&proc_lock);
+	hash_for_each_possible(proc_hash_array, pi, link, key) {
+		if (likely(pi->pid == pid && pi->node == node)) {
+			get_proc_info(pi);
+			pthread_spin_unlock(&proc_lock);
+			return pi;
+		}
+	}
+	pthread_spin_unlock(&proc_lock);
+	return NULL;
+}
+
+/*
+ * Free the given pi and remove it from the hashtable.
+ * The refcount must be 0 upon invocation.
+ */
+void free_proc(struct proc_info *pi)
+{
+	unsigned int node, pid, key;
+	struct proc_info *tsk;
+
+	if (!pi)
+		return;
+
+	if (atomic_load(&pi->refcount)) {
+		printf("BUG: refcount is not zero. Use put_proc()\n");
+		return;
+	}
+
+	node = pi->node;
+	pid = pi->pid;
+	key = getKey(pid, node);
+
+	/* Walk through all the possible buckets, check node and pid */
+	pthread_spin_lock(&proc_lock);
+	hash_for_each_possible(proc_hash_array, tsk, link, key) {
+		if (likely(tsk->node == node && tsk->pid == pid)) {
+			hash_del(&tsk->link);
+			pthread_spin_unlock(&proc_lock);
+			free(tsk);
+			return;
+		}
+	}
+	pthread_spin_unlock(&proc_lock);
+	printf("WARN: Fail to find tsk (node %u pid %d)\n", node, pid);
+}
+
 static struct board_info *
 add_board(char *board_name, unsigned int board_ip, unsigned long mem_total)
 {
@@ -293,17 +352,24 @@ static void dump_boards(void)
 	pthread_spin_unlock(&board_lock);
 }
 
-static int handle_alloc(void)
+static void handle_create_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *proc;
 	int pid, node;
 	char *proc_name;
 	int host_ip;
+	int *reply;
+
+	reply = (int *)tb->tx;
+	set_tb_tx_size(tb, sizeof(int));
 
 	pid = alloc_pid();
-	if (pid < 0)
-		return pid;
+	if (unlikely(pid < 0)) {
+		*reply = pid;
+		return;
+	}
 
+	/* Should come from request */
 	node = 0;
 	proc_name = NULL;
 	host_ip = 0;
@@ -311,10 +377,37 @@ static int handle_alloc(void)
 	proc = alloc_proc(pid, node, proc_name, host_ip);
 	if (!proc) {
 		free_pid(pid);
-		return -ENOMEM;
+		*reply = -ENOMEM;
+		return;
 	}
 
-	return 0;
+	/* Succeed, return PID to user */
+	*reply = pid;
+}
+
+static void handle_free_proc(struct thpool_buffer *tb)
+{
+	struct proc_info *pi;
+	int *reply;
+	unsigned int pid, node;
+	void *rx_buf;
+
+	reply = (int *)tb->tx;
+	set_tb_tx_size(tb, sizeof(int));
+
+	/* TODO: Get PID and NODE from request buffer */
+	rx_buf = tb->rx;
+	pid = 1;
+	node = 0;
+	pi = get_proc_by_pid(pid, node);
+	if (!pi) {
+		*reply = -EINVAL;
+		return;
+	}
+
+	/* We grabbed one ref above, thus put twice */
+	put_proc_info(pi);
+	put_proc_info(pi);
 }
 
 /* Port current host net */
@@ -350,8 +443,10 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 	/* Proc */
 	case OP_CREATE_PROC:
+		handle_create_proc(tb);
 		break;
 	case OP_FREE_PROC:
+		handle_free_proc(tb);
 		break;
 	default:
 		break;
