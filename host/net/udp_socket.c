@@ -3,7 +3,8 @@
  */
 
 /*
- * This file describes the udp socket transport layer.
+ * This file use UDP to send and receive packets.
+ * It's treated as a raw network layer, only a single port is used.
  * It uses kernel network stack and is mainly for testing.
  */
 
@@ -17,6 +18,9 @@
 #include <arpa/inet.h>
 #include <uapi/net_header.h>
 #include "net.h"
+
+/* The one and the only open UDP port :) */
+static int udp_sockfd;
 
 struct session_udp_socket {
 	int sockfd;
@@ -39,120 +43,128 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 	remote_addr = &ses_socket->remote_addr;
 
 	/*
-	 * We don't prepare headers and let kernel network stack prepare headers.
-	 * In this way, the space reserved for headers in the buf is no use.
-	 * thus we skip it and move the pointer to the actual payload
+	 * We don't prepare headers and let kernel stack do it.
+	 * In this way, the space reserved for headers in the buf is not used.
+	 * Thus we shift the pointer to the payload location.
 	 */
 	buf += GBN_HEADER_OFFSET;
 	buf_size -= GBN_HEADER_OFFSET;
 
-	ret = sendto(sockfd, buf, buf_size, 0, (struct sockaddr *)remote_addr,
+	ret = sendto(sockfd, buf, buf_size, 0, (const struct sockaddr *)remote_addr,
 		     sizeof(*remote_addr));
 	return ret;
 }
 
-static int udp_socket_receive(struct session_net *ses_net, void *buf,
-			      size_t buf_size)
+static int udp_socket_receive(void *buf, size_t buf_size)
 {
 	int ret;
-	int sockfd;
-	struct session_udp_socket *ses_socket;
-	struct sockaddr_in *remote_addr;
-	socklen_t addr_len;
-
-	if (unlikely(!ses_net || !buf || !buf_size))
-		return -EINVAL;
-	
-	ses_socket = (struct session_udp_socket *)ses_net->raw_net_private;
-	sockfd = ses_socket->sockfd;
-	remote_addr = &ses_socket->remote_addr;
-	addr_len = sizeof(*remote_addr);
+	struct sockaddr_in remote_addr;
+	socklen_t addr_len = sizeof(remote_addr);
 
 	/*
-	 * Payload received from UDP doesn't have L2~L4 headers
-	 * so put it after the go-back-N header offset
+	 * Packet received from kernel UDP does not have L2-L4 headers.
+	 * Thus shift the buf to the start of GBN header.
 	 */
 	buf += GBN_HEADER_OFFSET;
 	buf_size -= GBN_HEADER_OFFSET;
 
-	ret = recvfrom(sockfd, buf, buf_size, 0, (struct sockaddr *)remote_addr, &addr_len);
+	/*
+	 * We will recv packets from any IPs.
+	 * The sender info is returned in remote_addr
+	 */
+	ret = recvfrom(udp_sockfd, buf, buf_size, 0,
+		       (struct sockaddr *)&remote_addr, &addr_len);
+
+	/*
+	 * TODO: fill the L2-L4 part with remote_addr
+	 * the caller may rely on this to get board info
+	 */
 	return ret;
 }
 
-static int udp_socket_open()
+static int udp_open_session(struct session_net *ses_net,
+			    struct endpoint_info *local_ei,
+			    struct endpoint_info *remote_ei)
 {
-	int sockfd;
+	struct session_udp_socket *ses_udp;
+	struct sockaddr_in remote_addr;
 
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		perror("open udp socket");
-	return sockfd;
-}
-
-static int udp_socket_bind(int sockfd, struct sockaddr_in *local_addr)
-{
-	int ret;
-
-	if ((ret = bind(sockfd, (struct sockaddr *)local_addr, sizeof(*local_addr))))
-		perror("bind udp socket");
-	return ret;
-}
-
-static struct session_net *
-init_udp_socket(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
-{
-	struct session_net *ses_net;
-	struct session_udp_socket *udp_socket;
-	int sockfd;
-	struct sockaddr_in remote_addr, local_addr;
-
-	ses_net = malloc(sizeof(struct session_net));
-	if (!ses_net) {
-		free(ses_net);
-		return NULL;
+	if (udp_sockfd <= 0) {
+		printf("%s(): UDP socket is not open.\n", __func__);
+		return -EINVAL;
 	}
 
-	udp_socket = malloc(sizeof(struct session_udp_socket));
-	if (!udp_socket) {
-		free(udp_socket);
-		return NULL;
-	}
-	ses_net->raw_net_private = udp_socket;
+	ses_udp = malloc(sizeof(*ses_udp));
+	if (!ses_udp)
+		return -ENOMEM;
+	ses_net->raw_net_private = ses_udp;
 
-	sockfd = udp_socket_open();
-	if(sockfd < 0) {
-		printf("Fail to open udp socket.\n");
-		goto free;
-	}
-
+	/* This info is required to send */
 	remote_addr.sin_family = AF_INET;
 	remote_addr.sin_port = htons(remote_ei->udp_port);
 	remote_addr.sin_addr.s_addr = htonl(remote_ei->ip);
+	ses_udp->remote_addr = remote_addr;
+	ses_udp->sockfd = udp_sockfd;
+
+	return 0;
+}
+
+static int udp_close_session(struct session_net *ses_net)
+{
+	struct session_udp_socket *ses_udp;
+
+	ses_udp = (struct session_udp_socket *)ses_net->raw_net_private;
+	free(ses_udp);
+	return 0;
+}
+
+/*
+ * We only open one UDP port at one host (decided by @local_ei)
+ * We use this port to accept all traffics targeting this port (INADDR_ANY).
+ */
+static int udp_init_once(struct endpoint_info *local_ei)
+{
+	int fd, ret;
+	struct sockaddr_in local_addr;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		perror("Fail to open UDP socket: ");
+		return fd;
+	}
 
 	local_addr.sin_family = AF_INET;
 	local_addr.sin_port = htons(local_ei->udp_port);
-	local_addr.sin_addr.s_addr = htonl(local_ei->ip);
+	local_addr.sin_addr.s_addr = INADDR_ANY;
 
-	if (udp_socket_bind(sockfd, &local_addr) < 0) {
-		printf("Fail to bind socket to port %d, errorno: %d\n",
-		       local_ei->udp_port, errno);
-		goto free;
+	ret = bind(fd, (const struct sockaddr *)&local_addr, sizeof(local_addr));
+	if (ret < 0) {
+		perror("bind failed");
+		close(fd);
+		return ret;
 	}
 
-	udp_socket->sockfd = sockfd;
-	udp_socket->remote_addr = remote_addr;
+	udp_sockfd = fd;
+	return 0;
+}
 
-	return ses_net;
-
-free:
-	free(ses_net);
-	free(udp_socket);
-	return NULL;
+static void udp_exit(void)
+{
+	if (udp_sockfd > 0)
+		close(udp_sockfd);
 }
 
 struct raw_net_ops udp_socket_ops = {
 	.name			= "udp_socket",
+
+	.init_once		= udp_init_once,
+	.exit			= udp_exit,
+
+	.open_session		= udp_open_session,
+	.close_session		= udp_close_session,
+
 	.send_one		= udp_socket_send,
 	.receive_one		= udp_socket_receive,
+	.receive_one_nb		= NULL,
 	.receive_one_zerocopy	= NULL,
-	.init			= init_udp_socket,
 }; 

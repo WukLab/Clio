@@ -6,6 +6,9 @@
 #ifndef _LEGOFPGA_OPCODE_H_
 #define _LEGOFPGA_OPCODE_H_
 
+#define PROC_NAME_LEN		(64)
+#define BOARD_NAME_LEN		(64)
+
 enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_ALLOC = 1,
 	OP_REQ_FREE,
@@ -45,5 +48,9 @@ struct op_alloc_free_ret {
 	unsigned int 	ret;
 	unsigned long	addr;
 } __attribute__((packed));
+
+struct op_create_proc {
+	char proc_name[PROC_NAME_LEN];
+};
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

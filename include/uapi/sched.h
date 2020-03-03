@@ -7,6 +7,10 @@
 #include <uapi/list.h>
 #include <uapi/vregion.h>
 #include <uapi/rbtree.h>
+#include <uapi/opcode.h>
+#include <uapi/hashtable.h>
+#include <uapi/net_session.h>
+#include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
 
@@ -25,20 +29,101 @@
 
 typedef atomic_int atomic_t;
 
-#define BOARD_NAME_LEN		(32)
-#define PROC_NAME_LEN		(32)
-
 struct vm_area_struct;
+
+/*
+ * This determines the per-board session hashtable size.
+ * This is not a limit on the maximum number of sessions.
+ * A larger number means smaller collision rate at expanses of extra memory.
+ */
+#define NR_HT_BOARD_SESSIONS_BITS	(3)
+#define NR_HT_BOARD_SESSIONS		(1 << NR_HT_BOARD_SESSIONS_BITS)
 
 struct board_info {
 	char			name[BOARD_NAME_LEN];
 	unsigned int		board_ip;
 
+	/*
+	 * The endpoint info of this sepcific network session
+	 * The Ethernet/IP/UDP header info, 44 bytes
+	 */
+	struct endpoint_info	local_ei, remote_ei;
+
+	/* List boards together */
 	struct list_head	list;
+
+	/* The hashtable for open sessions with this board */
+	struct hlist_head	ht_sessions[NR_HT_BOARD_SESSIONS];
+	pthread_spinlock_t	lock;
 
 	unsigned long		mem_total;
 	unsigned long		mem_avail;
 };
+
+static inline void init_board_info(struct board_info *bi)
+{
+	BUG_ON(!bi);
+
+	memset(bi, 0, sizeof(*bi));
+	INIT_LIST_HEAD(&bi->list);
+
+	hash_init(bi->ht_sessions);
+	pthread_spin_init(&bi->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline int
+board_add_session(struct board_info *p, struct session_net *ses)
+{
+	int key;
+
+	key = ses->session_id;
+
+	pthread_spin_lock(&p->lock);
+	hash_add(p->ht_sessions, &ses->ht_link_board, key);
+	pthread_spin_unlock(&p->lock);
+
+	return 0;
+}
+
+static inline int
+board_remove_session(struct board_info *p, struct session_net *ses)
+{
+	struct session_net *_ses;
+	int key;
+
+	key = ses->session_id;
+
+	pthread_spin_lock(&p->lock);
+	hash_for_each_possible(p->ht_sessions, _ses, ht_link_board, key) {
+		if (likely(_ses->session_id == ses->session_id)) {
+			hash_del(&ses->ht_link_board);
+			pthread_spin_unlock(&p->lock);
+			return 0;
+		}
+	}
+	pthread_spin_unlock(&p->lock);
+
+	return -1;
+}
+
+static inline struct session_net *
+board_find_session(struct board_info *p, int session_id)
+{
+	struct session_net *ses;
+	int key;
+
+	key = session_id;
+
+	pthread_spin_lock(&p->lock);
+	hash_for_each_possible(p->ht_sessions, ses, ht_link_board, key) {
+		if (likely(ses->session_id == session_id)) {
+			pthread_spin_unlock(&p->lock);
+			return ses;
+		}
+	}
+	pthread_spin_unlock(&p->lock);
+	return NULL;
+}
 
 /*
  * Notes

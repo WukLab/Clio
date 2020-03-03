@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
 #include <uapi/list.h>
 #include <uapi/err.h>
 #include <uapi/net_header.h>
@@ -41,6 +40,58 @@ net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
 {
 	if (transport_net_ops->receive_one_nb)
 		return transport_net_ops->receive_one_nb(net, buf, buf_size);
+	return 0;
+}
+
+/*
+ * Create a session between @local_ei and @remote_ei.
+ * Only data structures are updated.
+ */
+struct session_net *net_open_session(struct endpoint_info *local_ei,
+				     struct endpoint_info *remote_ei)
+{
+	struct session_net *ses;
+	int ret;
+
+	ses = malloc(sizeof(struct session_net));
+	if (!ses)
+		return NULL;
+	memset(ses, 0, sizeof(*ses));
+
+	ret = transport_net_ops->open_session(ses, local_ei, remote_ei);
+	if (ret)
+		goto free;	
+
+	ret = raw_net_ops->open_session(ses, local_ei, remote_ei);
+	if (ret)
+		goto close_transport;
+
+	/* Prepare the session info */
+	prepare_routing_info(&ses->route, local_ei, remote_ei);
+	memcpy(&ses->local_ei, local_ei, sizeof(*local_ei));
+	memcpy(&ses->remote_ei, remote_ei, sizeof(*remote_ei));
+
+	return ses;
+
+close_transport:
+	transport_net_ops->close_session(ses);
+free:
+	free(ses);
+	return NULL;
+}
+
+/*
+ * Close a network session, free all associated memory.
+ */
+int net_close_session(struct session_net *ses)
+{
+	if (!ses)
+		return -EINVAL;
+
+	transport_net_ops->close_session(ses);
+	raw_net_ops->close_session(ses);
+	free(ses);
+
 	return 0;
 }
 
@@ -179,76 +230,35 @@ void test_net(struct session_net *ses)
 	free(recv_buf);
 }
 
-/* TODO more automatic or use XML file */
-struct endpoint_info ei_wuklab02 = {
-	.mac		= { 0xe4, 0x1d, 0x2d, 0xb2, 0xba, 0x51 },
-	.ip		= 0xc0a80102, /* 192.168.1.2 */
-	.udp_port	= 8888,
-};
-struct endpoint_info ei_wuklab05 = {
-	.mac		= { 0xe4, 0x1d, 0x2d, 0xe4, 0x81, 0x51 },
-	.ip		= 0xc0a80105, /* 192.168.1.5 */
-	.udp_port	= 8888,
-};
-struct endpoint_info ei_wuklab06 = {
-	.mac		= { 0xe4, 0x1d, 0x2d, 0xb3, 0x54, 0x11 },
-	.ip		= 0xc0a80106, /* 192.168.1.6 */
-	.udp_port	= 8888,
-};
-struct endpoint_info board_0 = {
-	.mac		= { 0xe4, 0x1d, 0x2d, 0x88, 0x77, 0x51 },
-	.ip		= 0xc0a801c8, /* 192.168.1.200 */
-	.udp_port	= 1234,
-};
-struct endpoint_info board_1 = {
-	.mac		= { 0xe4, 0x1d, 0x2d, 0xb2, 0x00, 0x00 },
-	.ip		= 0xc0a80180, /* 192.168.1.128 */
-	.udp_port	= 1234,
-};
-
-/* TODO */
-struct session_net *tmp_global_session;
-struct session_net *find_session(void *packet)
+/*
+ * Initialize transport and raw network layer
+ * Called once during startup.
+ */
+int init_net(struct endpoint_info *local_ei)
 {
-	return tmp_global_session;
-}
-
-struct session_net *init_net(void)
-{
-	struct session_net *ses;
-	struct endpoint_info *local_ei, *remote_ei;
 	int ret;
-
-	/*
-	 * XXX
-	 * Knobs
-	 */
-	local_ei = &ei_wuklab02;
-	remote_ei = &ei_wuklab05;
 
 	raw_net_ops = &raw_verbs_ops;
 	//raw_net_ops = &raw_socket_ops;
 	//raw_net_ops = &udp_socket_ops;
-	printf("Raw Net Layer: using %s\n", raw_net_ops->name);
-
-	ses = raw_net_ops->init(local_ei, remote_ei);
-	if (!ses) {
-		printf("Fail to init raw net session\n");
-		return NULL;
-	}
+	printf("%s(): Raw Net Layer: using %s\n", __func__, raw_net_ops->name);
 
 	transport_net_ops = &transport_gbn_ops;
 	//transport_net_ops = &transport_bypass_ops;
-	printf("Transport Layer: using %s\n", transport_net_ops->name);
+	printf("%s(): Transport Layer: using %s\n", __func__, transport_net_ops->name);
 
-	ret = transport_net_ops->init(ses);
+	ret = raw_net_ops->init_once(local_ei);
 	if (ret) {
-		printf("Fail to init transport session\n");
-		return NULL;
+		printf("Fail to init raw net layer\n");
+		return ret;
 	}
 
-	tmp_global_session = ses;
+	ret = transport_net_ops->init_once(local_ei);
+	if (ret) {
+		printf("Fail to init transport session\n");
 
-	test_net(ses);
-	return ses;
+		raw_net_ops->exit();
+		return ret;
+	}
+	return 0;
 }

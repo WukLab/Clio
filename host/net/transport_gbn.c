@@ -16,6 +16,7 @@
 #include <uapi/err.h>
 #include <uapi/net_header.h>
 #include "net.h"
+#include "../core.h"
 
 /*
  * The maximum number of unack'ed outgoing messages.
@@ -153,34 +154,6 @@ set_next_timeout(struct timespec *t)
 	ns = t->tv_nsec + GBN_RETRANS_TIMEOUT_US * 1000;
 	t->tv_nsec = ns % 1000000000;
 	t->tv_sec += ns / 1000000000;
-}
-
-static void init_session_gbn(struct session_gbn *ses)
-{
-	int i;
-	struct buffer_info *info;
-
-	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_unack_buffer_info(ses, i);
-		memset(info, 0, sizeof(*info));
-		INIT_LIST_HEAD(&info->list);
-	}
-	atomic_init(&ses->seqnum_cur, 0);
-	atomic_init(&ses->seqnum_last, 0);
-	disable_timeout(ses);
-
-	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_data_buffer_info(ses, i);
-		memset(info, 0, sizeof(*info));
-		INIT_LIST_HEAD(&info->list);
-	}
-	atomic_init(&ses->data_buffer_info_HEAD, 0);
-	atomic_init(&ses->seqnum_expect, 1);
-	ses->ack_enable = true;
-
-	INIT_LIST_HEAD(&ses->data_list);
-	pthread_spin_init(&ses->data_lock, PTHREAD_PROCESS_PRIVATE);
-	ses->nr_data = 0;
 }
 
 /*
@@ -430,24 +403,10 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		set_next_timeout(&ses_gbn->next_timeout);
 }
 
-static void handle_ack_packet(void *packet)
+static void handle_ack_packet(struct session_net *ses_net, void *packet)
 {
 	struct gbn_header *hdr;
-	struct session_net *ses_net;
 	struct session_gbn *ses_gbn;
-
-	/*
-	 * Find the connection info from the packet
-	 * for now just use the global one
-	 * Xuhao:
-	 * Is this redundant? We already have a session in poll function
-	 */
-	ses_net = find_session(packet);
-	if (unlikely(!ses_net)) {
-		gbn_debug("ERROR: no valid connection %p\n",
-			packet);
-		return;
-	}
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
@@ -461,22 +420,10 @@ static void handle_ack_packet(void *packet)
 	handle_ack_nack_dequeue(hdr, ses_gbn, true);
 }
 
-static void handle_nack_packet(void *packet)
+static void handle_nack_packet(struct session_net *ses_net, void *packet)
 {
 	struct gbn_header *hdr;
-	struct session_net *ses_net;
 	struct session_gbn *ses_gbn;
-
-	/*
-	 * Find the connection info from the packet
-	 * for now just use the global one
-	 */
-	ses_net = find_session(packet);
-	if (unlikely(!ses_net)) {
-		gbn_debug("ERROR: no valid connection %p\n",
-			packet);
-		return;
-	}
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
@@ -498,10 +445,9 @@ static void handle_nack_packet(void *packet)
  * Called by polling thread.
  * Push new data into cached ring buffer list.
  */
-static void handle_data_packet(void *packet, size_t buf_size)
+static void handle_data_packet(struct session_net *ses_net, void *packet, size_t buf_size)
 {
 	struct gbn_header *hdr;
-	struct session_net *ses_net;
 	struct session_gbn *ses_gbn;
 	struct buffer_info *info;
 	unsigned int seq;
@@ -511,13 +457,6 @@ static void handle_data_packet(void *packet, size_t buf_size)
 		char	placeholder[GBN_HEADER_OFFSET];
 		struct	gbn_header ack_header;
 	} __attribute__((packed)) ack;
-
-	ses_net = find_session(packet);
-	if (unlikely(!ses_net)) {
-		gbn_debug("ERROR: no valid connection %p\n",
-			packet);
-		return;
-	}
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
@@ -604,19 +543,19 @@ static void handle_data_packet(void *packet, size_t buf_size)
  * It then inspects the packet contents, either clear unack'ed buffers,
  * or cache the data packets and generate ACK.
  */
-static void *gbn_poll_func(void *arg)
+static void *gbn_poll_func(void *_unused)
 {
 	struct session_net *ses_net;
-	struct gbn_header *hdr;
+	struct gbn_header *gbn_hdr;
+	struct ipv4_hdr *ipv4_hdr;
+	unsigned int remote_ip, session_id;
 	void *recv_buf;
 	size_t buf_size, max_buf_size;
-	int ret;
 	bool use_zerocopy = true;
-
-	ses_net = (struct session_net *)arg;
+	int ret;
 
 	if (unlikely(!raw_net_ops->receive_one_zerocopy)) {
-		printf("No zerocopy implemented.\n");
+		printf("%s(): No zerocopy implemented.\n", __func__);
 		use_zerocopy = false;
 		max_buf_size = sysctl_link_mtu;
 		recv_buf = malloc(max_buf_size);
@@ -627,21 +566,15 @@ static void *gbn_poll_func(void *arg)
 	}
 
 	while (1) {
-		/*
-		 * TODO:
-		 * there should be generic data structure per device
-		 * and then some data structures per connection
-		 * as this particular case, we should use the generic one
-		 */
 		if (likely(use_zerocopy)) {
-			ret = raw_net_receive_zerocopy(ses_net, &recv_buf, &buf_size);
+			ret = raw_net_receive_zerocopy(&recv_buf, &buf_size);
 			if (unlikely(ret < 0)) {
 				gbn_info("zerocopy receive error %d\n", ret);
 				exit(1);
 			} else if (ret == 0)
 				continue;
 		} else {
-			buf_size = raw_net_receive(ses_net, recv_buf, max_buf_size);
+			buf_size = raw_net_receive(recv_buf, max_buf_size);
 			if (unlikely(buf_size < 0)) {
 				gbn_info("receive error %ld\n", buf_size);
 				exit(1);
@@ -649,61 +582,41 @@ static void *gbn_poll_func(void *arg)
 				continue;
 		}
 		
-		hdr = to_gbn_header(recv_buf);
-		switch (hdr->type) {
+		gbn_hdr = to_gbn_header(recv_buf);
+		ipv4_hdr = to_ipv4_header(recv_buf);
+
+		/*
+		 * TODO
+		 *
+		 * I'm not adding a session ID to the GBN header now
+		 * because we need to consider the FPGA side stack layout
+		 * many bits shitfing might need changes.
+		 */
+		session_id = 0;
+		remote_ip = ipv4_hdr->src_ip;
+
+		ses_net = find_net_session(remote_ip, session_id);
+		if (unlikely(!ses_net)) {
+			gbn_debug("Session not found: %x %u\n",
+				remote_ip, session_id);
+			continue;
+		}
+
+		switch (gbn_hdr->type) {
 		case pkt_type_ack:
-			handle_ack_packet(recv_buf);
+			handle_ack_packet(ses_net, recv_buf);
 			break;
 		case pkt_type_nack:
-			handle_nack_packet(recv_buf);
+			handle_nack_packet(ses_net, recv_buf);
 			break;
 		case pkt_type_data:
-			handle_data_packet(recv_buf, buf_size);
+			handle_data_packet(ses_net, recv_buf, buf_size);
 			break;
 		default:
 			gbn_info("WARN: Unknown GBN packet type: %d\n",
-				hdr->type);
+				gbn_hdr->type);
 			break;
 		};
-	}
-	return NULL;
-}
-
-/*
- * This is go-back-N transport layer's timeout watcher thread.
- * It wakes up every 0.5ms to check if a timeout event happends.
- * If timeout, it will start a retransmission.
- *
- * XXX
- * We maynot want to use a signal-like approach, since it involve with kernel
- *
- * TODO
- * Extend timer and we will not run into signal handler a fixed frequency.
- * Having this thread is weird.
- */
-static void *gbn_timeout_watcher(void* arg)
-{
-	struct session_net *ses_net;
-	struct session_gbn *ses_gbn;
-	struct timespec cur_time;
-
-	ses_net = (struct session_net *)arg;
-	ses_gbn = (struct session_gbn *)ses_net->transport_private;
-
-	while (1)
-	{
-		clock_gettime(CLOCK_MONOTONIC, &cur_time);
-
-		/* if timeout, start retransmission */
-		if (time_greater_than(&cur_time, &ses_gbn->next_timeout)) {
-			printf("cur: %ld.%ld, timeout: %ld.%ld\n",
-			       cur_time.tv_sec, cur_time.tv_nsec,
-			       ses_gbn->next_timeout.tv_sec,
-			       ses_gbn->next_timeout.tv_nsec);
-			retrans_unack_buffer_info(ses_net, ses_gbn);
-		}
-
-		usleep(1000 * GBN_TIMEOUT_CHECK_INTERVAL_MS);
 	}
 	return NULL;
 }
@@ -819,22 +732,111 @@ static inline int gbn_receive_one_nb(struct session_net *net,
 	return -ENOSYS;
 }
 
+static void init_session_gbn(struct session_gbn *ses)
+{
+	int i;
+	struct buffer_info *info;
+
+	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
+		info = index_to_unack_buffer_info(ses, i);
+		memset(info, 0, sizeof(*info));
+		INIT_LIST_HEAD(&info->list);
+	}
+	atomic_init(&ses->seqnum_cur, 0);
+	atomic_init(&ses->seqnum_last, 0);
+	disable_timeout(ses);
+
+	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
+		info = index_to_data_buffer_info(ses, i);
+		memset(info, 0, sizeof(*info));
+		INIT_LIST_HEAD(&info->list);
+	}
+	atomic_init(&ses->data_buffer_info_HEAD, 0);
+	atomic_init(&ses->seqnum_expect, 1);
+
+	INIT_LIST_HEAD(&ses->data_list);
+	pthread_spin_init(&ses->data_lock, PTHREAD_PROCESS_PRIVATE);
+	ses->nr_data = 0;
+}
+
+static int
+gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
+		 struct endpoint_info *remote_ei)
+{
+	struct session_gbn *ses_gbn;
+
+	ses_gbn = malloc(sizeof(struct session_gbn));
+	if (!ses_gbn)
+		return -ENOMEM;
+	ses_net->transport_private = ses_gbn;
+	init_session_gbn(ses_gbn);
+
+	return 0;
+}
+
+static int gbn_close_session(struct session_net *ses_net)
+{
+	struct session_gbn *ses_gbn;
+
+	ses_gbn = (struct session_gbn *)ses_net->transport_private;
+	if (ses_gbn)
+		free(ses_gbn);
+	return 0;
+}
+
+/*
+ * This is go-back-N transport layer's timeout watcher thread.
+ * It wakes up every 0.5ms to check if a timeout event happends.
+ * If timeout, it will start a retransmission.
+ * XXX
+ * We maynot want to use a signal-like approach, since it involve with kernel
+ */
+static void *gbn_timeout_watcher_func(void *_unused)
+{
+	/*
+	 * XXX Yizhou
+	 * This thread will not work as expected in multi session case.
+	 * We need to use per-session timers now.
+	 */
+#if 0
+	struct session_net *ses_net;
+	struct session_gbn *ses_gbn;
+	struct timespec cur_time;
+
+	ses_net = (struct session_net *)arg;
+	ses_gbn = (struct session_gbn *)ses_net->transport_private;
+
+	while (1)
+	{
+		clock_gettime(CLOCK_MONOTONIC, &cur_time);
+
+		/* if timeout, start retransmission */
+		if (time_greater_than(&cur_time, &ses_gbn->next_timeout)) {
+			printf("cur: %ld.%ld, timeout: %ld.%ld\n",
+			       cur_time.tv_sec, cur_time.tv_nsec,
+			       ses_gbn->next_timeout.tv_sec,
+			       ses_gbn->next_timeout.tv_nsec);
+			retrans_unack_buffer_info(ses_net, ses_gbn);
+		}
+
+		usleep(1000 * GBN_TIMEOUT_CHECK_INTERVAL_MS);
+	}
+#endif
+	return NULL;
+}
+
 /*
  * For now, we only create one global polling thread per machine.
  * If this becomes a bottleneck, we may well change this.
  */
-static int create_polling_thread(struct session_net *ses)
+static int create_polling_thread(void)
 {
 	int ret;
 
-	/*
-	 * This is not SMP safe, esp if there are multiple
-	 * threads running this func for the first time
-	 */
 	if (polling_thread_created)
 		return 0;
 
-	ret = pthread_create(&polling_thread, NULL, gbn_poll_func, ses);
+	ret = pthread_create(&polling_thread, NULL, gbn_poll_func, NULL);
 	if (ret) {
 		printf("GBN: Fail to create the polling thread\n");
 		return ret;
@@ -843,7 +845,7 @@ static int create_polling_thread(struct session_net *ses)
 	return 0;
 }
 
-static int create_timeout_watcher_thread(struct session_net *ses)
+static int create_timeout_watcher_thread(void)
 {
 	int ret;
 
@@ -851,7 +853,7 @@ static int create_timeout_watcher_thread(struct session_net *ses)
 		return 0;
 
 	ret = pthread_create(&timeout_watcher_thread, NULL,
-			     gbn_timeout_watcher, ses);	
+			     gbn_timeout_watcher_func, NULL);	
 	if (ret) {
 		printf("GBN: Fail to create the timeout wather thread\n");
 		return ret;
@@ -860,33 +862,18 @@ static int create_timeout_watcher_thread(struct session_net *ses)
 	return 0;
 }
 
-static inline int gbn_init(struct session_net *ses)
+static int gbn_init_once(struct endpoint_info *local_ei)
 {
-	struct session_gbn *ses_gbn;
 	int ret;
 
-	if (!ses)
-		return -EINVAL;
-
-	if (!ses->raw_net_private) {
-		printf("ERROR: Please init raw_net first\n");
-		return -EINVAL;
-	}
-
-	ses_gbn = malloc(sizeof(struct session_gbn));
-	if (!ses_gbn)
-		return -ENOMEM;
-	ses->transport_private = ses_gbn;
-	init_session_gbn(ses_gbn);
-
 	/* One global polling thread */
-	ret = create_polling_thread(ses);
+	ret = create_polling_thread();
 	if (ret) {
 		printf("Fail to create GBN polling thread\n");
 		return ret;
 	}
 
-	ret = create_timeout_watcher_thread(ses);
+	ret = create_timeout_watcher_thread();
 	if (ret) {
 		printf("Fail to create GBN timeout watcher thread\n");
 		return ret;
@@ -894,10 +881,21 @@ static inline int gbn_init(struct session_net *ses)
 	return 0;
 }
 
+static void gbn_exit(void)
+{
+	return;
+}
+
 struct transport_net_ops transport_gbn_ops = {
 	.name			= "transport_rel_gbn",
+
+	.init_once		= gbn_init_once,
+	.exit			= gbn_exit,
+
+	.open_session		= gbn_open_session,
+	.close_session		= gbn_close_session,
+
 	.send_one		= gbn_send_one,
 	.receive_one		= gbn_receive_one,
 	.receive_one_nb		= gbn_receive_one_nb,
-	.init			= gbn_init,
 };

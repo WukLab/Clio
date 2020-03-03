@@ -146,7 +146,7 @@ static pthread_spinlock_t(pid_lock);
 
 #define PID_ARRAY_HASH_BITS	(10)
 static DEFINE_HASHTABLE(proc_hash_array, PID_ARRAY_HASH_BITS);
-static pthread_spinlock_t(proc_lock);
+static pthread_spinlock_t proc_lock;
 
 static inline int getKey(unsigned int pid, unsigned int node)
 {
@@ -324,7 +324,8 @@ add_board(char *board_name, unsigned int board_ip, unsigned long mem_total)
 	if (!bi)
 		return NULL;
 
-	INIT_LIST_HEAD(&bi->list);
+	init_board_info(bi);
+
 	strncpy(bi->name, board_name, BOARD_NAME_LEN);
 	bi->board_ip = board_ip;
 	bi->mem_total = mem_total;

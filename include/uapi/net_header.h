@@ -79,6 +79,18 @@ enum pkt_type {
 #define LEGO_HEADER_OFFSET \
 	(GBN_HEADER_OFFSET + GBN_HEADER_SIZE)
 
+static inline struct eth_hdr *to_eth_header(void *packet)
+{
+	return (struct eth_hdr *)packet;
+}
+
+static inline struct ipv4_hdr *to_ipv4_header(void *packet)
+{
+	struct ipv4_hdr *hdr;
+	hdr = (struct ipv4_hdr *)(packet + ETHERNET_HEADER_SIZE);
+	return hdr;
+}
+
 static inline struct gbn_header *to_gbn_header(void *packet)
 {
 	struct gbn_header *hdr;
@@ -150,13 +162,13 @@ struct routing_info {
 	struct eth_hdr eth;
 	struct ipv4_hdr ipv4;
 	struct udp_hdr udp;
-} __attribute__((packed));
+} __packed;
 
 struct endpoint_info {
 	unsigned char mac[6];
 	uint32_t ip;
 	uint16_t udp_port;
-};
+} __packed;
 
 static __always_inline void
 prepare_routing_info(struct routing_info *ri, struct endpoint_info *src,
