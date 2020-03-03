@@ -1,12 +1,8 @@
 package wuklab.sim
 
-
-import java.math.BigInteger
-
-import wuklab._
-import spinal.core.sim._
-import spinal.lib._
 import spinal.core._
+import spinal.core.sim._
+import wuklab._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -28,9 +24,17 @@ case class AddressLookupRequestSim(
                              seqId : Int,
                              tag : BigInt = 0,
                              reqType : Int = 0
-                            ){}
+                            ) extends MemSimStruct {
+  override def asBytes = SimConversions.LookupRequestSimToBytes(this)
+}
 
 object SimConversions {
+  def assign (field : BigInt, bytes : ArrayBuffer[Byte], offset : Int) : Unit = {
+    for ((b, idx) <- field.toByteArray.reverse.zipWithIndex)
+      bytes(idx + offset) = b
+  }
+  def assign (field : Int, bytes : ArrayBuffer[Byte], offset : Int) : Unit = assign(BigInt(field), bytes, offset)
+
   implicit def pageTableEntrySimToBytes(pte : PageTableEntrySim) : Seq[Byte] = {
     val pteBytes = 16
     val bytes = ArrayBuffer.fill(pteBytes)(0 : Byte)
@@ -50,9 +54,21 @@ object SimConversions {
     req.tag #= a.tag
     req.reqType #= a.reqType
   }
+  implicit def LookupRequestSimToBytes(req : AddressLookupRequestSim) : Seq[Byte] = {
+    val pteBytes = 16
+    val bytes = ArrayBuffer.fill(pteBytes)(0 : Byte)
+    assign(req.tag, bytes, 0)
+    assign(req.seqId, bytes, 6)
+    bytes(5) = (bytes(5) | (req.reqType << 6)).toByte
+
+    bytes
+  }
 
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)
+  }
+  implicit def simStructAssign(s : MemSimStruct, bits : Bits) : Unit = {
+    bits #= BigInt(s.asBytes.reverse.toArray)
   }
 
 }

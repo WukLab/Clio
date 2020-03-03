@@ -3,19 +3,20 @@ package wuklab
 import wuklab.sim.{AddressLookupRequestSim, _}
 import spinal.core._
 import spinal.core.sim._
+import wuklab.PageFaultUnitSim.FullPageFault
 
 case class CoreMemSimConfig() extends CoreMemConfig {
   val physicalAddrWidth = 32
   val virtualAddrWidth = 64
   val hashtableAddrWidth = 16
-  val tagWidth = 48
+  val tagWidth = 40
   val ppaWidth = 16
   val pageSizes = Seq[Int](2,4,8)
   // Cache config
   val numCacheCells = 128
   val numPageFaultCacheCells = 16
   // Hash Table Config
-  val hashtableBaseAddr = 0
+  val hashtableBaseAddr = BigInt(0)
   val pteAddrWidth = 4
 
   val ptePerLine = 4
@@ -88,11 +89,24 @@ object FetchUnitSim {
   }
 }
 
-object MySpinalConfig extends SpinalConfig(
+object SimulationSpinalConfig extends SpinalConfig(
   defaultConfigForClockDomains = ClockDomainConfig(
     resetActiveLevel = LOW
   )
 )
+
+object CoreMemorySim {
+  import AssignmentFunctions._
+
+  def main(args: Array[String]): Unit = {
+    SimConfig.withConfig(SimulationSpinalConfig).withWave.doSim(
+      new CoreMemory
+    ) {dut => {
+      dut.clockDomain.forkStimulus(5)
+
+    }}
+  }
+}
 
 object PageFaultUnitSim {
   import AssignmentFunctions._
@@ -111,7 +125,7 @@ object PageFaultUnitSim {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig.withConfig(MySpinalConfig).withWave.doSim(
+    SimConfig.withConfig(SimulationSpinalConfig).withWave.doSim(
       new FullPageFault
     ) { dut =>
       dut.clockDomain.forkStimulus(5)
@@ -149,7 +163,7 @@ object AddressLookupUnitSim {
   import SimConversions._
 
   def main(args: Array[String]): Unit = {
-    SimConfig.withConfig(MySpinalConfig).withWave.doSim (
+    SimConfig.withConfig(SimulationSpinalConfig).withWave.doSim (
       new AddressLookupUnit
     ) { dut =>
       dut.clockDomain.forkStimulus(5)
@@ -168,6 +182,7 @@ object AddressLookupUnitSim {
 
       dut.clockDomain.waitRisingEdge(5)
 
+//      val ctrlMsgs = (0 until 3).map (i => (BigInt(i), BigInt(0), BigInt(0x00F0 + i)))
       val ctrlMsgs = (0 until 3).map (i => (i, 0, 0x00F0 + i))
       ctrl #= SeqDataGen(ctrlMsgs : _*)
 
@@ -340,15 +355,15 @@ object LookupTableStoppableSim {
   }
 }
 
-object SequencerSim {
-  import AssignmentFunctions._
-  def main(args: Array[String]): Unit = {
-    SimConfig.withWave.doSim(new Sequencer(64, 40, 128, 32)) { dut =>
-      dut.clockDomain.forkStimulus(5)
-    }
-  }
-
-}
+//object SequencerSim {
+//  import AssignmentFunctions._
+//  def main(args: Array[String]): Unit = {
+//    SimConfig.withWave.doSim(new Sequencer(64, 40, 128, 32)) { dut =>
+//      dut.clockDomain.forkStimulus(5)
+//    }
+//  }
+//
+//}
 
 object LockCounterRamSim {
   import AssignmentFunctions._
