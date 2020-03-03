@@ -36,7 +36,7 @@ class PacketParser[B <: Bundle with Header[B]](
   // if (size & (datawidth-1)) <= headerWidth, we will save a cycle -> skipLast
   val headerIn = header.fromWiderBits(io.dataIn.fragment)
   // check reg next when bypass
-  val size = RegNextWhenBypass(headerIn.getSize, io.dataIn.firstFire)
+  val size = RegNextWhen(headerIn.getSize, io.dataIn.firstFire)
   val skipLast = size.maskBy(dataBytes) <= headerBytes
 
   val (toHeader, toData) = StreamFork2(io.dataIn)
@@ -85,29 +85,20 @@ class LegoMemEndPointPacketBuilder (implicit config : CoreMemConfig) extends Com
     val dataOut = master Stream Fragment(AxiStreamPayload(config.epAxisConfig))
   }
 
-  val headerIn = io.headerIn.queue(2)
-
+  io.headerIn.ready := io.dataIn.lastFire
   // Generate this information at the 1st cycle
-  val size = RegNextWhenBypass(headerIn.getSize, headerIn.fire)
-  val insertLast = size.maskBy(dataBytes) >= offsetBytes
+  val (next, dest) = io.headerIn.stackPop
+  val insertLast = io.headerIn.getSize.maskBy(dataBytes) >= offsetBytes
 
-  // When to pop this header?
-  // 1st cycle: need the header.
-  // last cycle:
-  // Go back to state machine!
-  // val validHeader = io.headerIn.valid
-  headerIn.ready := io.dataIn.lastFire
-  val dataIn = io.dataIn.continueWhen(headerIn.valid)
+  val dataOut = io.dataIn.shiftAt(headerWidth, next.asBits)
+  val outStream = io.dataIn.translateWithLastInsert(dataOut, insertLast)
 
-  val (next, dest) = headerIn.stackPop
-  val destQueue = ReturnStream(dest, headerIn.fire).queueLowLatency(8)
-
-  val dataOut = dataIn.shiftAt(headerWidth, next.asBits)
-  val outStream = dataIn.translateWithLastInsert(dataOut, insertLast)
-
-  // 1st cycle: header + first half of datea.
-
-  io.dataOut << LegoMemEndPoint.mergeDest(outStream, destQueue)
+  // 1st cycle: header + first half of data.
+  io.dataOut.translateFrom (outStream) { (axis, data) =>
+    axis.last := data.last
+    axis.fragment.tdata := data.fragment
+    axis.fragment.tdest := dest
+  }
 }
 
 // ReqStatus
@@ -160,7 +151,7 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
 // At core memory, we assign sequence number (locally) and do packet paser, do send the lookup request.
 // we analyze the header, and do a dispatch at the end of a sequencer
 
-class CoreMemory(implicit config : CoreMemConfig) extends Component {
+class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
   val destWidth = 4
 
@@ -192,13 +183,17 @@ class CoreMemory(implicit config : CoreMemConfig) extends Component {
   accessHeader <> access.io.headerIn
   packetBuilder.io.headerIn <> access.io.headerOut
 
-  val dma = new AxiStreamDMA(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
+  val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
   dma.io.m_axi <> io.bus.access
   dma.io.m_axis_read_data.liftStream(_.tdata) >> packetBuilder.io.dataIn
   // TODO: We need to filter this flow. throw when is not done
   dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, packetParser.io.dataOut)
   dma.io.s_axis_read_desc <> access.io.rdCmd
   dma.io.s_axis_write_desc <> access.io.wrCmd
+
+  dma.io.write_enable := True
+  dma.io.read_enable := True
+  dma.io.write_abort := False
 
   def generateRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
     val next = AddressLookupRequest(config.tagWidth)

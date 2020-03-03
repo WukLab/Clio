@@ -104,7 +104,8 @@ trait CoreMemConfig {
     addressWidth = physicalAddrWidth,
     dataWidth = 512,
     useId = false,
-    useProt = false
+    useRegion = false,
+    useQos = false
   )
 
   def destWidth = 4

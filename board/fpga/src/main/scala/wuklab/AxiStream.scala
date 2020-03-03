@@ -46,13 +46,6 @@ object AxiStream {
 
 object LegoMemEndPoint {
   type LegoMemEndPointStream = Stream[Fragment[AxiStreamPayload]]
-  def mergeDest(frag : Stream[Fragment[Bits]], dest : Stream[UInt]) : LegoMemEndPointStream = {
-    val next = Fragment (AxiStreamPayload(AxiStreamConfig.LegoMemEndPointConfig(4)))
-    next.last := frag.last
-    next.fragment.tdata := frag.fragment
-    next.fragment.tdest := dest.payload
-    StreamJoin.arg(frag, dest) translateWith next
-  }
 }
 
 case class LegoMemEndPoint(config : AxiStreamConfig) extends Bundle {
@@ -130,9 +123,9 @@ case class LegoMemEndPoint(config : AxiStreamConfig) extends Bundle {
 //  mapClockDomain(clock = io.clk, reset = io.rst)
 //}
 
-class AxiStreamDMA(
-                    axisConfig : AxiStreamConfig, axiConfig : Axi4Config, addrWidth: Int, lenWidth : Int, tagWidth : Int = 0
-                  ) extends BlackBox with XilinxAXI4Toplevel {
+class axi_dma(
+               axisConfig : AxiStreamConfig, axiConfig : Axi4Config, addrWidth: Int, lenWidth : Int, tagWidth : Int = 0
+             ) extends BlackBox with XilinxAXI4Toplevel {
   // TODO: check these width
   val generic = new Generic {
     // Width of AXI data bus in bits
@@ -154,21 +147,21 @@ class AxiStreamDMA(
     // Use AXI stream tlast signal
     val AXIS_LAST_ENABLE = 1
     // Propagate AXI stream tid signal
-    val AXIS_ID_ENABLE = if (axisConfig.useKeep) 1 else 0
+    val AXIS_ID_ENABLE = if (axisConfig.useId) 1 else 0
     // AXI stream tid signal width
-    val AXIS_ID_WIDTH = axisConfig.idWidth
+    val AXIS_ID_WIDTH = if (axisConfig.useId) axisConfig.idWidth else 1
     // Propagate AXI stream tdest signal
     val AXIS_DEST_ENABLE = if (axisConfig.useDest) 1 else 0
     // AXI stream tdest signal width
-    val AXIS_DEST_WIDTH = axisConfig.destWidth
+    val AXIS_DEST_WIDTH = if (axisConfig.useDest) axisConfig.destWidth else 1
     // Propagate AXI stream tuser signal
     val AXIS_USER_ENABLE = if (axisConfig.useUser) 1 else 0
     // AXI stream tuser signal width
-    val AXIS_USER_WIDTH = axisConfig.useUser
+    val AXIS_USER_WIDTH = if (axisConfig.useUser) axisConfig.useUser else 1
     // Width of length field
     val LEN_WIDTH = lenWidth
     // Width of tag field
-    val TAG_WIDTH = tagWidth
+    val TAG_WIDTH = if (tagWidth > 0) tagWidth else 1
     // Enable support for scatter/gather DMA
     // (multiple descriptors per AXI stream frame)
     val ENABLE_SG = 0
@@ -188,13 +181,19 @@ class AxiStreamDMA(
     // val m_axis_write_desc_status_id = master Flow NoData
     // val m_axis_write_desc_status_id = master Flow NoData
     val m_axi = master (Axi4(axiConfig))
+
+    val read_enable = in Bool
+    val write_enable = in Bool
+    val write_abort = in Bool
   }
 
+  setDefinitionName("axi_dma")
   addPrePopTask(renameIO)
+  mapCurrentClockDomain(io.clk, io.rst)
 
-  mapClockDomain(clock = io.clk, reset = io.rst)
-
-  addRTLPath("lib/verilog/axi_dma.v")
+  addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma.v")
+  addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma_rd.v")
+  addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma_wr.v")
 }
 
 //input  wire [AXI_ADDR_WIDTH-1:0]  s_axis_read_desc_addr,
