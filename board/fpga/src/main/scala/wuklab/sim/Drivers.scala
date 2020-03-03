@@ -7,12 +7,21 @@ import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Ax, AxiLite4ReadOnly}
+import spinal.lib.bus.amba4.axilite._
 import spinal.sim.SimThread
 
+import scala.collection.mutable
+import scala.util.Random
 import scala.collection.mutable.ArrayBuffer
 
 // TODO: driver, drivable
+trait SimulationService {
+  val clockDomain : ClockDomain
+  val waitInit = {
+    waitUntil(clockDomain.isResetDeasserted)
+    clockDomain.waitRisingEdge(3)
+  }
+}
 
 object AssignmentFunctions {
   implicit def uintAssign(a : Int, t : UInt) = t #= a
@@ -62,6 +71,11 @@ object AssignmentFunctions {
     cmd.cmd #= cmdId
     cmd.param32 #= param & 0xFFFFFFFF
     cmd.param8 #= param >> 32
+  }
+
+  implicit def ControlRequestToBitsAssign(a : (BigInt, BigInt, BigInt), bits : Bits): Unit = {
+    val (cid, cmd, param) = a
+    bits #= (cid << 56) | (cmd << 44) | param
   }
 
   def joinAll( simThreads: SimThread *): Unit = {
@@ -202,7 +216,7 @@ class Axi4MasterCommandDriver() {
 
 }
 
-class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
+class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends SimulationService {
 
   case class ChannelStates(
                             var state : Int = 0,
@@ -251,7 +265,7 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
     fork {
       cmd.ready #= false
       rsp.valid #= false
-      waitUntil(clockDomain.isResetDeasserted)
+      waitInit
       while (true) {
         // State action
         cmd.ready #= false
@@ -302,7 +316,7 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
       cmd.ready #= false
       data.ready #= false
       rsp.valid #= false
-      waitUntil(clockDomain.isResetDeasserted)
+      waitInit
       while (true) {
         // Data assignment
         cmd.ready #= false
@@ -365,3 +379,26 @@ class Axi4SlaveMemoryDriver (clockDomain: ClockDomain, size : Int) {
 
 }
 
+
+//class AxiStreamInterconnect (val clockDomain: ClockDomain, size : Int) extends SimulationService {
+//
+//  // array for current
+//  var decision : Seq[(Int, Int)]
+//  val eps = mutable.HashMap[Int, LegoMemEndPoint]
+//
+//  def tik(table : Seq[(Int, Int)]) : Seq[(Int, Int)] = {
+//
+//  }
+//
+//  def forward: Unit = {
+//    // sec -> dest
+//    val routingInfo : Seq[(Int, Int)] = Seq()
+//    val routingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
+//
+//    decision = decision ++ routingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
+//    decision = tik(decision)
+//  }
+//
+//  def =# (port : Int)(ep : LegoMemEndPoint): Unit = {
+//  }
+//}

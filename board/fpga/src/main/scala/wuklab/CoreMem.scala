@@ -128,7 +128,7 @@ class LinearHashFunction(val outputWidth: Int, enable : Bool) extends HashFuncti
   override def pipelineDelay = 1
 
   override def hash(input: UInt) : UInt = {
-    RegNextWhen(input, enable)(outputWidth-1 downto 0)
+    RegNextWhen(input, enable).resize(outputWidth bits)
   }
 
   override def enableSignal = enable
@@ -136,8 +136,6 @@ class LinearHashFunction(val outputWidth: Int, enable : Bool) extends HashFuncti
 }
 
 class FetchUnit(implicit config: CoreMemConfig) extends Component {
-
-  val hashTableBaseAddr = U(0, config.hashtableAddrWidth bits)
 
   val axi4Config = Axi4Config(
     addressWidth = config.hashtableAddrWidth,
@@ -160,10 +158,9 @@ class FetchUnit(implicit config: CoreMemConfig) extends Component {
   }
 
   val fifo = new StreamFifoLowLatency(io.bus.readCmd.payloadType, 1, 0)
-  val almostFull = WaterMarkFifo(fifo.io.pop, 32)
+  val (readCmd, readRsp) = WaterMarkFifo(fifo.io.pop, io.bus.readRsp.fmap(_.data), 32)
 
   // These fifos are part of the watermark system
-  val retFifo = StreamFifo(Bits(512 bits), 64)
   val reqFifo = StreamFifo(new Bundle {
     val tag = cloneOf(io.req.tag)
     val seqId = cloneOf(io.req.seqId)
@@ -189,7 +186,7 @@ class FetchUnit(implicit config: CoreMemConfig) extends Component {
 
   val readCtrl = new Area {
     // use a fifo to set ready to high
-    almostFull >> io.bus.readCmd
+    readCmd >> io.bus.readCmd
 
     val readValid = hashCtrl.readAddr.valid & fifo.io.push.ready
 
@@ -204,15 +201,13 @@ class FetchUnit(implicit config: CoreMemConfig) extends Component {
     // TODO : find back pressure signal
     val ready = True
 
-    val valid = RegNext(retFifo.io.pop.fire) init False
+    val valid = RegNext(readRsp.fire) init False
     val hit = Reg(Bool) init False
     val selected = Reg (config.pteWithAddrType)
 
-    io.bus.r.fmap(_.data) >> retFifo.io.push
+    readRsp.ready := ready
 
-    retFifo.io.pop.ready := ready
-
-    val ptes = retFifo.io.pop.payload
+    val ptes = readRsp.payload
       .as(Vec(Bits(config.pteFullWidth bits), config.ptePerLine))
       .map(cloneOf(config.pteWithAddrType).fromFullBits(_))
 
@@ -222,7 +217,7 @@ class FetchUnit(implicit config: CoreMemConfig) extends Component {
     }
     val matchVec = ptes.map(pte => pte.allocated && pte.tag === reqFifo.io.pop.tag)
 
-    when (retFifo.io.pop.fire) {
+    when (readRsp.fire) {
       selected := PriorityMux(matchVec, ptes)
       hit := matchVec.reduce(_ || _)
     }
@@ -231,20 +226,22 @@ class FetchUnit(implicit config: CoreMemConfig) extends Component {
   val writeCtrl = new Area {
     val counter = Counter(0 until config.linePerBucket, matchCtrl.valid)
 
-    val pte = cloneOf(matchCtrl.selected)
-    pte := RegNextWhen(matchCtrl.selected, matchCtrl.hit && matchCtrl.valid)
-    pte.seqId.allowOverride
-    pte.seqId := reqFifo.io.pop.seqId
-
+    // This all clear works for special bits
+    // Designer should always use 0 for not enable, dont they?
+    // TODO: optimize the bits, do not clear tag/pte
     val emptyPte = cloneOf(matchCtrl.selected)
-    emptyPte.seqId := reqFifo.io.pop.seqId
-    emptyPte.seqId := reqFifo.io.pop.seqId
+    emptyPte.clearAll
 
-    reqFifo.io.pop.ready := counter.willOverflow
-    // TODO: think of cycles
+    val pteReg = Reg(cloneOf(matchCtrl.selected)) init emptyPte
+    val nextPte = Mux(matchCtrl.hit && matchCtrl.valid, matchCtrl.selected, pteReg)
+    pteReg := Mux(counter.willOverflow, emptyPte, nextPte)
 
     io.res.valid := counter.willOverflow
-    io.res.payload := pte
+    io.res.payload := nextPte
+    io.res.payload.seqId.allowOverride
+    io.res.payload.seqId := reqFifo.io.pop.seqId
+
+    reqFifo.io.pop.ready := counter.willOverflow
   }
 
 }
@@ -334,9 +331,6 @@ class BramCache(implicit config : CoreMemConfig) extends Component {
     io.ctrl.shootDownRpt << shootDownRpt
     table.io.wr.shootDown << shootDownRpt
   }
-
-
-
 }
 
 // TODO: make this a factory
@@ -380,208 +374,9 @@ class LookupControlAgent(implicit config : CoreMemConfig) extends Component {
 
 }
 
-// Return the state change from zero
-abstract class CounterSet(dataWidth : Int, numCells : Int) extends Area {
-  def inc(addr : UInt) : Bool
-  def dec(addr : UInt) : Bool
-}
-
-class RegisterCounterSet(dataWidth : Int, numCells : Int) extends CounterSet(dataWidth, numCells) {
-  val vec = Vec(Reg (UInt(dataWidth bits)) init 0, numCells)
-  override def inc(addr: UInt): Bool = {
-    val change = vec(addr) === 0
-    vec(addr) := vec(addr) + 1
-    change
-  }
-  override def dec(addr: UInt): Bool = {
-    val change = vec(addr) === 1
-    vec(addr) := vec(addr) - 1
-    change
-  }
-}
-
-// TODO: add more implementations, like Vec(Counter)
-// Here we should use a register implementation first
-class LockCounterRam(numWaits : Int, numCells : Int) extends Component {
-
-  assert(isPow2(numCells))
-  val cellWidth = log2Up(numCells)
-  val waitWidth = log2Up(numWaits)
-
-  val io = new Bundle {
-    val lockReq   = slave Flow UInt(cellWidth bits)
-    val unlockReq = slave Flow UInt(cellWidth bits)
-
-    // The freed address
-    val freeAddr  = master Flow UInt(cellWidth bits)
-    val isLocked  = out Vec(Bool, numCells)
-
-    val popReq    = slave Flow UInt(cellWidth bits)
-  }
-
-  val lockCounts = new RegisterCounterSet(waitWidth, numCells)
-  val waitCounts = new RegisterCounterSet(waitWidth, numCells)
-
-  object cellState extends SpinalEnum {
-    val idle, locked, clearing = newElement()
-  }
-
-  val lockedReg = Vec (Reg (cellState()) init cellState.idle, numCells)
-  io.isLocked := Vec (lockedReg.map(_ === cellState.locked))
-
-  // LockteCtrl
-  when (io.lockReq.valid) {
-    waitCounts.inc(io.lockReq.payload)
-  }
-
-  val conflict = io.lockReq.valid && io.unlockReq.valid && (io.lockReq.payload === io.unlockReq.payload)
-  when (!conflict) {
-    when(io.lockReq.valid) {
-      when(lockCounts.inc(io.lockReq.payload)) {
-        lockedReg(io.lockReq.payload) := cellState.locked
-      }
-    }
-
-    when (io.unlockReq.valid) {
-      when(lockCounts.dec(io.unlockReq.payload)) {
-        lockedReg(io.unlockReq.payload) := cellState.clearing
-      }
-    }
-  }
-
-  // Pop Ctrl
-  io.freeAddr.valid := False
-  io.freeAddr.payload := io.popReq.payload
-  when (io.popReq.fire) {
-    val isEmpty = waitCounts.dec(io.popReq.payload)
-    when (isEmpty) {
-      io.freeAddr.valid := True
-      lockedReg(io.popReq.payload) := cellState.idle
-    }
-  }
-
-}
-
-class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int) extends Component {
-
-  assert(isPow2(numCells))
-  val cellWidth = log2Up(numCells)
-
-  val io = new Bundle {
-    val req = slave  Stream InternalMemoryRequest(dataWidth)
-    val res = master Stream InternalMemoryRequest(dataWidth)
-
-    val unlock = slave Flow UInt(cellWidth bits)
-  }
-
-  // Write : Match -> If exists, add; else, insert
-  val cam = new LookupTCamStoppable(dataWidth, cellWidth, true)
-  val ids = new IDPool(numCells)
-  val lock = new LockCounterRam(numWaits, numCells)
-
-  // Internal infomations
-  val bypassFifo = new StreamFifoLowLatency(io.req.payloadType, 1)
-
-  // Data path
-  val inputCtrl = new Area {
-
-    // flow through CAM
-    val afterLookup = requireLock(io.req)
-
-    // See if we need lock
-    val newLock = isLockInstruction(afterLookup.snd)
-    val requireLockBool =  afterLookup.fst.hit || newLock
-
-    // split to two flows
-    val beforeWait = afterLookup.fmapFst(_.value)
-    val Seq(bypassPort, waitPort) = StreamDemux(beforeWait, requireLockBool.asUInt, 2)
-    bypassPort.fmap(_.snd) >> bypassFifo.io.push
-  }
-
-  val waitFifo   = new StreamFifo(inputCtrl.beforeWait.payloadType, numWaits)
-
-  val lockAddrCtrl = new Area {
-    // TODO: this is arrow.
-    val Seq(existingLock, newLock) = inputCtrl.newLock.demux(inputCtrl.waitPort)
-
-    // Bind this two fifos
-    val newCmd = ids.io.alloc >*< newLock.fmap(_.snd)
-    val nextCmd = StreamMux(inputCtrl.newLock.asUInt, Seq(existingLock, newCmd))
-//    val nextCmd =  inputCtrl.newLock.mux(existingLock, newCmd)
-
-    nextCmd >> waitFifo.io.push
-    nextCmd.tapAsFlow.fmap(_.fst) >> lock.io.lockReq
-  }
-
-  val camCtrl = new Area {
-    val insertReq = lockAddrCtrl.newCmd.tapAsFlow
-    val deleteReq = lock.io.freeAddr
-
-    val writeCmd = cloneOf (cam.io.wr.payload)
-
-    // Set the command
-    writeCmd.key := getTagFromRequest(insertReq.snd)
-    writeCmd.mask := getMaskFromRequest(insertReq.snd)
-    // If is not insert, then used is false (it is a delete)
-    writeCmd.enable := insertReq.valid
-    writeCmd.value := Mux(deleteReq.valid && insertReq.valid, deleteReq.payload, insertReq.payload.fst)
-
-    cam.io.wr << ReturnFlow(writeCmd, insertReq.valid || deleteReq.valid)
-
-    // Return of address
-    ids.io.free <-< deleteReq.throwWhen(insertReq.valid)
-  }
-
-  val outputCtrl = new Area {
-    // unlock forward
-    io.unlock >> lock.io.unlockReq
-    waitFifo.io.pop.tapAsFlow.fmap(_.fst) >> lock.io.popReq
-
-    // output path
-    val unlockLast = ~lock.io.isLocked(waitFifo.io.pop.fst)
-    io.res << StreamArbiterFactory.onArgs(
-      bypassFifo.io.pop,
-      waitFifo.io.pop.fmap(_.snd).continueWhen(unlockLast)
-    )
-  }
-
-  def getTagFromRequest (req: InternalMemoryRequest) : UInt = {
-    req.addr
-  }
-
-  def getMaskFromRequest (req: InternalMemoryRequest) : UInt = {
-    req.mask
-  }
-
-  def requireLock (req : Stream[InternalMemoryRequest]) = {
-    cam.io.rd.req << io.req.fmap(_ |> getTagFromRequest |> LookupReadReq.apply)
-
-    val cmd = cam.delay(req.payload)
-    cam.io.rd.res fmap (Pair(_, cmd))
-  }
-
-  def isLockInstruction (req : InternalMemoryRequest) : Bool = {
-    req.reqType === MemoryRequestType.alloc || req.reqType === MemoryRequestType.free
-  }
-
-}
 
 
-class AddressLookupUnit(implicit config : CoreMemConfig) extends Component with XilinxAXI4Toplevel {
-  val axi4Config = Axi4Config(
-    addressWidth = config.hashtableAddrWidth,
-    dataWidth = 512,
-    useId = false,
-    useRegion = false,
-    useBurst = true,
-    useLock = false,
-    useQos = false,
-    useLen = true,
-    useResp = true,
-    useProt = false,
-    useCache = false,
-    useStrb = false
-  )
+class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
 
   // input: request
   val io = new Bundle {
@@ -591,7 +386,7 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component with 
       val in = slave Stream ControlRequest()
       val out = master Stream ControlRequest()
     }
-    val bus = master (new Axi4(axi4Config))
+    val bus = master (Axi4(config.lookupAxi4Config))
   }
 
   // TODO: rething this arrows. if theres timing violation, first add pipelines here
@@ -612,6 +407,7 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component with 
   cache.io.ctrl.hitRpt >> agent.io.hitRpt
 
   // fetch unit
+  // TODO: add cache at fetch
   val fetcher = new FetchUnit
   fetcher.io.req << cache.io.cmd.fwd
 
@@ -640,8 +436,5 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component with 
   val validVec = streams.map(_.seqId === counter.value)
   io.res << StreamMux(OHToUInt(validVec), streams).continueWhen(validVec.reduce(_ || _))
 
-
-  addPrePopTask(renameIO)
 }
 
-class CoreMemoryUnit(implicit config : CoreMemConfig) extends Component

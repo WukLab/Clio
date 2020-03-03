@@ -2,6 +2,9 @@ package wuklab
 
 import spinal.core._
 import spinal.lib._
+import wuklab.Utils.AxiStream
+
+// TODO: set composition name
 
 trait XilinxAXI4Toplevel {
 
@@ -10,7 +13,15 @@ trait XilinxAXI4Toplevel {
   def renameIO() : Unit = {
     this.noIoPrefix()
     for (wire <- this.getAllIo) {
+      // For Axi memory mapped
       val newName = wire.getName().replaceAll("(a?[wrb])_(payload_)?", "$1")
+                                  // For Axi Stream, raw interface
+                                  .replaceAll("_payload$", "_tdata")
+                                  .replaceAll("_ready$", "_tready")
+                                  .replaceAll("_valid$", "_tvalid")
+                                  // For Axi Stream, Fragment Interface
+                                  .replaceAll("_last$", "_tvalid")
+                                  .replaceAll("_fragment_$", "")
       println(f"Xilinx: Rename $wire, ${wire.getName()} -> $newName")
       wire.setName(newName)
     }
@@ -36,11 +47,14 @@ object StreamJoinMaster{
 }
 
 // The first way to solve a pipeline problem, a almostfull fifo
+// in      -> |     | -> res.fst
+// res.snd <- |     | <- out
 object WaterMarkFifo {
-  def apply[T <: Data](from : Stream[T], waterMark: Int, halt : Bool = False) : Stream[T] = {
-    val fifo = new StreamFifo(from.payloadType, waterMark * 2)
-    fifo.io.push << from.haltWhen(halt || fifo.io.availability < waterMark)
-    fifo.io.pop
+  def apply[T <: Data, T2 <: Data](in : Stream[T], out : Stream[T2], waterMark: Int, halt : Bool = False)
+    : (Stream[T], Stream[T2]) = {
+    val fifo = new StreamFifo(out.payloadType, waterMark * 2)
+    out >> fifo.io.push
+    (in.haltWhen(halt || fifo.io.availability < waterMark), fifo.io.pop)
   }
 }
 
@@ -54,6 +68,19 @@ object Utils {
   // We only need an extra last for this type
   type AxiStream[T <: Data] = Stream[Fragment[T]]
 
+  // Helper Functions
+  def RegNextWhenBypass[T <: Data](input : T, when : Bool) : T = {
+    val reg = RegNextWhen(input, when)
+    Mux(when, input, reg)
+  }
+
+  //
+  implicit class UIntUtils(u : UInt) {
+    def maskBy(m : Int) : UInt = {
+      val mask = m.toMask.asUInt
+      u(mask.getWidth-1 downto 0) & mask
+    }
+  }
   implicit class IntUtils(i : Int) {
     def countBy (n : Int): Range = {
       (i + n - 1) downto i
@@ -61,6 +88,10 @@ object Utils {
 
     def downBy (n : Int): Range = {
       i - 1 downto (i - n)
+    }
+
+    def toMask: Bits = {
+      Bits(log2Up(i) bits).setAll()
     }
   }
 
@@ -146,6 +177,16 @@ object Utils {
       next
     }
 
+    def continueBy(f : T => Bool) : Stream[T] = {
+      stream.continueWhen(f(stream.payload))
+    }
+    def throwBy(f : T => Bool) : Stream[T] = {
+      stream.throwWhen(f(stream.payload))
+    }
+    def takeBy(f : T => Bool) : Stream[T] = {
+      stream.takeWhen(f(stream.payload))
+    }
+
   }
 
   implicit class StreamPairUtils[T1 <: Data, T2 <: Data](stream : Stream[Pair[T1, T2]]) {
@@ -213,7 +254,16 @@ object Utils {
       flow
     }
 
+    def <~ (f : T => Unit) : T = {
+      val next = cloneOf(bundle)
+      next := bundle
+      next.allowOverride
+      f(next)
+      next
+    }
+
   }
+
 
 
 
@@ -236,6 +286,61 @@ object Utils {
     }
   }
 
+  implicit class StreamFragmentUtils[T <: Data](frag : Stream[Fragment[T]]) {
+
+    // Filter message by signal
+    def filterBySignal(signal : Stream[Bool]): Stream[Fragment[T]] = {
+      val next = cloneOf(frag)
+
+      next.payload := frag.payload
+      next.valid := signal.payload && signal.valid && frag.valid
+      frag.ready := Mux(signal.payload, signal.valid && next.ready, signal.valid)
+      signal.valid := frag.lastFire
+      next
+    }
+
+    def translateWithLastInsert(data : T, requireInsert : Bool): Stream[Fragment[T]] = {
+      // 1-bit state machine
+      val waitInsert = Reg (Bool) init True
+      val ret = cloneOf (frag)
+      val doInsert = frag.last && waitInsert && requireInsert
+
+      ret.fragment := data
+      ret.last := frag.last && !doInsert
+      ret.valid := frag.valid
+      frag.ready := ret.ready && !doInsert
+
+      when (frag.lastFire) { waitInsert := !waitInsert }
+      ret
+    }
+
+    def liftStream[T2 <: Data](f : T => T2) : Stream[Fragment[T2]] = {
+      val ret = Stream Fragment f(frag.fragment)
+      ret.translateFrom (frag) { (f1, f2) =>
+        f1.fragment := f(f2.fragment)
+        f1.last := f2.last
+      }
+    }
+
+
+  }
+
+  implicit class BitStreamFragmentUtils(frag : Stream[Fragment[Bits]]) {
+    // initial | (head | tail) | (head | tail) | (head | tail)
+    // (initial | head) | (tail | head) | ...
+    def shiftAt(offset : Int, initial : Bits): Bits = {
+      require(initial.getWidth == offset, "need the pad bits to be same width of the pad bits")
+      val width = frag.fragment.getWidth
+      val next = RegNextWhen(frag.fragment(offset-1 downto 0), frag.fire)
+      // This is delayed one cycles.
+      val pad = Mux(frag.isFirst, initial, next)
+      pad ## frag.fragment(width-1 downto offset)
+    }
+    def shiftAt(offset : Int): Bits = {
+      shiftAt(offset, Bits(offset bits).clearAll())
+    }
+  }
+
   implicit class RichPipes[Y](y: Y) {
     def |>[Z](f: Y => Z) = f(y)
     def &>[X, Z](f: (X, Y) => Z): (X => Z) = (x: X) => f(x, y)
@@ -247,6 +352,10 @@ object Utils {
     val res = (1 until width) map (x |<< _) reduce (_ | _)
     res(width-1 downto 0)
   }
+}
+
+object Pair {
+  def apply[T1 <: Data, T2 <: Data](p : (T1, T2)): Pair[T1,T2] = new Pair(p._1, p._2)
 }
 
 case class Pair[T1 <: Data, T2 <: Data](fstValue: T1, sndValue: T2) extends Bundle {
@@ -324,9 +433,10 @@ trait StoppablePipeline extends Pipeline {
     Delay(t, pipelineDelay, enableSignal, init)
   }
 
+  // TODO: check the valid signal.
   def delayFlow[T <: Data](t : T, valid : Bool) : Flow[T] = {
     val flow = Flow(t)
-    flow.valid := delay(valid)
+    flow.valid := delay(valid) & enableSignal
     flow.payload := delay(t)
     flow
   }

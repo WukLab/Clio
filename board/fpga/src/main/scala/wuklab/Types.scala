@@ -1,6 +1,7 @@
 package wuklab
 
 import spinal.core._
+import spinal.lib.bus.amba4.axi.Axi4Config
 import wuklab.Utils._
 
 trait CoreMemConfig {
@@ -18,7 +19,7 @@ trait CoreMemConfig {
   // | ------------ Physical Address Width -----  |
   // | ------ | -----  Hash Table Address Width - |
   // | ------ | Pte Addr Width | Pte offset Width |
-  val  hashtableBaseAddr : Int
+  val  hashtableBaseAddr : BigInt
   val  pteAddrWidth : Int    // The minimal bits of PTE addr
 
   val  ptePerLine : Int
@@ -71,10 +72,47 @@ trait CoreMemConfig {
   def va2pa(pte : PageTableEntry, va : UInt): UInt = {
     assert(va.getWidth == virtualAddrWidth)
     assert(pte.usePpa)
+//    assert(false, f"VA2PA ${pte.ppa.getWidth} $ppaWidth, $ppaOffsetWidth, $physicalAddrWidth")
 
     val mask = ~getMask(pte.pageType)
-    (pte.ppa << ppaOffsetWidth) | (va.resize(physicalAddrWidth) & mask.resize(physicalAddrWidth))
+    val pa = (pte.ppa << ppaOffsetWidth) | (va.resize(physicalAddrWidth) & mask.resize(physicalAddrWidth))
+    // tODO: check this
+    pa.resize(physicalAddrWidth bits)
   }
+
+  def genTag(pid : UInt, va : UInt) : Bits = {
+    // TODO: change this
+    (pid ## va).resize(tagWidth bits)
+  }
+
+  // bus Config
+  def lookupAxi4Config = Axi4Config(
+    addressWidth = hashtableAddrWidth,
+    dataWidth = 512,
+    useId = false,
+    useRegion = false,
+    useBurst = true,
+    useLock = false,
+    useQos = false,
+    useLen = true,
+    useResp = true,
+    useProt = false,
+    useCache = false,
+    useStrb = false
+  )
+  def accessAxi4Config = Axi4Config (
+    addressWidth = physicalAddrWidth,
+    dataWidth = 512,
+    useId = false,
+    useProt = false
+  )
+
+  def destWidth = 4
+  def dmaLengthWidth = 16
+
+  def dmaAxisConfig = AxiStreamConfig (512)
+  def epAxisConfig = AxiStreamConfig (512, destWidth = destWidth)
+
 }
 
 object MemoryRequestType {
@@ -94,28 +132,100 @@ object MemoryRequestStatus {
   val errPermission = 0x02
 }
 
-case class LegoMemHeader(virtAddrWidth : Int) extends Bundle {
-  val pid       = UInt(16 bits)
-  val seqId     = UInt(16 bits)
-  val reqType   = UInt(8 bits)
-  val reqParam  = UInt(8 bits)
-  val size      = UInt(16 bits)
-  val addr      = UInt(virtAddrWidth bits)
-  // Network infomation
-  val srcIp     = UInt(32 bits)
-  val srcPort   = UInt(8 bits)
+trait Header[T <: Header[T]] {
+  val packedWidth : Int
+  def getSize : UInt
+  def fromWiderBits(bits : Bits) : T
 }
 
-case class InternalMemoryRequest(addrWidth : Int) extends Bundle {
-  val pid       = UInt(16 bits)
-  val seqId     = UInt(16 bits)
-  val reqType   = UInt(8 bits)
-  val reqParam  = UInt(8 bits)
-  val size      = UInt(16 bits)
-  val addr      = UInt(addrWidth bits)
+object LegoMemHeader {
+  // Need a mapper function at bits
+  val headerWidth = 64
+  def apply(bits: Bits): LegoMemHeader = {
+    assert(bits.getWidth >= headerWidth, "Try to get LegoMem from a small bits")
+    val header = LegoMemHeader()
+    header.assignFromBits(bits(bits.getWidth downBy headerWidth))
+    header
+  }
 
-  def mask : UInt = {
-    U"64'hfffff_ffff"
+  def popContFromBits(bits : Bits) : (Bits, UInt) = {
+    val next = cloneOf(bits)
+    val header = apply(bits)
+    val (nextHeader, dest) = header.stackPop
+    next := bits
+    next.allowOverride
+    next(bits.getWidth - headerWidth, headerWidth bits) := nextHeader.asBits
+    (next, dest)
+  }
+}
+
+case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
+  val pid       = UInt(16 bits)
+  val tag       = UInt(8 bits)
+  val reqType   = UInt(8 bits)
+  val cont      = UInt(8 bits)
+  val reqStatus = UInt(4 bits)
+  val seqId     = UInt(4 bits)
+  val size      = UInt(16 bits)
+
+  def stackPop: (LegoMemHeader, UInt) = {
+    val next = cloneOf(this)
+    val nextAddr = cont(7 downto 4)
+    next := this
+    next.tag.allowOverride
+    next.tag := this.tag |<< 4
+    (this, nextAddr)
+  }
+  def stackPush (nextAddr : UInt): Unit = {
+    assert (nextAddr.getWidth == 4)
+
+    cont(7 downto 4) := nextAddr
+    tag := tag |>> 4
+  }
+  def header = this
+
+  override val packedWidth = LegoMemHeader.headerWidth
+  override def getSize = size
+  override def fromWiderBits(bits: Bits) = LegoMemHeader.apply(bits)
+
+  override def assignFromBits(bits: Bits) = {
+    assert(bits.getWidth == packedWidth, "LegoMem Build: Width mismatch")
+
+    pid       := bits(48, 16 bits).asUInt
+    tag       := bits(40, 8 bits).asUInt
+    reqType   := bits(32, 8 bits).asUInt
+    cont      := bits(24, 8 bits).asUInt
+    reqStatus := bits(20, 4 bits).asUInt
+    seqId     := bits(16, 4 bits).asUInt
+    size      := bits(0, 16 bits).asUInt
+  }
+
+  override def asBits = {
+    val bits = Bits(packedWidth bits)
+    bits(48, 16 bits) := pid      .asBits
+    bits(40, 8 bits)  := tag      .asBits
+    bits(32, 8 bits)  := reqType  .asBits
+    bits(24, 8 bits)  := cont     .asBits
+    bits(20, 4 bits)  := reqStatus.asBits
+    bits(16, 4 bits)  := seqId    .asBits
+    bits(0, 16 bits)  := size     .asBits
+    bits
+  }
+
+}
+
+case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[LegoMemAccessHeader]{
+  val header    = LegoMemHeader()
+  val addr      = UInt(virtAddrWidth bits)
+
+  override val packedWidth = 128
+  override def getSize = header.size
+  override def fromWiderBits(bits: Bits) = {
+    assert(bits.getWidth >= packedWidth)
+    val next = cloneOf(this)
+    next.header := LegoMemHeader.apply(bits)
+    next.addr := bits(bits.getWidth - packedWidth, virtAddrWidth bits).asUInt
+    next
   }
 }
 
@@ -263,18 +373,6 @@ case class PageTableEntry(
 
   def entryAddr : UInt = pteAddr * 128
 
-//  def := (entry: PageTableEntry) = {
-//    // a complex assignment
-//    used := entry.used
-//    allocated := entry.allocated
-//    pageType := entry.pageType
-//    seqId := entry.seqId
-//
-//    if (usePpa) ppa := (if (entry.usePpa) entry.ppa else U"0")
-//    if (useTag) tag := (if (entry.useTag) entry.tag else U"0")
-//    if (usePteAddr) pteAddr := (if (entry.usePteAddr) entry.pteAddr else U"0")
-//  }
-
 }
 
 
@@ -283,6 +381,22 @@ case class AddressLookupRequest(tagWidth : Int) extends Bundle {
   val seqId     = UInt(16 bits)
   val reqType   = UInt(2 bits)
   val tag       = UInt(tagWidth bits)
+
+  // This methods are for test only
+  override def asBits : Bits = {
+    val bits = Bits(64 bits)
+    bits(45 downto 0) := tag.asBits.resize(46 bits)
+    bits(47 downto 46) := reqType.asBits
+    bits(63 downto 48) := seqId.asBits
+    bits
+  }
+
+  override def assignFromBits(bits: Bits): Unit = {
+    assert(bits.getWidth == 64)
+    tag     := bits(45 downto 0).asUInt.resize(tagWidth bits)
+    reqType := bits(47 downto 46).asUInt
+    seqId   := bits(63 downto 48).asUInt
+  }
 }
 
 case class AddressLookupResult(addrWidth : Int) extends Bundle {
