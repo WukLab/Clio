@@ -1,0 +1,3 @@
+[submodule "board/fpga/src/lib/verilog/verilog-axi"]
+	path = board/fpga/src/lib/verilog/verilog-axi
+	url = https://github.com/alexforencich/verilog-axi

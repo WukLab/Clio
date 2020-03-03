@@ -3,6 +3,8 @@ package wuklab
 import wuklab.sim.{AddressLookupRequestSim, _}
 import spinal.core._
 import spinal.core.sim._
+import spinal.lib.bus.amba4.axi.Axi4
+import spinal.lib.{Fragment, master, slave}
 import wuklab.PageFaultUnitSim.FullPageFault
 
 case class CoreMemSimConfig() extends CoreMemConfig {
@@ -95,14 +97,70 @@ object SimulationSpinalConfig extends SpinalConfig(
   )
 )
 
+object BlackBoxSim {
+  class adder extends BlackBox {
+    val io = new Bundle {
+      val clk = in Bool
+      val rst = in Bool
+//      val a = in UInt(4 bits)
+      val b = in UInt(4 bits)
+      val c = out UInt(4 bits)
+    }
+
+    mapCurrentClockDomain(clock = io.clk, reset = io.rst)
+    noIoPrefix()
+    addRTLPath("src/lib/verilog/adder.v")
+  }
+  def main(args: Array[String]): Unit = {
+    SimConfig
+      .withConfig(SimulationSpinalConfig)
+      .addSimulatorFlag("-Wno-PINMISSING")
+      .addSimulatorFlag("-Wno-CASEINCOMPLETE")
+      .withWave.doSim(
+      new Component {
+        val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
+        val io = new Bundle {
+          val s_axis_read_desc  = slave Stream AxiStreamDMAReadCommand(config.dmaAxisConfig, config.physicalAddrWidth, config.dmaLengthWidth)
+          val s_axis_write_desc = slave Stream AxiStreamDMAWriteCommand(config.physicalAddrWidth, config.dmaLengthWidth)
+          val m_axis_read_data  = master Stream Fragment(AxiStreamPayload(config.dmaAxisConfig))
+          val s_axis_write_data = slave Stream Fragment(AxiStreamPayload(config.dmaAxisConfig))
+          // TODO: We ignore the datas
+          // val m_axis_write_desc_status_id = master Flow NoData
+          // val m_axis_write_desc_status_id = master Flow NoData
+          val m_axi = master (Axi4(config.accessAxi4Config))
+        }
+        dma.io.s_axis_read_desc <> io.s_axis_read_desc
+        dma.io.m_axis_read_data <> io.m_axis_read_data
+        dma.io.s_axis_write_desc <> io.s_axis_write_desc
+        dma.io.s_axis_write_data <> io.s_axis_write_data
+        dma.io.m_axi <> io.m_axi
+        dma.io.read_enable := True
+        dma.io.write_enable := True
+        dma.io.write_abort := False
+      }
+    ) { dut =>
+
+      dut.clockDomain.forkStimulus(5)
+
+    }
+
+  }
+}
+
 object CoreMemorySim {
   import AssignmentFunctions._
 
   def main(args: Array[String]): Unit = {
-    SimConfig.withConfig(SimulationSpinalConfig).withWave.doSim(
-      new CoreMemory
+    SimConfig
+      .withConfig(SimulationSpinalConfig)
+      .addSimulatorFlag("-Wno-PINMISSING")
+      .addSimulatorFlag("-Wno-CASEINCOMPLETE")
+      .withWave.doSim(
+      new MemoryAccessEndPoint
     ) {dut => {
       dut.clockDomain.forkStimulus(5)
+
+      dut.clockDomain.waitRisingEdge(10)
 
     }}
   }
@@ -368,7 +426,7 @@ object LookupTableStoppableSim {
 object LockCounterRamSim {
   import AssignmentFunctions._
   def main(args: Array[String]): Unit = {
-    SimConfig.withWave.doSim(new LockCounterRam(128, 128)) { dut =>
+    SimConfig.withWave.addSimulatorFlag("-Wno").doSim(new LockCounterRam(128, 128)) { dut =>
       dut.clockDomain.forkStimulus(5)
 
       val lockDriver = new FlowDriver(dut.io.lockReq, dut.clockDomain)
