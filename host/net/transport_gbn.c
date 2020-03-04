@@ -21,10 +21,10 @@
  * The maximum number of unack'ed outgoing messages.
  * Organized as a ring.
  */
-#define NR_BUFFER_INFO_SLOTS	(256)
-#define GBN_RETRANS_TIMEOUT_US	(2000)
-#define GBN_RECEIVE_TIMEOUT_S	(20)
-#define GBN_TIMEOUT_CHECK_INTERVAL_MS (5)
+#define NR_BUFFER_INFO_SLOTS		(256)
+#define GBN_RETRANS_TIMEOUT_US		(2000)
+#define GBN_RECEIVE_TIMEOUT_S		(20)
+#define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
 
 #define gbn_info(fmt, ...) \
 	printf("%s(): " fmt, __func__, __VA_ARGS__)
@@ -155,7 +155,7 @@ set_next_timeout(struct timespec *t)
 	t->tv_sec += ns / 1000000000;
 }
 
-static inline void init_session_gbn(struct session_gbn *ses)
+static void init_session_gbn(struct session_gbn *ses)
 {
 	int i;
 	struct buffer_info *info;
@@ -209,7 +209,8 @@ alloc_unack_buffer_info(struct session_gbn *ses, int *seqnum)
 	 * this will result in missing sequence
 	 */
 	index = atomic_fetch_add(&ses->seqnum_cur, 1);
-	// index = seq - 1, as seq# starts from 1, e.g. seq 1->index 0
+
+	/* index = seq - 1 */
 	info = index_to_unack_buffer_info(ses, index);
 
 	if (unlikely(buffer_info_allocated(info))) {
@@ -333,28 +334,34 @@ dequeue_data_buffer_info_head(struct session_gbn *ses)
 	return info;
 }
 
-static __always_inline bool
-dequeue_unack_buffer_info(struct gbn_header *hdr, struct session_gbn *ses_gbn)
+static bool
+handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
+		        bool is_ack)
 {
 	unsigned int i;
-	unsigned int seq;
+	unsigned int seq, seqnum_last;
 	struct buffer_info *info;
 
-	seq = hdr->seqnum;
-	info = index_to_unack_buffer_info(ses_gbn, seq - 1);
-
+	/* Update stat */
 	if (hdr->type == pkt_type_ack)
 		ses_gbn->nr_rx_ack++;
 	else if (hdr->type == pkt_type_nack)
 		ses_gbn->nr_rx_nack++;
 
-	/*
-	 * ACK valid, normal case is seq = seqnum_last + 1 when there is no packet loss
-	 * Free all the unack buffer with seqnum no greater than received seq
-	 * and move expected seqnum forward.
-	 */
-	if (likely(seq > atomic_load(&ses_gbn->seqnum_last))) {
-		for (i = atomic_load(&ses_gbn->seqnum_last); i < seq; i++) {
+	seqnum_last = atomic_load(&ses_gbn->seqnum_last);
+	seq = hdr->seqnum;
+	info = index_to_unack_buffer_info(ses_gbn, seq - 1);
+
+	if (likely(seq > seqnum_last)) {
+		/*
+		 * ACK valid, normal case is seq = seqnum_last + 1 when there is no packet loss
+		 * Free all the unack buffer with seqnum no greater than received seq
+		 * and move expected seqnum forward.
+		 *
+		 * Both ACK and NACK packet can be here.
+		 * For NACK:
+		 */
+		for (i = seqnum_last; i < seq; i++) {
 			info = index_to_unack_buffer_info(ses_gbn, i);
 			free_unack_buffer_info(info);
 		}
@@ -362,43 +369,40 @@ dequeue_unack_buffer_info(struct gbn_header *hdr, struct session_gbn *ses_gbn)
 
 		/*
 		 * If unack buffer is empty after dequeue, then we do not need to take
-		 * care of timeout anymore. Else, if it's ack packet, reset timeout.
+		 * care of timeout anymore. If it's ack packet, reset timeout.
 		 * If it's nack packet, reset after finish retransmission
 	 	 */
-		if (atomic_load(&ses_gbn->seqnum_last) ==
-		    atomic_load(&ses_gbn->seqnum_cur))
+		if (!nr_unack_buffer(ses_gbn))
 			disable_timeout(ses_gbn);
 		else if (hdr->type == pkt_type_ack)
 			set_next_timeout(&ses_gbn->next_timeout);
 
 		return true;
-	}
-	/*
-	 * ACK valid, received seqnum is the same as seqnum last, return directly
-	 * This usually happens when nack is received,
-	 * since we response nack(last acked seqnum) from the receiver side
-	 */
-	else if (unlikely(seq == atomic_load(&ses_gbn->seqnum_last))) {
+	} else if (seq == seqnum_last) {
+		/*
+		 * ACK valid, received seqnum is the same as seqnum last, return directly
+		 * This usually happens when nack is received,
+		 * since we response nack (last acked seqnum) from the receiver side
+		 */
 		return true;
-	}
-	/*
-	 * ACK invalid, received seqnum is less than seqnum last
-	 * This case should not happen
-	 */
-	else {
-		gbn_debug(
-			"WARN. Recevied Seq: %u. less than Last Acked Seq: %u\n",
-			seq, atomic_load(&ses_gbn->seqnum_last));
+	} else {
+		/*
+		 * ACK invalid, received seqnum is less than seqnum last
+		 * This case should not happen
+		 */
+		gbn_debug("WARN. Recevied Seq: %u. less than Last Acked Seq: %u\n",
+			  seq, seqnum_last);
 		return false;
 	}
 }
 
-static __always_inline void
+static void
 retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_gbn)
 {
 	struct buffer_info *info;
 	unsigned int i;
 	unsigned int retrans_start, retrans_end;
+	int ret;
 
 	retrans_start = atomic_load(&ses_gbn->seqnum_last);
 	retrans_end = atomic_load(&ses_gbn->seqnum_cur);
@@ -408,7 +412,12 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		 *     ->index#: [seqnum_last, seqnum_cur)
 		 */
 		info = index_to_unack_buffer_info(ses_gbn, i);
-		raw_net_send(ses_net, info->buf, info->buf_size);
+
+		ret = raw_net_send(ses_net, info->buf, info->buf_size);
+		if (ret < 0) {
+			gbn_info("net_send error %d\n", ret);
+			break;
+		}
 	}
 
 	/*
@@ -448,7 +457,7 @@ static void handle_ack_packet(void *packet)
 
 	hdr = to_gbn_header(packet);
 
-	dequeue_unack_buffer_info(hdr, ses_gbn);
+	handle_ack_nack_dequeue(hdr, ses_gbn, true);
 }
 
 static void handle_nack_packet(void *packet)
@@ -478,12 +487,10 @@ static void handle_nack_packet(void *packet)
 	hdr = to_gbn_header(packet);
 
 	/*
-	 * first do dequeue, if received packet is invalid, return directly
+	 * If received packet is valid, retransmit
 	 */
-	if (unlikely(!dequeue_unack_buffer_info(hdr, ses_gbn)))
-		return;
-
-	retrans_unack_buffer_info(ses_net, ses_gbn);
+	if (handle_ack_nack_dequeue(hdr, ses_gbn, false))
+		retrans_unack_buffer_info(ses_net, ses_gbn);
 }
 
 /*
@@ -497,12 +504,12 @@ static void handle_data_packet(void *packet, size_t buf_size)
 	struct session_gbn *ses_gbn;
 	struct buffer_info *info;
 	unsigned int seq;
+	int ret;
 
 	struct eth_ack_packet {
 		char	placeholder[GBN_HEADER_OFFSET];
 		struct	gbn_header ack_header;
-	} __attribute__((packed));
-	struct eth_ack_packet ack;
+	} __attribute__((packed)) ack;
 
 	ses_net = find_session(packet);
 	if (unlikely(!ses_net)) {
@@ -532,7 +539,12 @@ static void handle_data_packet(void *packet, size_t buf_size)
 		if (!info)
 			return;
 
-		// testing
+		/*
+		 * XXX
+		 *
+		 * modify this with top level when we have a better
+		 * way of handling this case.
+		 */
 		if (unlikely(!raw_net_ops->receive_one_zerocopy)) {
 			if (!info->buf) {
 				info->buf = malloc(buf_size);
@@ -548,34 +560,41 @@ static void handle_data_packet(void *packet, size_t buf_size)
 
 		ack.ack_header.type = pkt_type_ack;
 		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
-		raw_net_send(ses_net, &ack, sizeof(ack));
+		ret = raw_net_send(ses_net, &ack, sizeof(ack));
+		if (ret < 0) {
+			gbn_info("net_send error %d\n", ret);
+			return;
+		}
 
 		enqueue_data_buffer_info_tail(ses_gbn, info);
-	} 
-	/*
-	 * seqnum invalid, if response is enabled,
-	 * send back NACK and disable further response
-	 */
-	else if (unlikely((seq > atomic_load(&ses_gbn->seqnum_expect)) &&
-		     atomic_load(&ses_gbn->ack_enable))) {
-		atomic_store(&ses_gbn->ack_enable, false);
-		ack.ack_header.type = pkt_type_nack;
-		ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
-		raw_net_send(ses_net, &ack, sizeof(ack));
-		return;
+	} else if (atomic_load(&ses_gbn->ack_enable)) {
+		if (seq > atomic_load(&ses_gbn->seqnum_expect)) {
+			/*
+			 * seqnum invalid, if response is enabled,
+			 * send back NACK and disable further response
+			 */
+			atomic_store(&ses_gbn->ack_enable, false);
+			ack.ack_header.type = pkt_type_nack;
+			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
+			ret = raw_net_send(ses_net, &ack, sizeof(ack));
+			if (ret < 0) {
+				gbn_info("net_send error %d\n", ret);
+				return;
+			}
+		} else if (seq < atomic_load(&ses_gbn->seqnum_expect)) {
+			/*
+			 * seqnum valid, but not as expected.
+			 * if response is enabled, send back ACK
+			 */
+			ack.ack_header.type = pkt_type_ack;
+			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
+			ret = raw_net_send(ses_net, &ack, sizeof(ack));
+			if (ret < 0) {
+				gbn_info("net_send error %d\n", ret);
+				return;
+			}
+		}
 	}
-	/*
-	 * seqnum valid, but not as expected. if response is enabled, send back ACK
-	 */
-	else if (unlikely((seq < atomic_load(&ses_gbn->seqnum_expect)) &&
-		     atomic_load(&ses_gbn->ack_enable))) {
-		ack.ack_header.type = pkt_type_ack;
-		ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
-		raw_net_send(ses_net, &ack, sizeof(ack));
-		return;
-	}
-	else
-		return;
 }
 
 /*
@@ -653,8 +672,13 @@ static void *gbn_poll_func(void *arg)
  * This is go-back-N transport layer's timeout watcher thread.
  * It wakes up every 0.5ms to check if a timeout event happends.
  * If timeout, it will start a retransmission.
+ *
  * XXX
  * We maynot want to use a signal-like approach, since it involve with kernel
+ *
+ * TODO
+ * Extend timer and we will not run into signal handler a fixed frequency.
+ * Having this thread is weird.
  */
 static void *gbn_timeout_watcher(void* arg)
 {
@@ -696,14 +720,10 @@ static inline int gbn_send_one(struct session_net *net,
 	struct session_gbn *ses;
 	struct gbn_header *hdr;
 	struct timespec e;
-	bool empty;
 	int seqnum;
 
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
-
-	empty = (atomic_load(&ses->seqnum_last) ==
-		 atomic_load(&ses->seqnum_cur));
 
 	info = alloc_unack_buffer_info(ses, &seqnum);
 	if (!info)
@@ -721,7 +741,7 @@ static inline int gbn_send_one(struct session_net *net,
 	 * We do not reset timeout for every packet sent out.
 	 * Timeout is only (re)set when the unack buffer is originally empty
 	 */
-	if (empty) {
+	if (!nr_unack_buffer(ses)) {
 		clock_gettime(CLOCK_MONOTONIC, &e);
 		set_next_timeout(&e);
 		ses->next_timeout = e;
