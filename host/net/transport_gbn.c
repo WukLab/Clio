@@ -95,7 +95,7 @@ struct session_gbn {
 	pthread_spinlock_t		data_lock;
 	int				nr_data;
 	atomic_int			seqnum_expect;
-	atomic_bool			ack_enable;
+	bool				ack_enable;
 
 	struct buffer_info		data_buffer_info_ring[NR_BUFFER_INFO_SLOTS];
 	atomic_int			data_buffer_info_HEAD;
@@ -176,6 +176,7 @@ static void init_session_gbn(struct session_gbn *ses)
 	}
 	atomic_init(&ses->data_buffer_info_HEAD, 0);
 	atomic_init(&ses->seqnum_expect, 1);
+	ses->ack_enable = true;
 
 	INIT_LIST_HEAD(&ses->data_list);
 	pthread_spin_init(&ses->data_lock, PTHREAD_PROCESS_PRIVATE);
@@ -275,7 +276,7 @@ alloc_data_buffer_info(struct session_gbn *ses)
 		}
 	}
 
-	/* Prepare the new slow */
+	/* Prepare the new slot */
 	set_buffer_info_allocated(info);
 	barrier();
 	return info;
@@ -556,7 +557,7 @@ static void handle_data_packet(void *packet, size_t buf_size)
 			info->buf = packet;
 		info->buf_size = buf_size;
 
-		atomic_store(&ses_gbn->ack_enable, true);
+		ses_gbn->ack_enable = true;
 
 		ack.ack_header.type = pkt_type_ack;
 		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
@@ -567,13 +568,13 @@ static void handle_data_packet(void *packet, size_t buf_size)
 		}
 
 		enqueue_data_buffer_info_tail(ses_gbn, info);
-	} else if (atomic_load(&ses_gbn->ack_enable)) {
+	} else if (ses_gbn->ack_enable) {
 		if (seq > atomic_load(&ses_gbn->seqnum_expect)) {
 			/*
 			 * seqnum invalid, if response is enabled,
 			 * send back NACK and disable further response
 			 */
-			atomic_store(&ses_gbn->ack_enable, false);
+			ses_gbn->ack_enable = false;
 			ack.ack_header.type = pkt_type_nack;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 			ret = raw_net_send(ses_net, &ack, sizeof(ack));
@@ -721,9 +722,17 @@ static inline int gbn_send_one(struct session_net *net,
 	struct gbn_header *hdr;
 	struct timespec e;
 	int seqnum;
+	bool unacked_buffer_empty;
 
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
+
+	/*
+	 * We check if unacked buffer is empty before grabbing a slot,
+	 * since grabing a slot will increase seqnum_cur and the 
+	 * buffer can never be empty if the seqnum_cur is increased
+	 */
+	unacked_buffer_empty = !nr_unack_buffer(ses);
 
 	info = alloc_unack_buffer_info(ses, &seqnum);
 	if (!info)
@@ -741,7 +750,7 @@ static inline int gbn_send_one(struct session_net *net,
 	 * We do not reset timeout for every packet sent out.
 	 * Timeout is only (re)set when the unack buffer is originally empty
 	 */
-	if (!nr_unack_buffer(ses)) {
+	if (unacked_buffer_empty) {
 		clock_gettime(CLOCK_MONOTONIC, &e);
 		set_next_timeout(&e);
 		ses->next_timeout = e;
