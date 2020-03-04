@@ -28,6 +28,7 @@ struct session_net {
 	void 			*raw_net_private;
 };
 
+void test_net(struct session_net *ses);
 struct session_net *init_net(void);
 struct session_net *find_session(void *packet);
 void dump_packet_headers(void *packet);
@@ -92,6 +93,7 @@ struct raw_net_ops {
 
 extern struct raw_net_ops raw_verbs_ops;
 extern struct raw_net_ops raw_socket_ops;
+extern struct raw_net_ops udp_socket_ops;
 extern struct transport_net_ops transport_bypass_ops;
 extern struct transport_net_ops transport_gbn_ops;
 
