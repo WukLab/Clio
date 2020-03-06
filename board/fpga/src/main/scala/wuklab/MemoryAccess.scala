@@ -23,8 +23,10 @@ trait HeaderProcessor {
 }
 
 class PacketParser[B <: Bundle with Header[B]](
-                                                val dataWidth : Int, val headerWidth : Int, header : B
+                                                val dataWidth : Int, header : B
                                               ) extends Component with HeaderProcessor {
+
+  override def headerWidth = header.packedWidth
 
   val io = new Bundle {
     val dataIn = slave Stream Fragment(Bits(dataWidth bits))
@@ -50,7 +52,8 @@ class PacketParser[B <: Bundle with Header[B]](
   val delayedData = toData.stage()
 
   // if no size, we do not read the data
-  val outDataStream = delayedData.haltWhen(size === 0).throwWhen(delayedData.isLast && skipLast)
+  // TODO: check this condition
+  val outDataStream = delayedData.haltWhen(size === 0).throwWhen(!delayedData.isFirst && delayedData.isLast && skipLast)
   io.dataOut.translateFrom (outDataStream) {(out, in) =>
     out.fragment := outData
     out.last := in.last
@@ -59,8 +62,10 @@ class PacketParser[B <: Bundle with Header[B]](
 }
 
 class PacketBuilder[B <: Bundle with Header[B]] (
-                                                  val dataWidth : Int, val headerWidth : Int, header : B
+                                                  val dataWidth : Int, header : B
                                                 ) extends Component with HeaderProcessor {
+  override def headerWidth = header.packedWidth
+
   val io = new Bundle {
     val dataIn = slave Stream Fragment(Bits(dataWidth bits))
     val headerIn = slave Stream cloneOf(header)
@@ -70,7 +75,7 @@ class PacketBuilder[B <: Bundle with Header[B]] (
   val size = RegNextWhenBypass(io.headerIn.getSize, io.headerIn.fire)
   val insertLast = (size & dataBytes.toMask.asUInt) >= offsetBytes
 
-  val dataOut = io.dataIn.shiftAt(headerWidth)
+  val dataOut = io.dataIn.shiftAt(header.packedWidth)
   io.dataOut << io.dataIn.translateWithLastInsert(dataOut, insertLast)
 }
 
@@ -115,10 +120,14 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
     // Interface to the data mover
     val wrCmd = master Stream AxiStreamDMAWriteCommand(config.physicalAddrWidth, config.dmaLengthWidth)
     val rdCmd = master Stream AxiStreamDMAReadCommand(config.dmaAxisConfig, config.physicalAddrWidth, config.dmaLengthWidth)
+
+    // Singals for input data
+    val wrDataSignal = master Stream Bool
   }
 
+  // TODO: check delay
   type JoinType = Pair[PageTableEntry, LegoMemAccessHeader]
-  val joinStream = io.lookupRes >*< io.headerIn
+  val joinStream = (io.lookupRes >*< io.headerIn).stage()
 
   // cmd path
   def assignFromJoin(cmd : AxiStreamDMACommand, p : JoinType): Unit = {
@@ -128,24 +137,34 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
   // This assume that, there are not wrong command forwarded here
 
   // First generate status info here
-  val parsed = cloneOf(joinStream)
-  parsed.translateFrom (joinStream) { (dst, src) =>
-    dst := src
-    dst.allowOverride
-    dst.snd.header.reqStatus := 0
+  val requestChecker = new Area {
+    val parsed = cloneOf(joinStream)
+    parsed.translateFrom (joinStream) { (dst, src) =>
+      dst := src
+      dst.allowOverride
+      // Build the resp code
+      // TODO: make this a function
+      val retCode = src.snd.header.reqType.mux(
+        0 -> U(0, 4 bits),
+        default -> U(0, 4 bits)
+      )
+      dst.snd.header.reqStatus := retCode
+    }
+
   }
 
-  val (cmd, rsp) = StreamFork2(parsed)
-
+  val (cmd, rsp) = StreamFork2(requestChecker.parsed)
 
   // We Generate the response first;
-  val Seq(wrJoin, rdJoin) = StreamDemux(cmd.takeBy(_.snd.header.reqStatus === 0), cmd.snd.header.reqType(0).asUInt, 2)
-  io.wrCmd.translateFrom (wrJoin) (assignFromJoin)
-  io.rdCmd.translateFrom (rdJoin) (assignFromJoin)
+  val Seq(wrJoin, rdJoin) = StreamDemux(cmd, cmd.snd.header.reqType(0).asUInt, 2)
+  val (wrCmd, wrValid) = StreamFork2(wrJoin)
+  io.wrCmd.translateFrom (wrCmd.takeBy(_.snd.header.reqStatus === 0)) (assignFromJoin)
+  io.wrDataSignal.translateFrom (wrValid) ( _ := _.snd.header.reqStatus === 0)
+
+  io.rdCmd.translateFrom (rdJoin.takeBy(_.snd.header.reqStatus === 0)) (assignFromJoin)
 
   // TODO: join with the status returned by data mover
   io.headerOut << rsp.fmap(_.snd.header)
-
 }
 
 // At core memory, we assign sequence number (locally) and do packet paser, do send the lookup request.
@@ -164,11 +183,12 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
     }
   }
 
-  val packetParser = new PacketParser(512, LegoMemHeader.headerWidth, LegoMemAccessHeader(config.virtualAddrWidth))
+  val packetParser = new PacketParser(512, LegoMemAccessHeader(config.virtualAddrWidth))
   val packetBuilder = new LegoMemEndPointPacketBuilder
   packetParser.io.dataIn << io.ep.dataIn.liftStream(_.tdata)
   packetBuilder.io.dataOut >> io.ep.dataOut
 
+  // TODO: add fifo here
   val (lookupHeader, accessHeader) = StreamFork2(packetParser.io.headerOut)
 
   // TODO: generate req here
@@ -176,18 +196,19 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   lookup.io.bus <> io.bus.lookup
   lookup.io.ctrl.in <> io.ep.ctrlIn
   lookup.io.ctrl.out <> io.ep.ctrlOut
-  lookup.io.req << lookupHeader.fmap (generateRequest)
+  lookup.io.req << lookupHeader.queueLowLatency(32).fmap(generateRequest)
 
   val access = new MemoryAccessUnit
   lookup.io.res <> access.io.lookupRes
-  accessHeader <> access.io.headerIn
-  packetBuilder.io.headerIn <> access.io.headerOut
+  accessHeader.queue(32) >> access.io.headerIn
+  packetBuilder.io.headerIn << access.io.headerOut
 
   val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
   dma.io.m_axi <> io.bus.access
   dma.io.m_axis_read_data.liftStream(_.tdata) >> packetBuilder.io.dataIn
   // TODO: We need to filter this flow. throw when is not done
-  dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, packetParser.io.dataOut)
+  val filteredData = packetParser.io.dataOut.filterBySignal(access.io.wrDataSignal)
+  dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, filteredData)
   dma.io.s_axis_read_desc <> access.io.rdCmd
   dma.io.s_axis_write_desc <> access.io.wrCmd
 
@@ -198,7 +219,7 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   def generateRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
     val next = AddressLookupRequest(config.tagWidth)
     next.tag := config.genTag(header.header.pid, header.addr).asUInt
-    // TODO: fix this
+    // TODO: fix this, use an unified ID
     next.seqId := header.header.seqId.resize(16 bits)
     next.reqType := header.header.reqType.resize(2 bits)
     next

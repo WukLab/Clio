@@ -2,6 +2,7 @@ package wuklab.sim
 
 import java.math.BigInteger
 
+import scodec.bits
 import wuklab._
 import spinal.core._
 import spinal.lib._
@@ -136,6 +137,70 @@ object SeqDataGen {
   }
 }
 
+class BitStreamDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Stream[Fragment[Bits]]) extends Driver[Stream[Fragment[Bits]]] {
+  override val wire = frag
+  var idx = 0
+  var offset = 0
+
+  override def tik = {
+    if (idx >= seqs.size)
+      false
+    else {
+      val seq = seqs(idx)
+      frag.payload.fragment #= BigInt(seq(offset).toByteArray)
+      frag.payload.last #= (offset + 1) == seq.size
+      true
+    }
+  }
+  override def update(update: Boolean): Unit = {
+    if (update) {
+      offset = offset + 1
+      if (offset == seqs(idx).size) {
+        offset = 0
+        idx = idx + 1
+      }
+    }
+  }
+  override def finish = idx >= seqs.size
+}
+
+object BitStreamDataGen {
+  def apply(seqs: Seq[bits.BitVector]*)(frag: Stream[Fragment[Bits]]): BitStreamDataGen = new BitStreamDataGen(seqs : _*)(frag)
+}
+
+class BitAxisDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Fragment[AxiStreamPayload])
+  extends Driver[Fragment[AxiStreamPayload]] {
+
+  override val wire = frag
+  var idx = 0
+  var offset = 0
+
+  override def tik = {
+    if (idx < seqs.size) {
+      val seq = seqs(idx)
+      wire.fragment.tdata #= BigInt(seq(offset).toByteArray)
+      wire.last #= (offset + 1) == seq.size
+      if(wire.fragment.config.useDest) wire.fragment.tdest #= 0
+      true
+    } else
+      false
+  }
+  override def update(update: Boolean): Unit = {
+    if (update) {
+      offset = offset + 1
+      if (offset == seqs(idx).size) {
+        offset = 0
+        idx = idx + 1
+      }
+    }
+  }
+  override def finish = idx >= seqs.size
+}
+
+object BitAxisDataGen {
+  def apply(seqs: Seq[bits.BitVector]*)(frag: Fragment[AxiStreamPayload]): BitAxisDataGen = new BitAxisDataGen(seqs : _*)(frag)
+}
+
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
 
   stream.valid #= false
@@ -144,6 +209,7 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
     case bits: Bits => bits #= 0
     case bool: Bool => bool #= false
   }
+  println (s"DRIVER: build for ${stream.getName()}")
 
   def #= (gen : T => Driver[T]) = {
     val driver = gen(stream.payload)
@@ -151,7 +217,7 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
     while (!driver.finish) {
       stream.valid #= driver.tik
       clockDomain.waitFallingEdge
-      driver.update(stream.ready.toBoolean)
+      driver.update(stream.ready.toBoolean && stream.valid.toBoolean)
       clockDomain.waitRisingEdge
     }
     stream.valid #= false

@@ -430,11 +430,12 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
   fetcher.io.bus >> io.bus
 
   // merge here
-  // TODO: make this a component
+  // TODO: replace this with a reorder buffer (log the seq numbers, and compare)
   val counter = Counter(16 bits, io.res.fire)
   val streams = Seq(cache.io.cmd.res, pageFault.io.res)
   val validVec = streams.map(_.seqId === counter.value)
   io.res << StreamMux(OHToUInt(validVec), streams).continueWhen(validVec.reduce(_ || _))
+
 
 }
 
