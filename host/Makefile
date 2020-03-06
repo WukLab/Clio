@@ -2,6 +2,7 @@ INCLUDE := -I../include
 CLIBS := -libverbs -pthread
 
 SRCS := core.c \
+	test.c \
 	board.c \
 	context.c \
 	session.c \

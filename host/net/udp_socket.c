@@ -60,6 +60,7 @@ static int udp_socket_receive(void *buf, size_t buf_size)
 	int ret;
 	struct sockaddr_in remote_addr;
 	socklen_t addr_len = sizeof(remote_addr);
+	struct ipv4_hdr *ipv4_hdr;
 
 	/*
 	 * Packet received from kernel UDP does not have L2-L4 headers.
@@ -76,9 +77,11 @@ static int udp_socket_receive(void *buf, size_t buf_size)
 		       (struct sockaddr *)&remote_addr, &addr_len);
 
 	/*
-	 * TODO: fill the L2-L4 part with remote_addr
-	 * the caller may rely on this to get board info
+	 * Caller will use the src IP address to distinguish
+	 * the sender, thus we need to refill it.
 	 */
+	ipv4_hdr = to_ipv4_header(buf);
+	ipv4_hdr->src_ip = htonl(remote_addr.sin_addr.s_addr);
 	return ret;
 }
 

@@ -19,30 +19,6 @@ int sysctl_link_mtu = 1500;
 struct raw_net_ops *raw_net_ops;
 struct transport_net_ops *transport_net_ops;
 
-static inline int
-net_send(struct session_net *net, void *buf, size_t buf_size)
-{
-	return transport_net_ops->send_one(net, buf, buf_size);
-}
-
-static inline int
-net_receive(struct session_net *net, void *buf, size_t buf_size)
-{
-	return transport_net_ops->receive_one(net, buf, buf_size);
-}
-
-/*
- * Non-blocking receive. It will return immediately if there is no message upon
- * calling. It's an optional interface provided by transport layer.
- */
-static inline int
-net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
-{
-	if (transport_net_ops->receive_one_nb)
-		return transport_net_ops->receive_one_nb(net, buf, buf_size);
-	return 0;
-}
-
 /*
  * Create a session between @local_ei and @remote_ei.
  * Only data structures are updated.
@@ -130,7 +106,7 @@ void dump_packet_headers(void *packet)
 	printf("  Seqnum %u, Mark %lu\n", gbn->seqnum, payload->mark);
 }
 
-void* send_msg(void *arg)
+void *send_msg(void *arg)
 {
 #define NR_SEND_BUF_SLOTS	(256)
 #define NR_MSG_PER_THREAD	(100)
@@ -238,9 +214,9 @@ int init_net(struct endpoint_info *local_ei)
 {
 	int ret;
 
-	raw_net_ops = &raw_verbs_ops;
+	//raw_net_ops = &raw_verbs_ops;
 	//raw_net_ops = &raw_socket_ops;
-	//raw_net_ops = &udp_socket_ops;
+	raw_net_ops = &udp_socket_ops;
 	printf("%s(): Raw Net Layer: using %s\n", __func__, raw_net_ops->name);
 
 	transport_net_ops = &transport_gbn_ops;

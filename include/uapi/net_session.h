@@ -102,6 +102,7 @@ struct raw_net_ops {
 
 extern struct raw_net_ops raw_verbs_ops;
 extern struct raw_net_ops raw_socket_ops;
+extern struct raw_net_ops udp_socket_ops;
 extern struct transport_net_ops transport_bypass_ops;
 extern struct transport_net_ops transport_gbn_ops;
 
@@ -134,6 +135,30 @@ raw_net_receive_nb(void *buf, size_t buf_size)
 	if (likely(raw_net_ops->receive_one_nb))
 		return raw_net_ops->receive_one_nb(buf, buf_size);
 	return -ENOSYS;
+}
+
+static inline int
+net_send(struct session_net *net, void *buf, size_t buf_size)
+{
+	return transport_net_ops->send_one(net, buf, buf_size);
+}
+
+static inline int
+net_receive(struct session_net *net, void *buf, size_t buf_size)
+{
+	return transport_net_ops->receive_one(net, buf, buf_size);
+}
+
+/*
+ * Non-blocking receive. It will return immediately if there is no message upon
+ * calling. It's an optional interface provided by transport layer.
+ */
+static inline int
+net_receive_nb(struct session_net *net, void *buf, size_t buf_size)
+{
+	if (transport_net_ops->receive_one_nb)
+		return transport_net_ops->receive_one_nb(net, buf, buf_size);
+	return 0;
 }
 
 /*

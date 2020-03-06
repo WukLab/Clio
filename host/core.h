@@ -56,4 +56,12 @@ int remove_net_session(struct session_net *ses);
 struct session_net *
 find_net_session(unsigned int board_ip, unsigned int session_id);
 
+/*
+ * LegoMem Public APIs
+ */
+struct legomem_context *legomem_open_context(void);
+int legomem_close_context(struct legomem_context *ctx);
+struct session_net *legomem_open_session(struct legomem_context *ctx, struct board_info *bi);
+int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
+
 #endif /* _HOST_CORE_H_ */

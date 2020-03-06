@@ -196,57 +196,14 @@ struct endpoint_info board_1 = {
 	.udp_port	= 1234,
 };
 
-/*
- * Run as a legomem application
- */
-void test_net(struct session_net *ses);
-void test_app(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
-{
-	struct legomem_context *ctx;
-	struct session_net *ses_net;
-	struct board_info *remote_board;
-
-	/*
-	 * Prepare the board, which should be done
-	 * by the system in a real setting.
-	 */
-	remote_board = add_board("remote_0", 1024, remote_ei, local_ei);
-	if (!remote_board)
-		return;
-	dump_boards();
-
-	/*
-	 * Step 1:
-	 * Application's first step is to open a new context
-	 */
-	ctx = legomem_open_context();
-	if (!ctx)
-		return;
-	dump_legomem_context();
-
-	/*
-	 * Step 2:
-	 * Open a network session with a remote board (or normal linux)
-	 */
-	ses_net = legomem_open_session(ctx, remote_board);
-	if (!ses_net)
-		return;
-	dump_net_sessions();
-
-	/*
-	 * Step 3
-	 * Send packets. Code in net/core.c
-	 */
-	//test_net(ses_net);
-}
+void test_app(struct endpoint_info *, struct endpoint_info *);
 
 int main(int argc, char **argv)
 {
 	int ret;
-	struct endpoint_info *local_ei, *remote_ei;
 
-	local_ei = &ei_wuklab02;
-	remote_ei = &ei_wuklab06;
+	struct endpoint_info *local_ei = &ei_wuklab02;
+	struct endpoint_info *remote_ei = &ei_wuklab05;
 
 	ret = init_net(local_ei);
 	if (ret) {
