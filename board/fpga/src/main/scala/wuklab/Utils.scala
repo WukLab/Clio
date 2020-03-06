@@ -300,7 +300,7 @@ object Utils {
       next.payload := frag.payload
       next.valid := signal.payload && signal.valid && frag.valid
       frag.ready := Mux(signal.payload, signal.valid && next.ready, signal.valid)
-      signal.valid := frag.lastFire
+      signal.ready := frag.lastFire
       next
     }
 

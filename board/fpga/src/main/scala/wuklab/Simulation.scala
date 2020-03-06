@@ -1,5 +1,6 @@
 package wuklab
 
+import scodec.bits.ByteVector
 import wuklab.sim.{AddressLookupRequestSim, _}
 import spinal.core._
 import spinal.core.sim._
@@ -8,7 +9,7 @@ import spinal.lib.{Fragment, master, slave}
 import wuklab.PageFaultUnitSim.FullPageFault
 
 case class CoreMemSimConfig() extends CoreMemConfig {
-  val physicalAddrWidth = 32
+  val physicalAddrWidth = 16
   val virtualAddrWidth = 64
   val hashtableAddrWidth = 16
   val tagWidth = 40
@@ -148,7 +149,7 @@ object BlackBoxSim {
 }
 
 object CoreMemorySim {
-  import AssignmentFunctions._
+  import SimConversions._
 
   def main(args: Array[String]): Unit = {
     SimConfig
@@ -160,8 +161,25 @@ object CoreMemorySim {
     ) {dut => {
       dut.clockDomain.forkStimulus(5)
 
+      val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 65536)
+      mem =# dut.io.bus.access
+      mem =# dut.io.bus.lookup
+      val data = new StreamDriver(dut.io.ep.dataIn, dut.clockDomain)
+      val ctrl = new StreamDriver(dut.io.ep.ctrlIn, dut.clockDomain)
+      println("Initializtion finish")
+
+      dut.clockDomain.assertReset()
+      dut.clockDomain.waitRisingEdge(5)
+      dut.clockDomain.deassertReset()
+
       dut.clockDomain.waitRisingEdge(10)
 
+      val dec = legoMemAccessMsgCodec.encode(
+        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 0, cont = 0, 0, seqId = 0, size = 8), 0x0000L, ByteVector.empty)
+      ).require
+      data #= BitAxisDataGen(Seq(dec), Seq(dec))
+
+      dut.clockDomain.waitRisingEdge(80)
     }}
   }
 }
@@ -240,7 +258,6 @@ object AddressLookupUnitSim {
 
       dut.clockDomain.waitRisingEdge(5)
 
-//      val ctrlMsgs = (0 until 3).map (i => (BigInt(i), BigInt(0), BigInt(0x00F0 + i)))
       val ctrlMsgs = (0 until 3).map (i => (i, 0, 0x00F0 + i))
       ctrl #= SeqDataGen(ctrlMsgs : _*)
 

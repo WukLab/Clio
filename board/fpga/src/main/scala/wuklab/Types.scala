@@ -135,6 +135,7 @@ object MemoryRequestStatus {
 
 trait Header[T <: Header[T]] {
   val packedWidth : Int
+  def packedBytes : Int = packedWidth / 8
   def getSize : UInt
   def fromWiderBits(bits : Bits) : T
 }
@@ -219,7 +220,7 @@ case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[L
   val header    = LegoMemHeader()
   val addr      = UInt(virtAddrWidth bits)
 
-  override val packedWidth = 128
+  override val packedWidth = 64 + header.packedWidth
   override def getSize = header.size
   override def fromWiderBits(bits: Bits) = {
     assert(bits.getWidth >= packedWidth)

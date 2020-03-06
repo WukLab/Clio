@@ -171,7 +171,7 @@ class axi_dma(
 
   val io = new Bundle {
     val clk = in Bool
-    val rst = in Bool
+    val rstn = in Bool
 
     val s_axis_read_desc  = slave Stream AxiStreamDMAReadCommand(axisConfig, addrWidth, lenWidth, tagWidth)
     val s_axis_write_desc = slave Stream AxiStreamDMAWriteCommand(addrWidth, lenWidth, tagWidth)
@@ -189,7 +189,8 @@ class axi_dma(
 
   setDefinitionName("axi_dma")
   addPrePopTask(renameIO)
-  mapCurrentClockDomain(io.clk, io.rst)
+  // TODO: check this! the inverse reset
+  mapCurrentClockDomain(io.clk, io.rstn)
 
   addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma.v")
   addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma_rd.v")

@@ -1,8 +1,11 @@
 package wuklab.sim
 
-import spinal.core._
 import spinal.core.sim._
 import wuklab._
+import scodec._
+import scodec.bits._
+import scodec.codecs._
+import spinal.lib.Fragment
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,6 +30,25 @@ case class AddressLookupRequestSim(
                             ) extends MemSimStruct {
   override def asBytes = SimConversions.LookupRequestSimToBytes(this)
 }
+
+//val pid       = UInt(16 bits)
+//val tag       = UInt(8 bits)
+//val reqType   = UInt(8 bits)
+//val cont      = UInt(8 bits)
+//val reqStatus = UInt(4 bits)
+//val seqId     = UInt(4 bits)
+//val size      = UInt(16 bits)
+
+case class LegoMemHeaderSim(
+                              pid : Int,
+                              tag : Int,
+                              reqType : Int,
+                              cont : Int,
+                              reqStatus : Int,
+                              seqId : Int,
+                              size : Int
+                            )
+case class LegoMemHeaderDataSim (header : LegoMemHeaderSim, data : ByteVector = ByteVector.empty)
 
 object SimConversions {
   def assign (field : BigInt, bytes : ArrayBuffer[Byte], offset : Int) : Unit = {
@@ -64,11 +86,12 @@ object SimConversions {
     bytes
   }
 
+  val legoMemHeaderCodec = (uint16 :: uint8 :: uint8 :: uint8 :: uint4 :: uint4 :: int16).as[LegoMemHeaderSim]
+  val legoMemMsgCodec = (legoMemHeaderCodec :: bytes(56)).as[(LegoMemHeaderSim, ByteVector)]
+  val legoMemAccessMsgCodec = (legoMemHeaderCodec :: int64 :: bytes(48)).as[(LegoMemHeaderSim, Long, ByteVector)]
+
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)
-  }
-  implicit def simStructAssign(s : MemSimStruct, bits : Bits) : Unit = {
-    bits #= BigInt(s.asBytes.reverse.toArray)
   }
 
 }
