@@ -39,5 +39,5 @@ class IDPool(numIds: Int) extends Component {
   }
 
   // No double freeing
-  assert (!io.free.valid || !(bitmap & ~taken)(io.free.payload))
+  assert (!io.free.valid || !(bitmap & ~taken)(io.free.payload), "Double freeing IDPool")
 }
