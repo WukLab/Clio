@@ -14,6 +14,14 @@
 #include "core.h"
 
 /*
+ * Note that session 0 is each node's local management session.
+ * It accept all traffic from any boards, host, and monitors.
+ *
+ * To send a message to a remote node's management session,
+ * the sender should embed session_id 0 in its outgoing msg.
+ */
+
+/*
  * This is a hashtable of all open sessions in this node.
  * Each session is uniquely identified with a combination of:
  * - Board IP
@@ -85,10 +93,25 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each_possible(session_hash_array, ses, ht_link_host, key) {
-		if (likely(ses->session_id == session_id &&
-			   ses->board_ip == board_ip)) {
-			pthread_spin_unlock(&session_lock);
-			return ses;
+		if (likely(ses->session_id == session_id)) {
+
+			/*
+			 * Session 0 is our management session.
+			 * It is not associated with any board/host.
+			 */
+			if (test_management_session(ses)) {
+				pthread_spin_unlock(&session_lock);
+				return ses;
+			}
+
+			/*
+			 * Otherwise, it must match its board_ip
+			 * to uniquely identify the session.
+			 */
+			if (ses->board_ip == board_ip) {
+				pthread_spin_unlock(&session_lock);
+				return ses;
+			}
 		}
 	}
 	pthread_spin_unlock(&session_lock);
@@ -108,7 +131,7 @@ void dump_net_sessions(void)
 		struct board_info *bi;
 		
 		bi = ses->board_info;
-		printf("  %10d | %s   | %10u\n", bkt, bi->name, ses->session_id);
+		printf("  %10d | %s   | %10u\n", bkt, bi ? bi->name : " mgmt session", ses->session_id);
 	}
 	pthread_spin_unlock(&session_lock);
 }

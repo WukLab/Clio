@@ -185,4 +185,16 @@ prepare_headers(struct routing_info *route, void *buf, unsigned int len)
 	return 0;
 }
 
+#define LEGOMEM_MGMT_SESSION_ID	(0)
+
+/*
+ * Check if a certain session is node local management session.
+ */
+static inline bool test_management_session(struct session_net *ses)
+{
+	if (ses->session_id == LEGOMEM_MGMT_SESSION_ID)
+		return true;
+	return false;
+}
+
 #endif /* _LEGOMEM_UAPI_NET_SESSION_H_ */
