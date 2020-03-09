@@ -26,17 +26,8 @@ int init_context_subsys(void)
 	return 0;
 }
 
-static inline void init_legomem_context(struct legomem_context *p)
-{
-	memset(p, 0, sizeof(*p));
-	INIT_LIST_HEAD(&p->list);
-	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
-}
-
 int add_legomem_context(struct legomem_context *p)
 {
-	init_legomem_context(p);
-
 	pthread_spin_lock(&context_lock);
 	list_add(&p->list, &context_list);
 	pthread_spin_unlock(&context_lock);

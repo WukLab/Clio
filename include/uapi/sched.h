@@ -42,6 +42,7 @@ struct vm_area_struct;
 struct board_info {
 	char			name[BOARD_NAME_LEN];
 	unsigned int		board_ip;
+	unsigned long		flags;
 
 	/*
 	 * The endpoint info of this sepcific network session

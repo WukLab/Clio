@@ -9,6 +9,8 @@ struct legomem_vregion {
 	struct session_net *ses_net;
 };
 
+#define LEGOMEM_CONTEXT_FLAGS_MGMT	0x1
+
 struct legomem_context {
 	unsigned long flags;
 	unsigned int pid;
@@ -25,6 +27,15 @@ struct legomem_context {
 
 	struct legomem_vregion vregions[NR_VREGIONS];
 };
+
+static inline void init_legomem_context(struct legomem_context *p)
+{
+	BUG_ON(!p);
+
+	memset(p, 0, sizeof(*p));
+	INIT_LIST_HEAD(&p->list);
+	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
+}
 
 static inline int get_session_key(unsigned int ip, unsigned int session_id)
 {

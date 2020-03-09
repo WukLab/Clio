@@ -18,7 +18,8 @@
  * Allocate a new process-local legomem context.
  * Monitor will be contacted. On success, the context is returned.
  */
-struct legomem_context *legomem_open_context(void)
+static struct legomem_context *
+__legomem_open_context(bool is_mgmt)
 {
 	struct legomem_context *p;
 	int ret;
@@ -27,6 +28,8 @@ struct legomem_context *legomem_open_context(void)
 	if (!p)
 		return NULL;
 
+	init_legomem_context(p);
+
 	/* Add to per-node context list */
 	ret = add_legomem_context(p);
 	if (ret) {
@@ -34,13 +37,26 @@ struct legomem_context *legomem_open_context(void)
 		return NULL;
 	}
 
-	/*
-	 * TODO
-	 * 1. contact monitor for PID
-	 * 2. open sessions, if necessary
-	 */
-
+	if (is_mgmt) {
+		p->flags |= LEGOMEM_CONTEXT_FLAGS_MGMT;
+	} else {
+		/*
+		 * TODO
+		 * 1. contact monitor for PID
+		 * 2. open sessions, if necessary
+		 */
+	}
 	return p;
+}
+
+struct legomem_context *legomem_open_context(void)
+{
+	return __legomem_open_context(false);
+}
+
+static struct legomem_context *legomem_open_context_mgmt(void)
+{
+	return __legomem_open_context(true);
 }
 
 /*
@@ -59,7 +75,13 @@ int legomem_close_context(struct legomem_context *ctx)
 	if (ret)
 		return ret;
 
-	/* TODO Contact Monitor */
+	if (!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT)) {
+		/*
+		 * TODO
+		 * Contact Monitor to ask it to free
+		 * all resources. Maybe boards too.
+		 */
+	}
 
 	free(ctx);
 	return 0;
@@ -138,9 +160,12 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 {
 	struct board_info *bi;
 
-	/*
-	 * TODO Contact monitor/board to free the connection
-	 */
+	if (!test_management_session(ses)) {
+		/*
+		 * TODO
+		 * Contact monitor/board to free the connection
+		 */
+	}
 
 	/*
 	 * Clear bookkeeping we've done
@@ -151,6 +176,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 	board_remove_session(bi, ses);
 	context_remove_session(ctx, ses);
 
+	/* Finally ask network layer to free resources */
 	net_close_session(ses);
 
 	return 0;
@@ -237,7 +263,7 @@ int init_management_session(void)
 	if (!mgmt_dummy_board)
 		return -ENOMEM;
 
-	mgmt_context = legomem_open_context();
+	mgmt_context = legomem_open_context_mgmt();
 	if (!mgmt_context)
 		return -ENOMEM;
 
