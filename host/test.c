@@ -19,26 +19,61 @@ struct dummy_payload {
 	unsigned long mark;
 };
 
-void test_net(struct session_net *ses)
+#define NR_TEST_SEND_THREAD	(5)
+#define NR_MSG_PER_THREAD	(100)
+
+void *send_msg(void *arg)
 {
 #define NR_SEND_BUF_SLOTS	(256)
-
 	void *send_buf;
-	void *recv_buf;
 	struct dummy_payload *send_buf_ring[NR_SEND_BUF_SLOTS];
 	int buf_size, i, ret;
-	bool server;
-	int nr_msg;
-
 	struct dummy_payload *payload;
+	struct session_net *ses;
 
 	buf_size = 256;
-	
+	ses = (struct session_net *)arg;
+
 	for (i = 0; i < NR_SEND_BUF_SLOTS; i++) {
-		if(!(send_buf_ring[i] = malloc(buf_size)))
-			return;
+		if (!(send_buf_ring[i] = malloc(buf_size)))
+			return NULL;
 		memset(send_buf_ring[i], 0, buf_size);
 	}
+
+	i = 0;
+
+	while (1) {
+		send_buf = send_buf_ring[i % NR_SEND_BUF_SLOTS];
+		payload = send_buf + LEGO_HEADER_OFFSET;
+		payload->mark = i++;
+
+		printf("send %d\n", i - 1);
+		ret = net_send(ses, send_buf, buf_size);
+		if (ret <= 0) {
+			printf("send error\n");
+			return NULL;
+		}
+
+		if (i >= NR_MSG_PER_THREAD)
+			break;
+	}
+
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
+		free(send_buf_ring[i]);
+	
+	return NULL;
+}
+
+void test_net(struct session_net *ses)
+{
+	void *recv_buf;
+	int buf_size, i, ret;
+	bool server;
+	struct dummy_payload *payload;
+	struct gbn_header *hdr;
+	pthread_t send_thread[NR_TEST_SEND_THREAD];
+
+	buf_size = 256;
 
 	recv_buf = malloc(buf_size);
 	if (!recv_buf)
@@ -46,8 +81,6 @@ void test_net(struct session_net *ses)
 	memset(recv_buf, 0, buf_size);
 
 	i = 0;
-
-	nr_msg = 10;
 
 	/*
 	 * Please tune this during testing.
@@ -63,37 +96,29 @@ void test_net(struct session_net *ses)
 				return;
 			}
 
-			dump_packet_headers(recv_buf);
+			hdr = recv_buf + GBN_HEADER_OFFSET;
 			payload = recv_buf + LEGO_HEADER_OFFSET;
 			printf("Msg %d Payload mark: %lu\n", i, payload->mark);
+			/* seqnum starts from 1 */
+			if (hdr->seqnum != i + 1) {
+				printf("Receive out of order. Expected seq#: %d, Received seq#: %d\n",
+				       i + 1, hdr->seqnum);
+			}
 			i++;
 		}
 	} else {
 		/* Client, send msg */
-		while (1) {
-			send_buf = send_buf_ring[i%NR_SEND_BUF_SLOTS];
-			payload = send_buf + LEGO_HEADER_OFFSET;
-			payload->mark = i++;
-
-			printf("send %d\n", i-1);
-			ret = net_send(ses, send_buf, buf_size);
-			if (ret <= 0) {
-				printf("send error\n");
-				return;
-			}
-
-			if (i >= nr_msg)
-				break;
-		}
+		for (i = 0; i < NR_TEST_SEND_THREAD; i++)
+			pthread_create(&send_thread[i], NULL, send_msg, ses);
 	}
+
+	for (i = 0; i < NR_TEST_SEND_THREAD; i++)
+		pthread_join(send_thread[i], NULL);
 
 	sleep(3);
 
-	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
-		free(send_buf_ring[i]);
 	free(recv_buf);
 }
-
 void test_app(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 {
 	struct legomem_context *ctx;
