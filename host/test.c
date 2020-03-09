@@ -19,8 +19,8 @@ struct dummy_payload {
 	unsigned long mark;
 };
 
-#define NR_TEST_SEND_THREAD	(5)
-#define NR_MSG_PER_THREAD	(100)
+#define NR_TEST_SEND_THREAD	(1)
+#define NR_MSG_PER_THREAD	(10)
 
 void *send_msg(void *arg)
 {
@@ -119,6 +119,7 @@ void test_net(struct session_net *ses)
 
 	free(recv_buf);
 }
+
 void test_app(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 {
 	struct legomem_context *ctx;

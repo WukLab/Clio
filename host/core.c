@@ -68,8 +68,9 @@ int legomem_close_context(struct legomem_context *ctx)
 /*
  * Open a new network session with a board.
  */
-struct session_net *
-legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
+static struct session_net *
+__legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
+		       bool is_mgmt)
 {
 	struct session_net *ses;
 
@@ -87,10 +88,16 @@ legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 	ses->board_ip = bi->board_ip;
 	ses->board_info = bi;
 
-	/*
-	 * TODO Contact monitor/board to alloc the connection
-	 * Mainly to get the connection ID!
-	 */
+	if (is_mgmt) {
+		ses->session_id = LEGOMEM_MGMT_SESSION_ID;
+	} else {
+		/*
+		 * TODO
+		 * Contact monitor/board to alloc the conn ID!
+		 */
+		static int __tmp_id = 1;
+		ses->session_id = __tmp_id++;
+	}
 
 	/*
 	 * Bookkeeping, add to:
@@ -102,6 +109,26 @@ legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 	board_add_session(bi, ses);
 	context_add_session(ctx, ses);
 	return ses;
+}
+
+/*
+ * Public API
+ * Open a normal network connection.
+ */
+struct session_net *
+legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
+{
+	return __legomem_open_session(ctx, bi, false);
+}
+
+/*
+ * Internal API
+ * Called once during startup to open a management network session
+ */
+static struct session_net *
+legomem_open_session_mgmt(struct legomem_context *ctx, struct board_info *bi)
+{
+	return __legomem_open_session(ctx, bi, true);
 }
 
 /*
@@ -198,6 +225,28 @@ struct endpoint_info board_1 = {
 
 void test_app(struct endpoint_info *, struct endpoint_info *);
 
+struct legomem_context *mgmt_context;
+struct board_info *mgmt_dummy_board;
+struct session_net *mgmt_session;
+
+int init_management_session(void)
+{
+	struct endpoint_info dummy_ei;
+
+	mgmt_dummy_board = add_board("local_mgmt", 0, &dummy_ei, &dummy_ei);
+	if (!mgmt_dummy_board)
+		return -ENOMEM;
+
+	mgmt_context = legomem_open_context();
+	if (!mgmt_context)
+		return -ENOMEM;
+
+	mgmt_session = legomem_open_session_mgmt(mgmt_context, mgmt_dummy_board);
+	if (!mgmt_session)
+		return -ENOMEM;
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -215,6 +264,9 @@ int main(int argc, char **argv)
 	init_board_subsys();
 	init_context_subsys();
 	init_net_session_subsys();
+
+	/* Open the mgmt session, aka session_0 */
+	init_management_session();
 
 	test_app(local_ei, remote_ei);
 
