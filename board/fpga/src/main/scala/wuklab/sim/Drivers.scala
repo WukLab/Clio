@@ -68,7 +68,7 @@ object AssignmentFunctions {
   implicit def ControlRequestAssign(a : (Int, Int, Int), cmd : ControlRequest): Unit = {
     val (cid, cmdId, param) = a
     cmd.addr #= 0
-    cmd.cid #= cid
+    cmd.epid #= cid
     cmd.cmd #= cmdId
     cmd.param32 #= param & 0xFFFFFFFF
     cmd.param8 #= param >> 32
