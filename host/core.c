@@ -198,6 +198,39 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 int legomem_free(struct legomem_context *ctx,
 		 unsigned long __remote addr, size_t size)
 {
+	struct legomem_vregion *v;
+	struct session_net *ses;
+	struct legomem_alloc_free_req req;
+	struct legomem_alloc_free_resp resp;
+	struct lego_header *lego_header;
+	int ret;
+
+	v = va_to_legomem_vregion(ctx, addr);
+	ses = v->ses_net;
+	if (unlikely(!ses)) {
+		printf("%s(): addr %#lx was not allocated.\n",
+			__func__, addr);
+		return -EINVAL;
+	}
+
+	/* Prepare headers */
+	lego_header = to_lego_header((void *)&req);
+	lego_header->opcode = OP_REQ_FREE;
+
+	req.op.addr = addr;
+	req.op.len = size;
+
+	ret = net_send(ses, &req, sizeof(req));
+	if (ret <= 0) {
+		printf("%s(): fail to send req\n", __func__);
+		return -EIO;
+	}
+
+	ret = net_receive(ses, &resp, sizeof(resp));
+	if (ret <= 0) {
+		printf("%s() fail to recv msg\n", __func__);
+		return -EIO;
+	}
 	return 0;
 }
 
@@ -211,6 +244,7 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 	struct session_net *ses;
 	struct legomem_read_write_req req;
 	struct legomem_read_write_resp *resp;
+	struct lego_header *lego_header;
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
@@ -220,6 +254,9 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 			__func__, addr);
 		return -EINVAL;
 	}
+
+	lego_header = to_lego_header((void *)&req);
+	lego_header->opcode = OP_REQ_READ;
 
 	req.op.va = addr;
 	req.op.size = size;
@@ -258,6 +295,7 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 	struct session_net *ses;
 	struct legomem_read_write_req *req;
 	struct legomem_read_write_resp resp;
+	struct lego_header *lego_header;
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
@@ -280,6 +318,9 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 	 * by hardware on the fly.
 	 */
 	req = malloc(size + sizeof(*req));
+
+	lego_header = to_lego_header(req);
+	lego_header->opcode = OP_REQ_WRITE;
 	req->op.va = addr;
 	req->op.size = size;
 	memcpy(req->op.data, buf, size);

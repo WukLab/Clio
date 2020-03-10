@@ -48,7 +48,7 @@ struct udp_hdr {
  * This is our layer's header.
  * See uapi/opcode.h for opcode definitions.
  */
-struct lego_hdr {
+struct lego_header {
 	uint16_t opcode;
 } __attribute__((packed));
 
@@ -71,7 +71,7 @@ enum pkt_type {
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
 #define GBN_HEADER_SIZE		(sizeof(struct gbn_header))
-#define LEGO_HEADER_SIZE	(sizeof(struct lego_hdr))
+#define LEGO_HEADER_SIZE	(sizeof(struct lego_header))
 
 #define GBN_HEADER_OFFSET \
 	(ETHERNET_HEADER_SIZE + IP_HEADER_SIZE + UDP_HEADER_SIZE)

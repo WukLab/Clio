@@ -96,24 +96,30 @@ int context_remove_session(struct legomem_context *p, struct session_net *ses)
 	return -1;
 }
 
-/*
- * Find an open session with @bi.
- * Returning NULL only means a session was not open,
- * user can then try to establish a new one.
- */
-struct session_net *
-context_find_session(struct legomem_context *p, struct board_info *bi)
+struct session_net *context_find_session_by_ip(struct legomem_context *p,
+					       unsigned int board_ip)
 {
 	int bkt;
 	struct session_net *ses;
 
 	pthread_spin_lock(&p->lock);
 	hash_for_each(p->ht_sessions, bkt, ses, ht_link_context) {
-		if (ses->board_ip == bi->board_ip) {
+		if (ses->board_ip == board_ip) {
 			pthread_spin_unlock(&p->lock);
 			return ses;
 		}
 	}
 	pthread_spin_unlock(&p->lock);
 	return NULL;
+}
+
+/*
+ * Find an open session with @bi.
+ * Returning NULL only means a session was not open,
+ * user can then try to establish a new one.
+ */
+struct session_net *context_find_session_by_board(struct legomem_context *p,
+						  struct board_info *bi)
+{
+	return context_find_session_by_ip(p, bi->board_ip);
 }

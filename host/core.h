@@ -71,7 +71,10 @@ int remove_legomem_context(struct legomem_context *p);
 void dump_legomem_context(void);
 int context_add_session(struct legomem_context *p, struct session_net *ses);
 int context_remove_session(struct legomem_context *p, struct session_net *ses);
-struct session_net *context_find_session(struct legomem_context *p, struct board_info *bi);
+struct session_net *context_find_session_by_ip(struct legomem_context *p,
+					       unsigned int board_ip);
+struct session_net *context_find_session_by_board(struct legomem_context *p,
+						  struct board_info *bi);
 
 /* Board */
 int init_board_subsys(void);

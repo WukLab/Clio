@@ -83,18 +83,35 @@ struct legomem_common_headers {
 	struct ipv4_hdr		ipv4;
 	struct udp_hdr		udp;
 	struct gbn_header	gbn;
-	struct lego_hdr		lego;
+	struct lego_header	lego;
 } __packed;
 
-/* Define a whole msg */
+/*
+ * Define a whole msg
+ */
+
+/*
+ * Read and Write
+ */
 struct legomem_read_write_req {
 	struct legomem_common_headers comm_headers;
 	struct op_read_write op;
 };
-
 struct legomem_read_write_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_read_write_ret ret;
+};
+
+/*
+ * Alloc and Free
+ */
+struct legomem_alloc_free_req {
+	struct legomem_common_headers comm_headers;
+	struct op_alloc_free op;
+};
+struct legomem_alloc_free_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_alloc_free_ret op;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */
