@@ -256,6 +256,9 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 {
 	struct legomem_vregion *v;
 	struct session_net *ses;
+	struct legomem_read_write_req *req;
+	struct legomem_read_write_resp resp;
+	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
 	ses = v->ses_net;
@@ -264,6 +267,39 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 			__func__, addr);
 		return -EINVAL;
 	}
+
+	/*
+	 * TODO
+	 * same as legomem_read.
+	 *
+	 * The downside of a "CPU transport" showcase here.
+	 * I.e., we need to explicitly manage the buffers and reserve
+	 * space for headers.
+	 *
+	 * If this is a hardware transport, everything can be attached
+	 * by hardware on the fly.
+	 */
+	req = malloc(size + sizeof(*req));
+	req->op.va = addr;
+	req->op.size = size;
+	memcpy(req->op.data, buf, size);
+
+	ret = net_send(ses, req, size + sizeof(*req));
+	if (ret <= 0) {
+		printf("%s(): fail to send\n", __func__);
+		return -EIO;
+	}
+
+	ret = net_receive(ses, &resp, sizeof(resp));
+	if (ret <= 0) {
+		printf("%s(): fail to receive\n", __func__);
+		return -EIO;
+	}
+
+	if (resp.ret.ret != 0) {
+		printf("%s(): fail to perform legomem write\n", __func__);
+	}
+	free(req);
 
 	return 0;
 }
