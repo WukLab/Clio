@@ -436,6 +436,5 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
   val validVec = streams.map(_.seqId === counter.value)
   io.res << StreamMux(OHToUInt(validVec), streams).continueWhen(validVec.reduce(_ || _))
 
-
 }
 

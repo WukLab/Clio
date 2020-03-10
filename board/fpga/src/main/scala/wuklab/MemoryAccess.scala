@@ -165,6 +165,17 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
 
   // TODO: join with the status returned by data mover
   io.headerOut << rsp.fmap(_.snd.header)
+
+  // Protocol Checking
+  def checkRequest(req : JoinType) : UInt = {
+    val ret = U(0, 4 bits)
+    switch (req.snd.header.reqType) {
+      is () {
+        ret := 0
+      }
+    }
+    ret
+  }
 }
 
 // At core memory, we assign sequence number (locally) and do packet paser, do send the lookup request.
@@ -234,4 +245,16 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 // class Sequencer
 // We need a downsizer for this!
 
-// We need A => A function, we have =>
+// An A => function
+
+// TODO: ctrl path endpoint
+class ProcessorEndpoint(implicit config : CoreMemConfig) extends Component {
+  val io = new Bundle {
+    val ep = new LegoMemEndPoint(config.epAxisConfig)
+    val ifc = new Bundle {
+      val dataIn = slave Stream Fragment(Bits(512 bits))
+      val dataOut = master Stream Fragment(Bits(512 bits))
+    }
+  }
+
+}

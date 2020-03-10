@@ -269,9 +269,15 @@ object Utils {
 
   }
 
-
-
-
+  implicit class BitsUtils(bits : Bits) {
+    def fieldChange(offset : Int, width : Int)(f : Bits => Bits) : Bits = {
+      val next = cloneOf(bits)
+      next.allowOverride
+      next := bits
+      next(offset, width bits) := f(next(offset, width bits))
+      next
+    }
+  }
 
   implicit class BoolUtils(b : Bool) {
     def select[T <: Data](streams : Stream[T] *): Stream[T] = {
