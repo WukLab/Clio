@@ -2,8 +2,10 @@ package wuklab
 
 import spinal.core._
 import spinal.lib._
-
 import Utils._
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 // Return the state change from zero
 abstract class CounterSet(dataWidth : Int, numCells : Int) extends Area {
@@ -88,6 +90,45 @@ class LockCounterRam(numWaits : Int, numCells : Int) extends Component {
 }
 
 // This is like a P4 module: match and action.
+// We need Lens or sth to change a field in
+// A -> change a field of A -> A
+
+// Takes the control command, and then execute this
+// mainly about: lock and unlock
+class ModelController extends Component {
+
+}
+
+trait MatchActionFunction {
+  def cond : Bits => Bool
+  def action : Bits => Bits
+}
+
+abstract class MatchActionComponent extends Component with MatchActionFunction {
+  val io = new Bundle {
+    val ctrlIn  = slave Stream ControlRequest()
+    val ctrlOut = master Stream ControlRequest()
+  }
+}
+
+class RedirectionAction extends MatchActionFunction {
+}
+
+// We need a match and action table here
+class MatchActionTable extends Component {
+  // TODO: make functions configurable, add an optional ctrl interface to functions
+  // Input stream
+  val functions = ArrayBuffer[(Bits => Bool, Bits => Bits)]()
+  def addAction(cond : Bits => Bool, action : Bits => Bits) = functions += ((cond, action))
+  def addComponent (c : MatchActionComponent)
+
+  // TODO: look for a delayed init
+  val bits = Bits(512 bits)
+
+  val res = functions.foldLeft(bits) { (bits, p) => Mux(p._1(bits), p._2(bits), bits) }
+}
+
+
 //class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int) extends Component {
 //
 //  assert(isPow2(numCells))
@@ -202,3 +243,7 @@ class LockCounterRam(numWaits : Int, numCells : Int) extends Component {
 
 // Match Action Table: migrate: redirection. level / match&action/
 // Match Action Table: Translate ReqCode -> MicroOps
+
+class MemoryModel extends Component {
+
+}
