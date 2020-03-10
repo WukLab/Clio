@@ -111,21 +111,41 @@ abstract class MatchActionComponent extends Component with MatchActionFunction {
   }
 }
 
-class RedirectionAction extends MatchActionFunction {
-}
-
 // We need a match and action table here
-class MatchActionTable extends Component {
-  // TODO: make functions configurable, add an optional ctrl interface to functions
+// TODO: get rid of this java like thing
+class MatchActionTableFactory {
   // Input stream
   val functions = ArrayBuffer[(Bits => Bool, Bits => Bits)]()
-  def addAction(cond : Bits => Bool, action : Bits => Bits) = functions += ((cond, action))
-  def addComponent (c : MatchActionComponent)
+  val components = ArrayBuffer[(MatchActionComponent, Int)]()
+  def addAction(cond : Bits => Bool, action : Bits => Bits) : Unit = functions += ((cond, action))
+  def addComponent (c : MatchActionComponent, ctrlAddr : Int) : Unit = {
+    components += ((c, ctrlAddr))
+    functions += ((c.cond, c.action))
+  }
 
-  // TODO: look for a delayed init
-  val bits = Bits(512 bits)
 
-  val res = functions.foldLeft(bits) { (bits, p) => Mux(p._1(bits), p._2(bits), bits) }
+  // TODO: look for a delayed init, refer to xbar
+  // see https://github.com/SpinalHDL/SpinalHDL/blob/c40aa7df065f89a3c6ccd6bddb5bcfb2ae682adf/lib/src/main/scala/spinal/lib/bus/misc/BusSlaveFactory.scala#L684
+  def build : Component = new Component {
+    val io = new Bundle {
+      val ctrlIn  = slave Stream ControlRequest()
+      val ctrlOut = master Stream ControlRequest()
+      val dataIn = slave Stream Fragment(Bits(512 bits))
+      val dataOut = master Stream Fragment(Bits(512 bits))
+    }
+
+    // TODO: check the timing and maybe add the pipeline
+    // The MAT tables
+    io.dataOut << io.dataIn
+    val res = functions.foldLeft(io.dataIn.fragment) { (bits, p) => Mux(p._1(bits), p._2(bits), bits) }
+    when(io.dataIn.isFirst) { io.dataOut.fragment := res }
+
+    // The ctrl path
+    val ctrlValids = Vec(components.map(_._2 === io.ctrlIn.addr))
+    val inputCtrls = StreamDemux(io.ctrlIn.takeWhen(ctrlValids.orR), OHToUInt(ctrlValids), components.size)
+    (components, inputCtrls).zipped map (_._1.io.ctrlIn << _)
+    io.ctrlOut << StreamArbiterFactory.sequentialOrder.on(components.map(_._1.io.ctrlOut))
+  }
 }
 
 
@@ -241,9 +261,12 @@ class MatchActionTable extends Component {
 //
 //}
 
-// Match Action Table: migrate: redirection. level / match&action/
-// Match Action Table: Translate ReqCode -> MicroOps
-
 class MemoryModel extends Component {
+  // Adapter
 
+  // Match Action Table
+
+  // Sequencer
+
+  // Ctrl Path
 }

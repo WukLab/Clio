@@ -112,8 +112,8 @@ trait CoreMemConfig {
   def dmaLengthWidth = 16
 
   def dmaAxisConfig = AxiStreamConfig (512)
-  def epAxisConfig = AxiStreamConfig (512, destWidth = destWidth)
-
+  def epDataAxisConfig = AxiStreamConfig (512, destWidth = destWidth)
+  def epCtrlAxisConfig = AxiStreamConfig (64, destWidth = destWidth)
 }
 
 object MemoryRequestType {
@@ -242,7 +242,7 @@ object ControlRequest {
            ): ControlRequest = {
     val req = apply()
     req.addr := addr
-    req.cid := cid
+    req.epid := cid
     req.cmd := cmd
     req.beats := beats
     req.param8 := param8
@@ -252,7 +252,7 @@ object ControlRequest {
 }
 
 case class ControlRequest() extends Bundle {
-  val cid = UInt(8 bits)
+  val epid = UInt(8 bits)
   val addr = UInt(8 bits)
   val cmd = UInt(4 bits)
   val beats = UInt(4 bits)
@@ -266,7 +266,7 @@ case class ControlRequest() extends Bundle {
     bits(43 downto 40) := beats.asBits
     bits(47 downto 44) := cmd.asBits
     bits(55 downto 48) := addr.asBits
-    bits(63 downto 56) := cid.asBits
+    bits(63 downto 56) := epid.asBits
     bits
   }
 
@@ -277,7 +277,7 @@ case class ControlRequest() extends Bundle {
     beats   := bits(43 downto 40).asUInt
     cmd     := bits(47 downto 44).asUInt
     addr    := bits(55 downto 48).asUInt
-    cid     := bits(63 downto 56).asUInt
+    epid     := bits(63 downto 56).asUInt
   }
 }
 

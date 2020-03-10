@@ -354,7 +354,7 @@ class LookupControlAgent(implicit config : CoreMemConfig) extends Component {
   // Write Command
   val cmdIn = io.cmdIn.queue(16)
   val numOutputFifos = config.numPageSizes
-  val inputs = StreamDemux(cmdIn, cmdIn.cid(log2Up(numOutputFifos)-1 downto 0), numOutputFifos)
+  val inputs = StreamDemux(cmdIn, cmdIn.epid(log2Up(numOutputFifos)-1 downto 0), numOutputFifos)
   for (i <- 0 until numOutputFifos) {
     val bufferFifo = new StreamFifo(io.asyncFifos(i).payloadType(), 16)
     inputs(i).fmap(resizeParam(_, config.ppaWidth)) >> bufferFifo.io.push

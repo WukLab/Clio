@@ -48,11 +48,11 @@ object LegoMemEndPoint {
   type LegoMemEndPointStream = Stream[Fragment[AxiStreamPayload]]
 }
 
-case class LegoMemEndPoint(config : AxiStreamConfig) extends Bundle {
-  val dataOut = master Stream Fragment(AxiStreamPayload(config))
-  val dataIn  = slave  Stream Fragment(AxiStreamPayload(config))
-  val ctrlOut = master Stream ControlRequest()
-  val ctrlIn  = slave  Stream ControlRequest()
+case class LegoMemEndPoint(dataConfig : AxiStreamConfig, ctrlConfig : AxiStreamConfig) extends Bundle {
+  val dataOut = master Stream Fragment(AxiStreamPayload(dataConfig))
+  val dataIn  = slave  Stream Fragment(AxiStreamPayload(dataConfig))
+  val ctrlOut = master Stream AxiStreamPayload(ctrlConfig)
+  val ctrlIn  = slave  Stream AxiStreamPayload(ctrlConfig)
 }
 
 // Converter

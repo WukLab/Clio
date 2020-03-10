@@ -72,10 +72,10 @@ class PacketBuilder[B <: Bundle with Header[B]] (
     val dataOut = master Stream Fragment(Bits(dataWidth bits))
   }
 
-  val size = RegNextWhenBypass(io.headerIn.getSize, io.headerIn.fire)
-  val insertLast = (size & dataBytes.toMask.asUInt) >= offsetBytes
+  io.headerIn.ready := io.dataIn.lastFire
+  val insertLast = io.headerIn.getSize.maskBy(dataBytes) >= offsetBytes
 
-  val dataOut = io.dataIn.shiftAt(header.packedWidth)
+  val dataOut = io.dataIn.shiftAt(header.packedWidth, io.headerIn.asBits)
   io.dataOut << io.dataIn.translateWithLastInsert(dataOut, insertLast)
 }
 
@@ -87,7 +87,7 @@ class LegoMemEndPointPacketBuilder (implicit config : CoreMemConfig) extends Com
   val io = new Bundle {
     val dataIn = slave Stream Fragment(Bits(dataWidth bits))
     val headerIn = slave Stream LegoMemHeader()
-    val dataOut = master Stream Fragment(AxiStreamPayload(config.epAxisConfig))
+    val dataOut = master Stream Fragment(AxiStreamPayload(config.epDataAxisConfig))
   }
 
   io.headerIn.ready := io.dataIn.lastFire
@@ -187,17 +187,20 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
   // Assign data for mover
   val io = new Bundle {
-    val ep = LegoMemEndPoint(config.epAxisConfig)
+    val ep = LegoMemEndPoint(config.epDataAxisConfig)
     val bus = new Bundle {
       val access = master (Axi4(config.accessAxi4Config))
       val lookup = master (Axi4(config.lookupAxi4Config))
     }
   }
 
+  val endpoint = new RawInterfaceEndpoint
+  endpoint.io.ep <> io.ep
+
   val packetParser = new PacketParser(512, LegoMemAccessHeader(config.virtualAddrWidth))
-  val packetBuilder = new LegoMemEndPointPacketBuilder
-  packetParser.io.dataIn << io.ep.dataIn.liftStream(_.tdata)
-  packetBuilder.io.dataOut >> io.ep.dataOut
+  val packetBuilder = new PacketBuilder(512, LegoMemHeader(config.virtualAddrWidth))
+  packetParser.io.dataIn << endpoint.io.raw.dataIn
+  packetBuilder.io.dataOut >> endpoint.io.raw.dataOut
 
   // TODO: add fifo here
   val (lookupHeader, accessHeader) = StreamFork2(packetParser.io.headerOut)
@@ -205,8 +208,8 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   // TODO: generate req here
   val lookup = new AddressLookupUnit
   lookup.io.bus <> io.bus.lookup
-  lookup.io.ctrl.in <> io.ep.ctrlIn
-  lookup.io.ctrl.out <> io.ep.ctrlOut
+  lookup.io.ctrl.in << endpoint.io.raw.ctrlIn
+  lookup.io.ctrl.out >> endpoint.io.raw.ctrlOut
   lookup.io.req << lookupHeader.queueLowLatency(32).fmap(generateRequest)
 
   val access = new MemoryAccessUnit
@@ -239,22 +242,32 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
 // For the interconnection, we do not need to add the names into the fifo.
 
-// TODO: look at upsize converter
-// data keep last
-// class CoreCtrl
-// class Sequencer
-// We need a downsizer for this!
-
-// An A => function
-
-// TODO: ctrl path endpoint
-class ProcessorEndpoint(implicit config : CoreMemConfig) extends Component {
+class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
   val io = new Bundle {
-    val ep = new LegoMemEndPoint(config.epAxisConfig)
-    val ifc = new Bundle {
-      val dataIn = slave Stream Fragment(Bits(512 bits))
-      val dataOut = master Stream Fragment(Bits(512 bits))
+    // TODO: correct this
+    val ep = new LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
+    val raw = new Bundle {
+      val dataIn = master Stream Fragment(Bits(512 bits))
+      val dataOut = slave Stream Fragment(Bits(512 bits))
+      val ctrlIn = master Stream ControlRequest()
+      val ctrlOut = slave Stream ControlRequest()
     }
   }
 
+  // Ctrl FIFOs
+  io.raw.ctrlIn.translateFrom (io.ep.ctrlIn) { (ctrl, axis) => ctrl.assignFromBits(axis.tdata) }
+  io.ep.ctrlOut.translateFrom (io.raw.ctrlOut) { (axis, ctrl) => axis.tdata := ctrl.asBits; axis.tdest := ctrl.epid }
+
+  // Data FIFOs
+  io.raw.dataIn.translateFrom (io.ep.dataIn) { (f, s) => f.last := s.last; f.fragment := s.fragment.tdata }
+  val (header, dest) = LegoMemHeader(io.raw.dataOut.fragment).stackPop
+  val destReg = RegNextWhenBypass(dest, io.raw.dataOut.firstFire)
+  io.ep.dataOut.translateFrom (io.raw.dataOut) { (s, f) =>
+    s.last := f.last
+    s.fragment.tdata := f.fragment
+    s.fragment.tdest := destReg
+  }
+  // We need to overwrite the first
+  // TODO: Still not that, smooth
+  when (io.raw.dataIn.isFirst) { io.ep.dataOut.tdata(512 downBy LegoMemHeader.headerWidth) := header.asBits }
 }
