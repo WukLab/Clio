@@ -207,12 +207,64 @@ int legomem_free(struct legomem_context *ctx,
 int legomem_read(struct legomem_context *ctx, void *buf,
 		 unsigned long __remote addr, size_t size)
 {
+	struct legomem_vregion *v;
+	struct session_net *ses;
+	struct legomem_read_write_req req;
+	struct legomem_read_write_resp *resp;
+	int ret;
+
+	v = va_to_legomem_vregion(ctx, addr);
+	ses = v->ses_net;
+	if (unlikely(!ses)) {
+		printf("%s(): remote addr %#lx has no established session.\n",
+			__func__, addr);
+		return -EINVAL;
+	}
+
+	req.op.va = addr;
+	req.op.size = size;
+
+	ret = net_send(ses, &req, sizeof(req));
+	if (ret <= 0) {
+		printf("%s(): fail to send req\n", __func__);
+		return -EIO;
+	}
+
+	/*
+	 * TODO
+	 * temporary solution: if user just provide arbitrary buffer
+	 * we cannot use it to recv msg because of extra headers.
+	 * And we need to pay extra malloc/memcpy/free to it.
+	 *
+	 * An ideal case is to make user aware of this. Or provide a 
+	 * msg/buffer alloc API for users.
+	 */
+	resp = malloc(size + sizeof(*resp));
+	ret = net_receive(ses, resp, size + sizeof(*resp));
+	if (ret <= 0) {
+		printf("%s() fail to recv msg\n", __func__);
+		return -EIO;
+	}
+
+	memcpy(buf, resp->ret.data, size);
+	free(resp);
 	return 0;
 }
 
 int legomem_write(struct legomem_context *ctx, void *buf,
 		  unsigned long __remote addr, size_t size)
 {
+	struct legomem_vregion *v;
+	struct session_net *ses;
+
+	v = va_to_legomem_vregion(ctx, addr);
+	ses = v->ses_net;
+	if (unlikely(!ses)) {
+		printf("%s(): remote addr %#lx has no established session.\n",
+			__func__, addr);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 

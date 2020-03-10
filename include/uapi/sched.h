@@ -7,9 +7,9 @@
 #include <uapi/list.h>
 #include <uapi/vregion.h>
 #include <uapi/rbtree.h>
-#include <uapi/opcode.h>
 #include <uapi/hashtable.h>
 #include <uapi/net_session.h>
+#include <uapi/opcode.h>
 #include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -215,7 +215,7 @@ struct vm_area_struct {
 };
 
 static inline unsigned int
-va_to_vregion_index(unsigned long va)
+va_to_vregion_index(unsigned long __remote va)
 {
 	unsigned long idx;
 	idx = va >> VREGION_SIZE_SHIFT;
@@ -223,7 +223,7 @@ va_to_vregion_index(unsigned long va)
 }
 
 static inline struct vregion_info *
-va_to_vregion(struct proc_info *p, unsigned long va)
+va_to_vregion(struct proc_info *p, unsigned long __remote va)
 {
 	unsigned int idx;
 	struct vregion_info *head;

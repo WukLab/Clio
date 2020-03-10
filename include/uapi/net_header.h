@@ -13,7 +13,6 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <uapi/compiler.h>
-#include <uapi/opcode.h>
 
 struct eth_hdr {
 	uint8_t dst_mac[6];

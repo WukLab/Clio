@@ -25,7 +25,7 @@ struct legomem_context {
 	struct hlist_head ht_sessions[4];
 	pthread_spinlock_t lock;
 
-	struct legomem_vregion vregions[NR_VREGIONS];
+	struct legomem_vregion vregion[NR_VREGIONS];
 };
 
 static inline void init_legomem_context(struct legomem_context *p)
@@ -35,6 +35,28 @@ static inline void init_legomem_context(struct legomem_context *p)
 	memset(p, 0, sizeof(*p));
 	INIT_LIST_HEAD(&p->list);
 	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline struct legomem_vregion *
+va_to_legomem_vregion(struct legomem_context *p, unsigned long __remote va)
+{
+	unsigned int idx;
+	struct legomem_vregion *head;
+
+	head = p->vregion;
+	idx = va_to_vregion_index(va);
+	return head + idx;
+}
+
+static inline unsigned int
+legomem_vregion_to_index(struct legomem_context *p, struct legomem_vregion *v)
+{
+	struct legomem_vregion *head = p->vregion;
+	unsigned int idx;
+
+	idx = v - head;
+	BUG_ON(idx >= NR_VREGIONS);
+	return idx;
 }
 
 static inline int get_session_key(unsigned int ip, unsigned int session_id)
