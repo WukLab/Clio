@@ -14,6 +14,9 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <linux/types.h>
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
 
 /*
  * ZCU106 Cortex-A53 is running at 64bit mode.
@@ -260,5 +263,10 @@ typedef uint64_t u64;
 
 /* To mark a remote legomem address */
 #define __remote
+
+static inline pid_t gettid(void)
+{
+	return syscall(SYS_gettid);
+}
 
 #endif /* _LEGOMEM_UAPI_COMPILER_H_ */

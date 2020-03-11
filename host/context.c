@@ -97,6 +97,7 @@ int context_remove_session(struct legomem_context *p, struct session_net *ses)
 }
 
 struct session_net *context_find_session_by_ip(struct legomem_context *p,
+					       pid_t tid,
 					       unsigned int board_ip)
 {
 	int bkt;
@@ -119,7 +120,8 @@ struct session_net *context_find_session_by_ip(struct legomem_context *p,
  * user can then try to establish a new one.
  */
 struct session_net *context_find_session_by_board(struct legomem_context *p,
+						  pid_t tid,
 						  struct board_info *bi)
 {
-	return context_find_session_by_ip(p, bi->board_ip);
+	return context_find_session_by_ip(p, tid, bi->board_ip);
 }

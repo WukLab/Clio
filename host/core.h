@@ -26,6 +26,7 @@ struct legomem_context {
 	pthread_spinlock_t lock;
 
 	struct legomem_vregion vregion[NR_VREGIONS];
+	struct list_head open_vregion;
 };
 
 static inline void init_legomem_context(struct legomem_context *p)
@@ -59,6 +60,13 @@ legomem_vregion_to_index(struct legomem_context *p, struct legomem_vregion *v)
 	return idx;
 }
 
+static inline struct legomem_vregion *
+index_to_legomem_vregion(struct legomem_context *p, unsigned int index)
+{
+	BUG_ON(index >= NR_VREGIONS);
+	return p->vregion + index;
+}
+
 static inline int get_session_key(unsigned int ip, unsigned int session_id)
 {
 	return ip + session_id;
@@ -72,8 +80,10 @@ void dump_legomem_context(void);
 int context_add_session(struct legomem_context *p, struct session_net *ses);
 int context_remove_session(struct legomem_context *p, struct session_net *ses);
 struct session_net *context_find_session_by_ip(struct legomem_context *p,
+					       pid_t tid,
 					       unsigned int board_ip);
 struct session_net *context_find_session_by_board(struct legomem_context *p,
+						  pid_t tid,
 						  struct board_info *bi);
 
 /* Board */

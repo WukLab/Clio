@@ -182,16 +182,86 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 	return 0;
 }
 
+/*
+ * This function tries to find an already established vregion that could
+ * possibily allocate @size mem for us. Return the vRegion if found one,
+ * NULL otherwise and caller needs to contact monitor.
+ */
+struct legomem_vregion *
+find_vregion_candidate(struct legomem_context *ctx, size_t size)
+{
+	return NULL;
+}
+
+int ask_monitor_for_new_vregion(unsigned int *board_ip, unsigned int *vregion_idx)
+{
+	*board_ip = 0;
+	*vregion_idx = 0;
+	return 0;
+}
+
 unsigned long __remote
 legomem_alloc(struct legomem_context *ctx, size_t size)
 {
+	struct legomem_vregion *v;
+	struct session_net *ses;
+	unsigned int board_ip, vregion_idx;
+	int ret;
+	pid_t tid;
+
 	/*
-	 * TODO
-	 *
-	 * Contact Monitor, which will return the board ID
-	 * We need to use check if we already had a conneciton with that board.
-	 * Use context_find_session()
+	 * First try to find to find if an existing
+	 * vregion can fulfill this request:
 	 */
+	v = find_vregion_candidate(ctx, size);
+	if (v) {
+		ses = v->ses_net;
+		BUG_ON(!ses);
+		goto found;
+	}
+
+	/*
+	 * Otherwise we ask monitor to alloc a new vRegion
+	 * and it will tell use the new board and vRegion index
+	 */
+	ret = ask_monitor_for_new_vregion(&board_ip, &vregion_idx);
+	if (ret)
+		return -EIO;
+
+	v = index_to_legomem_vregion(ctx, vregion_idx);
+
+	/*
+	 * Finally check if this context and this thread
+	 * already has an established session with the new board
+	 */
+	tid = gettid();
+	ses = context_find_session_by_ip(ctx, tid, board_ip);
+	if (ses) {
+		goto found;
+	} else {
+		/*
+		 * If there was no session before,
+		 * we need to open a new one:
+		 */
+		struct board_info *bi;
+
+		//TODO find bi by ip
+		bi = NULL;
+		ses = legomem_open_session(ctx, bi);
+		if (!ses)
+			return -EIO;
+	}
+
+	/* Assign the session to this new vRegion */
+	v->ses_net = ses;
+
+found:
+	/*
+	 * At this point, we have a valid network session
+	 * and a valid vRegion. Now we need to ask the
+	 * target board to perfom the final allocation:
+	 */
+	//TODO
 	return 0;
 }
 
