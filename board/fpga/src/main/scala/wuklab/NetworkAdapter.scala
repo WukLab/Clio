@@ -29,17 +29,20 @@ case class UDPHeader() extends Bundle {
   }
 }
 
-class NetworkAdapter extends Component {
+case class NetworkInterface() extends Bundle {
   val netConfig = AxiStreamConfig(64, keepWidth = 8)
 
+  val dataIn    = slave Stream Fragment(AxiStreamPayload(netConfig))
+  val dataOut   = master Stream Fragment(AxiStreamPayload(netConfig))
+  // TODO: check if we need pack
+  val headerIn  = slave Stream UDPHeader()
+  val headerOut = master Stream UDPHeader()
+}
+
+class NetworkAdapter extends Component {
+
   val io = new Bundle {
-    val net = new Bundle {
-      val dataIn    = slave Stream Fragment(AxiStreamPayload(netConfig))
-      val dataOut   = master Stream Fragment(AxiStreamPayload(netConfig))
-      // TODO: check if we need pack
-      val headerIn  = slave Stream UDPHeader()
-      val headerOut = master Stream UDPHeader()
-    }
+    val net = NetworkInterface()
 
     val seq = new Bundle {
       val dataIn  = slave Stream Fragment (Bits(512 bits))

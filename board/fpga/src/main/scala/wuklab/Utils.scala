@@ -291,7 +291,7 @@ object Utils {
       (0 until 2).map(idx => {
         val f = Flow(flow.payloadType)
         f.payload := flow.payload
-        f.valid := idx === b.asUInt
+        f.valid := (idx === b.asUInt) && flow.valid
         f
       })
     }
@@ -340,11 +340,11 @@ object Utils {
     // initial | (head | tail) | (head | tail) | (head | tail)
     // (initial | head) | (tail | head) | ...
     def shiftAt(offset : Int, initial : Bits): Bits = {
-      require(initial.getWidth == offset, "need the pad bits to be same width of the pad bits")
+      require(initial.getWidth == offset, "need the initial bits to be same width of the pad bits")
       val width = frag.fragment.getWidth
       val next = RegNextWhen(frag.fragment(offset-1 downto 0), frag.fire)
       // This is delayed one cycles.
-      val pad = Mux(frag.isFirst, initial, next)
+      val pad = Mux(frag.first, initial, next)
       pad ## frag.fragment(width-1 downto offset)
     }
     def shiftAt(offset : Int): Bits = {
@@ -403,6 +403,10 @@ object FlowMux {
     next.payload := flows(sel).payload
     next
   }
+}
+
+object StreamDemux2 {
+  def apply[T <: Data](stream : Stream[T], sel : Bool) = StreamDemux(stream, sel.asUInt, 2)
 }
 
 object StreamReorder {
