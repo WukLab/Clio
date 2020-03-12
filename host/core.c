@@ -92,7 +92,7 @@ int legomem_close_context(struct legomem_context *ctx)
  */
 static struct session_net *
 __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
-		       bool is_mgmt)
+		       pid_t tid, bool is_mgmt)
 {
 	struct session_net *ses;
 
@@ -109,6 +109,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 
 	ses->board_ip = bi->board_ip;
 	ses->board_info = bi;
+	ses->tid = tid;
 
 	if (is_mgmt) {
 		ses->session_id = LEGOMEM_MGMT_SESSION_ID;
@@ -140,7 +141,8 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 struct session_net *
 legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 {
-	return __legomem_open_session(ctx, bi, false);
+	pid_t tid = gettid();
+	return __legomem_open_session(ctx, bi, tid, false);
 }
 
 /*
@@ -150,7 +152,7 @@ legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 static struct session_net *
 legomem_open_session_mgmt(struct legomem_context *ctx, struct board_info *bi)
 {
-	return __legomem_open_session(ctx, bi, true);
+	return __legomem_open_session(ctx, bi, 0, true);
 }
 
 /*
@@ -203,11 +205,15 @@ int ask_monitor_for_new_vregion(unsigned int *board_ip, unsigned int *vregion_id
 unsigned long __remote
 legomem_alloc(struct legomem_context *ctx, size_t size)
 {
+	struct legomem_alloc_free_req req;
+	struct legomem_alloc_free_resp resp;
+	struct lego_header *lego_header;
 	struct legomem_vregion *v;
 	struct session_net *ses;
 	unsigned int board_ip, vregion_idx;
 	int ret;
 	pid_t tid;
+	unsigned long __remote addr;
 
 	/*
 	 * First try to find to find if an existing
@@ -226,9 +232,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 	 */
 	ret = ask_monitor_for_new_vregion(&board_ip, &vregion_idx);
 	if (ret)
-		return -EIO;
-
-	v = index_to_legomem_vregion(ctx, vregion_idx);
+		return 0;
 
 	/*
 	 * Finally check if this context and this thread
@@ -236,33 +240,64 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 	 */
 	tid = gettid();
 	ses = context_find_session_by_ip(ctx, tid, board_ip);
-	if (ses) {
-		goto found;
-	} else {
+	if (!ses) {
 		/*
 		 * If there was no session before,
 		 * we need to open a new one:
 		 */
 		struct board_info *bi;
 
-		//TODO find bi by ip
-		bi = NULL;
+		bi = find_board_by_ip(board_ip);
+		if (unlikely(bi)) {
+			printf("WARN board_ip %x not found. "
+			       "Please add it during start.\n", board_ip);
+			return 0;
+		}
+
 		ses = legomem_open_session(ctx, bi);
-		if (!ses)
-			return -EIO;
+		if (unlikely(!ses))
+			return 0;
 	}
 
-	/* Assign the session to this new vRegion */
+	/*
+	 * At this point we have the new vRegion
+	 * and a new session (or an old one), we simply
+	 * link them together:
+	 */
+	v = index_to_legomem_vregion(ctx, vregion_idx);
 	v->ses_net = ses;
 
 found:
 	/*
-	 * At this point, we have a valid network session
-	 * and a valid vRegion. Now we need to ask the
-	 * target board to perfom the final allocation:
+	 * All good, once we are here, it means
+	 * we have a valid vRegion and net session.
 	 */
-	//TODO
-	return 0;
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_ALLOC;
+
+	req.op.len = size;
+
+	ret = net_send(ses, &req, sizeof(req));
+	if (ret <= 0) {
+		printf("%s(): fail to send req\n", __func__);
+		return 0;
+	}
+
+	ret = net_receive(ses, &resp, sizeof(resp));
+	if (ret <= 0) {
+		printf("%s() fail to recv msg\n", __func__);
+		return 0;
+	}
+
+	/* Check response from the board */
+	if (resp.op.ret != 0) {
+		printf("%s(): legomem_alloc failure %d.\n",
+			__func__, resp.op.ret);
+		return 0;
+	}
+
+	addr = resp.op.addr;
+	return addr;
 }
 
 int legomem_free(struct legomem_context *ctx,

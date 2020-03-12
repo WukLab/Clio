@@ -60,13 +60,22 @@ void dump_legomem_context(void)
 }
 
 /*
+ * Ways to identify a session
+ *
+ * Combo 1: board_ip + session_id
+ * Combo 2: board_ip + tid
+ */
+
+/*
  * Add an open session to the per-context cached list.
+ * Caller needs to make sure the ses is fully cooked,
+ * i.e., thread id, board info are filled.
  */
 int context_add_session(struct legomem_context *p, struct session_net *ses)
 {
 	int key;
 
-	key = get_session_key(ses->board_ip, ses->session_id);
+	key = get_session_key(ses);
 
 	pthread_spin_lock(&p->lock);
 	hash_add(p->ht_sessions, &ses->ht_link_context, key);
@@ -80,10 +89,14 @@ int context_remove_session(struct legomem_context *p, struct session_net *ses)
 	struct session_net *_ses;
 	int key;
 
-	key = get_session_key(ses->board_ip, ses->session_id);
+	key = get_session_key(ses);
 
 	pthread_spin_lock(&p->lock);
 	hash_for_each_possible(p->ht_sessions, _ses, ht_link_context, key) {
+		/*
+		 * We do not need to check tid here,
+		 * session_id+board_ip are sufficient.
+		 */
 		if (likely(_ses->session_id == ses->session_id &&
 			   _ses->board_ip == ses->board_ip)) {
 			hash_del(&ses->ht_link_context);
@@ -96,6 +109,10 @@ int context_remove_session(struct legomem_context *p, struct session_net *ses)
 	return -1;
 }
 
+/*
+ * Caller only knows @tid and @board_ip, and try to find out if there
+ * was already an established session.
+ */
 struct session_net *context_find_session_by_ip(struct legomem_context *p,
 					       pid_t tid,
 					       unsigned int board_ip)
@@ -105,7 +122,8 @@ struct session_net *context_find_session_by_ip(struct legomem_context *p,
 
 	pthread_spin_lock(&p->lock);
 	hash_for_each(p->ht_sessions, bkt, ses, ht_link_context) {
-		if (ses->board_ip == board_ip) {
+		if (ses->board_ip == board_ip &&
+		    ses->tid == tid) {
 			pthread_spin_unlock(&p->lock);
 			return ses;
 		}
@@ -114,11 +132,7 @@ struct session_net *context_find_session_by_ip(struct legomem_context *p,
 	return NULL;
 }
 
-/*
- * Find an open session with @bi.
- * Returning NULL only means a session was not open,
- * user can then try to establish a new one.
- */
+/* Check comments on context_find_session_by_ip() */
 struct session_net *context_find_session_by_board(struct legomem_context *p,
 						  pid_t tid,
 						  struct board_info *bi)

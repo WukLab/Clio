@@ -14,6 +14,12 @@ struct session_net {
 	unsigned int		board_ip;
 	unsigned int		session_id;
 
+	/*
+	 * Session is by default a per-thread object.
+	 * Thus it belongs to a certain thread, or tid.
+	 */
+	pid_t			tid;
+
 	/* The board this session belongs to */
 	struct board_info	*board_info;
 

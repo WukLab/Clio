@@ -36,8 +36,8 @@
  * Even though a spinlock is lightweight, it *maybe* better to use RCU or alike.
  * However, others have their own overhead. We table this for now.
  */
-#define SESSION_HASH_ARRAY_BITS	(10)
-static DEFINE_HASHTABLE(session_hash_array, SESSION_HASH_ARRAY_BITS);
+#define HASH_ARRAY_BITS	(10)
+static DEFINE_HASHTABLE(session_hash_array, HASH_ARRAY_BITS);
 static pthread_spinlock_t session_lock;
 
 int init_net_session_subsys(void)
@@ -50,7 +50,12 @@ int add_net_session(struct session_net *ses)
 {
 	int key;
 
-	key = get_session_key(ses->board_ip, ses->session_id);
+	/*
+	 * For this global net session list, we only need
+	 * session_id and board_id. We do not need to concern about tid.
+	 * This applies to the full scope of this file.
+	 */
+	key = __get_session_key(ses->board_ip, ses->session_id, 0);
 
 	pthread_spin_lock(&session_lock);
 	hash_add(session_hash_array, &ses->ht_link_host, key);
@@ -64,7 +69,7 @@ int remove_net_session(struct session_net *ses)
 	struct session_net *_ses;
 	int key;
 
-	key = get_session_key(ses->board_ip, ses->session_id);
+	key = __get_session_key(ses->board_ip, ses->session_id, 0);
 
 	/*
 	 * Walk through the hash bucket and check for session_id and board_ip
@@ -89,7 +94,7 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 	struct session_net *ses;
 	int key;
 
-	key = get_session_key(board_ip, session_id);
+	key = __get_session_key(board_ip, session_id, 0);
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each_possible(session_hash_array, ses, ht_link_host, key) {
@@ -122,7 +127,6 @@ void dump_net_sessions(void)
 {
 	int bkt;
 	struct session_net *ses;
-
 
 	printf("-- Dump all network sessions: --\n");
 	printf("  HashBucket | Remote_Board | Session_ID\n");

@@ -16,7 +16,8 @@
  * This is a per-node global list,
  * it has information about all remote accessible boards.
  */
-static LIST_HEAD(board_list);
+#define HASH_ARRAY_BITS (5)
+static DEFINE_HASHTABLE(board_list, HASH_ARRAY_BITS);
 static pthread_spinlock_t board_lock;
 
 int init_board_subsys(void)
@@ -30,6 +31,7 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *local_ei)
 {
 	struct board_info *bi;
+	int key;
 
 	bi = malloc(sizeof(*bi));
 	if (!bi)
@@ -46,8 +48,9 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	bi->mem_total = mem_total;
 	bi->mem_avail = mem_total;
 
+	key = bi->board_ip;
 	pthread_spin_lock(&board_lock);
-	list_add(&bi->list, &board_list);
+	hash_add(board_list, &bi->link, key);
 	pthread_spin_unlock(&board_lock);
 
 	return bi;
@@ -55,9 +58,38 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 
 void remove_board(struct board_info *bi)
 {
+	int key;
+	struct board_info *_bi;
+
+	key = bi->board_ip;
+
 	pthread_spin_lock(&board_lock);
-	list_del(&bi->list);
+	hash_for_each_possible(board_list, _bi, link, key) {
+		if (_bi->board_ip == bi->board_ip) {
+			hash_del(&bi->link);
+			pthread_spin_unlock(&board_lock);
+			return;
+		}
+	}
 	pthread_spin_unlock(&board_lock);
+}
+
+struct board_info *find_board_by_ip(unsigned int board_ip)
+{
+	struct board_info *bi;
+	int key;
+
+	key = board_ip;
+
+	pthread_spin_lock(&board_lock);
+	hash_for_each_possible(board_list, bi, link, key) {
+		if (bi->board_ip == board_ip) {
+			pthread_spin_unlock(&board_lock);
+			return bi;
+		}
+	}
+	pthread_spin_unlock(&board_lock);
+	return NULL;
 }
 
 void dump_boards(void)
@@ -68,7 +100,7 @@ void dump_boards(void)
 	printf("-- Dumping Boards Info: --\n");
 	printf("     Name  TotalMem  AvailMem\n");
 	pthread_spin_lock(&board_lock);
-	list_for_each_entry(bi, &board_list, list) {
+	hash_for_each(board_list, i, bi, link) {
 		printf("[%2d] %s %lu %lu\n", i, bi->name, bi->mem_total,
 		       bi->mem_avail);
 		i++;

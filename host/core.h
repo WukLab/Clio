@@ -67,9 +67,22 @@ index_to_legomem_vregion(struct legomem_context *p, unsigned int index)
 	return p->vregion + index;
 }
 
-static inline int get_session_key(unsigned int ip, unsigned int session_id)
+static inline int __get_session_key(unsigned int ip,
+				    unsigned int ses_id,
+				    unsigned int tid)
 {
-	return ip + session_id;
+	return ip + ses_id + tid;
+}
+
+static inline int get_session_key(struct session_net *ses)
+{
+	unsigned int ip, ses_id, tid;
+
+	ip = ses->board_ip;
+	ses_id = ses->session_id;
+	tid = ses->tid;
+
+	return __get_session_key(ip, ses_id, tid);
 }
 
 /* Per-node context list */
@@ -92,6 +105,7 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,
 			     struct endpoint_info *local_ei);
 void remove_board(struct board_info *bi);
+struct board_info *find_board_by_ip(unsigned int board_ip);
 void dump_boards(void);
 
 /* Per-node session list */

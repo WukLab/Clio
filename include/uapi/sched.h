@@ -52,6 +52,7 @@ struct board_info {
 
 	/* List boards together */
 	struct list_head	list;
+	struct hlist_node	link;
 
 	/* The hashtable for open sessions with this board */
 	struct hlist_head	ht_sessions[NR_HT_BOARD_SESSIONS];

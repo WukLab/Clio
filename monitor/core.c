@@ -412,12 +412,12 @@ static void handle_free_proc(struct thpool_buffer *tb)
 }
 
 /* Port current host net */
-static inline size_t net_send(void *buf, size_t buf_size)
+static inline size_t _net_send(void *buf, size_t buf_size)
 {
 	return -ENOSYS;
 }
 
-static inline size_t net_receive(void *buf, size_t buf_size)
+static inline size_t _net_receive(void *buf, size_t buf_size)
 {
 	return -ENOSYS;
 }
@@ -425,7 +425,7 @@ static inline size_t net_receive(void *buf, size_t buf_size)
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
-	struct lego_hdr *lego_hdr;
+	struct lego_header *lego_hdr;
 	uint16_t opcode;
 	void *rx_buf;
 	size_t rx_buf_size;
@@ -433,7 +433,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	rx_buf = tb->rx;
 	rx_buf_size = tb->rx_size;
 
-	lego_hdr = (struct lego_hdr *)(rx_buf + LEGO_HEADER_OFFSET);
+	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
@@ -454,7 +454,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb)))
-		net_send(tb->tx, tb->tx_size);
+		_net_send(tb->tx, tb->tx_size);
 	free_thpool_buffer(tb);
 }
 
@@ -468,7 +468,7 @@ static void dispatcher(void)
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
-		ret = net_receive(tb->rx, tb->rx_size);
+		ret = _net_receive(tb->rx, tb->rx_size);
 		if (ret < 0) {
 			printf("axi dma fpga to soc failed\n");
 			return;
