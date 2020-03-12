@@ -4,6 +4,41 @@ import spinal.core._
 import spinal.lib.bus.amba4.axi.Axi4Config
 import wuklab.Utils._
 
+// TODO: extra shootdown bits
+object LegoMem {
+  object RequestType {
+    def apply()    = UInt(8 bits)
+    def INVALID    = U"8'h00"
+    def READ       = U"8'h01"
+    def READ_RESP  = U"8'h02"
+    def WRITE      = U"8'h03"
+    def WRITE_RESP = U"8'h04"
+    def ALLOC      = U"8'h05"
+    def ALLOC_RESP = U"8'h06"
+    def FREE       = U"8'h07"
+    def FREE_RESP  = U"8'h08"
+
+    def CACHE_SHOOTDOWN = U"8'h10"
+
+    def resp(u: UInt) : UInt = {
+      require(u.getWidth == 8, "Not valid request")
+      u.mux(
+        READ    -> READ_RESP,
+        WRITE   -> WRITE_RESP,
+        default -> INVALID
+      )
+    }
+  }
+
+  object RequestStatus {
+    def apply()         = UInt(4 bits)
+    def OKAY            = U"4'h00"
+    def ERR_INVALID     = U"4'h01"
+    def ERR_WRITE_PERM  = U"4'h02"
+    def ERR_READ_PERM   = U"4'h03"
+  }
+}
+
 trait CoreMemConfig {
   // Memory service config
   val  physicalAddrWidth : Int
@@ -116,23 +151,6 @@ trait CoreMemConfig {
   def epCtrlAxisConfig = AxiStreamConfig (64, destWidth = destWidth)
 }
 
-object MemoryRequestType {
-  val write = 0x02
-  val writeResp = 0x03
-  val read = 0x04
-  val readResp = 0x05
-  val alloc = 0x06
-  val allocResp = 0x07
-  val free = 0x08
-  val freeResp = 0x09
-}
-
-object MemoryRequestStatus {
-  val okay = 0x00
-  val errInvalid = 0x01
-  val errPermission = 0x02
-}
-
 trait Header[T <: Header[T]] {
   val packedWidth : Int
   def packedBytes : Int = packedWidth / 8
@@ -159,8 +177,29 @@ object LegoMemHeader {
     next(bits.getWidth - headerWidth, headerWidth bits) := nextHeader.asBits
     (next, dest)
   }
+
+  def toBitsOperation(f : LegoMemHeader => LegoMemHeader) : Bits => Bits = {
+    bits : Bits => {
+      val next = cloneOf(bits)
+      next := bits
+      next.allowOverride
+      next(next.getWidth downBy headerWidth) := f(apply(bits)).asBits
+      next
+    }
+  }
+
+  def assignToBitsOperation(f : LegoMemHeader => Unit) : Bits => Bits = {
+    toBitsOperation(header => {
+      val next = cloneOf(header)
+      next := header
+      next.allowOverride
+      f(next)
+      next
+    })
+  }
 }
 
+// TODO: add space for redirection
 case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
   val pid       = UInt(16 bits)
   val tag       = UInt(8 bits)
@@ -219,14 +258,16 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
 case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[LegoMemAccessHeader]{
   val header    = LegoMemHeader()
   val addr      = UInt(virtAddrWidth bits)
+  val length    = UInt(32 bits)
 
-  override val packedWidth = 64 + header.packedWidth
+  override val packedWidth = 96 + header.packedWidth
   override def getSize = header.size
   override def fromWiderBits(bits: Bits) = {
     assert(bits.getWidth >= packedWidth)
     val next = cloneOf(this)
     next.header := LegoMemHeader.apply(bits)
-    next.addr := bits(bits.getWidth - packedWidth, virtAddrWidth bits).asUInt
+    next.length := bits(bits.getWidth - packedWidth, 32 bits).asUInt
+    next.addr := bits(bits.getWidth - packedWidth + 32, virtAddrWidth bits).asUInt
     next
   }
 }
@@ -279,14 +320,6 @@ case class ControlRequest() extends Bundle {
     addr    := bits(55 downto 48).asUInt
     epid     := bits(63 downto 56).asUInt
   }
-}
-
-// From lookup result to Memory Access Unit
-case class AccessCommand(addrWidth : Int) extends Bundle {
-  val status = UInt(2 bits)
-  val cmd = UInt(4 bits)
-  val seqId = UInt(16 bits)
-  val phyPage = UInt(addrWidth bit)
 }
 
 object PageTableEntry {
@@ -375,6 +408,14 @@ case class PageTableEntry(
 
   def entryAddr : UInt = pteAddr * 128
 
+}
+
+object AddressLookupRequest {
+  object RequestType {
+    def apply     = UInt(2 bits)
+    def LOOKUP    = U"00"
+    def SHOOTDOWN = U"01"
+  }
 }
 
 

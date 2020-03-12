@@ -100,14 +100,24 @@ class ModelController extends Component {
 }
 
 trait MatchActionFunction {
-  def cond : Bits => Bool
-  def action : Bits => Bits
+  def cond (bits : Bits) : Bool
+  def action (bits : Bits) : Bits
 }
 
 abstract class MatchActionComponent extends Component with MatchActionFunction {
   val io = new Bundle {
     val ctrlIn  = slave Stream ControlRequest()
     val ctrlOut = master Stream ControlRequest()
+  }
+}
+
+class AssignAction(map : UInt => UInt) extends MatchActionFunction {
+  override def cond(bits : Bits) = True
+
+  override def action(bits : Bits) = {
+    val next = cloneOf(bits)
+    // Lookup the request of the action
+    next
   }
 }
 
@@ -118,6 +128,7 @@ class MatchActionTableFactory {
   val functions = ArrayBuffer[(Bits => Bool, Bits => Bits)]()
   val components = ArrayBuffer[(MatchActionComponent, Int)]()
   def addAction(cond : Bits => Bool, action : Bits => Bits) : Unit = functions += ((cond, action))
+  def addAction(f : MatchActionFunction) : Unit = functions += ((f.cond, f.action))
   def addComponent (c : MatchActionComponent, ctrlAddr : Int) : Unit = {
     components += ((c, ctrlAddr))
     functions += ((c.cond, c.action))
@@ -149,122 +160,132 @@ class MatchActionTableFactory {
 }
 
 
-//class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int) extends Component {
+// class Sequencer(dataWidth : Int, tagWidth : Int, numWaits : Int, numCells : Int) extends Component {
 //
-//  assert(isPow2(numCells))
-//  val cellWidth = log2Up(numCells)
+//   assert(isPow2(numCells))
+//   val cellWidth = log2Up(numCells)
 //
-//  val io = new Bundle {
-//    val req = slave  Stream InternalMemoryRequest(dataWidth)
-//    val res = master Stream InternalMemoryRequest(dataWidth)
+//   val io = new Bundle {
+//     val req = slave  Stream Fragment (Bits(512 bits))
+//     val res = master Stream Fragment (Bits(512 bits))
 //
-//    val unlock = slave Flow UInt(cellWidth bits)
-//  }
+//     val unlock = slave Flow UInt(cellWidth bits)
+//   }
 //
-//  // Write : Match -> If exists, add; else, insert
-//  val cam = new LookupTCamStoppable(dataWidth, cellWidth, true)
-//  val ids = new IDPool(numCells)
-//  val lock = new LockCounterRam(numWaits, numCells)
+//   // Write : Match -> If exists, add; else, insert
+//   val cam = new LookupTCamStoppable(dataWidth, cellWidth, true)
+//   val ids = new IDPool(numCells)
+//   val lock = new LockCounterRam(numWaits, numCells)
 //
-//  // Internal infomations
-//  val bypassFifo = new StreamFifoLowLatency(io.req.payloadType, 1)
+//   // Internal infomations
+//   val bypassFifo = new StreamFifoLowLatency(io.req.payloadType, 1)
 //
-//  // Data path
-//  val inputCtrl = new Area {
+//   // Data path
+//   val inputCtrl = new Area {
 //
-//    // flow through CAM
-//    val afterLookup = requireLock(io.req)
+//     // flow through CAM
+//     val afterLookup = requireLock(io.req)
 //
-//    // See if we need lock
-//    val newLock = isLockInstruction(afterLookup.snd)
-//    val requireLockBool =  afterLookup.fst.hit || newLock
+//     // See if we need lock
+//     val newLock = isLockInstruction(afterLookup.snd)
+//     val requireLockBool =  afterLookup.fst.hit || newLock
 //
-//    // split to two flows
-//    val beforeWait = afterLookup.fmapFst(_.value)
-//    val Seq(bypassPort, waitPort) = StreamDemux(beforeWait, requireLockBool.asUInt, 2)
-//    bypassPort.fmap(_.snd) >> bypassFifo.io.push
-//  }
+//     // split to two flows
+//     val beforeWait = afterLookup.fmapFst(_.value)
+//     val Seq(bypassPort, waitPort) = StreamDemux(beforeWait, requireLockBool.asUInt, 2)
+//     bypassPort.fmap(_.snd) >> bypassFifo.io.push
+//   }
 //
-//  val waitFifo   = new StreamFifo(inputCtrl.beforeWait.payloadType, numWaits)
+//   val waitFifo   = new StreamFifo(inputCtrl.beforeWait.payloadType, numWaits)
 //
-//  val lockAddrCtrl = new Area {
-//    // TODO: this is arrow.
-//    val Seq(existingLock, newLock) = inputCtrl.newLock.demux(inputCtrl.waitPort)
+//   val lockAddrCtrl = new Area {
+//     // TODO: this is arrow.
+//     val Seq(existingLock, newLock) = inputCtrl.newLock.demux(inputCtrl.waitPort)
 //
-//    // Bind this two fifos
-//    val newCmd = ids.io.alloc >*< newLock.fmap(_.snd)
-//    val nextCmd = StreamMux(inputCtrl.newLock.asUInt, Seq(existingLock, newCmd))
-//    //    val nextCmd =  inputCtrl.newLock.mux(existingLock, newCmd)
+//     // Bind this two fifos
+//     val newCmd = ids.io.alloc >*< newLock.fmap(_.snd)
+//     val nextCmd = StreamMux(inputCtrl.newLock.asUInt, Seq(existingLock, newCmd))
+//     //    val nextCmd =  inputCtrl.newLock.mux(existingLock, newCmd)
 //
-//    nextCmd >> waitFifo.io.push
-//    nextCmd.tapAsFlow.fmap(_.fst) >> lock.io.lockReq
-//  }
+//     nextCmd >> waitFifo.io.push
+//     nextCmd.tapAsFlow.fmap(_.fst) >> lock.io.lockReq
+//   }
 //
-//  val camCtrl = new Area {
-//    val insertReq = lockAddrCtrl.newCmd.tapAsFlow
-//    val deleteReq = lock.io.freeAddr
+//   val camCtrl = new Area {
+//     val insertReq = lockAddrCtrl.newCmd.tapAsFlow
+//     val deleteReq = lock.io.freeAddr
 //
-//    val writeCmd = cloneOf (cam.io.wr.payload)
+//     val writeCmd = cloneOf (cam.io.wr.payload)
 //
-//    // Set the command
-//    writeCmd.key := getTagFromRequest(insertReq.snd)
-//    writeCmd.mask := getMaskFromRequest(insertReq.snd)
-//    // If is not insert, then used is false (it is a delete)
-//    writeCmd.enable := insertReq.valid
-//    writeCmd.value := Mux(deleteReq.valid && insertReq.valid, deleteReq.payload, insertReq.payload.fst)
+//     // Set the command
+//     writeCmd.key := getTagFromRequest(insertReq.snd)
+//     writeCmd.mask := getMaskFromRequest(insertReq.snd)
+//     // If is not insert, then used is false (it is a delete)
+//     writeCmd.enable := insertReq.valid
+//     writeCmd.value := Mux(deleteReq.valid && insertReq.valid, deleteReq.payload, insertReq.payload.fst)
 //
-//    cam.io.wr << ReturnFlow(writeCmd, insertReq.valid || deleteReq.valid)
+//     cam.io.wr << ReturnFlow(writeCmd, insertReq.valid || deleteReq.valid)
 //
-//    // Return of address
-//    ids.io.free <-< deleteReq.throwWhen(insertReq.valid)
-//  }
+//     // Return of address
+//     ids.io.free <-< deleteReq.throwWhen(insertReq.valid)
+//   }
 //
-//  val outputCtrl = new Area {
-//    // unlock forward
-//    io.unlock >> lock.io.unlockReq
-//    waitFifo.io.pop.tapAsFlow.fmap(_.fst) >> lock.io.popReq
+//   val outputCtrl = new Area {
+//     // unlock forward
+//     io.unlock >> lock.io.unlockReq
+//     waitFifo.io.pop.tapAsFlow.fmap(_.fst) >> lock.io.popReq
 //
-//    // output path
-//    val unlockLast = ~lock.io.isLocked(waitFifo.io.pop.fst)
-//    io.res << StreamArbiterFactory.onArgs(
-//      bypassFifo.io.pop,
-//      waitFifo.io.pop.fmap(_.snd).continueWhen(unlockLast)
-//    )
-//  }
+//     // output path
+//     val unlockLast = ~lock.io.isLocked(waitFifo.io.pop.fst)
+//     io.res << StreamArbiterFactory.onArgs(
+//       bypassFifo.io.pop,
+//       waitFifo.io.pop.fmap(_.snd).continueWhen(unlockLast)
+//     )
+//   }
 //
-//  def getTagFromRequest (req: InternalMemoryRequest) : UInt = {
-//    req.addr
-//  }
+//   def getTagFromRequest (req: InternalMemoryRequest) : UInt = {
+//     req.addr
+//   }
 //
-//  def getMaskFromRequest (req: InternalMemoryRequest) : UInt = {
-//    req.mask
-//  }
+//   def getMaskFromRequest (req: InternalMemoryRequest) : UInt = {
+//     req.mask
+//   }
 //
-//  def requireLock (req : Stream[InternalMemoryRequest]) = {
-//    cam.io.rd.req << io.req.fmap(_ |> getTagFromRequest |> LookupReadReq.apply)
+//   def requireLock (req : Stream[InternalMemoryRequest]) = {
+//     cam.io.rd.req << io.req.fmap(_ |> getTagFromRequest |> LookupReadReq.apply)
 //
-//    val cmd = cam.delay(req.payload)
-//    cam.io.rd.res fmap (Pair(_, cmd))
-//  }
+//     val cmd = cam.delay(req.payload)
+//     cam.io.rd.res fmap (Pair(_, cmd))
+//   }
 //
-//  def isLockInstruction (req : LegoMemHeader) : Bool = {
-//    // TODO: make functions a class member
-//    val functions = Seq[LegoMemHeader => (Bool, UInt)]()
-//    val (bits, masks) = functions.map(req |> _).unzip
+//   def isLockInstruction (req : LegoMemHeader) : Bool = {
+//     // TODO: make functions a class member
+//     val functions = Seq[LegoMemHeader => (Bool, UInt)]()
+//     val (bits, masks) = functions.map(req |> _).unzip
 //
-//    val mask = MuxOH(Vec(bits), masks)
-//    val valid = bits.reduce(_ || _)
+//     val mask = MuxOH(Vec(bits), masks)
+//     val valid = bits.reduce(_ || _)
 //
-//    (valid, mask)
-////    req.reqType === MemoryRequestType.alloc || req.reqType === MemoryRequestType.free
-//  }
+//     (valid, mask)
+// //    req.reqType === MemoryRequestType.alloc || req.reqType === MemoryRequestType.free
+//   }
 //
-//}
+// }
 
-class MemoryModel extends Component {
+class MemoryModel(implicit config : CoreMemConfig) extends Component {
   // Adapter
+  val io = new Bundle {
+    val ep = LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
+    val net = NetworkInterface()
+  }
+
+  val bridge = new RawInterfaceEndpoint
+  bridge.io.ep <> io.ep
 
   // Match Action Table
+  val matBuilder = new MatchActionTableFactory
+//  matBuilder.addAction()
+  val mat = matBuilder.build
 
   // Sequencer
 

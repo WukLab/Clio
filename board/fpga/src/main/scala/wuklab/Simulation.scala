@@ -161,6 +161,8 @@ object CoreMemorySim {
     ) {dut => {
       dut.clockDomain.forkStimulus(5)
 
+      dut.io.ep.dataOut.ready #= true
+
       val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 65536)
       mem =# dut.io.bus.access
       mem =# dut.io.bus.lookup
@@ -174,10 +176,15 @@ object CoreMemorySim {
 
       dut.clockDomain.waitRisingEdge(10)
 
-      val dec = legoMemAccessMsgCodec.encode(
-        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 0, cont = 0, 0, seqId = 0, size = 8), 0x0000L, ByteVector.empty)
+      def wr_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
+        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 3, cont = 0, 0, seqId = seq, size = 28), 0x0000L, 4,
+        ByteVector(0x12, 0x34, 0x56, 0x78))
       ).require
-      data #= BitAxisDataGen(Seq(dec), Seq(dec))
+      def rd_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
+        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 1, cont = 0, 0, seqId = seq, size = 20), 0x0000L, 8,
+          ByteVector(0x12, 0x34, 0x56, 0x78))
+      ).require
+      data #= BitAxisDataGen(Seq(wr_cmd(0)), Seq(rd_cmd(1)))
 
       dut.clockDomain.waitRisingEdge(80)
     }}

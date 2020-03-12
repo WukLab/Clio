@@ -147,7 +147,7 @@ class BitStreamDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Stream[Fragme
       false
     else {
       val seq = seqs(idx)
-      frag.payload.fragment #= BigInt(seq(offset).toByteArray)
+      frag.payload.fragment #= BigInt(seq(offset).toByteArray.reverse)
       frag.payload.last #= (offset + 1) == seq.size
       true
     }
@@ -178,7 +178,7 @@ class BitAxisDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Fragment[AxiStr
   override def tik = {
     if (idx < seqs.size) {
       val seq = seqs(idx)
-      wire.fragment.tdata #= BigInt(seq(offset).toByteArray)
+      wire.fragment.tdata #= BigInt(seq(offset).toByteArray.reverse)
       wire.last #= (offset + 1) == seq.size
       if(wire.fragment.config.useDest) wire.fragment.tdest #= 0
       true
@@ -292,8 +292,6 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
                           )
 
   private val memory : ArrayBuffer[Byte] = ArrayBuffer.fill(size)(0)
-  private val read = ChannelStates()
-  private val write = ChannelStates()
 
   def memoryRead(addr : Int, size : Int) : BigInt = {
     println(f"Memory Read @$addr%08X:$size")
@@ -327,6 +325,7 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
   }
 
   def handleRead (config : Axi4Config, cmd : Stream[Axi4Ar], rsp : Stream[Axi4R]) : Unit = {
+    val read = ChannelStates()
     // We do not join this thread, since it is a service not a simulating components
     fork {
       cmd.ready #= false
@@ -376,6 +375,7 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
   }
 
   def handleWrite (config : Axi4Config, cmd : Stream[Axi4Aw], data : Stream[Axi4W], rsp : Stream[Axi4B]) : Unit = {
+    val write = ChannelStates()
     // We do not join this thread, since it is a service not a simulating components
     fork {
       // init value

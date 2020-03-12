@@ -86,7 +86,7 @@ class LegoMemDataOutputAdapter(externalWidth : Int) extends Component {
     dataOut.translateFrom (io.internal.dataIn) { (next, beat) =>
       next.last := beat.last
       next.fragment.tdata := beat.fragment
-      next.fragment.tkeep := Mux(beat.last, U(0, adapterConfig.keepWidth), Bits(64 bits).setAll())
+      next.fragment.tkeep := Mux(beat.last, B(0, adapterConfig.keepWidth bits), Bits(64 bits).setAll())
     }
 
   }
@@ -163,8 +163,9 @@ class axi_dma(
     // Width of AXI wstrb (width of data bus in words)
     // val AXI_STRB_WIDTH = (AXI_DATA_WIDTH/8)
     // Width of AXI ID signal
-    val AXI_ID_WIDTH = 8
+    val AXI_ID_WIDTH = if (axiConfig.useId) axiConfig.idWidth else 1
     // Maximum AXI burst length to generate
+    // This parameter is mainly about the max burst length
     val AXI_MAX_BURST_LEN = 16
     // Width of AXI stream interfaces in bits
     // val AXIS_DATA_WIDTH = AXI_DATA_WIDTH

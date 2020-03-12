@@ -314,14 +314,13 @@ class BramCache(implicit config : CoreMemConfig) extends Component {
     // read out
     // TODO: fix this constant for shoot down
     val delayedCmd = table <|| io.cmd.req
-    val isShootDown = delayedCmd.reqType === 1
+    val isShootDown = delayedCmd.reqType === AddressLookupRequest.RequestType.SHOOTDOWN
     val isResult = table.io.rd.res.hit
 
     val Seq(fwd, res) = isResult.demux(table.io.rd.res.throwWhen(isShootDown))
     // forward path
     io.cmd.fwd <-< (delayedCmd <* fwd)
     // result path
-    // TODO: change this assignment
     val pte = io.cmd.res.payloadType()
     pte.seqId := delayedCmd.seqId
     io.cmd.res << res.fmap(r => pte.fromCompactBits(r.value.asBits))
@@ -377,6 +376,8 @@ class LookupControlAgent(implicit config : CoreMemConfig) extends Component {
 
 
 class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
+  // TODO: make this one large enough
+  val numInflightRequests = 64
 
   // input: request
   val io = new Bundle {
@@ -394,6 +395,8 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
   val agent = new LookupControlAgent
   io.ctrl.in >> agent.io.cmdIn
   io.ctrl.out << agent.io.cmdOut
+
+  val seqFifo = ReturnStream(io.req.seqId, io.req.fire).queue(numInflightRequests)
 
   // bram cache & update unit
   val cache = new BramCache
@@ -431,10 +434,10 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
 
   // merge here
   // TODO: replace this with a reorder buffer (log the seq numbers, and compare)
-  val counter = Counter(16 bits, io.res.fire)
   val streams = Seq(cache.io.cmd.res, pageFault.io.res)
-  val validVec = streams.map(_.seqId === counter.value)
-  io.res << StreamMux(OHToUInt(validVec), streams).continueWhen(validVec.reduce(_ || _))
+  val validVec = streams.map(_.seqId === seqFifo.payload)
+  val selected = StreamMux(OHToUInt(validVec), streams).continueWhen(validVec.reduce(_ || _))
+  io.res << (seqFifo *> selected)
 
 }
 
