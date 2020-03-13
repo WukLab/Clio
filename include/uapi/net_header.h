@@ -49,6 +49,7 @@ struct udp_hdr {
  * See uapi/opcode.h for opcode definitions.
  */
 struct lego_header {
+	pid_t	pid;
 	uint16_t opcode;
 } __attribute__((packed));
 

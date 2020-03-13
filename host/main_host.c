@@ -92,6 +92,12 @@ int main(int argc, char **argv)
 	/* Open the mgmt session, aka session_0 */
 	init_management_session();
 
+	/*
+	 * For hosts, they will use this mgmt session
+	 * to contact with monitor.
+	 */
+	monitor_session = mgmt_session;
+
 	test_app(local_ei, remote_ei);
 
 	return 0;

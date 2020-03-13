@@ -126,4 +126,7 @@ struct session_net *legomem_open_session(struct legomem_context *ctx, struct boa
 struct session_net *legomem_open_session_mgmt(struct legomem_context *ctx, struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
+/* Host-side only */
+extern struct session_net *monitor_session;
+
 #endif /* _HOST_CORE_H_ */

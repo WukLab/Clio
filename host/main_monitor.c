@@ -309,58 +309,66 @@ void free_proc(struct proc_info *pi)
 	printf("WARN: Fail to find tsk (ip %u pid %d)\n", ip, pid);
 }
 
+/*
+ * This is the handler for host side __legomem_open_context.
+ */
 static void handle_create_proc(struct thpool_buffer *tb)
 {
+	struct legomem_create_context_req *req;
+	struct legomem_create_context_resp *resp;
 	struct proc_info *proc;
 	unsigned int pid, host_ip;
 	char *proc_name;
-	int *reply;
 
-	reply = (int *)tb->tx;
-	set_tb_tx_size(tb, sizeof(int));
+	resp = (struct legomem_create_context_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	req = (struct legomem_create_context_req *)tb->rx;
+	proc_name = req->op.proc_name;
+	host_ip = 0;
 
 	pid = alloc_pid();
 	if (unlikely(pid < 0)) {
-		*reply = pid;
+		resp->op.ret = -ENOMEM;
 		return;
 	}
 
-	/* Should come from request */
-	proc_name = NULL;
-	host_ip = 0;
-
 	proc = alloc_proc(pid, proc_name, host_ip);
-	if (!proc) {
+	if (unlikely(!proc)) {
 		free_pid(pid);
-		*reply = -ENOMEM;
+		resp->op.ret = -ENOMEM;
 		return;
 	}
 
 	/* Succeed, return PID to user */
-	*reply = pid;
+	resp->op.ret = 0;
+	resp->op.pid = pid;
 }
 
 static void handle_free_proc(struct thpool_buffer *tb)
 {
+	struct legomem_close_context_req *req;
+	struct legomem_close_context_resp *resp;
+	struct lego_header *lego_header;
 	struct proc_info *pi;
-	int *reply;
 	unsigned int pid, host_ip;
-	void *rx_buf;
 
-	reply = (int *)tb->tx;
-	set_tb_tx_size(tb, sizeof(int));
+	resp = (struct legomem_close_context_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*req));
 
-	/* TODO: Get PID and NODE from request buffer */
-	rx_buf = tb->rx;
-	pid = 1;
+	req = (struct legomem_close_context_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
 	host_ip = 0;
+
 	pi = get_proc_by_pid(pid, host_ip);
 	if (!pi) {
-		*reply = -ESRCH;
+		resp->ret = -ESRCH;
 		return;
 	}
 
 	/* We grabbed one ref above, thus put twice */
+	resp->ret = 0;
 	put_proc_info(pi);
 	put_proc_info(pi);
 }
@@ -428,10 +436,8 @@ static void worker_handle_request(struct thpool_worker *tw,
 	struct lego_header *lego_hdr;
 	uint16_t opcode;
 	void *rx_buf;
-	size_t rx_buf_size;
 
 	rx_buf = tb->rx;
-	rx_buf_size = tb->rx_size;
 
 	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
 	opcode = lego_hdr->opcode;

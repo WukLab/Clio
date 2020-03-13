@@ -14,6 +14,8 @@
 #include "core.h"
 #include "net/net.h"
 
+struct session_net *monitor_session;
+
 /*
  * Allocate a new process-local legomem context.
  * Monitor will be contacted. On success, the context is returned.
@@ -41,12 +43,31 @@ __legomem_open_context(bool is_mgmt)
 		p->flags |= LEGOMEM_CONTEXT_FLAGS_MGMT;
 	} else {
 		/*
-		 * TODO
-		 * 1. contact monitor for PID
-		 * 2. open sessions, if necessary
+		 * Normal context creation
+		 * Contact monitor
 		 */
+		struct legomem_create_context_req req;
+		struct legomem_create_context_resp resp;
+		struct lego_header *lego_header;
+
+		lego_header = to_lego_header(&req);
+		lego_header->opcode = OP_CREATE_PROC;
+		memset(req.op.proc_name, 'a', PROC_NAME_LEN);
+
+		net_send(monitor_session, &req, sizeof(req));
+		net_receive(monitor_session, &resp, sizeof(resp));
+
+		if (unlikely(resp.op.ret))
+			goto err;
+
+		p->pid = resp.op.pid;
 	}
+
 	return p;
+
+err:
+	remove_legomem_context(p);
+	return NULL;
 }
 
 struct legomem_context *legomem_open_context(void)
@@ -76,11 +97,21 @@ int legomem_close_context(struct legomem_context *ctx)
 		return ret;
 
 	if (!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT)) {
-		/*
-		 * TODO
-		 * Contact Monitor to ask it to free
-		 * all resources. Maybe boards too.
-		 */
+		struct legomem_close_context_req req;
+		struct legomem_close_context_resp resp;
+		struct lego_header *lego_header;
+
+		lego_header = to_lego_header(&req);
+		lego_header->opcode = OP_FREE_PROC;
+		lego_header->pid = ctx->pid;
+
+		net_send(monitor_session, &req, sizeof(req));
+		net_receive(monitor_session, &resp, sizeof(resp));
+
+		if (resp.ret) {
+			printf("%s(): monitor fail to close a session. ret %d\n",
+				__func__, resp.ret);
+		}
 	}
 
 	free(ctx);
@@ -449,4 +480,3 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 
 	return 0;
 }
-

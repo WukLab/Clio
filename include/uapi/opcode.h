@@ -60,6 +60,11 @@ struct op_create_proc {
 	char proc_name[PROC_NAME_LEN];
 };
 
+struct op_create_proc_resp {
+	int ret;
+	pid_t pid;
+};
+
 /*
  * For
  * - OP_REQ_READ
@@ -91,6 +96,26 @@ struct legomem_common_headers {
 /*
  * Define a whole msg
  */
+
+/*
+ * Create and close contexts
+ */
+struct legomem_create_context_req {
+	struct legomem_common_headers comm_headers;
+	struct op_create_proc op;
+};
+struct legomem_create_context_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_create_proc_resp op;
+};
+
+struct legomem_close_context_req {
+	struct legomem_common_headers comm_headers;
+};
+struct legomem_close_context_resp {
+	struct legomem_common_headers comm_headers;
+	int ret;
+};
 
 /*
  * Read and Write
