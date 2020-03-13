@@ -80,44 +80,44 @@ class LegoMemDataOutputAdapter(externalWidth : Int) extends Component {
 
     val size = RegNextWhenBypass(LegoMemHeader(io.internal.dataIn.fragment).size, io.internal.dataIn.isFirst)
     // TODO: check this
-    val headerBytes = 64 / 8
-    val lastTKeep = leftOR(headerBytes + (size & 0xff), 64)
+    val header = LegoMemHeader(io.internal.dataIn.fragment)
+    val lastKeep = ((U(1, 64 bits) << header.getSize.maskBy(64)) - 1).resize(64).asBits
 
     dataOut.translateFrom (io.internal.dataIn) { (next, beat) =>
       next.last := beat.last
       next.fragment.tdata := beat.fragment
-      next.fragment.tkeep := Mux(beat.last, B(0, adapterConfig.keepWidth bits), Bits(64 bits).setAll())
+      next.fragment.tkeep := Mux(beat.last, lastKeep, Bits(64 bits).setAll())
     }
 
   }
 
   // Connect this to a converter
   // TODO: add in and out fifos
-  val inPipe = new AxiStreamWidthConverter(externalConfig, adapterConfig)
-  inPipe.io.m_axis << io.external.dataIn
-  inPipe.io.s_axis.liftStream(_.tdata) >> io.internal.dataOut
-  val outPipe = new AxiStreamWidthConverter(adapterConfig, externalConfig)
-  outPipe.io.m_axis << adaptCtrl.dataOut
-  outPipe.io.s_axis >> io.external.dataOut
+  val inPipe = new AxiStreamWidthConverter(adapterConfig, externalConfig)
+  inPipe.io.s_axis << io.external.dataIn
+  inPipe.io.m_axis.liftStream(_.tdata) >> io.internal.dataOut
+  val outPipe = new AxiStreamWidthConverter(externalConfig, adapterConfig)
+  outPipe.io.s_axis << adaptCtrl.dataOut
+  outPipe.io.m_axis >> io.external.dataOut
 
 }
 
-class AxiStreamWidthConverter(mconfig : AxiStreamConfig, sconfig: AxiStreamConfig) extends BlackBox {
+class AxiStreamWidthConverter(mconfig : AxiStreamConfig, sconfig: AxiStreamConfig)
+  extends BlackBox with XilinxAXI4Toplevel {
 
   require(mconfig.useKeep, "Master Interface must enable tKeep!")
-  if (mconfig.dataWidth > sconfig.dataWidth)
-    require(sconfig.useKeep, "Downsizing requires Slave Interface enable tKeep!")
+  require(sconfig.useKeep, "Slave Interface enable tKeep!")
 
   val generic = new Generic {
     // Width of input AXI stream interface in bits
-    val S_DATA_WIDTH = mconfig.dataWidth
+    val S_DATA_WIDTH = sconfig.dataWidth
     // Propagate tkeep signal on input interface
     // If disabled, tkeep assumed to be 1'b1
-    val S_KEEP_ENABLE = if (sconfig.useKeep) 1 else 0
+    // val S_KEEP_ENABLE = if (sconfig.useKeep) 1 else 0
     // tkeep signal width (words per cycle) on input interface
     // val S_KEEP_WIDTH = (S_DATA_WIDTH/8)
     // Width of output AXI stream interface in bits
-    val M_DATA_WIDTH = sconfig.dataWidth
+    val M_DATA_WIDTH = mconfig.dataWidth
     // Propagate tkeep signal on output interface
     // If disabled, tkeep assumed to be 1'b1
     // val M_KEEP_ENABLE = (M_DATA_WIDTH>8)
@@ -138,16 +138,17 @@ class AxiStreamWidthConverter(mconfig : AxiStreamConfig, sconfig: AxiStreamConfi
   }
 
   val io = new Bundle {
-    val clk = Bool
-    val rstn = Bool
+    val clk = in Bool
+    val rstn = in Bool
 
     val m_axis = master Stream Fragment(AxiStreamPayload(mconfig))
     val s_axis = slave Stream Fragment(AxiStreamPayload(sconfig))
   }
 
-  mapClockDomain(clock = io.clk, reset = io.rstn)
   setDefinitionName("axis_adapter")
+  addPrePopTask(renameIO)
 
+  mapClockDomain(clock = io.clk, reset = io.rstn)
   addRTLPath("src/lib/verilog/verilog-axis/rtl/axis_adapter.v")
 }
 
@@ -172,7 +173,7 @@ class axi_dma(
     // Use AXI stream tkeep signal
     val AXIS_KEEP_ENABLE = if (axisConfig.useKeep) 1 else 0
     // AXI stream tkeep signal width (words per cycle)
-    // val AXIS_KEEP_WIDTH = (AXIS_DATA_WIDTH/8)
+    val AXIS_KEEP_WIDTH = if (axisConfig.useKeep) axisConfig.keepWidth else 1
     // Use AXI stream tlast signal
     val AXIS_LAST_ENABLE = 1
     // Propagate AXI stream tid signal

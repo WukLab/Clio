@@ -160,11 +160,11 @@ trait Header[T <: Header[T]] {
 
 object LegoMemHeader {
   // Need a mapper function at bits
-  val headerWidth = 64
+  val headerWidth = 128
   def apply(bits: Bits): LegoMemHeader = {
     assert(bits.getWidth >= headerWidth, "Try to get LegoMem from a small bits")
     val header = LegoMemHeader()
-    header.assignFromBits(bits(bits.getWidth downBy headerWidth))
+    header.assignFromBits(bits(0, headerWidth bits))
     header
   }
 
@@ -174,7 +174,7 @@ object LegoMemHeader {
     val (nextHeader, dest) = header.stackPop
     next := bits
     next.allowOverride
-    next(bits.getWidth - headerWidth, headerWidth bits) := nextHeader.asBits
+    next(0, headerWidth bits) := nextHeader.asBits
     (next, dest)
   }
 
@@ -183,7 +183,7 @@ object LegoMemHeader {
       val next = cloneOf(bits)
       next := bits
       next.allowOverride
-      next(next.getWidth downBy headerWidth) := f(apply(bits)).asBits
+      next(0, headerWidth bits) := f(apply(bits)).asBits
       next
     }
   }
@@ -204,10 +204,16 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
   val pid       = UInt(16 bits)
   val tag       = UInt(8 bits)
   val reqType   = UInt(8 bits)
-  val cont      = UInt(8 bits)
   val reqStatus = UInt(4 bits)
-  val seqId     = UInt(4 bits)
+  val flagRoute = Bool
+  val flagRepl  = Bool
+  val rsvd      = UInt(2 bits)
+  val seqId     = UInt(8 bits)
   val size      = UInt(16 bits)
+
+  val cont      = UInt(16 bits)
+  val destPort  = UInt(16 bits)
+  val destIp    = UInt(32 bits)
 
   def stackPop: (LegoMemHeader, UInt) = {
     val next = cloneOf(this)
@@ -232,24 +238,36 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
   override def assignFromBits(bits: Bits) = {
     assert(bits.getWidth == packedWidth, "LegoMem Build: Width mismatch")
 
-    pid       := bits(48, 16 bits).asUInt
-    tag       := bits(40, 8 bits).asUInt
-    reqType   := bits(32, 8 bits).asUInt
-    cont      := bits(24, 8 bits).asUInt
-    reqStatus := bits(20, 4 bits).asUInt
-    seqId     := bits(16, 4 bits).asUInt
-    size      := bits(0, 16 bits).asUInt
+    pid       := bits(0,  16 bits).asUInt
+    tag       := bits(16, 8  bits).asUInt
+    reqType   := bits(24, 8  bits).asUInt
+    reqStatus := bits(32, 4  bits).asUInt
+    flagRoute := bits(36)
+    flagRepl  := bits(37)
+    rsvd      := bits(38, 2  bits).asUInt
+    seqId     := bits(40, 8  bits).asUInt
+    size      := bits(48, 16 bits).asUInt
+
+    cont      := bits(64, 16 bits).asUInt
+    destPort  := bits(80, 16 bits).asUInt
+    destIp    := bits(96, 32 bits).asUInt
   }
 
   override def asBits = {
     val bits = Bits(packedWidth bits)
-    bits(48, 16 bits) := pid      .asBits
-    bits(40, 8 bits)  := tag      .asBits
-    bits(32, 8 bits)  := reqType  .asBits
-    bits(24, 8 bits)  := cont     .asBits
-    bits(20, 4 bits)  := reqStatus.asBits
-    bits(16, 4 bits)  := seqId    .asBits
-    bits(0, 16 bits)  := size     .asBits
+    bits(0,  16 bits) := pid      .asBits
+    bits(16, 8  bits) := tag      .asBits
+    bits(24, 8  bits) := reqType  .asBits
+    bits(32, 4  bits) := reqStatus.asBits
+    bits(36)          := flagRoute
+    bits(37)          := flagRepl
+    bits(38, 2  bits) := rsvd     .asBits
+    bits(40, 8  bits) := seqId    .asBits
+    bits(48, 16 bits) := size     .asBits
+
+    bits(64, 16 bits) := cont     .asBits
+    bits(80, 16 bits) := destPort .asBits
+    bits(96, 32 bits) := destIp   .asBits
     bits
   }
 
@@ -266,8 +284,8 @@ case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[L
     assert(bits.getWidth >= packedWidth)
     val next = cloneOf(this)
     next.header := LegoMemHeader.apply(bits)
-    next.length := bits(bits.getWidth - packedWidth, 32 bits).asUInt
-    next.addr := bits(bits.getWidth - packedWidth + 32, virtAddrWidth bits).asUInt
+    next.length := bits(header.packedWidth, 32 bits).asUInt
+    next.addr   := bits(header.packedWidth + 32, virtAddrWidth bits).asUInt
     next
   }
 }

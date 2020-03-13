@@ -111,13 +111,29 @@ abstract class MatchActionComponent extends Component with MatchActionFunction {
   }
 }
 
-class AssignAction(map : UInt => UInt) extends MatchActionFunction {
+class DecodeAction extends MatchActionFunction {
   override def cond(bits : Bits) = True
 
-  override def action(bits : Bits) = {
-    val next = cloneOf(bits)
-    // Lookup the request of the action
-    next
+  override def action(bits : Bits) = LegoMemHeader.assignToBitsOperation(header => {
+    switch (header.reqType) {
+      is (LegoMem.RequestType.READ)  { header.cont := U"16'h00_00_00_01" }
+      is (LegoMem.RequestType.WRITE) { header.cont := U"16'h00_00_00_01" }
+      is (LegoMem.RequestType.ALLOC) { header.cont := U"16'h00_00_00_01" }
+      is (LegoMem.RequestType.FREE)  { header.cont := U"16'h00_00_00_01" }
+      default { header.cont := U"16'h00_00_00_01" }
+    }
+  })(bits)
+}
+
+class SequencerAction extends MatchActionFunction {
+
+  override def cond(bits: Bits) = True
+  override def action(bits: Bits) = {
+    val seqIdWidth = 8
+    val counter = Counter(seqIdWidth bits)
+    val func = LegoMemHeader.assignToBitsOperation(_.seqId := counter.value)
+    counter.increment()
+    func(bits)
   }
 }
 
@@ -137,7 +153,8 @@ class MatchActionTableFactory {
 
   // TODO: look for a delayed init, refer to xbar
   // see https://github.com/SpinalHDL/SpinalHDL/blob/c40aa7df065f89a3c6ccd6bddb5bcfb2ae682adf/lib/src/main/scala/spinal/lib/bus/misc/BusSlaveFactory.scala#L684
-  def build : Component = new Component {
+  def build() = new Component {
+
     val io = new Bundle {
       val ctrlIn  = slave Stream ControlRequest()
       val ctrlOut = master Stream ControlRequest()
@@ -155,7 +172,13 @@ class MatchActionTableFactory {
     val ctrlValids = Vec(components.map(_._2 === io.ctrlIn.addr))
     val inputCtrls = StreamDemux(io.ctrlIn.takeWhen(ctrlValids.orR), OHToUInt(ctrlValids), components.size)
     (components, inputCtrls).zipped map (_._1.io.ctrlIn << _)
-    io.ctrlOut << StreamArbiterFactory.sequentialOrder.on(components.map(_._1.io.ctrlOut))
+
+    // Add special for non-components
+    if (components.nonEmpty)
+      io.ctrlOut << StreamArbiterFactory.sequentialOrder.on(components.map(_._1.io.ctrlOut))
+    else {
+      io.ctrlOut << ReturnStream(cloneOf(io.ctrlOut.payload).clearAll, False)
+    }
   }
 }
 
@@ -273,7 +296,6 @@ class MatchActionTableFactory {
 // }
 
 class MemoryModel(implicit config : CoreMemConfig) extends Component {
-  // Adapter
   val io = new Bundle {
     val ep = LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
     val net = NetworkInterface()
@@ -282,12 +304,19 @@ class MemoryModel(implicit config : CoreMemConfig) extends Component {
   val bridge = new RawInterfaceEndpoint
   bridge.io.ep <> io.ep
 
+  // network adapter
+  val net = new NetworkAdapter
+  net.io.net <> io.net
+  net.io.seq.dataIn << bridge.io.raw.dataIn
+
   // Match Action Table
   val matBuilder = new MatchActionTableFactory
-//  matBuilder.addAction()
-  val mat = matBuilder.build
+  matBuilder.addAction(new SequencerAction)
+  matBuilder.addAction(new DecodeAction)
 
-  // Sequencer
-
-  // Ctrl Path
+  val mat = matBuilder.build()
+  mat.io.dataIn << net.io.seq.dataOut
+  mat.io.dataOut >> bridge.io.raw.dataOut
+  mat.io.ctrlIn << bridge.io.raw.ctrlIn
+  mat.io.ctrlOut >> bridge.io.raw.ctrlOut
 }

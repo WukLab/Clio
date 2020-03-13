@@ -337,15 +337,16 @@ object Utils {
   }
 
   implicit class BitStreamFragmentUtils(frag : Stream[Fragment[Bits]]) {
+    // 0 -----------> 512
     // initial | (head | tail) | (head | tail) | (head | tail)
     // (initial | head) | (tail | head) | ...
     def shiftAt(offset : Int, initial : Bits): Bits = {
       require(initial.getWidth == offset, "need the initial bits to be same width of the pad bits")
       val width = frag.fragment.getWidth
-      val next = RegNextWhen(frag.fragment(offset-1 downto 0), frag.fire)
+      val next = RegNextWhen(frag.fragment(frag.fragment.getWidth downBy offset), frag.fire)
       // This is delayed one cycles.
       val pad = Mux(frag.first, initial, next)
-      pad ## frag.fragment(width-1 downto offset)
+      frag.fragment(width-1 downto offset) ## pad
     }
     def shiftAt(offset : Int): Bits = {
       shiftAt(offset, Bits(offset bits).clearAll())

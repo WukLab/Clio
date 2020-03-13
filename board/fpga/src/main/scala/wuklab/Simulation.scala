@@ -27,6 +27,18 @@ case class CoreMemSimConfig() extends CoreMemConfig {
 }
 
 object SimContext {
+  val memPtes = Seq(
+    (0x200, PageTableEntrySim(ppa = 0x1234, tag = 0x12, pageType = 0, used = true, allocated = true)),
+    (0x400, PageTableEntrySim(ppa = 0x5678, tag = 0x14, pageType = 1, used = true, allocated = true)),
+    (0x800, PageTableEntrySim(ppa = 0x9985, tag = 0x18, pageType = 2, used = false, allocated = true))
+  )
+  val LegoMemSimConfig = SimConfig
+    .withConfig(SimulationSpinalConfig)
+    .addSimulatorFlag("-Wno-PINMISSING")
+    .addSimulatorFlag("-Wno-CASEINCOMPLETE")
+    // TODO: check for SEL_RANGE
+    .addSimulatorFlag("-Wno-SELRANGE")
+    .withWave
   implicit val config : CoreMemConfig = CoreMemSimConfig()
 }
 import SimContext._
@@ -148,15 +160,24 @@ object BlackBoxSim {
   }
 }
 
+object LegoMemSystemSim {
+  import SimConversions._
+  def main(args: Array[String]): Unit = {
+    LegoMemSimConfig.doSim(
+      new LegoMemSystem
+    ) { dut =>
+      dut.clockDomain.forkStimulus(5)
+
+    }
+
+  }
+}
+
 object CoreMemorySim {
   import SimConversions._
 
   def main(args: Array[String]): Unit = {
-    SimConfig
-      .withConfig(SimulationSpinalConfig)
-      .addSimulatorFlag("-Wno-PINMISSING")
-      .addSimulatorFlag("-Wno-CASEINCOMPLETE")
-      .withWave.doSim(
+    LegoMemSimConfig.doSim(
       new MemoryAccessEndPoint
     ) {dut => {
       dut.clockDomain.forkStimulus(5)
@@ -177,12 +198,12 @@ object CoreMemorySim {
       dut.clockDomain.waitRisingEdge(10)
 
       def wr_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
-        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 3, cont = 0, 0, seqId = seq, size = 28), 0x0000L, 4,
-        ByteVector(0x12, 0x34, 0x56, 0x78))
+        (ByteVector(0x12, 0x34, 0x56, 0x78), 0x0000L, 4,
+          LegoMemHeaderSim(pid = 0, tag = 0, reqType = 3, cont = 0, seqId = seq, size = 36))
       ).require
       def rd_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
-        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 1, cont = 0, 0, seqId = seq, size = 20), 0x0000L, 8,
-          ByteVector(0x12, 0x34, 0x56, 0x78))
+        (ByteVector.empty, 0x0012, 16,
+          LegoMemHeaderSim(pid = 0, tag = 0, reqType = 1, cont = 0, seqId = seq, size = 28))
       ).require
       data #= BitAxisDataGen(Seq(wr_cmd(0)), Seq(rd_cmd(1)))
 

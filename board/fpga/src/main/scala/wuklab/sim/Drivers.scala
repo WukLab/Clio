@@ -147,7 +147,7 @@ class BitStreamDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Stream[Fragme
       false
     else {
       val seq = seqs(idx)
-      frag.payload.fragment #= BigInt(seq(offset).toByteArray.reverse)
+      frag.payload.fragment #= BigInt(seq(offset).toByteArray)
       frag.payload.last #= (offset + 1) == seq.size
       true
     }
@@ -178,7 +178,7 @@ class BitAxisDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Fragment[AxiStr
   override def tik = {
     if (idx < seqs.size) {
       val seq = seqs(idx)
-      wire.fragment.tdata #= BigInt(seq(offset).toByteArray.reverse)
+      wire.fragment.tdata #= BigInt(seq(offset).toByteArray)
       wire.last #= (offset + 1) == seq.size
       if(wire.fragment.config.useDest) wire.fragment.tdest #= 0
       true
@@ -446,25 +446,69 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
 }
 
 
-//class AxiStreamInterconnect (val clockDomain: ClockDomain, size : Int) extends SimulationService {
-//
-//  // array for current
-//  var decision : Seq[(Int, Int)]
-//  val eps = mutable.HashMap[Int, LegoMemEndPoint]
-//
-//  def tik(table : Seq[(Int, Int)]) : Seq[(Int, Int)] = {
-//
-//  }
-//
-//  def forward: Unit = {
-//    // sec -> dest
-//    val routingInfo : Seq[(Int, Int)] = Seq()
-//    val routingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
-//
-//    decision = decision ++ routingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
-//    decision = tik(decision)
-//  }
-//
-//  def =# (port : Int)(ep : LegoMemEndPoint): Unit = {
-//  }
-//}
+class AxiStreamInterconnect (val clockDomain: ClockDomain, size : Int) extends SimulationService {
+
+  // array for current
+  val decision = mutable.Set[(Int, Int)]()
+  val eps = mutable.Map[Int, LegoMemEndPoint]()
+
+  def halt(): Unit = eps.foreach { case (_, ep) =>
+    ep.dataIn.ready #= false
+    ep.dataOut.ready #= false
+    ep.ctrlIn.ready #= false
+    ep.ctrlOut.ready #= false
+  }
+
+
+  // DO assignment
+  def tik() = {
+    halt()
+    for ((src, dst) <- decision) {
+      val out = eps(src).dataOut
+      val in  = eps(dst).dataIn
+
+      out.ready #= in.ready.toBoolean
+      in.valid #= out.valid.toBoolean
+      in.tdata #= out.tdata.toBigInt
+      in.tdest #= out.tdest.toBigInt
+      in.last #= out.last.toBoolean
+    }
+  }
+
+  def forward(): Unit = {
+    fork {
+      // Update status
+      waitInit
+      clockDomain.waitFallingEdge
+
+      // Clean up last ones
+      eps.foreach { case (port, axis) =>
+        val out = axis.dataOut
+        if (out.valid.toBoolean && out.ready.toBoolean && out.last.toBoolean)
+          decision.remove((port, out.tdest.toInt))
+      }
+
+      // get new ones
+      val routingInfo = eps.toSeq
+        .filter { case (_, axis) => !axis.dataOut.last.toBoolean }
+        .filter { case (port, axis) => !decision.map(_._2).contains(axis.dataOut.tdest.toInt) }
+        .map { case (port, axis) => (port, axis.dataOut.tdest.toInt) }
+
+      // update decisions
+      val routingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
+      decision ++= routingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
+
+      clockDomain.waitRisingEdge
+      tik()
+
+    }
+
+  }
+
+  def =# (port : Int)(ep : LegoMemEndPoint): Unit = eps += port -> ep
+
+  // initilization
+  waitInit
+  halt()
+  forward()
+}
