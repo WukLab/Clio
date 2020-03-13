@@ -39,7 +39,7 @@ case class NetworkInterface() extends Bundle {
   val headerOut = master Stream UDPHeader()
 }
 
-class NetworkAdapter extends Component {
+class NetworkStorageAdapter extends Component {
 
   val io = new Bundle {
     val net = NetworkInterface()
@@ -98,3 +98,52 @@ class NetworkAdapter extends Component {
 
 }
 
+class NetworkAdapter extends Component {
+
+  // TODO: check this
+  // 192.168.1.1
+  val sourceIp = U"32'hC0_A8_01_01"
+  val sourcePort = U"16'd2233"
+
+  val io = new Bundle {
+    val net = NetworkInterface()
+
+    val seq = new Bundle {
+      val dataIn  = slave Stream Fragment (Bits(512 bits))
+      val dataOut = master Stream Fragment (Bits(512 bits))
+    }
+  }
+
+  val outputCtrl = new Area {
+    // The control is han over to the data path. the data path should block on ctrl
+    val (data, header) = StreamFork2(io.seq.dataIn)
+
+    // Lookup the header
+    io.net.headerOut.translateFrom (header) { (header, bits) =>
+      val memHeader = LegoMemHeader(bits.fragment)
+      header.length := memHeader.size.resize(12 bits)
+      header.ip_dest_ip := memHeader.destIp
+      header.dest_port := memHeader.destPort
+      header.ip_source_ip := sourceIp
+      header.source_port := sourcePort
+    }
+
+  }
+
+  val widthConverter = new LegoMemDataOutputAdapter(64)
+  widthConverter.io.external.dataIn << io.net.dataIn
+  widthConverter.io.external.dataOut >> io.net.dataOut
+  widthConverter.io.internal.dataIn << outputCtrl.data
+
+  val inputCtrl = new Area {
+    val headerStream = io.net.headerIn.queueLowLatency(4)
+    io.seq.dataOut.translateFrom (headerStream >*< widthConverter.io.internal.dataOut) { (data, p) =>
+      data.last := p.snd.last
+      data.fragment := LegoMemHeader.assignToBitsOperation(header => {
+        header.destIp := p.fst.ip_source_ip
+        header.destPort := p.fst.source_port
+      })(p.snd.fragment)
+    }
+  }
+
+}

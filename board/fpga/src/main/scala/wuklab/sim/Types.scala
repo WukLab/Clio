@@ -43,12 +43,17 @@ case class LegoMemHeaderSim(
                               pid : Int,
                               tag : Int,
                               reqType : Int,
-                              cont : Int,
-                              reqStatus : Int,
-                              seqId : Int,
-                              size : Int
+                              reqStatus : Int = 0,
+                              flagRoute : Boolean = false,
+                              flagRepl : Boolean = false,
+                              rsvd : Int = 0,
+                              seqId : Int = 0,
+                              size : Int = 0,
+
+                              cont : Int = 0,
+                              destPort : Int = 0,
+                              destIp : Long = 0
                             )
-case class LegoMemHeaderDataSim (header : LegoMemHeaderSim, data : ByteVector = ByteVector.empty)
 
 object SimConversions {
   def assign (field : BigInt, bytes : ArrayBuffer[Byte], offset : Int) : Unit = {
@@ -86,9 +91,24 @@ object SimConversions {
     bytes
   }
 
-  val legoMemHeaderCodec = (uint16 :: uint8 :: uint8 :: uint8 :: uint4 :: uint4 :: int16).as[LegoMemHeaderSim]
-  val legoMemMsgCodec = (legoMemHeaderCodec :: bytes(56)).as[(LegoMemHeaderSim, ByteVector)]
-  val legoMemAccessMsgCodec = (legoMemHeaderCodec :: int64 :: int32 :: bytes(44)).as[(LegoMemHeaderSim, Long, Int, ByteVector)]
+  val legoMemHeaderCodec = (
+         uint16
+      :: uint8
+      :: uint8
+      :: uint4
+      :: bool
+      :: bool
+      :: uint2
+      :: uint8
+      :: uint16
+      // Routing infomation
+      :: uint16
+      :: uint16
+      :: uint32
+    ).as[LegoMemHeaderSim]
+
+  val legoMemMsgCodec = (bytes(48) :: legoMemHeaderCodec).as[(ByteVector, LegoMemHeaderSim)]
+  val legoMemAccessMsgCodec = (bytes(36) :: int64 :: int32 :: legoMemHeaderCodec).as[(ByteVector, Long, Int, LegoMemHeaderSim)]
 
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)

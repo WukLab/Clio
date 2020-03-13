@@ -44,8 +44,8 @@ class PacketParser[B <: Bundle with Header[B]](
   val (toHeader, toData) = StreamFork2(io.dataIn)
   io.headerOut << toHeader.takeWhen(toHeader.isFirst).fmap (_.fragment |> header.fromWiderBits)
 
-  val offset = RegNextWhen (toData.fragment(offsetWidth-1 downto 0), toData.fire)
-  val outData = offset ## toData.fragment(dataWidth-1 downto offsetWidth)
+  val offset = RegNextWhen (toData.fragment(dataWidth-1 downto headerWidth), toData.fire)
+  val outData = toData.fragment(dataWidth-1 downto offsetWidth) ## offset
   // delay the data for one cycle
   // TODO: check this
   // We throw the delayed flow.
@@ -281,16 +281,25 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
 // For the interconnection, we do not need to add the names into the fifo.
 
+case class LegoMemRawInterface() extends Bundle with IMasterSlave {
+  val dataIn = Stream Fragment(Bits(512 bits))
+  val dataOut = Stream Fragment(Bits(512 bits))
+  val ctrlIn = Stream (ControlRequest())
+  val ctrlOut = Stream (ControlRequest())
+
+  override def asMaster(): Unit = {
+    master (dataIn)
+    slave (dataOut)
+    master (ctrlIn)
+    slave (ctrlOut)
+  }
+}
+
 class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
   val io = new Bundle {
     // TODO: correct this
     val ep = new LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
-    val raw = new Bundle {
-      val dataIn = master Stream Fragment(Bits(512 bits))
-      val dataOut = slave Stream Fragment(Bits(512 bits))
-      val ctrlIn = master Stream ControlRequest()
-      val ctrlOut = slave Stream ControlRequest()
-    }
+    val raw = master (LegoMemRawInterface())
   }
 
   // Ctrl FIFOs
