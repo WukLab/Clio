@@ -1,9 +1,8 @@
 INCLUDE := -I../include
 CLIBS := -libverbs -pthread
 
-SRCS := core.c \
-	test.c \
-	board.c \
+SRCS := board.c \
+	api.c \
 	context.c \
 	session.c \
 	net/core.c \
@@ -14,7 +13,8 @@ SRCS := core.c \
 	net/transport_gbn.c
 
 all: $(SRCS) 
-	gcc -Wall -o host.o $(INCLUDE) $(SRCS) $(CLIBS)
+	gcc -Wall -o host.o $(INCLUDE) main_host.c test.c $(SRCS) $(CLIBS)
+	gcc -Wall -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
 
 clean:
 	rm *.o

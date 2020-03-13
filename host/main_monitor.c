@@ -18,6 +18,8 @@
 #include <uapi/opcode.h>
 #include <uapi/net_header.h>
 
+#include "core.h"
+
 #define NR_THPOOL_WORKERS	(1)
 #define NR_THPOOL_BUFFER	(32)
 
@@ -115,7 +117,7 @@ static int init_thpool_buffer(void)
 
 static int init_thpool(void)
 {
-	int i, ret;
+	int i;
 	size_t buf_sz;
 
 	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
@@ -130,16 +132,10 @@ static int init_thpool(void)
 		tw->cpu = 0;
 		tw->nr_queued = 0;
 		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
-
-		if (unlikely(ret))
-			return ret;
 	}
 	TW_HEAD = 0;
 	return 0;
 }
-
-static LIST_HEAD(board_list);
-static pthread_spinlock_t(board_lock);
 
 static DECLARE_BITMAP(pid_map, NR_MAX_PID);
 static pthread_spinlock_t(pid_lock);
@@ -315,44 +311,6 @@ void free_proc(struct proc_info *pi)
 	printf("WARN: Fail to find tsk (node %u pid %d)\n", node, pid);
 }
 
-static struct board_info *
-add_board(char *board_name, unsigned int board_ip, unsigned long mem_total)
-{
-	struct board_info *bi;
-
-	bi = malloc(sizeof(*bi));
-	if (!bi)
-		return NULL;
-
-	init_board_info(bi);
-
-	strncpy(bi->name, board_name, BOARD_NAME_LEN);
-	bi->board_ip = board_ip;
-	bi->mem_total = mem_total;
-	bi->mem_avail = mem_total;
-
-	pthread_spin_lock(&board_lock);
-	list_add(&bi->list, &board_list);
-	pthread_spin_unlock(&board_lock);
-
-	return bi;
-}
-
-static void dump_boards(void)
-{
-	struct board_info *bi;
-	int i = 0;
-
-	printf("Dumping Boards Info:\n");
-	pthread_spin_lock(&board_lock);
-	list_for_each_entry (bi, &board_list, list) {
-		printf("[%2d] %16s %lu %lu\n", i, bi->name, bi->mem_total,
-		       bi->mem_avail);
-		i++;
-	}
-	pthread_spin_unlock(&board_lock);
-}
-
 static void handle_create_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *proc;
@@ -482,20 +440,38 @@ static void dispatcher(void)
 	}
 }
 
+struct legomem_context *mgmt_context;
+struct board_info *mgmt_dummy_board;
+struct session_net *mgmt_session;
+
+int init_management_session(void)
+{
+	struct endpoint_info dummy_ei;
+
+	mgmt_dummy_board = add_board("local_mgmt", 0, &dummy_ei, &dummy_ei);
+	if (!mgmt_dummy_board)
+		return -ENOMEM;
+
+	mgmt_context = legomem_open_context_mgmt();
+	if (!mgmt_context)
+		return -ENOMEM;
+
+	mgmt_session = legomem_open_session_mgmt(mgmt_context, mgmt_dummy_board);
+	if (!mgmt_session)
+		return -ENOMEM;
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	init_thpool();
 	init_thpool_buffer();
 
+	/* Same as host side init */
+	init_board_subsys();
+	init_net_session_subsys();
+	init_management_session();
+
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&board_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
-
-	add_board("board_0", 123, 4096);
-	add_board("board_1", 786, 9192);
-	dump_boards();
-
-	//alloc_proc("proc_0", "host_0", 123);
-	//pi = alloc_proc("proc_1", "host_0", 123);
-	//dump_procs();
 }

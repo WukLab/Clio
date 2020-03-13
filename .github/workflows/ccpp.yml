@@ -13,7 +13,5 @@ jobs:
     - uses: actions/checkout@v2
     - name: prepare
       run: sudo apt-get -y install rdma-core libibverbs1 libibverbs-dev
-    - name: make_host
+    - name: make_host_monitor
       run: cd host && make
-    - name: make_monitor
-      run: cd monitor && make
