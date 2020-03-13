@@ -214,8 +214,7 @@ void free_pid(unsigned int pid)
 }
 
 static struct proc_info *
-alloc_proc(unsigned int pid, unsigned int node,
-	   char *proc_name, unsigned int host_ip)
+alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 {
 	struct proc_info *new;
 	struct proc_info *old;
@@ -224,49 +223,48 @@ alloc_proc(unsigned int pid, unsigned int node,
 	new = malloc(sizeof(*new));
 	if (!new)
 		return NULL;
+
 	init_proc_info(new);
+	new->host_ip = host_ip;
 
 	if (proc_name)
 		strncpy(new->proc_name, proc_name, PROC_NAME_LEN);
-	if (host_ip)
-		new->host_ip = host_ip;
 
-	key = getKey(pid, node);
+	key = getKey(pid, host_ip);
 
 	/* Insert into the hashtable */
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, old, link, key) {
-		if (unlikely(old->pid == pid && old->node == node)) {
+		if (unlikely(old->pid == pid && old->host_ip == host_ip)) {
 			pthread_spin_unlock(&proc_lock);
 			free(new);
-			printf("alloc_proc: pid %u node %u exists\n",
-				pid, node);
+			printf("alloc_proc: pid %u exists\n", pid);
 			return NULL;
 		}
 	}
 	hash_add(proc_hash_array, &new->link, key);
 	pthread_spin_unlock(&proc_lock);
 
-	printf("alloc_proc: new proc pid %u node %u\n", pid, node);
+	printf("alloc_proc: new proc pid %u ip %x\n", pid, host_ip);
 
 	return new;
 }
 
 /*
- * Find the pi structure by given pid and node.
+ * Find the pi structure by given pid and ip.
  * The refcount is incremented by 1 if found.
  * The caller must call put_proc() afterwards.
  */
-struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node)
+struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int host_ip)
 {
 	struct proc_info *pi;
 	unsigned int key;
 
-	key = getKey(pid, node);
+	key = getKey(pid, host_ip);
 
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, pi, link, key) {
-		if (likely(pi->pid == pid && pi->node == node)) {
+		if (likely(pi->pid == pid && pi->host_ip == host_ip)) {
 			get_proc_info(pi);
 			pthread_spin_unlock(&proc_lock);
 			return pi;
@@ -282,7 +280,7 @@ struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node)
  */
 void free_proc(struct proc_info *pi)
 {
-	unsigned int node, pid, key;
+	unsigned int ip, pid, key;
 	struct proc_info *tsk;
 
 	if (!pi)
@@ -293,14 +291,14 @@ void free_proc(struct proc_info *pi)
 		return;
 	}
 
-	node = pi->node;
+	ip = pi->host_ip;
 	pid = pi->pid;
-	key = getKey(pid, node);
+	key = getKey(pid, ip);
 
-	/* Walk through all the possible buckets, check node and pid */
+	/* Walk through all the possible buckets, check ip and pid */
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, tsk, link, key) {
-		if (likely(tsk->node == node && tsk->pid == pid)) {
+		if (likely(tsk->host_ip == ip && tsk->pid == pid)) {
 			hash_del(&tsk->link);
 			pthread_spin_unlock(&proc_lock);
 			free(tsk);
@@ -308,15 +306,14 @@ void free_proc(struct proc_info *pi)
 		}
 	}
 	pthread_spin_unlock(&proc_lock);
-	printf("WARN: Fail to find tsk (node %u pid %d)\n", node, pid);
+	printf("WARN: Fail to find tsk (ip %u pid %d)\n", ip, pid);
 }
 
 static void handle_create_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *proc;
-	int pid, node;
+	unsigned int pid, host_ip;
 	char *proc_name;
-	int host_ip;
 	int *reply;
 
 	reply = (int *)tb->tx;
@@ -329,11 +326,10 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	}
 
 	/* Should come from request */
-	node = 0;
 	proc_name = NULL;
 	host_ip = 0;
 
-	proc = alloc_proc(pid, node, proc_name, host_ip);
+	proc = alloc_proc(pid, proc_name, host_ip);
 	if (!proc) {
 		free_pid(pid);
 		*reply = -ENOMEM;
@@ -348,7 +344,7 @@ static void handle_free_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *pi;
 	int *reply;
-	unsigned int pid, node;
+	unsigned int pid, host_ip;
 	void *rx_buf;
 
 	reply = (int *)tb->tx;
@@ -357,16 +353,62 @@ static void handle_free_proc(struct thpool_buffer *tb)
 	/* TODO: Get PID and NODE from request buffer */
 	rx_buf = tb->rx;
 	pid = 1;
-	node = 0;
-	pi = get_proc_by_pid(pid, node);
+	host_ip = 0;
+	pi = get_proc_by_pid(pid, host_ip);
 	if (!pi) {
-		*reply = -EINVAL;
+		*reply = -ESRCH;
 		return;
 	}
 
 	/* We grabbed one ref above, thus put twice */
 	put_proc_info(pi);
 	put_proc_info(pi);
+}
+
+static void handle_alloc(struct thpool_buffer *tb)
+{
+	struct legomem_alloc_free_req *req;
+	struct legomem_alloc_free_resp *resp;
+	unsigned int pid, host_ip;
+	struct proc_info *pi;
+	unsigned long len;
+
+	resp = (struct legomem_alloc_free_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	req = (struct legomem_alloc_free_req *)tb->rx;
+	pid = 0;
+	host_ip = 0;
+	pi = get_proc_by_pid(pid, host_ip);
+	if (!pi) {
+		resp->op.ret = -ESRCH;
+		return;
+	}
+
+	/* Get the allocation size */
+	len = req->op.len;
+	if (!len) {
+		resp->op.ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * TODO
+	 * Go through the list of vregions and fine one
+	 * that could satisfy the requirement
+	 * need to fill the board and index.
+	 */
+	resp->op.ret = 0;
+	resp->op.board_ip = 0;
+	resp->op.vregion_index = 0;
+
+out:
+	put_proc_info(pi);
+}
+
+static void handle_free(struct thpool_buffer *tb)
+{
+
 }
 
 /* Port current host net */
@@ -396,8 +438,10 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 	switch (opcode) {
 	case OP_REQ_ALLOC:
+		handle_alloc(tb);
 		break;
 	case OP_REQ_FREE:
+		handle_free(tb);
 		break;
 
 	/* Proc */
