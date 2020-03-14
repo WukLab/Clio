@@ -168,37 +168,42 @@ object BitStreamDataGen {
   def apply(seqs: Seq[bits.BitVector]*)(frag: Stream[Fragment[Bits]]): BitStreamDataGen = new BitStreamDataGen(seqs : _*)(frag)
 }
 
-class BitAxisDataGen(seqs : Seq[scodec.bits.BitVector] *)(frag : Fragment[AxiStreamPayload])
+class BitAxisDataGen(bits : (scodec.bits.BitVector, Int))(frag : Fragment[AxiStreamPayload])
   extends Driver[Fragment[AxiStreamPayload]] {
 
   override val wire = frag
-  var idx = 0
-  var offset = 0
+  val config = wire.fragment.config
+
+  var tail = bits._1
+  val dest = bits._2
+  def data = tail.take(config.dataWidth).padRight(config.dataWidth).reverseByteOrder.toByteArray
 
   override def tik = {
-    if (idx < seqs.size) {
-      val seq = seqs(idx)
-      wire.fragment.tdata #= BigInt(seq(offset).toByteArray)
-      wire.last #= (offset + 1) == seq.size
-      if(wire.fragment.config.useDest) wire.fragment.tdest #= 0
-      true
-    } else
-      false
+    val isLast = tail.sizeLessThanOrEqual(config.dataWidth)
+    wire.fragment.tdata #= BigInt(data)
+    wire.last #= isLast
+    if (config.useDest) wire.fragment.tdest #= dest
+    if (config.useKeep) wire.fragment.tkeep #= {
+      val shiftWidth = if (isLast) tail.bytes.size % config.keepWidth else config.keepWidth
+//      println("DO TKEEP: %d -> %X" format (shiftWidth, (1L << shiftWidth) - 1))
+      (1L << shiftWidth) - 1
+    }
+    true
   }
   override def update(update: Boolean): Unit = {
     if (update) {
-      offset = offset + 1
-      if (offset == seqs(idx).size) {
-        offset = 0
-        idx = idx + 1
-      }
+      println(s"Axis: Send Data<${config.dataWidth}>: ${data.map("%02X" format _).mkString("_")}")
+      tail = tail.drop(config.dataWidth)
     }
   }
-  override def finish = idx >= seqs.size
+  override def finish = tail.isEmpty
 }
 
 object BitAxisDataGen {
-  def apply(seqs: Seq[bits.BitVector]*)(frag: Fragment[AxiStreamPayload]): BitAxisDataGen = new BitAxisDataGen(seqs : _*)(frag)
+  def apply(seqs: bits.BitVector)(frag: Fragment[AxiStreamPayload]): BitAxisDataGen =
+    new BitAxisDataGen((seqs, 0))(frag)
+  def apply(seqs: bits.BitVector, port : Int)(frag: Fragment[AxiStreamPayload]): BitAxisDataGen =
+    new BitAxisDataGen((seqs, port))(frag)
 }
 
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
@@ -446,17 +451,23 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
 }
 
 
-class AxiStreamInterconnect (val clockDomain: ClockDomain, size : Int) extends SimulationService {
+class AxiStreamInterconnect (val clockDomain: ClockDomain) extends SimulationService {
 
   // array for current
   val decision = mutable.Set[(Int, Int)]()
   val eps = mutable.Map[Int, LegoMemEndPoint]()
 
+  def validPort(port : Int) = eps.map(_._1).toSeq.contains(port)
   def halt(): Unit = eps.foreach { case (_, ep) =>
-    ep.dataIn.ready #= false
+    ep.dataIn.valid  #= false
     ep.dataOut.ready #= false
-    ep.ctrlIn.ready #= false
+    ep.ctrlIn.valid  #= false
     ep.ctrlOut.ready #= false
+  }
+
+  def clear = {
+    halt()
+    decision.clear()
   }
 
 
@@ -464,42 +475,62 @@ class AxiStreamInterconnect (val clockDomain: ClockDomain, size : Int) extends S
   def tik() = {
     halt()
     for ((src, dst) <- decision) {
-      val out = eps(src).dataOut
-      val in  = eps(dst).dataIn
+      if (validPort(dst) && validPort(src)) {
 
-      out.ready #= in.ready.toBoolean
-      in.valid #= out.valid.toBoolean
-      in.tdata #= out.tdata.toBigInt
-      in.tdest #= out.tdest.toBigInt
-      in.last #= out.last.toBoolean
+        val out = eps(src).dataOut
+        val in  = eps(dst).dataIn
+
+        out.ready #= in.ready.toBoolean
+        in.valid #= out.valid.toBoolean
+        in.tdata #= out.tdata.toBigInt
+        in.tdest #= out.tdest.toBigInt
+        in.last #= out.last.toBoolean
+
+      }
     }
   }
 
   def forward(): Unit = {
     fork {
       // Update status
-      waitInit
-      clockDomain.waitFallingEdge
+      while (true) {
 
-      // Clean up last ones
-      eps.foreach { case (port, axis) =>
-        val out = axis.dataOut
-        if (out.valid.toBoolean && out.ready.toBoolean && out.last.toBoolean)
-          decision.remove((port, out.tdest.toInt))
+        if (clockDomain.isResetAsserted) {
+          clear
+          waitUntil(clockDomain.isResetDeasserted)
+        } else {
+
+          // Clean up last ones
+          eps.foreach { case (port, axis) =>
+            val out = axis.dataOut
+            if (out.valid.toBoolean && out.ready.toBoolean && out.last.toBoolean)
+              decision.remove((port, out.tdest.toInt))
+          }
+
+          clockDomain.waitFallingEdge
+
+          // get new ones
+          val routingInfo = eps.toSeq
+            .filter { case (_, axis) => !axis.dataOut.last.toBoolean }
+            .filter { case (_, axis) => !decision.map(_._2).contains(axis.dataOut.tdest.toInt) }
+            .map { case (port, axis) => (port, axis.dataOut.tdest.toInt) }
+
+          println(s"ROUTING INFO: ${pprint.apply(routingInfo)}")
+
+          // update decisions
+          val routingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
+          decision ++= routingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
+                        .map(_.swap)
+                        .filter { case (_, dest) => validPort(dest) }
+
+          println(s"ROUTING DECISION: ${pprint.apply(decision)}")
+
+          clockDomain.waitRisingEdge
+          tik()
+
+        }
+
       }
-
-      // get new ones
-      val routingInfo = eps.toSeq
-        .filter { case (_, axis) => !axis.dataOut.last.toBoolean }
-        .filter { case (port, axis) => !decision.map(_._2).contains(axis.dataOut.tdest.toInt) }
-        .map { case (port, axis) => (port, axis.dataOut.tdest.toInt) }
-
-      // update decisions
-      val routingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
-      decision ++= routingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
-
-      clockDomain.waitRisingEdge
-      tik()
 
     }
 

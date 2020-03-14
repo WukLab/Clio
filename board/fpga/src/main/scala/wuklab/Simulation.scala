@@ -8,6 +8,10 @@ import spinal.lib.bus.amba4.axi.Axi4
 import spinal.lib.{Fragment, master, slave}
 import wuklab.PageFaultUnitSim.FullPageFault
 
+import scala.util.Random
+
+import Utils._
+
 case class CoreMemSimConfig() extends CoreMemConfig {
   val physicalAddrWidth = 16
   val virtualAddrWidth = 64
@@ -32,6 +36,13 @@ object SimContext {
     (0x400, PageTableEntrySim(ppa = 0x5678, tag = 0x14, pageType = 1, used = true, allocated = true)),
     (0x800, PageTableEntrySim(ppa = 0x9985, tag = 0x18, pageType = 2, used = false, allocated = true))
   )
+
+  object SimulationSpinalConfig extends SpinalConfig(
+    defaultConfigForClockDomains = ClockDomainConfig (
+      resetActiveLevel = LOW
+    )
+  )
+
   val LegoMemSimConfig = SimConfig
     .withConfig(SimulationSpinalConfig)
     .addSimulatorFlag("-Wno-PINMISSING")
@@ -104,12 +115,6 @@ object FetchUnitSim {
   }
 }
 
-object SimulationSpinalConfig extends SpinalConfig(
-  defaultConfigForClockDomains = ClockDomainConfig(
-    resetActiveLevel = LOW
-  )
-)
-
 object BlackBoxSim {
   class adder extends BlackBox {
     val io = new Bundle {
@@ -165,10 +170,48 @@ object LegoMemSystemSim {
   def main(args: Array[String]): Unit = {
     LegoMemSimConfig.doSim(
       new LegoMemSystem
-    ) { dut =>
+    ) {dut => {
       dut.clockDomain.forkStimulus(5)
 
-    }
+      val xbar = new AxiStreamInterconnect(dut.clockDomain)
+      xbar.=# (0) (dut.io.eps.seq)
+      xbar.=# (1) (dut.io.eps.mem)
+      xbar.=# (2) (dut.io.eps.soc)
+
+      val mem = new Axi4SlaveMemoryDriver(dut.clockDomain, 65536)
+      mem =# dut.io.bus.access
+      mem =# dut.io.bus.lookup
+      val dataStream   = new StreamDriver(dut.io.net.dataIn, dut.clockDomain)
+      val headerStream = new StreamDriver(dut.io.net.headerIn, dut.clockDomain)
+      println("Initializtion finish")
+
+      dut.clockDomain.assertReset()
+      dut.clockDomain.waitRisingEdge(5)
+      dut.clockDomain.deassertReset()
+
+      dut.clockDomain.waitRisingEdge(10)
+
+      def wr_cmd(seq : Int, data : Seq[Byte]) = legoMemAccessMsgCodec.encode(
+        (LegoMemHeaderSim(pid = 0xdead, tag = 0, reqType = 3, cont = 0, seqId = seq, size = 28 + data.size),
+          data.size, 0x000L, ByteVector(data))
+      ).require
+      def rd_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
+        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 1, cont = 0, seqId = seq, size = 28),
+          16, 0x12L, ByteVector.empty)
+      ).require
+
+      // Header Stream
+      fork {
+        val data = udpHeaderCodec.encode(
+          UDPHeaderSim(28, 1234, 5678, 0, 1)
+        )
+
+        headerStream #= SeqDataGen(data)
+      }
+      dataStream #= BitAxisDataGen(wr_cmd(0, Array.fill(65)(0x73 : Byte)))
+
+      dut.clockDomain.waitRisingEdge(80)
+    }}
 
   }
 }
@@ -197,15 +240,17 @@ object CoreMemorySim {
 
       dut.clockDomain.waitRisingEdge(10)
 
-      def wr_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
-        (ByteVector(0x12, 0x34, 0x56, 0x78), 0x0000L, 4,
-          LegoMemHeaderSim(pid = 0, tag = 0, reqType = 3, cont = 0, seqId = seq, size = 36))
+      def wr_cmd(seq : Int, data : Seq[Byte]) = legoMemAccessMsgCodec.encode(
+        (LegoMemHeaderSim(pid = 0x1234, tag = 0, reqType = 3, cont = 0, seqId = seq, size = 28 + data.size),
+          4, 0x000L, ByteVector(data))
       ).require
       def rd_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
-        (ByteVector.empty, 0x0012, 16,
-          LegoMemHeaderSim(pid = 0, tag = 0, reqType = 1, cont = 0, seqId = seq, size = 28))
+        (LegoMemHeaderSim(pid = 0, tag = 0, reqType = 1, cont = 0, seqId = seq, size = 28),
+          16, 0x12L, ByteVector.empty)
       ).require
-      data #= BitAxisDataGen(Seq(wr_cmd(0)), Seq(rd_cmd(1)))
+
+      data #= BitAxisDataGen(wr_cmd(0, Seq[Byte](0x12, 0x34, 0x56, 0x78)))
+      data #= BitAxisDataGen(rd_cmd(1))
 
       dut.clockDomain.waitRisingEdge(80)
     }}

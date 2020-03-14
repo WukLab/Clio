@@ -217,18 +217,21 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
 
   def stackPop: (LegoMemHeader, UInt) = {
     val next = cloneOf(this)
-    val nextAddr = cont(7 downto 4)
+    val nextAddr = cont(3 downto 0)
     next := this
-    next.tag.allowOverride
-    next.tag := this.tag |<< 4
+    next.cont.allowOverride
+    next.cont := this.cont |>> 4
     (this, nextAddr)
   }
+
   def stackPush (nextAddr : UInt): Unit = {
     assert (nextAddr.getWidth == 4)
 
-    cont(7 downto 4) := nextAddr
-    tag := tag |>> 4
+    cont.allowOverride
+    cont := cont |<< 4
+    cont(4 downto 0) := nextAddr
   }
+
   def header = this
 
   override val packedWidth = LegoMemHeader.headerWidth

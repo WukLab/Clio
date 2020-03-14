@@ -15,6 +15,9 @@ case class AxiStreamConfig( dataWidth : Int,
   def useId = idWidth > 0
   def useDest = destWidth > 0
   def useUser = userWidth > 0
+
+  def dataBytes = dataWidth / 8
+  def keepBytes = keepWidth / 8
 }
 
 object AxiStreamConfig {

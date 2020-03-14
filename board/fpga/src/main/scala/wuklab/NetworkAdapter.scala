@@ -7,25 +7,43 @@ import Utils._
 
 // TODO: use shapeless to define conversions
 object UDPHeader {
-  def compactWidth = 48
+  def packedWidth = 108
 
+}
+
+trait BitsInterface {
+  def packedWidth : Int
+  def asPackedBits : Bits
+  def fromPackedBits(bits : Bits) : Unit
 }
 
 // TODO: finish this
 case class UDPHeader() extends Bundle {
-  val length = UInt(12 bits)
-  val dest_port = UInt(16 bits)
-  val source_port = UInt(16 bits)
-  val ip_dest_ip = UInt(32 bits)
-  val ip_source_ip = UInt(32 bits)
+  val length        = UInt(12 bits)
+  val dest_port     = UInt(16 bits)
+  val source_port   = UInt(16 bits)
+  val ip_dest_ip    = UInt(32 bits)
+  val ip_source_ip  = UInt(32 bits)
 
-  def compactWidth = UDPHeader.compactWidth
-  def asCompactBits : Bits = {
-    val bits = Bits(compactWidth bits)
+  def packedWidth = UDPHeader.packedWidth
+  def asPackedBits : Bits = {
+    val bits = Bits(packedWidth bits)
+    bits(96, 12 bits) := length       .asBits
+    bits(80, 16 bits) := dest_port    .asBits
+    bits(64, 16 bits) := source_port  .asBits
+    bits(32, 32 bits) := ip_dest_ip   .asBits
+    bits(0,  32 bits) := ip_source_ip .asBits
+
     bits
   }
-  def fromCompactBits(bits : Bits) : Unit = {
-    assert(compactWidth == bits.getWidth, "UDPHeader: Compact width mismatch")
+  def fromPackedBits(bits : Bits) : UDPHeader = {
+    assert(packedWidth == bits.getWidth, "UDPHeader: Compact width mismatch")
+    length        := bits(96, 12 bits).asUInt
+    dest_port     := bits(80, 16 bits).asUInt
+    source_port   := bits(64, 16 bits).asUInt
+    ip_dest_ip    := bits(32, 32 bits).asUInt
+    ip_source_ip  := bits(0,  32 bits).asUInt
+    this
   }
 }
 
@@ -35,8 +53,17 @@ case class NetworkInterface() extends Bundle {
   val dataIn    = slave Stream Fragment(AxiStreamPayload(netConfig))
   val dataOut   = master Stream Fragment(AxiStreamPayload(netConfig))
   // TODO: check if we need pack
-  val headerIn  = slave Stream UDPHeader()
-  val headerOut = master Stream UDPHeader()
+  val headerIn  = slave Stream Bits(UDPHeader.packedWidth bits)
+  val headerOut = master Stream Bits(UDPHeader.packedWidth bits)
+
+  object parsed {
+    def udpHeaderIn = headerIn.fmap(UDPHeader().fromPackedBits(_))
+    def udpHeaderOut = {
+      val in = Stream(UDPHeader())
+      in.fmap(_.asPackedBits) >> headerOut
+      in
+    }
+  }
 }
 
 class NetworkStorageAdapter extends Component {
@@ -55,7 +82,7 @@ class NetworkStorageAdapter extends Component {
   // Assign Sequence from the ID Pool
   val ids = new IDPool(numIds)
   // Header -> Compact -> Resp
-  val mem = Mem(HardType(Bits(UDPHeader.compactWidth bits)), numIds)
+  val mem = Mem(HardType(Bits(UDPHeader.packedWidth bits)), numIds)
 
   val inputCtrl = new Area {
     // the header and the id allocation relied on the last signal
@@ -65,7 +92,7 @@ class NetworkStorageAdapter extends Component {
     val writeHeader = (io.net.headerIn >*< ids.io.alloc).continueWhen(io.net.dataIn.lastFire).asFlow
     mem.writePort.translateFrom (writeHeader) { (cmd, p) =>
       cmd.address := p.snd
-      cmd.data := p.fst.asCompactBits
+      cmd.data := p.fst
     }
   }
 
@@ -82,9 +109,8 @@ class NetworkStorageAdapter extends Component {
     rdPort.cmd << ReturnFlow(header.seqId, dataIn.firstFire)
 
     io.net.headerOut.translateFrom (ReturnStream(rdPort.rsp, RegNext(dataIn.firstFire))) { (header, bits) =>
-      header.fromCompactBits(bits)
       // TODO: set source IP, extra length?
-      header.length := length
+//      header.length := length
     }
 
 
@@ -119,7 +145,7 @@ class NetworkAdapter extends Component {
     val (data, header) = StreamFork2(io.seq.dataIn)
 
     // Lookup the header
-    io.net.headerOut.translateFrom (header) { (header, bits) =>
+    io.net.parsed.udpHeaderOut.translateFrom (header) { (header, bits) =>
       val memHeader = LegoMemHeader(bits.fragment)
       header.length := memHeader.size.resize(12 bits)
       header.ip_dest_ip := memHeader.destIp
@@ -136,14 +162,21 @@ class NetworkAdapter extends Component {
   widthConverter.io.internal.dataIn << outputCtrl.data
 
   val inputCtrl = new Area {
-    val headerStream = io.net.headerIn.queueLowLatency(4)
-    io.seq.dataOut.translateFrom (headerStream >*< widthConverter.io.internal.dataOut) { (data, p) =>
-      data.last := p.snd.last
-      data.fragment := LegoMemHeader.assignToBitsOperation(header => {
-        header.destIp := p.fst.ip_source_ip
-        header.destPort := p.fst.source_port
-      })(p.snd.fragment)
-    }
+    val headerStream = io.net.parsed.udpHeaderIn.queueLowLatency(16)
+    // TODO: header stream only on first
+    val dataStreamIn = widthConverter.io.internal.dataOut
+
+    io.seq.dataOut.last := widthConverter.io.internal.dataOut.last
+    val replacedFirst = LegoMemHeader.assignToBitsOperation(header => {
+      header.destIp := headerStream.ip_source_ip
+      header.destPort := headerStream.source_port
+    })(dataStreamIn.fragment)
+    io.seq.dataOut.fragment := Mux(dataStreamIn.first, replacedFirst, dataStreamIn.fragment)
+    io.seq.dataOut.valid := Mux(dataStreamIn.first, headerStream.valid && dataStreamIn.valid, dataStreamIn.valid)
+
+    // TODO: check this
+    headerStream.ready := dataStreamIn.first && dataStreamIn.valid && io.seq.dataOut.ready
+    dataStreamIn.ready := Mux(dataStreamIn.first, headerStream.valid && io.seq.dataOut.ready, io.seq.dataOut.ready)
   }
 
 }

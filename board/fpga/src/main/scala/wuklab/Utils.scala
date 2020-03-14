@@ -353,9 +353,18 @@ object Utils {
     }
   }
 
+  // General classes
   implicit class RichPipes[Y](y: Y) {
     def |>[Z](f: Y => Z) = f(y)
     def &>[X, Z](f: (X, Y) => Z): (X => Z) = (x: X) => f(x, y)
+  }
+
+  implicit class ExtendedRandom(ran: scala.util.Random) {
+    def nextByteArray(size: Int) = {
+      val arr = new Array[Byte](size)
+      ran.nextBytes(arr)
+      arr
+    }
   }
 
   // Ungrouped functions
