@@ -101,7 +101,7 @@ class ModelController extends Component {
 
 trait MatchActionFunction {
   def cond (bits : Bits) : Bool
-  def action (bits : Bits) : Bits
+  def action (bits : Bits, valid : Bool) : Bits
 }
 
 abstract class MatchActionComponent extends Component with MatchActionFunction {
@@ -114,7 +114,7 @@ abstract class MatchActionComponent extends Component with MatchActionFunction {
 class DecodeAction extends MatchActionFunction {
   override def cond(bits : Bits) = True
 
-  override def action(bits : Bits) = LegoMemHeader.assignToBitsOperation(header => {
+  override def action(bits : Bits, valid : Bool) = LegoMemHeader.assignToBitsOperation(header => {
     switch (header.reqType) {
       is (LegoMem.RequestType.READ)  { header.cont := U"16'h00_00_00_01" }
       is (LegoMem.RequestType.WRITE) { header.cont := U"16'h00_00_00_01" }
@@ -128,11 +128,10 @@ class DecodeAction extends MatchActionFunction {
 class SequencerAction extends MatchActionFunction {
 
   override def cond(bits: Bits) = True
-  override def action(bits: Bits) = {
+  override def action(bits: Bits, valid : Bool) = {
     val seqIdWidth = 8
-    val counter = Counter(seqIdWidth bits)
+    val counter = Counter(seqIdWidth bits, valid)
     val func = LegoMemHeader.assignToBitsOperation(_.seqId := counter.value)
-    counter.increment()
     func(bits)
   }
 }
@@ -141,9 +140,8 @@ class SequencerAction extends MatchActionFunction {
 // TODO: get rid of this java like thing
 class MatchActionTableFactory {
   // Input stream
-  val functions = ArrayBuffer[(Bits => Bool, Bits => Bits)]()
+  val functions = ArrayBuffer[(Bits => Bool, (Bits, Bool) => Bits)]()
   val components = ArrayBuffer[(MatchActionComponent, Int)]()
-  def addAction(cond : Bits => Bool, action : Bits => Bits) : Unit = functions += ((cond, action))
   def addAction(f : MatchActionFunction) : Unit = functions += ((f.cond, f.action))
   def addComponent (c : MatchActionComponent, ctrlAddr : Int) : Unit = {
     components += ((c, ctrlAddr))
@@ -165,7 +163,7 @@ class MatchActionTableFactory {
     // TODO: check the timing and maybe add the pipeline
     // The MAT tables
     io.dataOut << io.dataIn
-    val res = functions.foldLeft(io.dataIn.fragment) { (bits, p) => Mux(p._1(bits), p._2(bits), bits) }
+    val res = functions.foldLeft(io.dataIn.fragment) { (bits, p) => Mux(p._1(bits), p._2(bits, io.dataOut.firstFire), bits) }
     when(io.dataIn.isFirst) { io.dataOut.fragment := res }
 
     // The ctrl path

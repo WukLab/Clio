@@ -55,6 +55,19 @@ case class LegoMemHeaderSim(
                               destIp : Long = 0
                             )
 
+// val length        = UInt(12 bits)
+// val dest_port     = UInt(16 bits)
+// val source_port   = UInt(16 bits)
+// val ip_dest_ip    = UInt(32 bits)
+// val ip_source_ip  = UInt(32 bits)
+case class UDPHeaderSim(
+                           length : Int,
+                           destPort : Int,
+                           sourcePort : Int,
+                           destIP : Long,
+                           sourceIp : Long
+                          )
+
 object SimConversions {
   def assign (field : BigInt, bytes : ArrayBuffer[Byte], offset : Int) : Unit = {
     for ((b, idx) <- field.toByteArray.reverse.zipWithIndex)
@@ -91,27 +104,38 @@ object SimConversions {
     bytes
   }
 
+  // We use a little eden in Host side, and get a big in arch
   val legoMemHeaderCodec = (
-         uint16
-      :: uint8
-      :: uint8
-      :: uint4
+         uint16L
+      :: uint8L
+      :: uint8L
+      :: uint4L
       :: bool
       :: bool
       :: uint2
-      :: uint8
-      :: uint16
+      :: uint8L
+      :: uint16L
       // Routing infomation
-      :: uint16
-      :: uint16
-      :: uint32
+      :: uint16L
+      :: uint16L
+      :: uint32L
     ).as[LegoMemHeaderSim]
 
-  val legoMemMsgCodec = (bytes(48) :: legoMemHeaderCodec).as[(ByteVector, LegoMemHeaderSim)]
-  val legoMemAccessMsgCodec = (bytes(36) :: int64 :: int32 :: legoMemHeaderCodec).as[(ByteVector, Long, Int, LegoMemHeaderSim)]
+  val legoMemMsgCodec = (bytes :: legoMemHeaderCodec).as[(ByteVector, LegoMemHeaderSim)]
+  val legoMemAccessMsgCodec = (legoMemHeaderCodec :: int32L :: int64L :: bytes).as[(LegoMemHeaderSim, Int, Long, ByteVector)]
+
+  val udpHeaderCodec = (uint(12) :: uint16 :: uint16 :: uint32 :: uint32).as[UDPHeaderSim]
 
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)
+  }
+
+  implicit def encodedToBigInt(a : Attempt[BitVector]) : BigInt = {
+    BigInt(a.require.toByteArray)
+  }
+
+  implicit def encodedAssign(a : Attempt[BitVector], bits : spinal.core.Bits) : Unit = {
+    bits #= encodedToBigInt(a)
   }
 
 }

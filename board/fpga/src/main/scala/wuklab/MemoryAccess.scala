@@ -223,6 +223,8 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
 class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
   val destWidth = 4
+  val headerQueueSize = 32
+  val dataQueueSize = 1024
 
   // Assign data for mover
   val io = new Bundle {
@@ -249,18 +251,18 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   lookup.io.bus <> io.bus.lookup
   lookup.io.ctrl.in << endpoint.io.raw.ctrlIn
   lookup.io.ctrl.out >> endpoint.io.raw.ctrlOut
-  lookup.io.req << lookupHeader.queueLowLatency(32).fmap(generateRequest)
+  lookup.io.req << lookupHeader.queueLowLatency(headerQueueSize).fmap(generateRequest)
 
   val access = new MemoryAccessUnit
   lookup.io.res <> access.io.lookupRes
-  accessHeader.queue(32) >> access.io.headerIn
+  accessHeader.queue(headerQueueSize) >> access.io.headerIn
   packetBuilder.io.headerIn << access.io.headerOut
 
   val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
   dma.io.m_axi <> io.bus.access
   dma.io.m_axis_read_data.liftStream(_.tdata) >> packetBuilder.io.dataIn
-  // TODO: We need to filter this flow. throw when is not done
-  val filteredData = packetParser.io.dataOut.filterBySignal(access.io.wrDataSignal)
+  // TODO: split the defination of queue
+  val filteredData = packetParser.io.dataOut.queue(dataQueueSize).filterBySignal(access.io.wrDataSignal)
   dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, filteredData)
   dma.io.s_axis_read_desc <> access.io.rdCmd
   dma.io.s_axis_write_desc <> access.io.wrCmd
@@ -309,7 +311,7 @@ class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
   // Data FIFOs
   io.raw.dataIn.translateFrom (io.ep.dataIn) { (f, s) => f.last := s.last; f.fragment := s.fragment.tdata }
   val (header, dest) = LegoMemHeader(io.raw.dataOut.fragment).stackPop
-  val destReg = RegNextWhenBypass(dest, io.raw.dataOut.firstFire)
+  val destReg = RegNextWhenBypass(dest, io.raw.dataOut.isFirst)
   io.ep.dataOut.translateFrom (io.raw.dataOut) { (s, f) =>
     s.last := f.last
     s.fragment.tdata := f.fragment
