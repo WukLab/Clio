@@ -7,7 +7,7 @@ import Utils._
 
 // TODO: use shapeless to define conversions
 object UDPHeader {
-  def packedWidth = 108
+  def packedWidth = 112
 
 }
 
@@ -19,7 +19,7 @@ trait BitsInterface {
 
 // TODO: finish this
 case class UDPHeader() extends Bundle {
-  val length        = UInt(12 bits)
+  val length        = UInt(16 bits)
   val dest_port     = UInt(16 bits)
   val source_port   = UInt(16 bits)
   val ip_dest_ip    = UInt(32 bits)
@@ -28,7 +28,7 @@ case class UDPHeader() extends Bundle {
   def packedWidth = UDPHeader.packedWidth
   def asPackedBits : Bits = {
     val bits = Bits(packedWidth bits)
-    bits(96, 12 bits) := length       .asBits
+    bits(96, 16 bits) := length       .asBits
     bits(80, 16 bits) := dest_port    .asBits
     bits(64, 16 bits) := source_port  .asBits
     bits(32, 32 bits) := ip_dest_ip   .asBits
@@ -38,7 +38,7 @@ case class UDPHeader() extends Bundle {
   }
   def fromPackedBits(bits : Bits) : UDPHeader = {
     assert(packedWidth == bits.getWidth, "UDPHeader: Compact width mismatch")
-    length        := bits(96, 12 bits).asUInt
+    length        := bits(96, 16 bits).asUInt
     dest_port     := bits(80, 16 bits).asUInt
     source_port   := bits(64, 16 bits).asUInt
     ip_dest_ip    := bits(32, 32 bits).asUInt
@@ -126,10 +126,9 @@ class NetworkStorageAdapter extends Component {
 
 class NetworkAdapter extends Component {
 
-  // TODO: check this
-  // 192.168.1.1
-  val sourceIp = U"32'hC0_A8_01_01"
-  val sourcePort = U"16'd2233"
+  // Will record the incoming IP and do the trick
+  val currentIp   = Reg (UInt(32 bits)) init 0
+  val currentPort = Reg (UInt(16 bits)) init 0
 
   val io = new Bundle {
     val net = NetworkInterface()
@@ -147,11 +146,11 @@ class NetworkAdapter extends Component {
     // Lookup the header
     io.net.parsed.udpHeaderOut.translateFrom (header) { (header, bits) =>
       val memHeader = LegoMemHeader(bits.fragment)
-      header.length := memHeader.size.resize(12 bits)
+      header.length := memHeader.size
       header.ip_dest_ip := memHeader.destIp
       header.dest_port := memHeader.destPort
-      header.ip_source_ip := sourceIp
-      header.source_port := sourcePort
+      header.ip_source_ip := currentIp
+      header.source_port := currentPort
     }
 
   }
@@ -177,6 +176,12 @@ class NetworkAdapter extends Component {
     // TODO: check this
     headerStream.ready := dataStreamIn.first && dataStreamIn.valid && io.seq.dataOut.ready
     dataStreamIn.ready := Mux(dataStreamIn.first, headerStream.valid && io.seq.dataOut.ready, io.seq.dataOut.ready)
+
+    when (headerStream.fire) {
+      currentIp := headerStream.ip_dest_ip
+      currentPort := headerStream.dest_port
+    }
   }
+
 
 }

@@ -203,7 +203,7 @@ object LegoMemSystemSim {
       // Header Stream
       fork {
         val data = udpHeaderCodec.encode(
-          UDPHeaderSim(28, 1234, 5678, 0, 1)
+          UDPHeaderSim(28 + 65, 1234, 5678, 0, 1)
         )
 
         headerStream #= SeqDataGen(data)

@@ -14,19 +14,22 @@ trait XilinxAXI4Toplevel {
     this.noIoPrefix()
     for (wire <- this.getAllIo) {
       // For Axi memory mapped
-      val newName = wire.getName().replaceAll("(a?[wrb])_(payload_)?", "$1")
-                                  // For Axi Stream, raw interface
-                                  .replaceAll("_payload$", "_tdata")
-                                  .replaceAll("_ready$", "_tready")
-                                  .replaceAll("_valid$", "_tvalid")
-                                  // For Axi Stream, Fragment Interface
-                                  .replaceAll("_last$", "_tlast")
-                                  .replaceAll("_payload_t", "_t")
-                                  .replaceAll("_payload_fragment_t", "_t")
-                                  .replaceAll("_payload_", "_")
-                                  // Special rules
-                                  .replaceAll("_desc_tready$", "_desc_ready")
-                                  .replaceAll("_desc_tvalid$", "_desc_valid")
+      val newName = wire.getName()
+        .replaceAll("(a?[wrb])_(payload_)?", "$1")
+        // For Axi Stream, raw interface
+        .replaceAll("_payload$", "_tdata")
+        .replaceAll("_ready$", "_tready")
+        .replaceAll("_valid$", "_tvalid")
+        // For Axi Stream, Fragment Interface
+        .replaceAll("_last$", "_tlast")
+        .replaceAll("_payload_t", "_t")
+        .replaceAll("_payload_fragment_t", "_t")
+        .replaceAll("_payload_", "_")
+        // Special rules
+        .replaceAll("_desc_tready$", "_desc_ready")
+        .replaceAll("_desc_tvalid$", "_desc_valid")
+        // fragments
+        .replaceAll("_fragment$", "_tdata")
       println(f"Xilinx: Rename $wire, ${wire.getName()} -> $newName")
       wire.setName(newName)
     }
