@@ -16,10 +16,6 @@
 
 struct session_net *monitor_session;
 
-/*
- * Allocate a new process-local legomem context.
- * Monitor will be contacted. On success, the context is returned.
- */
 static struct legomem_context *
 __legomem_open_context(bool is_mgmt)
 {
@@ -70,6 +66,13 @@ err:
 	return NULL;
 }
 
+/*
+ * Allocate a new process-local legomem context.
+ * Monitor will be contacted. On success, the context is returned.
+ *
+ * Note that we will not contact boards at this point.
+ * We leave that to legomem_alloc time, and totally handled by board.
+ */
 struct legomem_context *legomem_open_context(void)
 {
 	return __legomem_open_context(false);
@@ -109,7 +112,7 @@ int legomem_close_context(struct legomem_context *ctx)
 				     &resp, sizeof(resp));
 
 		if (resp.ret) {
-			printf("%s(): monitor fail to close a session. ret %d\n",
+			printf("%s(): monitor fail to close a context. ret %d\n",
 				__func__, resp.ret);
 		}
 	}
@@ -243,6 +246,7 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 
 static int
 ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
+			    unsigned long vm_flags,
 			    unsigned int *board_ip, unsigned int *vregion_idx)
 {
 	struct legomem_alloc_free_req req;
@@ -271,8 +275,15 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 	return 0;
 }
 
+/*
+ * @ctx: the legomem context
+ * @size: the allocation size
+ * @vm_flags: the read/write permission
+ *
+ * Return 0 on error otherwise return the allocated remote address.
+ */
 unsigned long __remote
-legomem_alloc(struct legomem_context *ctx, size_t size)
+legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 {
 	struct legomem_alloc_free_req req;
 	struct legomem_alloc_free_resp resp;
@@ -292,6 +303,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 	if (v) {
 		ses = v->ses_net;
 		BUG_ON(!ses);
+
+		vregion_idx = legomem_vregion_to_index(ctx, v);
 		goto found;
 	}
 
@@ -299,27 +312,33 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 	 * Otherwise we ask monitor to alloc a new vRegion
 	 * and it will tell use the new board and vRegion index
 	 */
-	ret = ask_monitor_for_new_vregion(ctx, size, &board_ip, &vregion_idx);
+	ret = ask_monitor_for_new_vregion(ctx, size, vm_flags,
+					  &board_ip, &vregion_idx);
 	if (ret)
 		return 0;
 
 	/*
-	 * Finally check if this context and this thread
-	 * already has an established session with the new board
+	 * Monitor has picked a board and a vRegion for us.
+	 * We do not know if this context has connected with the board.
+	 * Thus, here we check if this context and this thread
+	 * already has an established session with the new board.
+	 *
+	 * A context could have multiple threads connecting to the board,
+	 * each with its own session. Thus, we need to use BOARD_IP+THREAD_ID.
 	 */
 	tid = gettid();
 	ses = context_find_session_by_ip(ctx, tid, board_ip);
 	if (!ses) {
 		/*
-		 * If there was no session before,
-		 * we need to open a new one:
+		 * Okay, there is no session between this thread
+		 * and this board. Use the public API to open one:
 		 */
 		struct board_info *bi;
 
 		bi = find_board_by_ip(board_ip);
 		if (unlikely(bi)) {
-			printf("WARN board_ip %x not found. "
-			       "Please add it during start.\n", board_ip);
+			printf("%s(): WARN board_ip %x not found.\n",
+				__func__, board_ip);
 			return 0;
 		}
 
@@ -343,12 +362,15 @@ found:
 	 */
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_ALLOC;
+	lego_header->pid = ctx->pid;
 
 	req.op.len = size;
+	req.op.vregion_idx = vregion_idx;
+	req.op.vm_flags = vm_flags;
 
 	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
 	if (ret <= 0) {
-		printf("%s(): RPC failed\n", __func__);
+		printf("%s(): fail to reach board.\n", __func__);
 		return ret;
 	}
 
@@ -384,6 +406,7 @@ int legomem_free(struct legomem_context *ctx,
 	/* Prepare headers */
 	lego_header = to_lego_header((void *)&req);
 	lego_header->opcode = OP_REQ_FREE;
+	lego_header->pid = ctx->pid;
 
 	req.op.addr = addr;
 	req.op.len = size;
@@ -425,6 +448,7 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 
 	lego_header = to_lego_header((void *)&req);
 	lego_header->opcode = OP_REQ_READ;
+	lego_header->pid = ctx->pid;
 
 	req.op.va = addr;
 	req.op.size = size;
@@ -489,6 +513,8 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_WRITE;
+	lego_header->pid = ctx->pid;
+
 	req->op.va = addr;
 	req->op.size = size;
 	memcpy(req->op.data, buf, size);

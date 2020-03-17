@@ -235,6 +235,13 @@ va_to_vregion(struct proc_info *p, unsigned long __remote va)
 	return head + idx;
 }
 
+static inline struct vregion_info *
+index_to_vregion(struct proc_info *p, unsigned int index)
+{
+	BUG_ON(index >=  NR_VREGIONS);
+	return p->vregion + index;
+}
+
 static inline unsigned int
 vregion_to_index(struct proc_info *p, struct vregion_info *v)
 {

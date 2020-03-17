@@ -43,9 +43,9 @@ enum LEGOFPGA_OPCODE_REQ {
  */
 
 struct op_alloc_free {
-	unsigned int	pid;
 	unsigned long	addr;
 	unsigned long	len;
+	unsigned long	vregion_idx;
 	unsigned long	vm_flags;
 } __packed;
 

@@ -311,7 +311,10 @@ void free_proc(struct proc_info *pi)
 }
 
 /*
- * This is the handler for host side __legomem_open_context.
+ * This is the handler for host side legomem_open_context.
+ * We will not contact boards to create the context for now.
+ *
+ * We will return a unique global PID to caller.
  */
 static void handle_create_proc(struct thpool_buffer *tb)
 {
@@ -328,6 +331,7 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	proc_name = req->op.proc_name;
 	host_ip = 0;
 
+	/* Allocate global unique PID and proc structure */
 	pid = alloc_pid();
 	if (unlikely(pid < 0)) {
 		resp->op.ret = -ENOMEM;

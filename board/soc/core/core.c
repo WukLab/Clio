@@ -141,11 +141,21 @@ static int init_thpool(void)
 	return 0;
 }
 
-static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
-			     struct thpool_buffer *tb, bool is_alloc)
+/*
+ * Handle alloc/free requests from host.
+ *
+ * Note that
+ * 1) This might be the first the host contacting with us,
+ * thus there might be no context created. We will create on if that's the case.
+ * 2) Upon alloc, remote will tell us the vRegion index, which, was chosen by monitor.
+ * 3) We only perform allocation withi one vRegion.
+ *    But we could perform free spanning multiple vRegions.
+ */
+static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
+			      struct thpool_buffer *tb, bool is_alloc)
 {
 	struct proc_info *pi;
-	unsigned int pid, node;
+	unsigned int pid, node, host_ip;
 	struct op_alloc_free *ops;
 	struct op_alloc_free_ret *reply;
 
@@ -154,23 +164,41 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 	set_tb_tx_size(tb, sizeof(*reply));
 
 	ops = get_op_struct(rx_buf);
-	pid = ops->pid;
+
+	// TODO the packet format is unknown for now.
+	pid = 0;
 	node = 0;
+	host_ip = 0;
 
 	pi = get_proc_by_pid(pid, node);
-	if (unlikely(!pi)) {
-		printf("WARN: invalid pid %d\n", pid);
-		reply->ret = -EINVAL;
-		return -EINVAL;
+	if (!pi) {
+		/*
+		 * This could happen.
+		 * Because we might be a new board assigned to the
+		 * host by monitor upon allocation.
+		 */
+		pi = alloc_proc(pid, node, NULL, host_ip);
+		if (!pi) {
+			reply->ret = -ENOMEM;
+			return;
+		}
+
+		/* We will drop in the end */
+		get_proc_by_pid(pid, node);
 	}
 
 	if (is_alloc) {
 		/* OP_REQ_ALLOC */
-		unsigned long addr, len, vm_flags;
+		unsigned long addr, len, vregion_idx, vm_flags;
+		struct vregion_info *vi;
 
 		len = ops->len;
+		vregion_idx = ops->vregion_idx;
 		vm_flags = ops->vm_flags;
-		addr = alloc_va(pi, len, vm_flags);
+
+		vi = index_to_vregion(vregion_idx);
+
+		addr = alloc_va_vregion(pi, vi, len, vm_flags);
 		if (unlikely(IS_ERR_VALUE(addr)))
 			reply->ret = -ENOMEM;
 		else {
@@ -187,10 +215,9 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 	}
 
 	put_proc_info(pi);
-	return 0;
 }
 
-static int handle_create_proc(struct thpool_buffer *tb)
+static void handle_create_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *pi;
 	int *reply;
@@ -204,15 +231,15 @@ static int handle_create_proc(struct thpool_buffer *tb)
 	rx_buf = tb->rx;
 	pid = 1;
 	node = 0;
+
 	pi = alloc_proc(pid, node, NULL, 0);
 	if (!pi) {
 		*reply = -ENOMEM;
 	} else
 		*reply = 0;
-	return 0;
 }
 
-static int handle_free_proc(struct thpool_buffer *tb)
+static void handle_free_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *pi;
 	int *reply;
@@ -226,16 +253,16 @@ static int handle_free_proc(struct thpool_buffer *tb)
 	rx_buf = tb->rx;
 	pid = 1;
 	node = 0;
+
 	pi = get_proc_by_pid(pid, node);
 	if (!pi) {
 		*reply = -EINVAL;
-		return 0;
+		return;
 	}
 
 	/* We grabbed one ref above, thus put twice */
 	put_proc_info(pi);
 	put_proc_info(pi);
-	return 0;
 }
 
 /*
