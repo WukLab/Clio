@@ -53,7 +53,7 @@ struct op_alloc_free_ret {
 	unsigned int 	ret;
 	unsigned long	addr;
 
-	unsigned int	board_ip, vregion_index;
+	unsigned int	board_ip, vregion_idx;
 } __packed;
 
 struct op_create_proc {

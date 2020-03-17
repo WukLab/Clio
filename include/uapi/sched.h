@@ -137,6 +137,7 @@ board_find_session(struct board_info *p, int session_id)
  *   will succeed, futher it may tweak the tree in a way
  *   that no allocation will be possible further more.
  */
+#define VREGION_INFO_FLAG_ALLOCATED	(0x1)
 struct vregion_info {
 	unsigned int		flags;
 	unsigned long		board_id;
@@ -182,6 +183,7 @@ struct proc_info {
 	char			proc_name[PROC_NAME_LEN];
 
 	struct vregion_info	vregion[NR_VREGIONS];
+	struct vregion_info	*cached_vregion;
 	int			nr_vmas;
 };
 

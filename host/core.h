@@ -2,6 +2,8 @@
 #define _HOST_CORE_H_
 
 #include <uapi/sched.h>
+#include "net/net.h"
+#include <limits.h>
 
 struct legomem_vregion {
 	int board_id;
@@ -26,16 +28,28 @@ struct legomem_context {
 	pthread_spinlock_t lock;
 
 	struct legomem_vregion vregion[NR_VREGIONS];
+	struct legomem_vregion *cached_vregion;
 	struct list_head open_vregion;
 };
 
 static inline void init_legomem_context(struct legomem_context *p)
 {
+	int i;
+
 	BUG_ON(!p);
 
 	memset(p, 0, sizeof(*p));
 	INIT_LIST_HEAD(&p->list);
 	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
+
+	/* init all vregions */
+	for (i = 0; i < NR_VREGIONS; i++) {
+		struct legomem_vregion *v;
+
+		v = p->vregion + i;
+		v->avail_space = VREGION_SIZE;
+		v->ses_net = NULL;
+	}
 }
 
 static inline struct legomem_vregion *
@@ -100,6 +114,7 @@ struct session_net *context_find_session_by_board(struct legomem_context *p,
 						  struct board_info *bi);
 
 /* Board */
+#define ANY_BOARD	(UINT_MAX)
 int init_board_subsys(void);
 struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,

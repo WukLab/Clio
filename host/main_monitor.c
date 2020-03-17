@@ -19,6 +19,7 @@
 #include <uapi/net_header.h>
 
 #include "core.h"
+#include "endpoint.h"
 
 #define NR_THPOOL_WORKERS	(1)
 #define NR_THPOOL_BUFFER	(32)
@@ -368,11 +369,47 @@ static void handle_free_proc(struct thpool_buffer *tb)
 	}
 
 	/* We grabbed one ref above, thus put twice */
+	put_proc_info(pi);
+	put_proc_info(pi);
+
 	resp->ret = 0;
-	put_proc_info(pi);
-	put_proc_info(pi);
 }
 
+static inline struct vregion_info *
+alloc_vregion(struct proc_info *p)
+{
+	struct vregion_info *v;
+	int i;
+
+	pthread_spin_lock(&p->lock);
+	for (i = 0; i < NR_VREGIONS; i++) {
+		v = p->vregion + i;
+		if (!(v->flags & VREGION_INFO_FLAG_ALLOCATED)) {
+			v->flags |= VREGION_INFO_FLAG_ALLOCATED;
+			pthread_spin_unlock(&p->lock);
+			return v;
+		}
+	}
+	pthread_spin_unlock(&p->lock);
+	return NULL;
+}
+
+static inline void free_vregion(struct proc_info *p,
+				struct vregion_info *v)
+{
+	pthread_spin_lock(&p->lock);
+	if (v->flags & VREGION_INFO_FLAG_ALLOCATED) {
+		v->flags &=  ~VREGION_INFO_FLAG_ALLOCATED;
+	} else {
+		BUG();
+	}
+	pthread_spin_unlock(&p->lock);
+}
+
+/*
+ * Handler for the case where hosts need to allocate
+ * a new vRegion, i.e., ask_monitor_for_new_vregion.
+ */
 static void handle_alloc(struct thpool_buffer *tb)
 {
 	struct legomem_alloc_free_req *req;
@@ -380,6 +417,8 @@ static void handle_alloc(struct thpool_buffer *tb)
 	unsigned int pid, host_ip;
 	struct proc_info *pi;
 	unsigned long len;
+	struct board_info *bi;
+	struct vregion_info *vi;
 
 	resp = (struct legomem_alloc_free_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
@@ -400,15 +439,34 @@ static void handle_alloc(struct thpool_buffer *tb)
 		goto out;
 	}
 
+	vi = alloc_vregion(pi);
+	if (!vi) {
+		resp->op.ret = -ENOMEM;
+		goto out;
+	}
+
 	/*
-	 * TODO
-	 * Go through the list of vregions and fine one
-	 * that could satisfy the requirement
-	 * need to fill the board and index.
+	 * TODO: Policy plug-in
+	 * We are randomly selecting a board now
+	 * During practice we should use nr_avail_space, load etc
+	 */
+	bi = find_board_by_ip(ANY_BOARD);
+	if (!bi) {
+		free_vregion(pi, vi);
+
+		resp->op.ret = -EPERM;
+		printf("%s(): WARN. No board available. Requester: %d %x\n",
+			__func__, pid, host_ip);
+		goto out;
+	}
+
+	/*
+	 * All info in place
+	 * reply to host
 	 */
 	resp->op.ret = 0;
-	resp->op.board_ip = 0;
-	resp->op.vregion_index = 0;
+	resp->op.board_ip = bi->board_ip;
+	resp->op.vregion_idx = vregion_to_index(pi, vi);
 
 out:
 	put_proc_info(pi);
@@ -514,11 +572,22 @@ int init_management_session(void)
 
 int main(int argc, char **argv)
 {
+	struct endpoint_info *local_ei;
+	int ret;
+
+	local_ei = &ei_wuklab02;
+	ret = init_net(local_ei);
+	if (ret) {
+		printf("Fail to init network layer.\n");
+		exit(-1);
+	}
+
 	init_thpool();
 	init_thpool_buffer();
 
 	/* Same as host side init */
 	init_board_subsys();
+	init_context_subsys();
 	init_net_session_subsys();
 	init_management_session();
 

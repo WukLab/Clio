@@ -105,8 +105,8 @@ int legomem_close_context(struct legomem_context *ctx)
 		lego_header->opcode = OP_FREE_PROC;
 		lego_header->pid = ctx->pid;
 
-		net_send(monitor_session, &req, sizeof(req));
-		net_receive(monitor_session, &resp, sizeof(resp));
+		net_send_and_receive(monitor_session, &req, sizeof(req),
+				     &resp, sizeof(resp));
 
 		if (resp.ret) {
 			printf("%s(): monitor fail to close a session. ret %d\n",
@@ -221,15 +221,53 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
  * NULL otherwise and caller needs to contact monitor.
  */
 struct legomem_vregion *
-find_vregion_candidate(struct legomem_context *ctx, size_t size)
+find_vregion_candidate(struct legomem_context *p, size_t size)
 {
+	struct legomem_vregion *v;
+	int i;
+
+	if (p->cached_vregion)
+		i = p->cached_vregion - p->vregion;
+	else
+		i = 0;
+
+	for ( ; i < NR_VREGIONS; i++) {
+		v = p->vregion + i;
+		if (v->avail_space >= size) {
+			p->cached_vregion = v;
+			return v;
+		}
+	}
 	return NULL;
 }
 
-int ask_monitor_for_new_vregion(unsigned int *board_ip, unsigned int *vregion_idx)
+static int
+ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
+			    unsigned int *board_ip, unsigned int *vregion_idx)
 {
-	*board_ip = 0;
-	*vregion_idx = 0;
+	struct legomem_alloc_free_req req;
+	struct legomem_alloc_free_resp resp;
+	struct lego_header *lego_header;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_ALLOC;
+	lego_header->pid = ctx->pid;
+
+	req.op.len = size;
+	req.op.vm_flags = 0;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0)
+		return -EIO;
+
+	if (resp.op.ret)
+		return resp.op.ret;
+
+	/* success */
+	*board_ip = resp.op.board_ip;
+	*vregion_idx = resp.op.vregion_idx;
 	return 0;
 }
 
@@ -247,8 +285,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 	unsigned long __remote addr;
 
 	/*
-	 * First try to find to find if an existing
-	 * vregion can fulfill this request:
+	 * First try to find an existing
+	 * vregion that could possibly fulfill this request:
 	 */
 	v = find_vregion_candidate(ctx, size);
 	if (v) {
@@ -261,7 +299,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size)
 	 * Otherwise we ask monitor to alloc a new vRegion
 	 * and it will tell use the new board and vRegion index
 	 */
-	ret = ask_monitor_for_new_vregion(&board_ip, &vregion_idx);
+	ret = ask_monitor_for_new_vregion(ctx, size, &board_ip, &vregion_idx);
 	if (ret)
 		return 0;
 
@@ -308,16 +346,10 @@ found:
 
 	req.op.len = size;
 
-	ret = net_send(ses, &req, sizeof(req));
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
 	if (ret <= 0) {
-		printf("%s(): fail to send req\n", __func__);
-		return 0;
-	}
-
-	ret = net_receive(ses, &resp, sizeof(resp));
-	if (ret <= 0) {
-		printf("%s() fail to recv msg\n", __func__);
-		return 0;
+		printf("%s(): RPC failed\n", __func__);
+		return ret;
 	}
 
 	/* Check response from the board */

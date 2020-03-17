@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "core.h"
+
 /*
  * This is a per-node global list,
  * it has information about all remote accessible boards.
@@ -83,6 +85,12 @@ struct board_info *find_board_by_ip(unsigned int board_ip)
 
 	pthread_spin_lock(&board_lock);
 	hash_for_each_possible(board_list, bi, link, key) {
+		/* Return the first board in the list */
+		if (board_ip == ANY_BOARD) {
+			pthread_spin_unlock(&board_lock);
+			return bi;
+		}
+
 		if (bi->board_ip == board_ip) {
 			pthread_spin_unlock(&board_lock);
 			return bi;

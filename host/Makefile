@@ -14,7 +14,7 @@ SRCS := board.c \
 
 all: $(SRCS) 
 	gcc -Wall -o host.o $(INCLUDE) main_host.c test.c $(SRCS) $(CLIBS)
-	gcc -Wall -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
+	gcc -g -Wall -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
 
 clean:
 	rm *.o
