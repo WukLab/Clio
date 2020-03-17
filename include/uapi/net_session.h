@@ -49,7 +49,7 @@ struct transport_net_ops {
 	void (*exit)(void);
 
 	/* Send one packet */
-	int (*send_one)(struct session_net *, void *, size_t);
+	int (*send_one)(struct session_net *, void *, size_t, void *);
 
 	/*
 	 * Receive one packet
@@ -83,7 +83,7 @@ struct raw_net_ops {
 	void (*exit)(void);
 
 	/* Send one packet */
-	int (*send_one)(struct session_net *, void *, size_t);
+	int (*send_one)(struct session_net *, void *, size_t, void *);
 
 	/*
 	 * Receive one packet
@@ -118,9 +118,9 @@ extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;
 
 static inline int
-raw_net_send(struct session_net *net, void *buf, size_t buf_size)
+raw_net_send(struct session_net *net, void *buf, size_t buf_size, void *route)
 {
-	return raw_net_ops->send_one(net, buf, buf_size);
+	return raw_net_ops->send_one(net, buf, buf_size, route);
 }
 
 static inline int
@@ -146,9 +146,15 @@ raw_net_receive_nb(void *buf, size_t buf_size)
 }
 
 static inline int
+net_send_with_route(struct session_net *net, void *buf, size_t buf_size, void *route)
+{
+	return transport_net_ops->send_one(net, buf, buf_size, route);
+}
+
+static inline int
 net_send(struct session_net *net, void *buf, size_t buf_size)
 {
-	return transport_net_ops->send_one(net, buf, buf_size);
+	return transport_net_ops->send_one(net, buf, buf_size, NULL);
 }
 
 static inline int

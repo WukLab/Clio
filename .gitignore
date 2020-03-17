@@ -76,6 +76,8 @@ generated_ip/
 # AWS Specific
 awsver.txt
 
+tags
+
 !.github/
 !.gitignore
 !.clang-format

@@ -18,9 +18,9 @@
 #include "net.h"
 
 static inline int bypass_send_one(struct session_net *net,
-				  void *buf, size_t buf_size)
+				  void *buf, size_t buf_size, void *route)
 {
-	return raw_net_send(net, buf, buf_size);
+	return raw_net_send(net, buf, buf_size, route);
 }
 
 static inline int bypass_receive_one(struct session_net *net,

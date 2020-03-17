@@ -44,12 +44,13 @@ struct session_raw_socket {
  * Return -1 if error 
  */
 static int raw_socket_send(struct session_net *ses_net,
-			   void *buf, size_t buf_size)
+			   void *buf, size_t buf_size, void *_route)
 {
 	int ret;
 	int sockfd;
 	struct sockaddr_ll *saddr;
 	struct session_raw_socket *ses_socket;
+	struct routing_info *route;
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
@@ -58,10 +59,19 @@ static int raw_socket_send(struct session_net *ses_net,
 	sockfd = ses_socket->sockfd;
 	saddr = &ses_socket->saddr;
 
-	/* Cook the L2-L4 layer headers */
-	prepare_headers(&ses_net->route, buf, buf_size);
+	/*
+	 * Cook the L2-L4 layer headers
+	 * If users provide their own ri, we use it.
+	 * Otherwise use the session ri.
+	 */
+	if (_route)
+		route = (struct routing_info *)_route;
+	else
+		route = &ses_net->route;
+	prepare_headers(route, buf, buf_size);
 
-	ret = sendto(sockfd, buf, buf_size, 0, (struct sockaddr *)saddr, sizeof(*saddr));
+	ret = sendto(sockfd, buf, buf_size, 0,
+		     (struct sockaddr *)saddr, sizeof(*saddr));
 	return ret;
 }
 

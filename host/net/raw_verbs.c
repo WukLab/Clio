@@ -68,7 +68,8 @@ static pthread_spinlock_t raw_verbs_lock;
  * 2) We could do batch signaling.
  * 3) Add timeout to poll_cq
  */
-static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
+static int raw_verbs_send(struct session_net *ses_net,
+			  void *buf, size_t buf_size, void *_route)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_sge sge;
@@ -78,6 +79,7 @@ static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_siz
 	struct ibv_qp *qp;
 	struct ibv_cq *send_cq;
 	int ret;
+	struct routing_info *route;
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
@@ -96,7 +98,16 @@ static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_siz
 		return errno;
 	}
 
-	prepare_headers(&ses_net->route, buf, buf_size);
+	/*
+	 * Cook the L2-L4 layer headers
+	 * If users provide their own ri, we use it.
+	 * Otherwise use the session ri.
+	 */
+	if (_route)
+		route = (struct routing_info *)_route;
+	else
+		route = &ses_net->route;
+	prepare_headers(route, buf, buf_size);
 
 	sge.addr = (uint64_t)buf;
 	sge.length = buf_size;

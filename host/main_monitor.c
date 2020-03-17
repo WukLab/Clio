@@ -24,6 +24,23 @@
 #define NR_THPOOL_WORKERS	(1)
 #define NR_THPOOL_BUFFER	(32)
 
+struct board_info *mgmt_dummy_board;
+struct session_net *mgmt_session;
+
+int init_management_session(void)
+{
+	struct endpoint_info dummy_ei;
+
+	mgmt_dummy_board = add_board("local_mgmt", 0, &dummy_ei, &dummy_ei);
+	if (!mgmt_dummy_board)
+		return -ENOMEM;
+
+	mgmt_session = legomem_open_session_mgmt(mgmt_dummy_board);
+	if (!mgmt_session)
+		return -ENOMEM;
+	return 0;
+}
+
 /*
  * Each thpool worker is described by struct thpool_worker,
  * and it is a standalone thread, running the generic handler only.
@@ -481,27 +498,19 @@ static void handle_free(struct thpool_buffer *tb)
 
 }
 
-/* Port current host net */
-static inline size_t _net_send(void *buf, size_t buf_size)
-{
-	return -ENOSYS;
-}
-
-static inline size_t _net_receive(void *buf, size_t buf_size)
-{
-	return -ENOSYS;
-}
-
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
 	struct lego_header *lego_hdr;
 	uint16_t opcode;
-	void *rx_buf;
+	struct routing_info ri;
 
-	rx_buf = tb->rx;
+	/* Save original packet routing info */
+	memcpy(&ri, tb->rx, sizeof(ri));
+	swap(ri.ipv4.src_ip, ri.ipv4.dst_ip);
+	swap(ri.udp.src_port, ri.udp.dst_port);
 
-	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
+	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
@@ -524,7 +533,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb)))
-		_net_send(tb->tx, tb->tx_size);
+		net_send_with_route(monitor_session, tb->tx, tb->tx_size, &ri);
 	free_thpool_buffer(tb);
 }
 
@@ -538,7 +547,7 @@ static void dispatcher(void)
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
-		ret = _net_receive(tb->rx, tb->rx_size);
+		ret = net_receive(monitor_session, tb->rx, tb->rx_size);
 		if (ret < 0) {
 			printf("axi dma fpga to soc failed\n");
 			return;
@@ -550,28 +559,6 @@ static void dispatcher(void)
 		 */
 		worker_handle_request(tw, tb);
 	}
-}
-
-struct legomem_context *mgmt_context;
-struct board_info *mgmt_dummy_board;
-struct session_net *mgmt_session;
-
-int init_management_session(void)
-{
-	struct endpoint_info dummy_ei;
-
-	mgmt_dummy_board = add_board("local_mgmt", 0, &dummy_ei, &dummy_ei);
-	if (!mgmt_dummy_board)
-		return -ENOMEM;
-
-	mgmt_context = legomem_open_context_mgmt();
-	if (!mgmt_context)
-		return -ENOMEM;
-
-	mgmt_session = legomem_open_session_mgmt(mgmt_dummy_board);
-	if (!mgmt_session)
-		return -ENOMEM;
-	return 0;
 }
 
 int main(int argc, char **argv)

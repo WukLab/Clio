@@ -28,12 +28,13 @@ struct session_udp_socket {
 };
 
 static int udp_socket_send(struct session_net *ses_net, void *buf,
-			   size_t buf_size)
+			   size_t buf_size, void *_route)
 {
 	int ret;
 	int sockfd;
 	struct sockaddr_in *remote_addr;
 	struct session_udp_socket *ses_socket;
+	struct routing_info *route;
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
@@ -41,6 +42,21 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 	ses_socket = (struct session_udp_socket *)ses_net->raw_net_private;
 	sockfd = ses_socket->sockfd;
 	remote_addr = &ses_socket->remote_addr;
+
+	/*
+	 * Cook the L2-L4 layer headers
+	 * If users provide their own ri, we use it.
+	 * Otherwise use the session ri.
+	 *
+	 * XXX: this is wrong
+	 * we need to change the remote_addr structure to let
+	 * kernel prepare the headers properly!
+	 */
+	if (_route)
+		route = (struct routing_info *)_route;
+	else
+		route = &ses_net->route;
+	prepare_headers(route, buf, buf_size);
 
 	/*
 	 * We don't prepare headers and let kernel stack do it.

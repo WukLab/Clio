@@ -387,7 +387,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		 */
 		info = index_to_unack_buffer_info(ses_gbn, i);
 
-		ret = raw_net_send(ses_net, info->buf, info->buf_size);
+		ret = raw_net_send(ses_net, info->buf, info->buf_size, NULL);
 		if (ret < 0) {
 			gbn_info("net_send error %d\n", ret);
 			break;
@@ -500,7 +500,7 @@ static void handle_data_packet(struct session_net *ses_net, void *packet, size_t
 
 		ack.ack_header.type = pkt_type_ack;
 		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
-		ret = raw_net_send(ses_net, &ack, sizeof(ack));
+		ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 		if (ret < 0) {
 			gbn_info("net_send error %d\n", ret);
 			return;
@@ -516,7 +516,7 @@ static void handle_data_packet(struct session_net *ses_net, void *packet, size_t
 			ses_gbn->ack_enable = false;
 			ack.ack_header.type = pkt_type_nack;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
-			ret = raw_net_send(ses_net, &ack, sizeof(ack));
+			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 			if (ret < 0) {
 				gbn_info("net_send error %d\n", ret);
 				return;
@@ -528,7 +528,7 @@ static void handle_data_packet(struct session_net *ses_net, void *packet, size_t
 			 */
 			ack.ack_header.type = pkt_type_ack;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
-			ret = raw_net_send(ses_net, &ack, sizeof(ack));
+			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 			if (ret < 0) {
 				gbn_info("net_send error %d\n", ret);
 				return;
@@ -628,7 +628,7 @@ static void *gbn_poll_func(void *_unused)
  * The lower seqnum ones should send out first.
  */
 static inline int gbn_send_one(struct session_net *net,
-				  void *buf, size_t buf_size)
+				  void *buf, size_t buf_size, void *route)
 {
 	struct buffer_info *info;
 	struct session_gbn *ses;
@@ -669,7 +669,7 @@ static inline int gbn_send_one(struct session_net *net,
 		ses->next_timeout = e;
 	}
 
-	return raw_net_send(net, buf, buf_size);
+	return raw_net_send(net, buf, buf_size, route);
 }
 
 /*
