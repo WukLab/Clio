@@ -33,7 +33,7 @@ int init_management_session(void)
 	if (!mgmt_context)
 		return -ENOMEM;
 
-	mgmt_session = legomem_open_session_mgmt(mgmt_context, mgmt_dummy_board);
+	mgmt_session = legomem_open_session_mgmt(mgmt_dummy_board);
 	if (!mgmt_session)
 		return -ENOMEM;
 	return 0;

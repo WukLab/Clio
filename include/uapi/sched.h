@@ -54,6 +54,12 @@ struct board_info {
 	struct list_head	list;
 	struct hlist_node	link;
 
+	/*
+	 * This is the default mgmt session that all boards
+	 * will open and accept requests.
+	 */
+	struct session_net	*mgmt_session;
+
 	/* The hashtable for open sessions with this board */
 	struct hlist_head	ht_sessions[NR_HT_BOARD_SESSIONS];
 	pthread_spinlock_t	lock;
@@ -61,6 +67,18 @@ struct board_info {
 	unsigned long		mem_total;
 	unsigned long		mem_avail;
 };
+
+static inline struct session_net *
+get_board_mgmt_session(struct board_info *bi)
+{
+	return bi->mgmt_session;
+}
+
+static inline void
+set_board_mgmt_session(struct board_info *bi, struct session_net *ses)
+{
+	bi->mgmt_session = ses;
+}
 
 static inline void init_board_info(struct board_info *bi)
 {

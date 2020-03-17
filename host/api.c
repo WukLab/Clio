@@ -121,16 +121,16 @@ int legomem_close_context(struct legomem_context *ctx)
 	return 0;
 }
 
-/*
- * Open a new network session with a board.
- */
 static struct session_net *
 __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		       pid_t tid, bool is_mgmt)
 {
 	struct session_net *ses;
 
-	if (!ctx || !bi)
+	if (!bi)
+		return NULL;
+
+	if (!ctx && !is_mgmt)
 		return NULL;
 
 	/* 
@@ -146,14 +146,41 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	ses->tid = tid;
 
 	if (is_mgmt) {
+		/*
+		 * All management session use the same session_ID,
+		 * which is 0. It works like QP0. Thus we can
+		 * contact remote without any valid connections.
+		 */
 		ses->session_id = LEGOMEM_MGMT_SESSION_ID;
 	} else {
 		/*
-		 * TODO
-		 * Contact monitor/board to alloc the conn ID!
+		 * Contact the remote party to open a network session.
+		 * If things went well, a session ID is returned.
 		 */
-		static int __tmp_id = 1;
-		ses->session_id = __tmp_id++;
+		struct legomem_open_close_session_req req;
+		struct legomem_open_close_session_resp resp;
+		struct lego_header *lego_header;
+		struct session_net *ses;
+		int ret;
+
+		lego_header = to_lego_header(&req);
+		lego_header->opcode = OP_OPEN_SESSION;
+		lego_header->pid = ctx->pid;
+
+		ses = get_board_mgmt_session(bi);
+		ret = net_send_and_receive(ses, &req, sizeof(req),
+					   &resp, sizeof(resp));
+		if (ret) {
+			printf("%s(): fail to contact remote board.\n", __func__);
+			return NULL;
+		}
+
+		if (resp.op.session_id == 0) {
+			printf("%s(): remote fail to open session.\n", __func__);
+			return NULL;
+		}
+
+		ses->session_id = resp.op.session_id;
 	}
 
 	/*
@@ -164,7 +191,8 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	 */
 	add_net_session(ses);
 	board_add_session(bi, ses);
-	context_add_session(ctx, ses);
+	if (ctx)
+		context_add_session(ctx, ses);
 	return ses;
 }
 
@@ -184,9 +212,9 @@ legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
  * Called once during startup to open a management network session
  */
 struct session_net *
-legomem_open_session_mgmt(struct legomem_context *ctx, struct board_info *bi)
+legomem_open_session_mgmt(struct board_info *bi)
 {
-	return __legomem_open_session(ctx, bi, 0, true);
+	return __legomem_open_session(NULL, bi, 0, true);
 }
 
 /*

@@ -24,6 +24,9 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_CREATE_PROC,
 	OP_FREE_PROC,
 
+	OP_OPEN_SESSION,
+	OP_CLOSE_SESSION,
+
 	OP_REQ_MIGRATION,
 
 	OP_RESET_ALL,
@@ -58,12 +61,12 @@ struct op_alloc_free_ret {
 
 struct op_create_proc {
 	char proc_name[PROC_NAME_LEN];
-};
+} __packed;
 
 struct op_create_proc_resp {
 	int ret;
 	pid_t pid;
-};
+} __packed;
 
 /*
  * For
@@ -83,6 +86,24 @@ struct op_read_write_ret {
 
 	/* Hold read read, variable length */
 	char			data[0];
+} __packed;
+
+/*
+ * For open and close network sessions
+ * - OP_OPEN_SESSION
+ * - OP_CLOSE_SESSION
+ */
+struct op_open_close_session {
+	/*
+	 * For OPEN, this is not used.
+	 * For CLOSE, this is the intended session
+	 */
+	unsigned int	session_id;
+};
+
+struct op_open_close_session_ret {
+	/* Opposite of the above definitions */
+	unsigned int	session_id;
 };
 
 struct legomem_common_headers {
@@ -139,6 +160,18 @@ struct legomem_alloc_free_req {
 struct legomem_alloc_free_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_alloc_free_ret op;
+};
+
+/*
+ * Open and close a network session
+ */
+struct legomem_open_close_session_req {
+	struct legomem_common_headers comm_headers;
+	struct op_open_close_session op;
+};
+struct legomem_open_close_session_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_open_close_session_ret op;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

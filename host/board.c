@@ -28,12 +28,17 @@ int init_board_subsys(void)
 	return 0;
 }
 
+/*
+ * Add a board to the system.
+ * We will open a default management session with the board.
+ */
 struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,
 			     struct endpoint_info *local_ei)
 {
 	struct board_info *bi;
 	int key;
+	struct session_net *ses;
 
 	bi = malloc(sizeof(*bi));
 	if (!bi)
@@ -54,6 +59,10 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	pthread_spin_lock(&board_lock);
 	hash_add(board_list, &bi->link, key);
 	pthread_spin_unlock(&board_lock);
+
+	/* Create the mgmt session */
+	ses = legomem_open_session_mgmt(bi);
+	set_board_mgmt_session(bi, ses);
 
 	return bi;
 }

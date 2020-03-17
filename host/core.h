@@ -138,7 +138,7 @@ struct legomem_context *legomem_open_context(void);
 struct legomem_context *legomem_open_context_mgmt(void);
 int legomem_close_context(struct legomem_context *ctx);
 struct session_net *legomem_open_session(struct legomem_context *ctx, struct board_info *bi);
-struct session_net *legomem_open_session_mgmt(struct legomem_context *ctx, struct board_info *bi);
+struct session_net *legomem_open_session_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
 /* Host-side only */
