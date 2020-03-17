@@ -36,4 +36,9 @@ struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node);
 void dump_proc(struct proc_info *pi);
 void dump_procs(void);
 
+/* Session */
+void init_session_subsys(void);
+int alloc_session_id(void);
+void free_session_id(unsigned int session_id);
+
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

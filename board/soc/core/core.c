@@ -196,7 +196,7 @@ static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 		vregion_idx = ops->vregion_idx;
 		vm_flags = ops->vm_flags;
 
-		vi = index_to_vregion(vregion_idx);
+		vi = index_to_vregion(pi, vregion_idx);
 
 		addr = alloc_va_vregion(pi, vi, len, vm_flags);
 		if (unlikely(IS_ERR_VALUE(addr)))
@@ -266,6 +266,47 @@ static void handle_free_proc(struct thpool_buffer *tb)
 }
 
 /*
+ * TODO:
+ *
+ * 1) Notify FPGA stack to handle this session.
+ * 2) Notify FPGA to free session. 
+ *
+ * Couple ways to implement this:
+ * 1) In the fpga stack, check for close/open msgs,
+ *    and act on its own.
+ * 2) soc explicitly notify fpga to do sth.
+ */
+static void handle_open_session(struct thpool_buffer *tb)
+{
+	struct op_open_close_session_ret *resp;
+	unsigned int session_id;
+
+	resp = (struct op_open_close_session_ret *)resp;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	session_id = alloc_session_id();
+	if (session_id < 0) {
+		resp->session_id = 0;
+		return;
+	}
+
+	resp->session_id = session_id;
+}
+
+static void handle_close_session(struct thpool_buffer *tb)
+{
+	struct op_open_close_session *req;
+	struct op_open_close_session_ret *resp;
+	unsigned int session_id;
+
+	resp = (struct op_open_close_session_ret *)resp;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	session_id = req->session_id;
+	free_session_id(session_id);
+}
+
+/*
  * Handle SoC Pingpong testing request.
  * Simply return and let sender measure RTT.
  */
@@ -330,7 +371,7 @@ static inline size_t axidma_fpga_to_soc(void *buf, size_t buf_size)
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
-	struct lego_hdr *lego_hdr;
+	struct lego_header *lego_hdr;
 	uint16_t opcode;
 	void *rx_buf;
 	size_t rx_buf_size;
@@ -338,7 +379,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	rx_buf = tb->rx;
 	rx_buf_size = tb->rx_size;
 
-	lego_hdr = (struct lego_hdr *)(rx_buf + LEGO_HEADER_OFFSET);
+	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
@@ -360,6 +401,13 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 	case OP_REQ_MIGRATION:
 		handle_migration(tb);
+		break;
+
+	case OP_OPEN_SESSION:
+		handle_open_session(tb);
+		break;
+	case OP_CLOSE_SESSION:
+		handle_close_session(tb);
 		break;
 
 	/* Misc */
@@ -414,6 +462,8 @@ int main(int argc, char **argv)
 
 	init_thpool();
 	init_thpool_buffer();
+
+	init_session_subsys();
 
 	ret = init_proc_subsystem();
 	if (ret) {

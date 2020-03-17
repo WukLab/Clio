@@ -6,6 +6,8 @@
 #include <uapi/net_header.h>
 #include <uapi/hashtable.h>
 
+#define NR_MAX_SESSIONS_PER_NODE	(1024)
+
 /*
  * This structure describes a specific network connection
  * between an application and the LegoMem board.
