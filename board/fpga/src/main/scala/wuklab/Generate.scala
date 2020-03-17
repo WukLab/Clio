@@ -14,7 +14,7 @@ object GenerateContext {
     val numCacheCells = 128
     val numPageFaultCacheCells = 16
     // Hash Table Config
-    val hashtableBaseAddr = BigInt("B0000000", 16)
+    val hashtableBaseAddr = BigInt("500000000", 16)
     val pteAddrWidth = 4
 
     val ptePerLine = 4
@@ -41,5 +41,13 @@ object AddressLookupVerification {
   def main(args: Array[String]) {
     import GenerateContext._
     MySpinalConfig.generateVerilog(new CoreLookupWrapper)
+  }
+}
+
+object LegoMemSystemGenerate {
+  def main(args: Array[String]) {
+    import GenerateContext._
+    val report = MySpinalConfig.generateVerilog(new LegoMemSystem)
+    report.mergeRTLSource("LegoMemSystemLib")
   }
 }

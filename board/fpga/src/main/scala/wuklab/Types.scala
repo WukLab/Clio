@@ -18,7 +18,7 @@ object LegoMem {
     def FREE       = U"8'h07"
     def FREE_RESP  = U"8'h08"
 
-    def CACHE_SHOOTDOWN = U"8'h10"
+    def CACHE_SHOOTDOWN = U"8'hF0"
 
     def resp(u: UInt) : UInt = {
       require(u.getWidth == 8, "Not valid request")
@@ -220,8 +220,8 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
     val nextAddr = cont(3 downto 0)
     next := this
     next.cont.allowOverride
-    next.cont := this.cont |>> 4
-    (this, nextAddr)
+    next.cont := cont |>> 4
+    (next, nextAddr)
   }
 
   def stackPush (nextAddr : UInt): Unit = {
@@ -278,8 +278,8 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
 
 case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[LegoMemAccessHeader]{
   val header    = LegoMemHeader()
-  val addr      = UInt(virtAddrWidth bits)
   val length    = UInt(32 bits)
+  val addr      = UInt(virtAddrWidth bits)
 
   override val packedWidth = 96 + header.packedWidth
   override def getSize = header.size
@@ -309,6 +309,12 @@ object ControlRequest {
     req.beats := beats
     req.param8 := param8
     req.param32 := param32
+    req
+  }
+
+  def apply(bits : Bits): ControlRequest = {
+    val req = ControlRequest()
+    req.assignFromBits(bits)
     req
   }
 }

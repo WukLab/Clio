@@ -124,7 +124,7 @@ object SimConversions {
   val legoMemMsgCodec = (bytes :: legoMemHeaderCodec).as[(ByteVector, LegoMemHeaderSim)]
   val legoMemAccessMsgCodec = (legoMemHeaderCodec :: int32L :: int64L :: bytes).as[(LegoMemHeaderSim, Int, Long, ByteVector)]
 
-  val udpHeaderCodec = (uint(12) :: uint16 :: uint16 :: uint32 :: uint32).as[UDPHeaderSim]
+  val udpHeaderCodec = (uint16 :: uint16 :: uint16 :: uint32 :: uint32).as[UDPHeaderSim]
 
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)

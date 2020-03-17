@@ -118,9 +118,9 @@ class DecodeAction extends MatchActionFunction {
     switch (header.reqType) {
       is (LegoMem.RequestType.READ)  { header.cont := U"16'h00_00_00_01" }
       is (LegoMem.RequestType.WRITE) { header.cont := U"16'h00_00_00_01" }
-      is (LegoMem.RequestType.ALLOC) { header.cont := U"16'h00_00_00_01" }
-      is (LegoMem.RequestType.FREE)  { header.cont := U"16'h00_00_00_01" }
-      default { header.cont := U"16'h00_00_00_01" }
+      is (LegoMem.RequestType.ALLOC) { header.cont := U"16'h00_00_00_02" }
+      is (LegoMem.RequestType.FREE)  { header.cont := U"16'h00_00_00_02" }
+      default { header.cont := U"16'h00_00_00_00" }
     }
   })(bits)
 }

@@ -206,11 +206,11 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
     val size = UInt(16 bits)
     switch (req.snd.header.reqType) {
       is (LegoMem.RequestType.READ) {
-        size := req.snd.length(15 downto 0) + 8
+        size := req.snd.length(15 downto 0) + req.snd.header.packedBytes
       }
 
       default {
-        size := 8
+        size := req.snd.header.packedBytes
       }
     }
     size
@@ -282,11 +282,15 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 }
 
 // For the interconnection, we do not need to add the names into the fifo.
+// This in and outs are from Module's perspective.
+// In, means outside (xbar) -> module
+// Out, means module -> outside
 
 case class LegoMemRawInterface() extends Bundle with IMasterSlave {
-  val dataIn = Stream Fragment(Bits(512 bits))
+  val dataIn  = Stream Fragment(Bits(512 bits))
   val dataOut = Stream Fragment(Bits(512 bits))
-  val ctrlIn = Stream (ControlRequest())
+
+  val ctrlIn  = Stream (ControlRequest())
   val ctrlOut = Stream (ControlRequest())
 
   override def asMaster(): Unit = {
@@ -319,5 +323,6 @@ class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
   }
   // We need to overwrite the first
   // TODO: Still not that, smooth
-  when (io.raw.dataIn.isFirst) { io.ep.dataOut.tdata(512 downBy LegoMemHeader.headerWidth) := header.asBits }
+  // TODO: check this
+  when (io.raw.dataOut.first) { io.ep.dataOut.tdata(0, LegoMemHeader.headerWidth bits) := header.asBits }
 }
