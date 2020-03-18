@@ -40,9 +40,9 @@ enum LEGOFPGA_OPCODE_REQ {
  * For all op structures, their position within packet are fixed.
  * They are placed right after struct lego_hdr.
  *
- * --------------------------------------------------
+ * -------------------------------------------------------
  * ^     ^       ^     ^         ^          ^       ^
- * | ETH |  IP   | UDP | LegoMem | OP_XXX   | data  |
+ * | ETH |  IP   | UDP |  GBN    | LegoMem | OP_XXX   | data  |
  */
 
 struct op_alloc_free {
