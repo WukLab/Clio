@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
 #include "core.h"
 #include "net/net.h"
 #include "endpoint.h"
@@ -66,14 +68,72 @@ int init_monitor_session(char *monitor_addr, struct endpoint_info *local_ei)
 	return 0;
 }
 
-int init_default_local_ei(char *ndev, unsigned int port)
+/* We will fill @mac, @ip_str, and @ip. */
+static int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
+				    char *ip_str, unsigned int *ip)
 {
-	/*
-	 * TODO
-	 * 1) check if ndev exist
-	 * 2) get mac and IP addr
-	 * 3) fill ei
-	 */
+	int fd, ret;
+	struct ifreq ifr;
+	char str[INET_ADDRSTRLEN];
+	struct in_addr in_addr;
+
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd <= 0)
+		return fd;
+
+	/* Get MAC */
+	ret = ioctl(fd, SIOCGIFHWADDR, &ifr);
+	if (ret) {
+		perror("ioctl mac");
+		goto out;
+	}
+	memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
+
+	/* Get IP */
+	ret = ioctl(fd, SIOCGIFADDR, &ifr);
+	if (ret) {
+		perror("ioctl ip");
+		goto out;
+	}
+	in_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+	inet_ntop(AF_INET, &in_addr, str, sizeof(str));
+
+	memcpy(ip_str, str, INET_ADDRSTRLEN);
+	*ip = in_addr.s_addr;
+
+	ret = 0;
+out:
+	close(fd);
+	return ret;
+}
+
+int init_default_local_ei(const char *dev, unsigned int port)
+{
+	unsigned char mac[6];
+	char ip_str[INET_ADDRSTRLEN];
+	unsigned int ip;
+	int ret;
+	int i;
+
+	ret = get_interface_mac_and_ip(dev, mac, ip_str, &ip);
+	if (ret)
+		return ret;
+
+	/* Fill in the default local ei */
+	memcpy(default_local_ei.mac, mac, 6);
+	memcpy(default_local_ei.ip_str, ip_str, INET_ADDRSTRLEN);
+	default_local_ei.ip = ip;
+	default_local_ei.udp_port = port;
+
+	/* Debugging info */
+	printf("dev: %s ip: %s %x mac: ", dev, ip_str, ip);
+	for (i = 0; i < 6; i++)
+		printf("%x ", mac[i]);
+	printf("\n");
+
 	return 0;
 }
 

@@ -8,11 +8,12 @@
 #ifndef _UAPI_NET_HEADER_H_
 #define _UAPI_NET_HEADER_H_
 
+#include <uapi/compiler.h>
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include <uapi/compiler.h>
+#include <net/if.h>
 
 struct eth_hdr {
 	uint8_t dst_mac[6];
@@ -166,6 +167,7 @@ struct routing_info {
 
 struct endpoint_info {
 	unsigned char mac[6];
+	unsigned char ip_str[INET_ADDRSTRLEN];
 	uint32_t ip;
 	uint16_t udp_port;
 } __packed;
