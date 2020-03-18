@@ -123,6 +123,9 @@ static inline void *get_op_struct(void *packet)
 /*
  * Format the IPv4 for UDP packet.
  * @data_size is the data payload in the UDP packet.
+ *
+ * @src_ip: source IP, host order
+ * @dst_ip: dest IP, host order
  */
 static __always_inline void
 prepare_ipv4_header(struct ipv4_hdr *hdr, uint32_t src_ip,
@@ -167,8 +170,8 @@ struct routing_info {
 
 struct endpoint_info {
 	unsigned char mac[6];
-	unsigned char ip_str[INET_ADDRSTRLEN];
-	uint32_t ip;
+	unsigned char ip_str[INET_ADDRSTRLEN];	/* human-readable IPv4 addr */
+	uint32_t ip;				/* ip addr in host order */
 	uint16_t udp_port;
 } __packed;
 

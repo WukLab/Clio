@@ -52,9 +52,10 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 	 * we need to change the remote_addr structure to let
 	 * kernel prepare the headers properly!
 	 */
-	if (_route)
+	if (_route) {
+		printf("%s(): WARN This is not supported.\n", __func__);
 		route = (struct routing_info *)_route;
-	else
+	} else
 		route = &ses_net->route;
 	prepare_headers(route, buf, buf_size);
 

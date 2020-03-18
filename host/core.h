@@ -141,8 +141,14 @@ struct session_net *legomem_open_session(struct legomem_context *ctx, struct boa
 struct session_net *legomem_open_session_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
+int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac);
+int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
+			     char *ip_str, unsigned int *ip);
+int init_default_local_ei(const char *dev, unsigned int port,
+			  struct endpoint_info *ei);
+
 /* Host-side only */
-extern unsigned int monitor_ip_n;
+extern unsigned int monitor_ip_h;
 extern char monitor_ip_str[INET_ADDRSTRLEN];
 extern struct endpoint_info monitor_ei;
 extern struct session_net *monitor_session;

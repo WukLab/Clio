@@ -8,6 +8,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <getopt.h>
 #include <uapi/err.h>
 #include <uapi/list.h>
 #include <uapi/vregion.h>
@@ -24,20 +25,24 @@
 #define NR_THPOOL_WORKERS	(1)
 #define NR_THPOOL_BUFFER	(32)
 
+/*
+ * This is the local endpoint info
+ * Constructed during startup based on network device and UDP port used.
+ */
+struct endpoint_info default_local_ei;
+
 struct board_info *mgmt_dummy_board;
 struct session_net *mgmt_session;
 
-int init_management_session(void)
+int init_local_management_session(void)
 {
 	struct endpoint_info dummy_ei;
 
-	mgmt_dummy_board = add_board("local_mgmt", 0, &dummy_ei, &dummy_ei);
+	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
 	if (!mgmt_dummy_board)
 		return -ENOMEM;
 
-	mgmt_session = legomem_open_session_mgmt(mgmt_dummy_board);
-	if (!mgmt_session)
-		return -ENOMEM;
+	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
 	return 0;
 }
 
@@ -498,6 +503,11 @@ static void handle_free(struct thpool_buffer *tb)
 
 }
 
+static void handle_test(struct thpool_buffer *tb)
+{
+	printf("%s(): we got it\n", __func__);
+}
+
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -514,6 +524,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
+	case OP_REQ_TEST:
+		handle_test(tb);
+		break;
 	case OP_REQ_ALLOC:
 		handle_alloc(tb);
 		break;
@@ -533,7 +546,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb)))
-		net_send_with_route(monitor_session, tb->tx, tb->tx_size, &ri);
+		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, &ri);
 	free_thpool_buffer(tb);
 }
 
@@ -541,17 +554,15 @@ static void dispatcher(void)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
-	size_t ret;
+	int ret;
 
 	while (1) {
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
-		ret = net_receive(monitor_session, tb->rx, tb->rx_size);
-		if (ret < 0) {
-			printf("axi dma fpga to soc failed\n");
+		ret = net_receive(mgmt_session, tb->rx, tb->rx_size);
+		if (ret <= 0)
 			return;
-		}
 
 		/*
 		 * Inline handling for now
@@ -561,13 +572,74 @@ static void dispatcher(void)
 	}
 }
 
+static void print_usage(void)
+{
+	printf("Usage ./host.o [Options]\n"
+	       "\n"
+	       "Options:\n"
+	       "  --dev=<name>                Specify the local network device\n"
+	       "  --port=<port>               Specify the local UDP port we listen to\n"
+	       "\n"
+	       "Examples:\n"
+	       "  ./monitor.o --port 8887 --dev=\"lo\" \n"
+	       "  ./monitor.o -p 8887 -d ens4\n");
+}
+
+static struct option long_options[] = {
+	{ "port",	required_argument,	NULL,	'p'},
+	{ "dev",	required_argument,	NULL,	'd'},
+	{ 0,		0,			0,	0  }
+};
+
 int main(int argc, char **argv)
 {
-	struct endpoint_info *local_ei;
 	int ret;
+	int c, option_index = 0;
+	char ndev[32];
+	bool ndev_set = false;
+	int port = 0;
 
-	local_ei = &ei_wuklab02;
-	ret = init_net(local_ei);
+	/* Parse arguments */
+	while (1) {
+		c = getopt_long(argc, argv, "p:d:",
+				long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 'd':
+			strncpy(ndev, optarg, sizeof(ndev));
+			ndev_set = true;
+			break;
+		default:
+			print_usage();
+			exit(-1);
+		}
+	}
+
+	/* Check if required arguments are passed */
+	if (!ndev_set) {
+		printf("ERROR: Please specify the network device (Use ifconfig to check).\n\n");
+		print_usage();
+		return 0;
+	}
+
+	/*
+	 * Init the local endpoint info
+	 * - mac, ip, port
+	 * Use information based on ndev and port.
+	 */
+	ret = init_default_local_ei(ndev, port, &default_local_ei);
+	if (ret) {
+		printf("Fail to init local endpoint. ndev %s port %d\n",
+			ndev, port);
+		exit(-1);
+	}
+
+	ret = init_net(&default_local_ei);
 	if (ret) {
 		printf("Fail to init network layer.\n");
 		exit(-1);
@@ -580,8 +652,15 @@ int main(int argc, char **argv)
 	init_board_subsys();
 	init_context_subsys();
 	init_net_session_subsys();
-	init_management_session();
+
+	ret = init_local_management_session();
+	if (ret) {
+		printf("Fail to init local mgmt session\n");
+		exit(-1);
+	}
 
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
+
+	dispatcher();
 }

@@ -34,74 +34,9 @@ int init_local_management_session(void)
 	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
 	if (!mgmt_dummy_board)
 		return -ENOMEM;
-	mgmt_session = get_board_mgmt_session(monitor_bi);
+
+	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
 	return 0;
-}
-
-/*
- * Given a network-order @ip, find what's the MAC we should use to reach it.
- * - If it is directly connected, it would be remote NIC's mac
- * - If it is behind switches, it would be the directly attached switch
- * - If it is loopback, it would be 0.
- */
-static int get_mac_of_remote_ip(unsigned int ip, char *ip_str,
-				unsigned char *mac)
-{
-	FILE *fp;
-	char ping_cmd[128];
-	char ip_neigh_cmd[128];
-	char line[1024];
-	int ret;
-
-	if (ip == 0x100007f) {
-		/*
-		 * Loopback test: 127.0.0.1
-		 * MAC address would be 0
-		 */
-		memset(mac, 0, 6);
-		return 0;
-	}
-
-	/*
-	 * In case arp cache was empty,
-	 * we run ping to get it discovred.
-	 */
-	sprintf(ping_cmd, "ping -c 1 %s", ip_str);
-	fp = popen(ping_cmd, "r");
-	if (!fp) {
-		perror("popen ping");
-		return -1;
-	}
-	pclose(fp);
-
-	sprintf(ip_neigh_cmd, "ip neigh show %s", ip_str);
-	fp = popen(ip_neigh_cmd, "r");
-	if (!fp) {
-		perror("popen ip neigh");
-		return -1;
-	}
-
-	/*
-	 * The output format of: ip neight show <ip>
-	 * 192.168.1.5 dev p4p1 lladdr e4:1d:2d:e4:81:51 STALE
-	 */
-	ret = -1;
-	while (fgets(line, sizeof(line), fp)) {
-		char t_ip[32], t_d[8], t_name[32], t_a[8],
-		     t_status[8];
-
-		sscanf(line, "%s %s %s %s %x:%x:%x:%x:%x:%x %s\n",
-			t_ip, t_d, t_name, t_a,
-			(unsigned int *)&mac[0], (unsigned int *)&mac[1],
-			(unsigned int *)&mac[2], (unsigned int *)&mac[3],
-			(unsigned int *)&mac[4], (unsigned int *)&mac[5],
-			t_status);
-
-		ret = 0;
-		break;
-	}
-	pclose(fp);
-	return ret;
 }
 
 /*
@@ -121,9 +56,8 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 
 	sscanf(monitor_addr, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
-	ip = htonl(ip);
 
-	in_addr.s_addr = ip;
+	in_addr.s_addr = htonl(ip);
 	inet_ntop(AF_INET, &in_addr, ip_str, sizeof(ip_str));
 
 	ret = get_mac_of_remote_ip(ip, ip_str, mac);
@@ -135,11 +69,12 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 	 * into the global variables
 	 */
 	memcpy(monitor_ip_str, ip_str, INET_ADDRSTRLEN);
-	monitor_ip_n = ip;
+	monitor_ip_h = ip;
 
-	memcpy(monitor_ei.mac, mac, 6);
+	/* EI needs host order ip */
 	monitor_ei.ip = ip;
 	monitor_ei.udp_port = port;
+	memcpy(monitor_ei.mac, mac, 6);
 
 	/* The local_ei was constructed before */
 	monitor_bi = add_board("special_monitor_mgmt", 0, &monitor_ei, local_ei);
@@ -157,74 +92,24 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 	return 0;
 }
 
-/* We will fill @mac, @ip_str, and @ip. */
-static int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
-				    char *ip_str, unsigned int *ip)
+static void join_cluster(void)
 {
-	int fd, ret;
-	struct ifreq ifr;
-	char str[INET_ADDRSTRLEN];
-	struct in_addr in_addr;
-
-	ifr.ifr_addr.sa_family = AF_INET;
-	strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd <= 0)
-		return fd;
-
-	/* Get MAC */
-	ret = ioctl(fd, SIOCGIFHWADDR, &ifr);
-	if (ret) {
-		perror("ioctl mac");
-		goto out;
-	}
-	memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
-
-	/* Get IP */
-	ret = ioctl(fd, SIOCGIFADDR, &ifr);
-	if (ret) {
-		perror("ioctl ip");
-		goto out;
-	}
-	in_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
-	inet_ntop(AF_INET, &in_addr, str, sizeof(str));
-
-	memcpy(ip_str, str, INET_ADDRSTRLEN);
-	*ip = in_addr.s_addr;
-
-	ret = 0;
-out:
-	close(fd);
-	return ret;
-}
-
-int init_default_local_ei(const char *dev, unsigned int port)
-{
-	unsigned char mac[6];
-	char ip_str[INET_ADDRSTRLEN];
-	unsigned int ip;
+	struct msg {
+		struct legomem_common_headers comm_headers;
+		int cnt;
+	} msg;
+	struct reply {
+		struct legomem_common_headers comm_headers;
+		int cnt;
+	} reply;
 	int ret;
 	int i;
 
-	ret = get_interface_mac_and_ip(dev, mac, ip_str, &ip);
-	if (ret)
-		return ret;
-
-	/* Fill in the default local ei */
-	memcpy(default_local_ei.mac, mac, 6);
-	memcpy(default_local_ei.ip_str, ip_str, INET_ADDRSTRLEN);
-	default_local_ei.ip = ip;
-	default_local_ei.udp_port = port;
-
-	/* Debugging info */
-	printf("%s(): Local Endpoint Info: DEV: %s IP: %s Port: %d %x MAC: ",
-		__func__, dev, ip_str, port, ip);
-	for (i = 0; i < 6; i++)
-		printf("%x ", mac[i]);
-	printf("\n");
-
-	return 0;
+	for (i = 0; i < 20; i++) {
+		ret = net_send(monitor_session, &msg, sizeof(msg));
+		if (ret <= 0)
+			printf("%d fail to send\n", i);
+	}
 }
 
 static void print_usage(void)
@@ -304,7 +189,7 @@ int main(int argc, char **argv)
 	 * - mac, ip, port
 	 * Use information based on ndev and port.
 	 */
-	ret = init_default_local_ei(ndev, port);
+	ret = init_default_local_ei(ndev, port, &default_local_ei);
 	if (ret) {
 		printf("Fail to init local endpoint. ndev %s port %d\n",
 			ndev, port);
@@ -341,6 +226,8 @@ int main(int argc, char **argv)
 	}
 
 	dump_boards();
+
+	join_cluster();
 
 	struct endpoint_info *remote_ei = &ei_wuklab05;
 	test_app(&default_local_ei, remote_ei);

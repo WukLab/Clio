@@ -24,7 +24,6 @@
  */
 #define NR_BUFFER_INFO_SLOTS		(256)
 #define GBN_RETRANS_TIMEOUT_US		(2000)
-#define GBN_RECEIVE_TIMEOUT_S		(20)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
 
 #define gbn_info(fmt, ...) \
@@ -581,6 +580,7 @@ static void *gbn_poll_func(void *_unused)
 			} else if (buf_size == 0)
 				continue;
 		}
+		printf("%s(): received one packet\n", __func__);
 		
 		gbn_hdr = to_gbn_header(recv_buf);
 		ipv4_hdr = to_ipv4_header(recv_buf);
@@ -678,6 +678,7 @@ static inline int gbn_send_one(struct session_net *net,
  *    we need to make sure a sender can assocaite the request with reply.
  *    Some sort of handle is needed.
  */
+#define GBN_RECEIVE_TIMEOUT_S		(3600)
 static inline int gbn_receive_one(struct session_net *net,
 				  void *buf, size_t buf_size)
 {

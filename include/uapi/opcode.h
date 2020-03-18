@@ -15,6 +15,8 @@
 #define BOARD_NAME_LEN		(64)
 
 enum LEGOFPGA_OPCODE_REQ {
+	OP_REQ_TEST = 0,
+
 	OP_REQ_ALLOC = 1,
 	OP_REQ_FREE,
 
