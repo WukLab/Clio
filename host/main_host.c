@@ -18,8 +18,6 @@
 #include "net/net.h"
 #include "endpoint.h"
 
-void test_app(struct endpoint_info *, struct endpoint_info *);
-
 /*
  * This is the local endpoint info
  * Constructed during startup based on network device and UDP port used.
@@ -41,30 +39,121 @@ int init_local_management_session(void)
 }
 
 /*
+ * Given a network-order @ip, find what's the MAC we should use to reach it.
+ * - If it is directly connected, it would be remote NIC's mac
+ * - If it is behind switches, it would be the directly attached switch
+ * - If it is loopback, it would be 0.
+ */
+static int get_mac_of_remote_ip(unsigned int ip, char *ip_str,
+				unsigned char *mac)
+{
+	FILE *fp;
+	char ping_cmd[128];
+	char ip_neigh_cmd[128];
+	char line[1024];
+	int ret;
+
+	if (ip == 0x100007f) {
+		/*
+		 * Loopback test: 127.0.0.1
+		 * MAC address would be 0
+		 */
+		memset(mac, 0, 6);
+		return 0;
+	}
+
+	/*
+	 * In case arp cache was empty,
+	 * we run ping to get it discovred.
+	 */
+	sprintf(ping_cmd, "ping -c 1 %s", ip_str);
+	fp = popen(ping_cmd, "r");
+	if (!fp) {
+		perror("popen ping");
+		return -1;
+	}
+	pclose(fp);
+
+	sprintf(ip_neigh_cmd, "ip neigh show %s", ip_str);
+	fp = popen(ip_neigh_cmd, "r");
+	if (!fp) {
+		perror("popen ip neigh");
+		return -1;
+	}
+
+	/*
+	 * The output format of: ip neight show <ip>
+	 * 192.168.1.5 dev p4p1 lladdr e4:1d:2d:e4:81:51 STALE
+	 */
+	ret = -1;
+	while (fgets(line, sizeof(line), fp)) {
+		char t_ip[32], t_d[8], t_name[32], t_a[8],
+		     t_status[8];
+
+		sscanf(line, "%s %s %s %s %x:%x:%x:%x:%x:%x %s\n",
+			t_ip, t_d, t_name, t_a,
+			(unsigned int *)&mac[0], (unsigned int *)&mac[1],
+			(unsigned int *)&mac[2], (unsigned int *)&mac[3],
+			(unsigned int *)&mac[4], (unsigned int *)&mac[5],
+			t_status);
+
+		ret = 0;
+		break;
+	}
+	pclose(fp);
+	return ret;
+}
+
+/*
  * Use input @monitor_addr to create a local network session with the monitor.
  * Note we just create local data structures for monitor's management session.
  * We do not need to contact monitor for this particular creation.
  */
-int init_monitor_session(char *monitor_addr, struct endpoint_info *local_ei)
+static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_ei)
 {
+	char ip_str[INET_ADDRSTRLEN];
 	unsigned int ip, port;
+	unsigned int ip1, ip2, ip3, ip4;
+	struct in_addr in_addr;
 	unsigned char mac[6];
 	struct endpoint_info monitor_ei;
+	int ret, i;
+
+	sscanf(monitor_addr, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+	ip = htonl(ip);
+
+	in_addr.s_addr = ip;
+	inet_ntop(AF_INET, &in_addr, ip_str, sizeof(ip_str));
+
+	ret = get_mac_of_remote_ip(ip, ip_str, mac);
+	if (ret)
+		return ret;
 
 	/*
-	 * TODO
-	 * 1) parse ip:port string
-	 * 2) ask ARP to find out the MAC addr
+	 * Now let's save the info
+	 * into the global variables
 	 */
+	memcpy(monitor_ip_str, ip_str, INET_ADDRSTRLEN);
+	monitor_ip_n = ip;
+
 	memcpy(monitor_ei.mac, mac, 6);
 	monitor_ei.ip = ip;
 	monitor_ei.udp_port = port;
 
+	/* The local_ei was constructed before */
 	monitor_bi = add_board("special_monitor_mgmt", 0, &monitor_ei, local_ei);
 	if (!monitor_bi)
 		return -ENOMEM;
 
 	monitor_session = get_board_mgmt_session(monitor_bi);
+
+	/* Debugging info */
+	printf("%s(): monitor IP: %s Port: %d MAC: ",
+		__func__, monitor_ip_str, port);
+	for (i = 0; i < 6; i++)
+		printf("%x ", mac[i]);
+	printf("\n");
 	return 0;
 }
 
@@ -129,7 +218,8 @@ int init_default_local_ei(const char *dev, unsigned int port)
 	default_local_ei.udp_port = port;
 
 	/* Debugging info */
-	printf("dev: %s ip: %s %x mac: ", dev, ip_str, ip);
+	printf("%s(): Local Endpoint Info: DEV: %s IP: %s Port: %d %x MAC: ",
+		__func__, dev, ip_str, port, ip);
 	for (i = 0; i < 6; i++)
 		printf("%x ", mac[i]);
 	printf("\n");
@@ -140,10 +230,12 @@ int init_default_local_ei(const char *dev, unsigned int port)
 static void print_usage(void)
 {
 	printf("Usage ./host.o [Options]\n"
+	       "\n"
 	       "Options:\n"
 	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format\n"
 	       "  --dev=<name>                Specify the local network device\n"
 	       "  --port=<port>               Specify the local UDP port\n"
+	       "\n"
 	       "Examples:\n"
 	       "  ./host.o --monitor=\"127.0.0.1:8888\" --port 8887 --dev=\"lo\" \n"
 	       "  ./host.o -m 127.0.0.1:8888 -p 8887 -d lo\n");
@@ -155,6 +247,8 @@ static struct option long_options[] = {
 	{ "dev",	required_argument,	NULL,	'd'},
 	{ 0,		0,			0,	0  }
 };
+
+void test_app(struct endpoint_info *, struct endpoint_info *);
 
 int main(int argc, char **argv)
 {

@@ -14,6 +14,12 @@
 #include "core.h"
 #include "net/net.h"
 
+/*
+ * Intialized during init_monitor_session.
+ */
+unsigned int monitor_ip_n;
+char monitor_ip_str[INET_ADDRSTRLEN];
+struct endpoint_info monitor_ei;
 struct session_net *monitor_session;
 struct board_info *monitor_bi;
 

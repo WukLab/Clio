@@ -142,6 +142,9 @@ struct session_net *legomem_open_session_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
 /* Host-side only */
+extern unsigned int monitor_ip_n;
+extern char monitor_ip_str[INET_ADDRSTRLEN];
+extern struct endpoint_info monitor_ei;
 extern struct session_net *monitor_session;
 extern struct board_info *monitor_bi;
 
