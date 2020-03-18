@@ -12,9 +12,12 @@ SRCS := board.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c
 
+# or -g
+DEBUG :=
+
 all: $(SRCS) 
-	gcc -Wall -o host.o $(INCLUDE) main_host.c test.c $(SRCS) $(CLIBS)
-	gcc -g -Wall -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) -Wall -o host.o $(INCLUDE) main_host.c test.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) -Wall -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
 
 clean:
 	rm *.o

@@ -15,6 +15,7 @@
 #include "net/net.h"
 
 struct session_net *monitor_session;
+struct board_info *monitor_bi;
 
 static struct legomem_context *
 __legomem_open_context(bool is_mgmt)
@@ -148,8 +149,8 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	if (is_mgmt) {
 		/*
 		 * All management session use the same session_ID,
-		 * which is 0. It works like QP0. Thus we can
-		 * contact remote without any valid connections.
+		 * which is 0. It works like QP0.
+		 * Thus remote can contact us without any valid connections.
 		 */
 		ses->session_id = LEGOMEM_MGMT_SESSION_ID;
 	} else {

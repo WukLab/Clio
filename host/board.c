@@ -60,7 +60,10 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	hash_add(board_list, &bi->link, key);
 	pthread_spin_unlock(&board_lock);
 
-	/* Create the mgmt session */
+	/*
+	 * This is remote party's mgmt session.
+	 * We do not need to contact it in order to open.
+	 */
 	ses = legomem_open_session_mgmt(bi);
 	set_board_mgmt_session(bi, ses);
 

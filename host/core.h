@@ -143,5 +143,6 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
 /* Host-side only */
 extern struct session_net *monitor_session;
+extern struct board_info *monitor_bi;
 
 #endif /* _HOST_CORE_H_ */

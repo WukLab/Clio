@@ -133,7 +133,6 @@ void test_app(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 	remote_board = add_board("remote_0", 1024, remote_ei, local_ei);
 	if (!remote_board)
 		return;
-	dump_boards();
 
 	/*
 	 * Step 1:
