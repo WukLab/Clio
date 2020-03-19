@@ -26,12 +26,6 @@
 #define NR_THPOOL_BUFFER	(32)
 
 /*
- * This is the local endpoint info
- * Constructed during startup based on network device and UDP port used.
- */
-struct endpoint_info default_local_ei;
-
-/*
  * Each thpool worker is described by struct thpool_worker,
  * and it is a standalone thread, running the generic handler only.
  * We can have one or multiple workers depends on config.
@@ -490,7 +484,35 @@ static void handle_free(struct thpool_buffer *tb)
 
 static void handle_test(struct thpool_buffer *tb)
 {
+	struct reply {
+		struct legomem_common_headers comm_headers;
+		int cnt;
+	} *reply;
 	printf("%s(): we got it\n", __func__);
+
+	reply = (struct reply *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*reply));
+}
+
+/*
+ * The handler for join_cluster(). Handle requests
+ * sent from either hosts or boards.
+ *
+ * We will further broadcast this great news to all out relatives.
+ */
+static void handle_join_cluster(struct thpool_buffer *tb)
+{
+	struct legomem_membership_join_cluster_req *req;
+	struct legomem_membership_join_cluster_resp *resp;
+	struct endpoint_info *ei;
+
+	resp = (struct legomem_membership_join_cluster_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	req = (struct legomem_membership_join_cluster_req *)tb->rx;
+	ei = &req->op.ei;
+
+	printf("%s(): %s\n", __func__, ei->ip_str);
 }
 
 static void worker_handle_request(struct thpool_worker *tw,
@@ -499,11 +521,6 @@ static void worker_handle_request(struct thpool_worker *tw,
 	struct lego_header *lego_hdr;
 	uint16_t opcode;
 	struct routing_info ri;
-
-	/* Save original packet routing info */
-	memcpy(&ri, tb->rx, sizeof(ri));
-	swap(ri.ipv4.src_ip, ri.ipv4.dst_ip);
-	swap(ri.udp.src_port, ri.udp.dst_port);
 
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
@@ -526,9 +543,16 @@ static void worker_handle_request(struct thpool_worker *tw,
 	case OP_FREE_PROC:
 		handle_free_proc(tb);
 		break;
+
+	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:
+		handle_join_cluster(tb);
+		break;
 	default:
 		break;
 	};
+
+	memcpy(&ri, tb->rx, sizeof(ri));
+	swap_routing_info(&ri);
 
 	if (likely(!ThpoolBufferNoreply(tb)))
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, &ri);
@@ -545,9 +569,10 @@ static void dispatcher(void)
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
-		ret = net_receive(mgmt_session, tb->rx, tb->rx_size);
+		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			return;
+		tb->rx_size = ret;
 
 		/*
 		 * Inline handling for now
@@ -566,8 +591,8 @@ static void print_usage(void)
 	       "  --port=<port>               Specify the local UDP port we listen to\n"
 	       "\n"
 	       "Examples:\n"
-	       "  ./monitor.o --port 8887 --dev=\"lo\" \n"
-	       "  ./monitor.o -p 8887 -d ens4\n");
+	       "  ./monitor.o --port 8888 --dev=\"lo\" \n"
+	       "  ./monitor.o -p 8888 -d ens4\n");
 }
 
 static struct option long_options[] = {

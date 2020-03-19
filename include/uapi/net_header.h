@@ -69,6 +69,23 @@ enum pkt_type {
 	pkt_type_data = 3
 };
 
+enum gbn_pkt_type {
+	GBN_PKT_ACK = 1,
+	GBN_PKT_NACK = 2,
+	GBN_PKT_DATA = 3,
+};
+
+static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
+{
+	switch (t) {
+	case GBN_PKT_ACK:		return "ack";
+	case GBN_PKT_NACK:		return "nack";
+	case GBN_PKT_DATA:		return "data";
+	default:			return "unknown";
+	}
+	return NULL;
+}
+
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
@@ -89,6 +106,13 @@ static inline struct ipv4_hdr *to_ipv4_header(void *packet)
 {
 	struct ipv4_hdr *hdr;
 	hdr = (struct ipv4_hdr *)(packet + ETHERNET_HEADER_SIZE);
+	return hdr;
+}
+
+static inline struct udp_hdr *to_udp_header(void *packet)
+{
+	struct udp_hdr *hdr;
+	hdr = (struct udp_hdr *)(packet + ETHERNET_HEADER_SIZE + IP_HEADER_SIZE);
 	return hdr;
 }
 
@@ -182,6 +206,18 @@ prepare_routing_info(struct routing_info *ri, struct endpoint_info *src,
 	prepare_eth_header(&ri->eth, src->mac, dst->mac);
 	prepare_ipv4_header(&ri->ipv4, src->ip, dst->ip, 0);
 	prepare_udp_header(&ri->udp, src->udp_port, dst->udp_port, 0);
+}
+
+static __always_inline void
+swap_routing_info(struct routing_info *ri)
+{
+	char mac[6];
+
+	memcpy(mac, ri->eth.src_mac, 6);
+	memcpy(ri->eth.src_mac, ri->eth.dst_mac, 6);
+	memcpy(ri->eth.dst_mac, mac, 6);
+	swap(ri->ipv4.src_ip, ri->ipv4.dst_ip);
+	swap(ri->udp.src_port, ri->udp.dst_port);
 }
 
 /**

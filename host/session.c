@@ -94,6 +94,9 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 	struct session_net *ses;
 	int key;
 
+	if (session_id == LEGOMEM_MGMT_SESSION_ID)
+		return mgmt_session;
+
 	key = __get_session_key(board_ip, session_id, 0);
 
 	pthread_spin_lock(&session_lock);
@@ -106,8 +109,7 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 		}
 	}
 	pthread_spin_unlock(&session_lock);
-
-	return mgmt_session;
+	return NULL; 
 }
 
 void dump_net_sessions(void)
@@ -115,9 +117,10 @@ void dump_net_sessions(void)
 	int bkt;
 	struct session_net *ses;
 
-	printf("-- Dump all network sessions: --\n");
-	printf("  HashBucket | Remote_Board | IP |Session_ID\n");
 	pthread_spin_lock(&session_lock);
+
+	printf("Dumping all network sessions: Start\n");
+	printf("  HashBucket_ID | Remote_Board | IP |Session_ID\n");
 	hash_for_each(session_hash_array, bkt, ses, ht_link_host) {
 		struct board_info *bi;
 		
@@ -125,5 +128,7 @@ void dump_net_sessions(void)
 		printf("  %10d | %s   |   %x   | %10u\n",
 			bkt, bi ? bi->name : " mgmt session", ses->board_ip, ses->session_id);
 	}
+	printf("Dumping all network sessions: End\n");
+
 	pthread_spin_unlock(&session_lock);
 }

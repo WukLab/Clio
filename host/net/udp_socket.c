@@ -19,6 +19,15 @@
 #include <uapi/net_header.h>
 #include "net.h"
 
+#define CONFIG_DEBUG_RAW_UDP_SOCKET
+
+#ifdef CONFIG_DEBUG_RAW_UDP_SOCKET
+#define udp_debug(fmt, ...) \
+	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__);
+#else
+#define udp_debug(fmt, ...) do { } while (0)
+#endif
+
 /* The one and the only open UDP port :) */
 static int udp_sockfd;
 
@@ -33,6 +42,7 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 	int ret;
 	int sockfd;
 	struct sockaddr_in *remote_addr;
+	struct sockaddr_in remote_addr_local;
 	struct session_udp_socket *ses_socket;
 	struct routing_info *route;
 
@@ -41,22 +51,28 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 	
 	ses_socket = (struct session_udp_socket *)ses_net->raw_net_private;
 	sockfd = ses_socket->sockfd;
-	remote_addr = &ses_socket->remote_addr;
 
 	/*
 	 * Cook the L2-L4 layer headers
 	 * If users provide their own ri, we use it.
 	 * Otherwise use the session ri.
-	 *
-	 * XXX: this is wrong
-	 * we need to change the remote_addr structure to let
-	 * kernel prepare the headers properly!
 	 */
 	if (_route) {
-		printf("%s(): WARN This is not supported.\n", __func__);
+		/*
+		 * User have already filled the dst info
+		 * into the packer headers, we just need to
+		 * extract it and use them to construct a new sockaddr_in.
+		 */
 		route = (struct routing_info *)_route;
-	} else
+
+		remote_addr_local.sin_family = AF_INET;
+		remote_addr_local.sin_port = route->udp.dst_port;
+		remote_addr_local.sin_addr.s_addr = route->ipv4.dst_ip;
+		remote_addr = &remote_addr_local;
+	} else {
 		route = &ses_net->route;
+		remote_addr = &ses_socket->remote_addr;
+	}
 	prepare_headers(route, buf, buf_size);
 
 	/*
@@ -69,6 +85,9 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 
 	ret = sendto(sockfd, buf, buf_size, 0, (const struct sockaddr *)remote_addr,
 		     sizeof(*remote_addr));
+
+	udp_debug("send to dst_ip %x port %u\n",
+		ntohl(remote_addr->sin_addr.s_addr), ntohs(remote_addr->sin_port));
 	return ret;
 }
 
@@ -78,6 +97,7 @@ static int udp_socket_receive(void *buf, size_t buf_size)
 	struct sockaddr_in remote_addr;
 	socklen_t addr_len = sizeof(remote_addr);
 	struct ipv4_hdr *ipv4_hdr;
+	struct udp_hdr *udp_hdr;
 	void *kbuf;
 	size_t kbuf_size;
 
@@ -103,6 +123,19 @@ static int udp_socket_receive(void *buf, size_t buf_size)
 	 */
 	ipv4_hdr = to_ipv4_header(buf);
 	ipv4_hdr->src_ip = remote_addr.sin_addr.s_addr;
+
+	udp_hdr = to_udp_header(buf);
+	udp_hdr->src_port = remote_addr.sin_port;
+
+	/*
+	 * Fill in the recevier's information
+	 * Mostly for debugging purpose
+	 */
+	ipv4_hdr->dst_ip = htonl(default_local_ei.ip);
+	udp_hdr->dst_port = htons(default_local_ei.udp_port);
+
+	/* We need to add the L2-L4 header size */
+	ret += GBN_HEADER_OFFSET;
 	return ret;
 }
 
@@ -131,8 +164,8 @@ static int udp_open_session(struct session_net *ses_net,
 	ses_udp->remote_addr = remote_addr;
 	ses_udp->sockfd = udp_sockfd;
 
-	printf("%s: port %u %x %u %x\n",
-		__func__, remote_addr.sin_port, remote_addr.sin_addr.s_addr,
+	udp_debug("remote info %u %x %u %x\n",
+		remote_addr.sin_port, remote_addr.sin_addr.s_addr,
 		remote_ei->udp_port, remote_ei->ip);
 	return 0;
 }

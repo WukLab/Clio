@@ -19,12 +19,6 @@
 #include "endpoint.h"
 
 /*
- * This is the local endpoint info
- * Constructed during startup based on network device and UDP port used.
- */
-struct endpoint_info default_local_ei;
-
-/*
  * Use input @monitor_addr to create a local network session with the monitor.
  * Note we just create local data structures for monitor's management session.
  * We do not need to contact monitor for this particular creation.
@@ -77,24 +71,29 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 	return 0;
 }
 
-static void join_cluster(void)
+static int join_cluster(void)
 {
-	struct msg {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} msg;
-	struct reply {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} reply;
+	struct legomem_membership_join_cluster_req req;
+	struct legomem_membership_join_cluster_resp resp;
+	struct lego_header *lego_header;
 	int ret;
-	int i;
 
-	for (i = 0; i < 20; i++) {
-		ret = net_send(monitor_session, &msg, sizeof(msg));
-		if (ret <= 0)
-			printf("%d fail to send\n", i);
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MEMBERSHIP_JOIN_CLUSTER;
+	req.op.ei = default_local_ei;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		printf("%s(): fail to join cluster, net error\n", __func__);
+		return -1;
 	}
+
+	if (resp.ret == 0)
+		printf("%s(): succefully joined cluster.\n", __func__);
+	else
+		printf("%s(): fail to join cluster, monitor error\n", __func__);
+	return resp.ret;
 }
 
 static void print_usage(void)
@@ -117,8 +116,6 @@ static struct option long_options[] = {
 	{ "dev",	required_argument,	NULL,	'd'},
 	{ 0,		0,			0,	0  }
 };
-
-void test_app(struct endpoint_info *, struct endpoint_info *);
 
 int main(int argc, char **argv)
 {
@@ -213,10 +210,9 @@ int main(int argc, char **argv)
 	dump_boards();
 	dump_net_sessions();
 
-	join_cluster();
-
-	struct endpoint_info *remote_ei = &ei_wuklab05;
-	test_app(&default_local_ei, remote_ei);
+	ret = join_cluster();
+	if (ret)
+		exit(-1);
 
 	return 0;
 }

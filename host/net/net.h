@@ -10,10 +10,11 @@
 #include <uapi/net_header.h>
 #include <uapi/net_session.h>
 
+extern struct endpoint_info default_local_ei;
 extern int sysctl_link_mtu;
 
 int init_net(struct endpoint_info *local_ei);
-void dump_packet_headers(void *packet);
+void dump_packet_headers(void *packet, char *str_buf);
 
 struct session_net *net_open_session(struct endpoint_info *local_ei,
 				     struct endpoint_info *remote_ei);

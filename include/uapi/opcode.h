@@ -31,6 +31,12 @@ enum LEGOFPGA_OPCODE_REQ {
 
 	OP_REQ_MIGRATION,
 
+	/* Host to Monitor */
+	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
+
+	/* Monitor to Host */
+	OP_REQ_MEMBERSHIP_NEW_BOARD,
+
 	OP_RESET_ALL,
 
 	OP_REQ_SOC_DEBUG,
@@ -46,6 +52,19 @@ enum LEGOFPGA_OPCODE_REQ {
  * ^     ^       ^     ^         ^          ^       ^
  * | ETH |  IP   | UDP |  GBN    | LegoMem | OP_XXX   | data  |
  */
+
+struct op_membership_join_cluster {
+	struct endpoint_info ei;
+} __packed;
+
+struct op_membership_new_board {
+	/*
+	 * this is a variable-sized array
+	 * size = cnt * sizeof(struct endpoint_info) + sizeof(cnt);
+	 */
+	int cnt;
+	struct endpoint_info *ei_array;
+} __packed;
 
 struct op_alloc_free {
 	unsigned long	addr;
@@ -174,6 +193,29 @@ struct legomem_open_close_session_req {
 struct legomem_open_close_session_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_open_close_session_ret op;
+};
+
+/*
+ * Membership
+ */
+struct legomem_membership_join_cluster_req {
+	struct legomem_common_headers comm_headers;
+	struct op_membership_join_cluster op;
+};
+
+struct legomem_membership_join_cluster_resp {
+	struct legomem_common_headers comm_headers;
+	int ret;
+};
+
+struct legomem_membership_new_board_req {
+	struct legomem_common_headers comm_headers;
+	struct op_membership_new_board op;
+};
+
+struct legomem_membership_new_board_resp {
+	struct legomem_common_headers comm_headers;
+	int ret;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

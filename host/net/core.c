@@ -14,6 +14,12 @@
 
 #include "net.h"
 
+/*
+ * This is the local endpoint info
+ * Constructed during startup based on network device and UDP port used.
+ */
+struct endpoint_info default_local_ei;
+
 int sysctl_link_mtu = 1500;
 
 struct raw_net_ops *raw_net_ops;
@@ -71,39 +77,73 @@ int net_close_session(struct session_net *ses)
 	return 0;
 }
 
-struct dummy_payload {
-	unsigned long mark;
-};
+static pthread_spinlock_t dump_lock;
 
-void dump_packet_headers(void *packet)
+static void __dump_packet_headers(void *packet, char *str_buf)
 {
 	struct eth_hdr *eth;
 	struct ipv4_hdr *ipv4;
 	struct udp_hdr *udp;
-	struct gbn_header *gbn;
-	struct dummy_payload *payload;
-	int j;
+	int i;
+	char src_ip[INET_ADDRSTRLEN];
+	char dst_ip[INET_ADDRSTRLEN];
+	struct in_addr src_addr, dst_addr;
 
-	if (unlikely(!packet))
-		return;
+#define DUMP_PR(fmt, ...)						\
+	do {								\
+		if (str_buf) {						\
+			int ret;					\
+			ret = sprintf(str_buf, fmt, __VA_ARGS__);	\
+			str_buf += ret;					\
+		} else							\
+			printf(fmt, __VA_ARGS__);			\
+	} while (0)
 
 	eth = packet;
 	ipv4 = packet + sizeof(*eth);
 	udp = packet + sizeof(*eth) + sizeof(*ipv4);
-	gbn = packet + GBN_HEADER_OFFSET;
-	payload = packet + LEGO_HEADER_OFFSET;
 
-	for (j = 0; j < 6; j++) {
-		printf("%x:", eth->src_mac[j]);
-	}
-	printf(" -> ");
-	for (j = 0; j < 6; j++) {
-		printf("%x:", eth->dst_mac[j]);
+	for (i = 0; i < 6; i++) {
+		if (i < 5)
+			DUMP_PR("%x:", eth->src_mac[i]);
+		else
+			DUMP_PR("%x->", eth->src_mac[i]);
 	}
 
-	printf("  IP %x -> %x", ntohl(ipv4->src_ip), ntohl(ipv4->dst_ip));
-	printf("  Port %u -> %u", ntohs(udp->src_port), ntohs(udp->dst_port));
-	printf("  Seqnum %u, Mark %lu\n", gbn->seqnum, payload->mark);
+	for (i = 0; i < 6; i++) {
+		if (i < 5)
+			DUMP_PR("%x:", eth->dst_mac[i]);
+		else
+			DUMP_PR("%x ", eth->dst_mac[i]);
+	}
+
+	/*
+	 * The packet handed over should be in network order
+	 * Handle it properly.
+	 */
+	src_addr.s_addr = ipv4->src_ip;
+	dst_addr.s_addr = ipv4->dst_ip;
+	inet_ntop(AF_INET, &src_addr, src_ip, sizeof(src_ip));
+	inet_ntop(AF_INET, &dst_addr, dst_ip, sizeof(dst_ip));
+
+	DUMP_PR("ip:port %s:%u->%s:%u",
+		src_ip, ntohs(udp->src_port), dst_ip, ntohs(udp->dst_port));
+	if (!str_buf)
+		printf("\n");
+}
+
+void dump_packet_headers(void *packet, char *str_buf)
+{
+	if (unlikely(!packet))
+		return;
+
+	/*
+	 * Caller is taking a dump anyway,
+	 * spin wait is okay.
+	 */
+	pthread_spin_lock(&dump_lock);
+	__dump_packet_headers(packet, str_buf);
+	pthread_spin_unlock(&dump_lock);
 }
 
 /*
@@ -113,6 +153,8 @@ void dump_packet_headers(void *packet)
 int init_net(struct endpoint_info *local_ei)
 {
 	int ret;
+
+	pthread_spin_init(&dump_lock, PTHREAD_PROCESS_PRIVATE);
 
 	//raw_net_ops = &raw_verbs_ops;
 	//raw_net_ops = &raw_socket_ops;

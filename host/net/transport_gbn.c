@@ -27,15 +27,21 @@
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
 
 #define gbn_info(fmt, ...) \
-	printf("%s(): " fmt, __func__, __VA_ARGS__)
+	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
 
 #define gbn_debug(fmt, ...) \
-	printf("%s(): " fmt, __func__, __VA_ARGS__)
+	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
 
 static int polling_thread_created = 0;
-static int timeout_watcher_created = 0;
 static pthread_t polling_thread;
-static pthread_t timeout_watcher_thread;
+
+/*
+ * This is a global variable controlling the buffer mgmt behavior.
+ * If underlying raw net layer supports zerocopy receive, we will NOT
+ * need to manage buffers, simply saving the pointer given by raw net.
+ * Otherwise, we need to create buffer and a lot copies are involved.
+ */
+static bool use_zerocopy;
 
 #define BUFFER_INFO_ALLOCATED	(0x1)
 struct buffer_info {
@@ -316,9 +322,9 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 	struct buffer_info *info;
 
 	/* Update stat */
-	if (hdr->type == pkt_type_ack)
+	if (hdr->type == GBN_PKT_ACK)
 		ses_gbn->nr_rx_ack++;
-	else if (hdr->type == pkt_type_nack)
+	else if (hdr->type == GBN_PKT_NACK)
 		ses_gbn->nr_rx_nack++;
 
 	seqnum_last = atomic_load(&ses_gbn->seqnum_last);
@@ -347,7 +353,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 	 	 */
 		if (!nr_unack_buffer(ses_gbn))
 			disable_timeout(ses_gbn);
-		else if (hdr->type == pkt_type_ack)
+		else if (hdr->type == GBN_PKT_ACK)
 			set_next_timeout(&ses_gbn->next_timeout);
 
 		return true;
@@ -444,34 +450,51 @@ static void handle_nack_packet(struct session_net *ses_net, void *packet)
  * Called by polling thread.
  * Push new data into cached ring buffer list.
  */
-static void handle_data_packet(struct session_net *ses_net, void *packet, size_t buf_size)
+static void handle_data_packet(struct session_net *ses_net,
+			       void *packet, size_t buf_size)
 {
 	struct gbn_header *hdr;
 	struct session_gbn *ses_gbn;
 	struct buffer_info *info;
+	struct routing_info *route_p, route;
 	unsigned int seq;
 	int ret;
 
 	struct eth_ack_packet {
 		char	placeholder[GBN_HEADER_OFFSET];
 		struct	gbn_header ack_header;
-	} __attribute__((packed)) ack;
+	} __packed ack;
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
-		gbn_debug("ERROR: corrupted ses_gbn %p\n",
-			ses_net);
+		gbn_debug("ERROR: corrupted ses_gbn %p\n", ses_net);
 		return;
 	}
 
 	hdr = to_gbn_header(packet);
 	seq = hdr->seqnum;
-	
+
 	/*
-	 * seqnum is valid and as expected, send back ACK, enable response,
-	 * and increase expected seqnum
+	 * It's a simple policy, in our case, connectionless packets are reliable.
+	 * For traffic targeting mgmt session, the sender side has already enqueued
+	 * into the unack buffer. Thus we need to send ACK back.
+	 *
+	 * Of course, it is also possible to make mgmt traffict unreliable, i.e.,
+	 * at sender side, skip unack buffer enqueue, and here at receiver skip send ack.
 	 */
+	if (test_management_session(ses_net)) {
+		memcpy(&route, packet, sizeof(route));
+		swap_routing_info(&route);
+		route_p = &route;
+	} else
+		route_p = NULL;
+
 	if (likely(seq == atomic_load(&ses_gbn->seqnum_expect))) {
+		/*
+		 * seqnum is valid and as expected,
+		 * send back ACK, enable response,
+		 * and increase expected seqnum
+		 */
 		ses_gbn->nr_rx_data++;
 
 		info = alloc_data_buffer_info(ses_gbn);
@@ -479,27 +502,22 @@ static void handle_data_packet(struct session_net *ses_net, void *packet, size_t
 			return;
 
 		/*
-		 * XXX
-		 *
-		 * modify this with top level when we have a better
-		 * way of handling this case.
+		 * If there is no zerocopy, we need to copy
+		 * the conent into the info->buf..
 		 */
-		if (unlikely(!raw_net_ops->receive_one_zerocopy)) {
-			if (!info->buf) {
-				info->buf = malloc(buf_size);
-				if (!info->buf)
-					return;
-			}
+		if (!use_zerocopy)
 			memcpy(info->buf, packet, buf_size);
-		} else
+		else
 			info->buf = packet;
+
 		info->buf_size = buf_size;
 
 		ses_gbn->ack_enable = true;
 
-		ack.ack_header.type = pkt_type_ack;
+		ack.ack_header.type = GBN_PKT_ACK;
 		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
-		ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
+
+		ret = raw_net_send(ses_net, &ack, sizeof(ack), route_p);
 		if (ret < 0) {
 			gbn_info("net_send error %d\n", ret);
 			return;
@@ -513,9 +531,10 @@ static void handle_data_packet(struct session_net *ses_net, void *packet, size_t
 			 * send back NACK and disable further response
 			 */
 			ses_gbn->ack_enable = false;
-			ack.ack_header.type = pkt_type_nack;
+			ack.ack_header.type = GBN_PKT_NACK;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
-			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
+
+			ret = raw_net_send(ses_net, &ack, sizeof(ack), route_p);
 			if (ret < 0) {
 				gbn_info("net_send error %d\n", ret);
 				return;
@@ -525,9 +544,10 @@ static void handle_data_packet(struct session_net *ses_net, void *packet, size_t
 			 * seqnum valid, but not as expected.
 			 * if response is enabled, send back ACK
 			 */
-			ack.ack_header.type = pkt_type_ack;
+			ack.ack_header.type = GBN_PKT_ACK;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
-			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
+
+			ret = raw_net_send(ses_net, &ack, sizeof(ack), route_p);
 			if (ret < 0) {
 				gbn_info("net_send error %d\n", ret);
 				return;
@@ -550,16 +570,18 @@ static void *gbn_poll_func(void *_unused)
 	unsigned int remote_ip, session_id;
 	void *recv_buf;
 	size_t buf_size, max_buf_size;
-	bool use_zerocopy = true;
 	int ret;
+	char packet_dump_str[256];
 
-	if (unlikely(!raw_net_ops->receive_one_zerocopy)) {
-		printf("%s(): No zerocopy implemented.\n", __func__);
-		use_zerocopy = false;
+	/*
+	 * If there is no zerocopy,
+	 * we need to Bring Our Own Buffers.
+	 */
+	if (!use_zerocopy) {
 		max_buf_size = sysctl_link_mtu;
 		recv_buf = malloc(max_buf_size);
 		if (!recv_buf) {
-			printf("Fail to allocate recv_buf\n");
+			printf("%s(): Fail to alloc recv_buf\n", __func__);
 			return NULL;
 		}
 	}
@@ -568,53 +590,61 @@ static void *gbn_poll_func(void *_unused)
 		if (likely(use_zerocopy)) {
 			ret = raw_net_receive_zerocopy(&recv_buf, &buf_size);
 			if (unlikely(ret < 0)) {
-				gbn_info("zerocopy receive error %d\n", ret);
-				exit(1);
+				gbn_info("zerocopy recv error %d\n", ret);
+				goto out;
 			} else if (ret == 0)
 				continue;
 		} else {
 			buf_size = raw_net_receive(recv_buf, max_buf_size);
 			if (unlikely(buf_size < 0)) {
 				gbn_info("receive error %ld\n", buf_size);
-				exit(1);
+				goto out;
 			} else if (buf_size == 0)
 				continue;
 		}
-		dump_packet_headers(recv_buf);
 
 		gbn_hdr = to_gbn_header(recv_buf);
 		ipv4_hdr = to_ipv4_header(recv_buf);
 
 		/*
 		 * TODO
-		 *
-		 * I'm not adding a session ID to the GBN header now
-		 * because we need to consider the FPGA side stack layout
-		 * many bits shitfing might need changes.
+		 * We need to get the session_id from the GBN headers
+		 * session_id = gbn_hdr->session_id;
 		 */
 		session_id = 0;
-
-		/*
-		 * Convert src ip to host order
-		 * the one used all across system
-		 */
 		remote_ip = ntohl(ipv4_hdr->src_ip);
 
+		/*
+		 * Try to locate the net session. There are 3 cases:
+		 * 1) the mgmt session, if session id is 0.
+		 * 2) the matched session, if both IP+ID match.
+		 * 3) NULL, if none of the above options fulfill
+		 */
 		ses_net = find_net_session(remote_ip, session_id);
 		if (unlikely(!ses_net)) {
-			gbn_debug("Session not found: %x %u\n",
-				remote_ip, session_id);
+			char str[INET_ADDRSTRLEN];
+			struct in_addr in_addr;
+			in_addr.s_addr = ipv4_hdr->src_ip;
+			inet_ntop(AF_INET, &in_addr, str, sizeof(str));
+
+			gbn_debug("Session not found: src_ip: %s ses_id: %u\n",
+				str, session_id);
 			continue;
 		}
 
+		dump_packet_headers(recv_buf, packet_dump_str);
+		printf("%s(): ETH/IP/UDP[%s] GBN[ses_id %d pkt_type: %s]\n",
+			__func__, packet_dump_str, session_id,
+			gbn_pkt_type_str(gbn_hdr->type));
+
 		switch (gbn_hdr->type) {
-		case pkt_type_ack:
+		case GBN_PKT_ACK:
 			handle_ack_packet(ses_net, recv_buf);
 			break;
-		case pkt_type_nack:
+		case GBN_PKT_NACK:
 			handle_nack_packet(ses_net, recv_buf);
 			break;
-		case pkt_type_data:
+		case GBN_PKT_DATA:
 			handle_data_packet(ses_net, recv_buf, buf_size);
 			break;
 		default:
@@ -623,17 +653,17 @@ static void *gbn_poll_func(void *_unused)
 			break;
 		};
 	}
+out:
 	return NULL;
 }
 
 /*
- * TODO
- * If a session is used by multiple threads,
- * we need to maintain some sort of ordering here.
- * The lower seqnum ones should send out first.
+ * This function is multithread safe both within and across sessions.
+ * But if a session is used by multiple threads, the caller itself
+ * need to ensure the ordering among threads.
  */
 static inline int gbn_send_one(struct session_net *net,
-				  void *buf, size_t buf_size, void *route)
+			       void *buf, size_t buf_size, void *route)
 {
 	struct buffer_info *info;
 	struct session_gbn *ses;
@@ -658,7 +688,7 @@ static inline int gbn_send_one(struct session_net *net,
 
 	/* cook the seqnum and packet type */
 	hdr = to_gbn_header(buf);
-	hdr->type = pkt_type_data;
+	hdr->type = GBN_PKT_DATA;
 	hdr->seqnum = seqnum;
 
 	info->buf = buf;
@@ -678,15 +708,20 @@ static inline int gbn_send_one(struct session_net *net,
 }
 
 /*
- * TODO
- *    Similariy, if a session is used by multiple threads,
- *    we need to make sure a sender can assocaite the request with reply.
- *    Some sort of handle is needed.
+ * GBN receive a packet, i.e., dequeue a packet from the data buffer array.
+ * Pakets in that array have been ack'ed and are ready for grab.
+ *
+ * This is a blocking call, thus we set the timeout to be super large.
+ *
+ * Since a session is only supposed be used by one thread, we do
+ * not need to worry about the case where multiple threads trying
+ * to send/receive using the same session. For that case, some sort
+ * of extra info is needed to ensure ordering.
  */
-#define GBN_RECEIVE_TIMEOUT_S		(3600)
 static inline int gbn_receive_one(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
+#define GBN_RECEIVE_TIMEOUT_S		(3600)
 	struct session_gbn *ses;
 	struct buffer_info *info;
 	size_t ret;
@@ -722,8 +757,13 @@ retry:
 		return -ENOMEM;
 	}
 
-	/* This is the only memcpy we have along the stack. */
+	/*
+	 * Whether zerocopy is enabled or not, we need to do this copy.
+	 * Of course, this copy can be reduced if users are willing to
+	 * give up this interface and use a RPC-like way.
+	 */
 	memcpy(buf, info->buf, info->buf_size);
+
 	ret = info->buf_size;
 	free_data_buffer_info(info);
 	return ret;
@@ -738,10 +778,11 @@ static inline int gbn_receive_one_nb(struct session_net *net,
 	return -ENOSYS;
 }
 
-static void init_session_gbn(struct session_gbn *ses)
+static int init_session_gbn(struct session_gbn *ses)
 {
 	int i;
 	struct buffer_info *info;
+	int ret;
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
 		info = index_to_unack_buffer_info(ses, i);
@@ -756,6 +797,20 @@ static void init_session_gbn(struct session_gbn *ses)
 		info = index_to_data_buffer_info(ses, i);
 		memset(info, 0, sizeof(*info));
 		INIT_LIST_HEAD(&info->list);
+
+		/*
+		 * If there is no zerocopy, we need to
+		 * allocate the data buffers. The polling
+		 * thread will copy the packet into this buffer
+		 * instead of saving the pointer.
+		 */
+		if (!use_zerocopy) {
+			info->buf = malloc(sysctl_link_mtu);
+			if (!info->buf) {
+				ret = -ENOMEM;
+				goto out;
+			}
+		}
 	}
 	atomic_init(&ses->data_buffer_info_HEAD, 0);
 	atomic_init(&ses->seqnum_expect, 1);
@@ -763,6 +818,10 @@ static void init_session_gbn(struct session_gbn *ses)
 	INIT_LIST_HEAD(&ses->data_list);
 	pthread_spin_init(&ses->data_lock, PTHREAD_PROCESS_PRIVATE);
 	ses->nr_data = 0;
+
+	ret = 0;
+out:
+	return ret;
 }
 
 static int
@@ -770,12 +829,19 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 		 struct endpoint_info *remote_ei)
 {
 	struct session_gbn *ses_gbn;
+	int ret;
 
 	ses_gbn = malloc(sizeof(struct session_gbn));
 	if (!ses_gbn)
 		return -ENOMEM;
 	ses_net->transport_private = ses_gbn;
-	init_session_gbn(ses_gbn);
+
+	ret = init_session_gbn(ses_gbn);
+	if (ret) {
+		free(ses_gbn);
+		ses_net->transport_private = NULL;
+		return ret;
+	}
 
 	return 0;
 }
@@ -790,6 +856,7 @@ static int gbn_close_session(struct session_net *ses_net)
 	return 0;
 }
 
+#if 0
 /*
  * This is go-back-N transport layer's timeout watcher thread.
  * It wakes up every 0.5ms to check if a timeout event happends.
@@ -804,7 +871,6 @@ static void *gbn_timeout_watcher_func(void *_unused)
 	 * This thread will not work as expected in multi session case.
 	 * We need to use per-session timers now.
 	 */
-#if 0
 	struct session_net *ses_net;
 	struct session_gbn *ses_gbn;
 	struct timespec cur_time;
@@ -827,9 +893,9 @@ static void *gbn_timeout_watcher_func(void *_unused)
 
 		usleep(1000 * GBN_TIMEOUT_CHECK_INTERVAL_MS);
 	}
-#endif
 	return NULL;
 }
+#endif
 
 /*
  * For now, we only create one global polling thread per machine.
@@ -851,23 +917,6 @@ static int create_polling_thread(void)
 	return 0;
 }
 
-static int create_timeout_watcher_thread(void)
-{
-	int ret;
-
-	if (timeout_watcher_created)
-		return 0;
-
-	ret = pthread_create(&timeout_watcher_thread, NULL,
-			     gbn_timeout_watcher_func, NULL);	
-	if (ret) {
-		printf("GBN: Fail to create the timeout wather thread\n");
-		return ret;
-	}
-	printf("Created the go-back-N reliable net timeout watcher thread\n");
-	return 0;
-}
-
 static int gbn_init_once(struct endpoint_info *local_ei)
 {
 	int ret;
@@ -879,11 +928,15 @@ static int gbn_init_once(struct endpoint_info *local_ei)
 		return ret;
 	}
 
-	ret = create_timeout_watcher_thread();
-	if (ret) {
-		printf("Fail to create GBN timeout watcher thread\n");
-		return ret;
-	}
+	/*
+	 * Zerocopy or not affects our buffer mgmt method
+	 * Do this early on, and we will check at various cases.
+	 */
+	if (raw_net_ops->receive_one_zerocopy)
+		use_zerocopy = true;
+	else
+		use_zerocopy = false;
+
 	return 0;
 }
 
