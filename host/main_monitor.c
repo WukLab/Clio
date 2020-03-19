@@ -31,21 +31,6 @@
  */
 struct endpoint_info default_local_ei;
 
-struct board_info *mgmt_dummy_board;
-struct session_net *mgmt_session;
-
-int init_local_management_session(void)
-{
-	struct endpoint_info dummy_ei;
-
-	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
-	if (!mgmt_dummy_board)
-		return -ENOMEM;
-
-	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
-	return 0;
-}
-
 /*
  * Each thpool worker is described by struct thpool_worker,
  * and it is a standalone thread, running the generic handler only.
@@ -662,5 +647,6 @@ int main(int argc, char **argv)
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
 
+	dump_net_sessions();
 	dispatcher();
 }

@@ -99,20 +99,6 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 	pthread_spin_lock(&session_lock);
 	hash_for_each_possible(session_hash_array, ses, ht_link_host, key) {
 		if (likely(ses->session_id == session_id)) {
-
-			/*
-			 * Session 0 is our management session.
-			 * It is not associated with any board/host.
-			 */
-			if (test_management_session(ses)) {
-				pthread_spin_unlock(&session_lock);
-				return ses;
-			}
-
-			/*
-			 * Otherwise, it must match its board_ip
-			 * to uniquely identify the session.
-			 */
 			if (ses->board_ip == board_ip) {
 				pthread_spin_unlock(&session_lock);
 				return ses;
@@ -120,7 +106,8 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 		}
 	}
 	pthread_spin_unlock(&session_lock);
-	return NULL;
+
+	return mgmt_session;
 }
 
 void dump_net_sessions(void)
@@ -129,13 +116,14 @@ void dump_net_sessions(void)
 	struct session_net *ses;
 
 	printf("-- Dump all network sessions: --\n");
-	printf("  HashBucket | Remote_Board | Session_ID\n");
+	printf("  HashBucket | Remote_Board | IP |Session_ID\n");
 	pthread_spin_lock(&session_lock);
 	hash_for_each(session_hash_array, bkt, ses, ht_link_host) {
 		struct board_info *bi;
 		
 		bi = ses->board_info;
-		printf("  %10d | %s   | %10u\n", bkt, bi ? bi->name : " mgmt session", ses->session_id);
+		printf("  %10d | %s   |   %x   | %10u\n",
+			bkt, bi ? bi->name : " mgmt session", ses->board_ip, ses->session_id);
 	}
 	pthread_spin_unlock(&session_lock);
 }

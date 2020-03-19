@@ -51,6 +51,8 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 
 	if (board_name)
 		strncpy(bi->name, board_name, BOARD_NAME_LEN);
+
+	/* ip is in host order */
 	bi->board_ip = remote_ei->ip;
 	bi->mem_total = mem_total;
 	bi->mem_avail = mem_total;

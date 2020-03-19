@@ -148,6 +148,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	if (!ses)
 		return NULL;
 
+	/* host order board_ip */
 	ses->board_ip = bi->board_ip;
 	ses->board_info = bi;
 	ses->tid = tid;

@@ -580,8 +580,8 @@ static void *gbn_poll_func(void *_unused)
 			} else if (buf_size == 0)
 				continue;
 		}
-		printf("%s(): received one packet\n", __func__);
-		
+		dump_packet_headers(recv_buf);
+
 		gbn_hdr = to_gbn_header(recv_buf);
 		ipv4_hdr = to_ipv4_header(recv_buf);
 
@@ -593,7 +593,12 @@ static void *gbn_poll_func(void *_unused)
 		 * many bits shitfing might need changes.
 		 */
 		session_id = 0;
-		remote_ip = ipv4_hdr->src_ip;
+
+		/*
+		 * Convert src ip to host order
+		 * the one used all across system
+		 */
+		remote_ip = ntohl(ipv4_hdr->src_ip);
 
 		ses_net = find_net_session(remote_ip, session_id);
 		if (unlikely(!ses_net)) {

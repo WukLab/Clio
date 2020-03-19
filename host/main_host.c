@@ -24,21 +24,6 @@
  */
 struct endpoint_info default_local_ei;
 
-struct board_info *mgmt_dummy_board;
-struct session_net *mgmt_session;
-
-int init_local_management_session(void)
-{
-	struct endpoint_info dummy_ei;
-
-	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
-	if (!mgmt_dummy_board)
-		return -ENOMEM;
-
-	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
-	return 0;
-}
-
 /*
  * Use input @monitor_addr to create a local network session with the monitor.
  * Note we just create local data structures for monitor's management session.
@@ -226,6 +211,7 @@ int main(int argc, char **argv)
 	}
 
 	dump_boards();
+	dump_net_sessions();
 
 	join_cluster();
 

@@ -167,3 +167,18 @@ int init_default_local_ei(const char *dev, unsigned int port,
 
 	return 0;
 }
+
+struct board_info *mgmt_dummy_board;
+struct session_net *mgmt_session;
+
+int init_local_management_session(void)
+{
+	struct endpoint_info dummy_ei;
+
+	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
+	if (!mgmt_dummy_board)
+		return -ENOMEM;
+
+	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
+	return 0;
+}

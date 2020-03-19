@@ -81,6 +81,7 @@ index_to_legomem_vregion(struct legomem_context *p, unsigned int index)
 	return p->vregion + index;
 }
 
+/* ip is host order. */
 static inline int __get_session_key(unsigned int ip,
 				    unsigned int ses_id,
 				    unsigned int tid)
@@ -141,11 +142,15 @@ struct session_net *legomem_open_session(struct legomem_context *ctx, struct boa
 struct session_net *legomem_open_session_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
+/* init and utils */
+extern struct board_info *mgmt_dummy_board;
+extern struct session_net *mgmt_session;
 int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac);
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 			     char *ip_str, unsigned int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
+int init_local_management_session(void);
 
 /* Host-side only */
 extern unsigned int monitor_ip_h;

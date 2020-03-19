@@ -78,27 +78,31 @@ static int udp_socket_receive(void *buf, size_t buf_size)
 	struct sockaddr_in remote_addr;
 	socklen_t addr_len = sizeof(remote_addr);
 	struct ipv4_hdr *ipv4_hdr;
+	void *kbuf;
+	size_t kbuf_size;
 
 	/*
 	 * Packet received from kernel UDP does not have L2-L4 headers.
 	 * Thus shift the buf to the start of GBN header.
 	 */
-	buf += GBN_HEADER_OFFSET;
-	buf_size -= GBN_HEADER_OFFSET;
+	kbuf = buf + GBN_HEADER_OFFSET;
+	kbuf_size = buf_size - GBN_HEADER_OFFSET;
 
 	/*
 	 * We will recv packets from any IPs.
 	 * The sender info is returned in remote_addr
 	 */
-	ret = recvfrom(udp_sockfd, buf, buf_size, 0,
+	ret = recvfrom(udp_sockfd, kbuf, kbuf_size, 0,
 		       (struct sockaddr *)&remote_addr, &addr_len);
 
 	/*
 	 * Caller will use the src IP address to distinguish
 	 * the sender, thus we need to refill it.
+	 *
+	 * both of them network work ip addr.
 	 */
 	ipv4_hdr = to_ipv4_header(buf);
-	ipv4_hdr->src_ip = htonl(remote_addr.sin_addr.s_addr);
+	ipv4_hdr->src_ip = remote_addr.sin_addr.s_addr;
 	return ret;
 }
 
@@ -123,9 +127,13 @@ static int udp_open_session(struct session_net *ses_net,
 	remote_addr.sin_family = AF_INET;
 	remote_addr.sin_port = htons(remote_ei->udp_port);
 	remote_addr.sin_addr.s_addr = htonl(remote_ei->ip);
+
 	ses_udp->remote_addr = remote_addr;
 	ses_udp->sockfd = udp_sockfd;
 
+	printf("%s: port %u %x %u %x\n",
+		__func__, remote_addr.sin_port, remote_addr.sin_addr.s_addr,
+		remote_ei->udp_port, remote_ei->ip);
 	return 0;
 }
 
