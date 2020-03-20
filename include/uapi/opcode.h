@@ -34,8 +34,7 @@ enum LEGOFPGA_OPCODE_REQ {
 	/* Host to Monitor */
 	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
 
-	/* Monitor to Host */
-	OP_REQ_MEMBERSHIP_NEW_BOARD,
+	OP_REQ_MEMBERSHIP_NEW_NODE,
 
 	OP_RESET_ALL,
 
@@ -54,16 +53,18 @@ enum LEGOFPGA_OPCODE_REQ {
  */
 
 struct op_membership_join_cluster {
+	/*
+	 * We reuse the BOARD_INFO_FLAGS_XXX to indicate
+	 * the requester's node type.
+	 */
+	unsigned long type;
+	unsigned long mem_size_bytes;
 	struct endpoint_info ei;
 } __packed;
 
-struct op_membership_new_board {
-	/*
-	 * this is a variable-sized array
-	 * size = cnt * sizeof(struct endpoint_info) + sizeof(cnt);
-	 */
-	int cnt;
-	struct endpoint_info *ei_array;
+struct op_membership_new_node {
+	char name[BOARD_NAME_LEN];
+	struct endpoint_info ei;
 } __packed;
 
 struct op_alloc_free {
@@ -208,14 +209,9 @@ struct legomem_membership_join_cluster_resp {
 	int ret;
 };
 
-struct legomem_membership_new_board_req {
+struct legomem_membership_new_node_req {
 	struct legomem_common_headers comm_headers;
-	struct op_membership_new_board op;
-};
-
-struct legomem_membership_new_board_resp {
-	struct legomem_common_headers comm_headers;
-	int ret;
+	struct op_membership_new_node op;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

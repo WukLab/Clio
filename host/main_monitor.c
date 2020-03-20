@@ -25,6 +25,9 @@
 #define NR_THPOOL_WORKERS	(1)
 #define NR_THPOOL_BUFFER	(32)
 
+static atomic_int nr_hosts;
+static atomic_int nr_boards;
+
 /*
  * Each thpool worker is described by struct thpool_worker,
  * and it is a standalone thread, running the generic handler only.
@@ -488,7 +491,6 @@ static void handle_test(struct thpool_buffer *tb)
 		struct legomem_common_headers comm_headers;
 		int cnt;
 	} *reply;
-	printf("%s(): we got it\n", __func__);
 
 	reply = (struct reply *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*reply));
@@ -505,6 +507,10 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	struct legomem_membership_join_cluster_req *req;
 	struct legomem_membership_join_cluster_resp *resp;
 	struct endpoint_info *ei;
+	struct board_info *bi;
+	char name[32];
+	int id, i;
+	unsigned long mem_size;
 
 	resp = (struct legomem_membership_join_cluster_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
@@ -512,7 +518,54 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	req = (struct legomem_membership_join_cluster_req *)tb->rx;
 	ei = &req->op.ei;
 
-	printf("%s(): %s\n", __func__, ei->ip_str);
+	/* Cook the name */
+	if (req->op.type == BOARD_INFO_FLAGS_HOST) {
+		id = atomic_fetch_add(&nr_hosts, 1);
+		sprintf(name, "host_%d", id);
+	} else if (req->op.type == BOARD_INFO_FLAGS_BOARD) {
+		id = atomic_fetch_add(&nr_boards, 1);
+		sprintf(name, "board_%d", id);
+	} else {
+		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
+		resp->ret = -EINVAL;
+		return;
+	}
+
+	mem_size = req->op.mem_size_bytes;
+
+	/* Add the remote party to our list */
+	bi = add_board(name, mem_size, ei, &default_local_ei);
+	if (!bi) {
+		resp->ret = -ENOMEM;
+		return;
+	}
+	bi->flags |= req->op.type;
+
+	printf("%s():%d new remote node added: %s:%d name: %s\n",
+		__func__, __LINE__, ei->ip_str, ei->udp_port, name);
+
+	dump_boards();
+
+	/* Notify all online nodes */
+	pthread_spin_lock(&board_lock);
+	hash_for_each(board_list, i, bi, link) {
+		struct legomem_membership_new_node_req new_req;
+		struct lego_header *new_lego_header;
+		struct session_net *ses;
+
+		new_lego_header = to_lego_header(&new_req);
+		new_lego_header->opcode = OP_REQ_MEMBERSHIP_NEW_NODE;
+
+		strncpy(new_req.op.name, bi->name, BOARD_NAME_LEN);
+		memcpy(&new_req.op.ei, ei, sizeof(*ei));
+
+		ses = get_board_mgmt_session(bi);
+		net_send(ses, &new_req, sizeof(new_req));
+	}
+	pthread_spin_unlock(&board_lock);
+
+	/* success */
+	resp->ret = 0;
 }
 
 static void worker_handle_request(struct thpool_worker *tw,
@@ -571,7 +624,7 @@ static void dispatcher(void)
 
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
-			return;
+			continue;
 		tb->rx_size = ret;
 
 		/*
@@ -663,14 +716,17 @@ int main(int argc, char **argv)
 	init_context_subsys();
 	init_net_session_subsys();
 
-	ret = init_local_management_session();
+	atomic_init(&nr_hosts, 0);
+	atomic_init(&nr_boards, 0);
+
+	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
+
+	ret = init_local_management_session(false);
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
-
-	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
 
 	dump_net_sessions();
 	dispatcher();

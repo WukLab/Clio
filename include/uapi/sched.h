@@ -39,6 +39,11 @@ struct vm_area_struct;
 #define NR_HT_BOARD_SESSIONS_BITS	(3)
 #define NR_HT_BOARD_SESSIONS		(1 << NR_HT_BOARD_SESSIONS_BITS)
 
+#define BOARD_INFO_FLAGS_BOARD		(0x1)
+#define BOARD_INFO_FLAGS_HOST		(0x2)
+#define BOARD_INFO_FLAGS_MONITOR	(0x4)
+#define BOARD_INFO_FLAGS_DUMMY		(0x8)
+
 struct board_info {
 	char			name[BOARD_NAME_LEN];
 	unsigned int		board_ip;

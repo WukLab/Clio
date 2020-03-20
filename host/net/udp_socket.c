@@ -19,7 +19,7 @@
 #include <uapi/net_header.h>
 #include "net.h"
 
-#define CONFIG_DEBUG_RAW_UDP_SOCKET
+//#define CONFIG_DEBUG_RAW_UDP_SOCKET
 
 #ifdef CONFIG_DEBUG_RAW_UDP_SOCKET
 #define udp_debug(fmt, ...) \

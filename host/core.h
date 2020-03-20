@@ -145,12 +145,13 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 /* init and utils */
 extern struct board_info *mgmt_dummy_board;
 extern struct session_net *mgmt_session;
+int get_ip_str(unsigned int ip, char *ip_str);
 int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac);
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 			     char *ip_str, unsigned int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
-int init_local_management_session(void);
+int init_local_management_session(bool);
 
 /* Host-side only */
 extern unsigned int monitor_ip_h;
@@ -158,5 +159,9 @@ extern char monitor_ip_str[INET_ADDRSTRLEN];
 extern struct endpoint_info monitor_ei;
 extern struct session_net *monitor_session;
 extern struct board_info *monitor_bi;
+
+#define BOARD_HASH_ARRAY_BITS (5)
+extern DECLARE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
+extern pthread_spinlock_t board_lock;
 
 #endif /* _HOST_CORE_H_ */

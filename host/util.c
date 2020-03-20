@@ -19,6 +19,19 @@
 #include "net/net.h"
 
 /*
+ * Given the host order @ip, fill in the @ip_str
+ * @ip_str must be INET_ADDRSTRLEN bytes long.
+ */
+int get_ip_str(unsigned int ip, char *ip_str)
+{
+	struct in_addr in_addr;
+
+	in_addr.s_addr = htonl(ip);
+	inet_ntop(AF_INET, &in_addr, ip_str, INET_ADDRSTRLEN);
+	return 0;
+}
+
+/*
  * Given a network-order @ip, find what's the MAC we should use to reach it.
  * - If it is directly connected, it would be remote NIC's mac
  * - If it is behind switches, it would be the directly attached switch
@@ -89,6 +102,8 @@ int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac)
  * Caller only provides @dev,
  * we will fill @mac, @ip_str, and @ip.
  *
+ * @mac buffer must be 6 bytes long.
+ * @ip_str buffer must be INET_ADDRSTRLEN bytes long.
  * @ip will be host order.
  */
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
@@ -165,20 +180,5 @@ int init_default_local_ei(const char *dev, unsigned int port,
 		printf("%x ", mac[i]);
 	printf("\n");
 
-	return 0;
-}
-
-struct board_info *mgmt_dummy_board;
-struct session_net *mgmt_session;
-
-int init_local_management_session(void)
-{
-	struct endpoint_info dummy_ei;
-
-	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
-	if (!mgmt_dummy_board)
-		return -ENOMEM;
-
-	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
 	return 0;
 }

@@ -60,6 +60,8 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 	if (!monitor_bi)
 		return -ENOMEM;
 
+	monitor_bi->flags |= BOARD_INFO_FLAGS_MONITOR;
+
 	monitor_session = get_board_mgmt_session(monitor_bi);
 
 	/* Debugging info */
@@ -80,6 +82,9 @@ static int join_cluster(void)
 
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_MEMBERSHIP_JOIN_CLUSTER;
+
+	req.op.mem_size_bytes = 0;
+	req.op.type = BOARD_INFO_FLAGS_HOST;
 	req.op.ei = default_local_ei;
 
 	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
@@ -201,7 +206,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Open local mgmt session */
-	ret = init_local_management_session();
+	ret = init_local_management_session(true);
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
@@ -214,5 +219,6 @@ int main(int argc, char **argv)
 	if (ret)
 		exit(-1);
 
+	pthread_join(mgmt_session->thread, NULL);
 	return 0;
 }

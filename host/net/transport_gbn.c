@@ -456,7 +456,6 @@ static void handle_data_packet(struct session_net *ses_net,
 	struct gbn_header *hdr;
 	struct session_gbn *ses_gbn;
 	struct buffer_info *info;
-	struct routing_info *route_p, route;
 	unsigned int seq;
 	int ret;
 
@@ -471,29 +470,36 @@ static void handle_data_packet(struct session_net *ses_net,
 		return;
 	}
 
-	hdr = to_gbn_header(packet);
-	seq = hdr->seqnum;
-
 	/*
-	 * It's a simple policy, in our case, connectionless packets are reliable.
-	 * For traffic targeting mgmt session, the sender side has already enqueued
-	 * into the unack buffer. Thus we need to send ACK back.
-	 *
-	 * Of course, it is also possible to make mgmt traffict unreliable, i.e.,
-	 * at sender side, skip unack buffer enqueue, and here at receiver skip send ack.
+	 * Mgmt traffic is unreliable
+	 * The sender skipped unack buffer,
+	 * and we, as the receiver, do not need to send ACK.
+	 * Simply attaching this buffer into the list is enough.
 	 */
 	if (test_management_session(ses_net)) {
-		memcpy(&route, packet, sizeof(route));
-		swap_routing_info(&route);
-		route_p = &route;
-	} else
-		route_p = NULL;
+		ses_gbn->nr_rx_data++;
+
+		info = alloc_data_buffer_info(ses_gbn);
+		if (!info)
+			return;
+
+		if (likely(use_zerocopy))
+			info->buf = packet;
+		else
+			memcpy(info->buf, packet, buf_size);
+
+		info->buf_size = buf_size;
+		enqueue_data_buffer_info_tail(ses_gbn, info);
+		return;
+	}
+
+	hdr = to_gbn_header(packet);
+	seq = hdr->seqnum;
 
 	if (likely(seq == atomic_load(&ses_gbn->seqnum_expect))) {
 		/*
 		 * seqnum is valid and as expected,
-		 * send back ACK, enable response,
-		 * and increase expected seqnum
+		 * send back ACK, enable response, and increase expected seqnum
 		 */
 		ses_gbn->nr_rx_data++;
 
@@ -505,10 +511,10 @@ static void handle_data_packet(struct session_net *ses_net,
 		 * If there is no zerocopy, we need to copy
 		 * the conent into the info->buf..
 		 */
-		if (!use_zerocopy)
-			memcpy(info->buf, packet, buf_size);
-		else
+		if (likely(use_zerocopy))
 			info->buf = packet;
+		else
+			memcpy(info->buf, packet, buf_size);
 
 		info->buf_size = buf_size;
 
@@ -517,13 +523,18 @@ static void handle_data_packet(struct session_net *ses_net,
 		ack.ack_header.type = GBN_PKT_ACK;
 		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
 
-		ret = raw_net_send(ses_net, &ack, sizeof(ack), route_p);
+		/*
+		 * Enqueue this data into the list before we send out
+		 * the ACK. Once enqueued, this packet is visiable to user.
+		 * This could have some perf benefit.
+		 */
+		enqueue_data_buffer_info_tail(ses_gbn, info);
+
+		ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 		if (ret < 0) {
 			gbn_info("net_send error %d\n", ret);
 			return;
 		}
-
-		enqueue_data_buffer_info_tail(ses_gbn, info);
 	} else if (ses_gbn->ack_enable) {
 		if (seq > atomic_load(&ses_gbn->seqnum_expect)) {
 			/*
@@ -534,7 +545,7 @@ static void handle_data_packet(struct session_net *ses_net,
 			ack.ack_header.type = GBN_PKT_NACK;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
-			ret = raw_net_send(ses_net, &ack, sizeof(ack), route_p);
+			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 			if (ret < 0) {
 				gbn_info("net_send error %d\n", ret);
 				return;
@@ -547,7 +558,7 @@ static void handle_data_packet(struct session_net *ses_net,
 			ack.ack_header.type = GBN_PKT_ACK;
 			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
-			ret = raw_net_send(ses_net, &ack, sizeof(ack), route_p);
+			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 			if (ret < 0) {
 				gbn_info("net_send error %d\n", ret);
 				return;
@@ -631,9 +642,11 @@ static void *gbn_poll_func(void *_unused)
 				str, session_id);
 			continue;
 		}
+		printf("%s(): session_id %d board_ip %x\n",
+			__func__, ses_net->session_id, ses_net->board_ip);
 
 		dump_packet_headers(recv_buf, packet_dump_str);
-		printf("%s(): ETH/IP/UDP[%s] GBN[ses_id %d pkt_type: %s]\n",
+		printf("%s(): new pkt ETH/IP/UDP[%s] GBN[ses_id %d pkt_type: %s]\n",
 			__func__, packet_dump_str, session_id,
 			gbn_pkt_type_str(gbn_hdr->type));
 
@@ -672,6 +685,16 @@ static inline int gbn_send_one(struct session_net *net,
 	int seqnum;
 	bool unacked_buffer_empty;
 
+	/*
+	 * Any traffic targeting and originate from mgmt session
+	 * is connectionless and unreliable. Thus skip everything.
+	 */
+	if (test_management_session(net)) {
+		hdr = to_gbn_header(buf);
+		hdr->type = GBN_PKT_DATA;
+		goto send;
+	}
+
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
 
@@ -704,6 +727,7 @@ static inline int gbn_send_one(struct session_net *net,
 		ses->next_timeout = e;
 	}
 
+send:
 	return raw_net_send(net, buf, buf_size, route);
 }
 

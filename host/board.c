@@ -18,9 +18,8 @@
  * This is a per-node global list,
  * it has information about all remote accessible boards.
  */
-#define HASH_ARRAY_BITS (5)
-static DEFINE_HASHTABLE(board_list, HASH_ARRAY_BITS);
-static pthread_spinlock_t board_lock;
+DEFINE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
+pthread_spinlock_t board_lock;
 
 int init_board_subsys(void)
 {
@@ -119,13 +118,15 @@ void dump_boards(void)
 	struct board_info *bi;
 	int i = 0;
 
-	printf("-- Dumping Boards Info: --\n");
-	printf("     Name  TotalMem  AvailMem\n");
+	printf("**\n");
+	printf("** Dumping Boards Info\n");
+	printf("**    Index    Name    TotalMem    AvailMem\n");
 	pthread_spin_lock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
-		printf("[%2d] %s %lu %lu\n", i, bi->name, bi->mem_total,
+		printf("**   [%2d] %s %lu %lu\n", i, bi->name, bi->mem_total,
 		       bi->mem_avail);
 		i++;
 	}
 	pthread_spin_unlock(&board_lock);
+	printf("**\n");
 }
