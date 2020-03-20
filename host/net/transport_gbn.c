@@ -695,15 +695,21 @@ static inline int gbn_send_one(struct session_net *net,
 {
 	struct buffer_info *info;
 	struct session_gbn *ses;
-	struct gbn_header *hdr;
 	struct timespec e;
 	int seqnum;
 	bool unacked_buffer_empty;
+	struct gbn_header *hdr;
 
-	/* Generic pkt cooking */
 	hdr = to_gbn_header(buf);
-	hdr->type = GBN_PKT_DATA;
-	prepare_gbn_headers(hdr, net);
+
+	if (route) {
+		struct gbn_header *user_hdr;
+		user_hdr = to_gbn_header(route);
+		memcpy(hdr, user_hdr, sizeof(*hdr));
+	} else {
+		hdr->type = GBN_PKT_DATA;
+		prepare_gbn_headers(hdr, net);
+	}
 
 	/*
 	 * Any traffic targeting and originate from mgmt session
