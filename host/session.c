@@ -7,6 +7,7 @@
 #include <uapi/sched.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
+#include <uapi/bitops.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,9 +41,13 @@
 static DEFINE_HASHTABLE(session_hash_array, HASH_ARRAY_BITS);
 static pthread_spinlock_t session_lock;
 
+static DECLARE_BITMAP(session_id_map, NR_MAX_SESSIONS_PER_NODE);
+static pthread_spinlock_t(session_id_lock);
+
 int init_net_session_subsys(void)
 {
 	pthread_spin_init(&session_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&session_id_lock, PTHREAD_PROCESS_PRIVATE);
 	return 0;
 }
 
@@ -94,6 +99,9 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 	struct session_net *ses;
 	int key;
 
+	if (session_id == LEGOMEM_MGMT_SESSION_ID)
+		return mgmt_session;
+
 	key = __get_session_key(board_ip, session_id, 0);
 
 	pthread_spin_lock(&session_lock);
@@ -107,13 +115,6 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 	}
 	pthread_spin_unlock(&session_lock);
 
-	/*
-	 * No match found? And the session id is 0?
-	 * Then it's targeting our local mgmt session.
-	 */
-	if (session_id == LEGOMEM_MGMT_SESSION_ID)
-		return mgmt_session;
-
 	return NULL; 
 }
 
@@ -124,16 +125,64 @@ void dump_net_sessions(void)
 
 	printf("**\n");
 	printf("** Dumping all network sessions: Start\n");
-	printf("**     HashBucket_ID | Remote_Board | IP |Session_ID\n");
+	printf("**     HashBucket_ID | Board | IP | Local sesid | Remote sesid \n");
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each(session_hash_array, bkt, ses, ht_link_host) {
 		struct board_info *bi;
 		
 		bi = ses->board_info;
-		printf("**    %10d | %s   |   %x   | %10u\n",
-			bkt, bi ? bi->name : " mgmt session", ses->board_ip, ses->session_id);
+		printf("**    %10d | %s   |   %x   | %10u | %10u |\n",
+			bkt, bi ? bi->name : " mgmt session",
+			ses->board_ip,
+			get_local_session_id(ses),
+			get_remote_session_id(ses));
 	}
 	pthread_spin_unlock(&session_lock);
 	printf("**\n");
+}
+
+/*
+ * Return positive session id if success.
+ * Otherwise return -1.
+ */
+int alloc_session_id(void)
+{
+	int bit;
+
+	/*
+	 * note that find_next_zero_bit is not atomic,
+	 * and we need to have lock here. Even though
+	 * its possible to use test_and_set_bit without lock,
+	 * use lock will do harm here.
+	 *
+	 * We skip session 0, since it is reserved as the mgmt session.
+	 */
+	pthread_spin_lock(&session_id_lock);
+	bit = find_next_zero_bit(session_id_map, NR_MAX_SESSIONS_PER_NODE,
+				 LEGOMEM_MGMT_SESSION_ID + 1);
+	if (bit >= NR_MAX_SESSIONS_PER_NODE) {
+		bit = -1;
+		goto unlock;
+	}
+	__set_bit(bit, session_id_map);
+
+unlock:
+	pthread_spin_unlock(&session_id_lock);
+	return bit;
+}
+
+void free_session_id(unsigned int session_id)
+{
+	BUG_ON(session_id >= NR_MAX_SESSIONS_PER_NODE);
+
+	/* mgmt session can never be freed */
+	BUG_ON(session_id == LEGOMEM_MGMT_SESSION_ID);
+
+	pthread_spin_lock(&session_id_lock);
+	if (!test_and_clear_bit(session_id, session_id_map)) {
+		printf("%s(): WARN Session ID %d was free\n",
+			__func__, session_id);
+	}
+	pthread_spin_unlock(&session_id_lock);
 }

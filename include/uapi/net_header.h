@@ -59,9 +59,43 @@ struct lego_header {
 
 struct gbn_header {
 	char		type;
+	char		src_sesid;
+	char		dst_sesid;
 	unsigned int	seqnum;
 	char		_resv[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
+
+static inline void
+set_gbn_src_session(struct gbn_header *hdr, unsigned int id)
+{
+	hdr->src_sesid = id;
+}
+
+static inline void
+set_gbn_dst_session(struct gbn_header *hdr, unsigned int id)
+{
+	hdr->dst_sesid = id;
+}
+
+static inline unsigned int get_gbn_src_session(struct gbn_header *hdr)
+{
+	return hdr->src_sesid;
+}
+
+static inline unsigned int get_gbn_dst_session(struct gbn_header *hdr)
+{
+	return hdr->dst_sesid;
+}
+
+static __always_inline void
+swap_gbn_session(struct gbn_header *hdr)
+{
+	int tmp1, tmp2;
+	tmp1 = get_gbn_src_session(hdr);
+	tmp2 = get_gbn_dst_session(hdr);
+	set_gbn_src_session(hdr, tmp2);
+	set_gbn_dst_session(hdr, tmp1);
+}
 
 enum pkt_type {
 	pkt_type_ack = 1,

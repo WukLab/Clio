@@ -55,8 +55,9 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 	monitor_ei.udp_port = port;
 	memcpy(monitor_ei.mac, mac, 6);
 
-	/* The local_ei was constructed before */
-	monitor_bi = add_board("special_monitor_mgmt", 0, &monitor_ei, local_ei);
+	monitor_bi = add_board("monitor", 0,
+			       &monitor_ei, local_ei,
+			       false);
 	if (!monitor_bi)
 		return -ENOMEM;
 

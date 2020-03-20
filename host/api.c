@@ -130,40 +130,56 @@ int legomem_close_context(struct legomem_context *ctx)
 
 static struct session_net *
 __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
-		       pid_t tid, bool is_mgmt)
+		       pid_t tid, bool is_local_mgmt, bool is_remote_mgmt)
 {
 	struct session_net *ses;
+	unsigned int src_sesid, dst_sesid;
 
 	if (!bi)
 		return NULL;
 
-	if (!ctx && !is_mgmt)
+	/*
+	 * Only one option can be true
+	 * We do not do mgmt2mgmt connection
+	 * We will open a local session to connect to remote mgmt session.
+	 */
+	if (is_local_mgmt && is_remote_mgmt)
 		return NULL;
 
-	/* 
-	 * Ask network layer to prepare the data structures for this
-	 * new session. Session ID is not allocated yet.
-	 */
+	/* Ask network layer to prepare data structures for this ses */
 	ses = net_open_session(&bi->local_ei, &bi->remote_ei);
 	if (!ses)
 		return NULL;
-
-	/* host order board_ip */
 	ses->board_ip = bi->board_ip;
 	ses->board_info = bi;
 	ses->tid = tid;
 
-	if (is_mgmt) {
-		/*
-		 * All management session use the same session_ID,
-		 * which is 0. It works like QP0.
-		 * Thus remote can contact us without any valid connections.
-		 */
-		ses->session_id = LEGOMEM_MGMT_SESSION_ID;
+	/* Setup local session id */
+	if (is_local_mgmt) {
+		src_sesid = LEGOMEM_MGMT_SESSION_ID;
+		set_local_session_id(ses, src_sesid);
+		goto bookkeeping;
+	} else {
+		src_sesid = alloc_session_id();
+		if (src_sesid <= 0) {
+			printf("%s(): fail to alloc new ses id\n", __func__);
+			goto close_ses;
+		}
+		set_local_session_id(ses, src_sesid);
+	}
+
+	/*
+	 * Setup remote session id
+	 * If we are talking with remote mgmt session, use 0.
+	 * Otherwise, talk to remote mgmt session.
+	 */
+	if (is_remote_mgmt) {
+		dst_sesid = LEGOMEM_MGMT_SESSION_ID;
+		set_remote_session_id(ses, dst_sesid);
 	} else {
 		/*
 		 * Contact the remote party to open a network session.
-		 * If things went well, a session ID is returned.
+		 * If things went well, a remote session ID is returned.
 		 */
 		struct legomem_open_close_session_req req;
 		struct legomem_open_close_session_resp resp;
@@ -175,22 +191,31 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		lego_header->opcode = OP_OPEN_SESSION;
 		lego_header->pid = ctx->pid;
 
+		/* This should be open during add_board */
 		ses = get_board_mgmt_session(bi);
+		if (!ses) {
+			printf("%s(): error the mgmt session is not found\n", __func__);
+			goto free_id;
+		}
+
+		/* Do the RPC */
 		ret = net_send_and_receive(ses, &req, sizeof(req),
 					   &resp, sizeof(resp));
 		if (ret) {
 			printf("%s(): fail to contact remote board.\n", __func__);
-			return NULL;
+			goto free_id;
 		}
 
 		if (resp.op.session_id == 0) {
-			printf("%s(): remote fail to open session.\n", __func__);
-			return NULL;
+			printf("%s(): remote fail to open the session.\n", __func__);
+			goto free_id;
 		}
 
-		ses->session_id = resp.op.session_id;
+		dst_sesid = resp.op.session_id;
+		set_remote_session_id(ses, dst_sesid);
 	}
 
+bookkeeping:
 	/*
 	 * Bookkeeping, add to:
 	 * - per-node session list
@@ -202,6 +227,12 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	if (ctx)
 		context_add_session(ctx, ses);
 	return ses;
+
+free_id:
+	free_session_id(src_sesid);
+close_ses:
+	net_close_session(ses);
+	return NULL;
 }
 
 /*
@@ -212,17 +243,21 @@ struct session_net *
 legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 {
 	pid_t tid = gettid();
-	return __legomem_open_session(ctx, bi, tid, false);
+
+	/* This is user-visiable API, thus both mgmt options are false */
+	return __legomem_open_session(ctx, bi, tid, false, false);
 }
 
-/*
- * Internal API
- * Called once during startup to open a management network session
- */
 struct session_net *
-legomem_open_session_mgmt(struct board_info *bi)
+legomem_open_session_remote_mgmt(struct board_info *bi)
 {
-	return __legomem_open_session(NULL, bi, 0, true);
+	return __legomem_open_session(NULL, bi, 0, false, true);
+}
+
+struct session_net *
+legomem_open_session_local_mgmt(struct board_info *bi)
+{
+	return __legomem_open_session(NULL, bi, 0, true, false);
 }
 
 /*

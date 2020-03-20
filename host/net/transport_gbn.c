@@ -578,7 +578,7 @@ static void *gbn_poll_func(void *_unused)
 	struct session_net *ses_net;
 	struct gbn_header *gbn_hdr;
 	struct ipv4_hdr *ipv4_hdr;
-	unsigned int remote_ip, session_id;
+	unsigned int remote_ip, dst_sesid;
 	void *recv_buf;
 	size_t buf_size, max_buf_size;
 	int ret;
@@ -617,21 +617,16 @@ static void *gbn_poll_func(void *_unused)
 		gbn_hdr = to_gbn_header(recv_buf);
 		ipv4_hdr = to_ipv4_header(recv_buf);
 
-		/*
-		 * TODO
-		 * We need to get the session_id from the GBN headers
-		 * session_id = gbn_hdr->session_id;
-		 */
-		session_id = 0;
+		dst_sesid = get_gbn_dst_session(gbn_hdr);
 		remote_ip = ntohl(ipv4_hdr->src_ip);
 
 		/*
 		 * Try to locate the net session. There are 3 cases:
-		 * 1) the mgmt session, if session id is 0.
+		 * 1) local mgmt session, if dst session id is 0.
 		 * 2) the matched session, if both IP+ID match.
 		 * 3) NULL, if none of the above options fulfill
 		 */
-		ses_net = find_net_session(remote_ip, session_id);
+		ses_net = find_net_session(remote_ip, dst_sesid);
 		if (unlikely(!ses_net)) {
 			char str[INET_ADDRSTRLEN];
 			struct in_addr in_addr;
@@ -639,15 +634,18 @@ static void *gbn_poll_func(void *_unused)
 			inet_ntop(AF_INET, &in_addr, str, sizeof(str));
 
 			gbn_debug("Session not found: src_ip: %s ses_id: %u\n",
-				str, session_id);
+				str, dst_sesid);
 			continue;
 		}
-		printf("%s(): session_id %d board_ip %x\n",
-			__func__, ses_net->session_id, ses_net->board_ip);
+
+		printf("%s(): session info: remote sesid %d ip %x\n",
+			__func__, get_remote_session_id(ses_net), ses_net->board_ip);
 
 		dump_packet_headers(recv_buf, packet_dump_str);
-		printf("%s(): new pkt ETH/IP/UDP[%s] GBN[ses_id %d pkt_type: %s]\n",
-			__func__, packet_dump_str, session_id,
+		printf("%s(): new pkt ETH/IP/UDP[%s] GBN [ses %u->%u pkt_type: %s]\n",
+			__func__, packet_dump_str,
+			get_gbn_src_session(gbn_hdr),
+			dst_sesid,
 			gbn_pkt_type_str(gbn_hdr->type));
 
 		switch (gbn_hdr->type) {
@@ -671,6 +669,23 @@ out:
 }
 
 /*
+ * Fill these fields
+ * - src session id
+ * - dst session id
+ */
+static __always_inline void
+prepare_gbn_headers(struct gbn_header *hdr, struct session_net *net)
+{
+	unsigned int src_sesid, dst_sesid;
+
+	src_sesid = get_local_session_id(net);
+	dst_sesid = get_remote_session_id(net);
+
+	set_gbn_src_session(hdr, src_sesid);
+	set_gbn_dst_session(hdr, dst_sesid);
+}
+
+/*
  * This function is multithread safe both within and across sessions.
  * But if a session is used by multiple threads, the caller itself
  * need to ensure the ordering among threads.
@@ -685,15 +700,17 @@ static inline int gbn_send_one(struct session_net *net,
 	int seqnum;
 	bool unacked_buffer_empty;
 
+	/* Generic pkt cooking */
+	hdr = to_gbn_header(buf);
+	hdr->type = GBN_PKT_DATA;
+	prepare_gbn_headers(hdr, net);
+
 	/*
 	 * Any traffic targeting and originate from mgmt session
 	 * is connectionless and unreliable. Thus skip everything.
 	 */
-	if (test_management_session(net)) {
-		hdr = to_gbn_header(buf);
-		hdr->type = GBN_PKT_DATA;
+	if (test_management_session(net))
 		goto send;
-	}
 
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
@@ -705,13 +722,12 @@ static inline int gbn_send_one(struct session_net *net,
 	 */
 	unacked_buffer_empty = !nr_unack_buffer(ses);
 
+	/* Try to alloc a new unack buffer and seqnum */
 	info = alloc_unack_buffer_info(ses, &seqnum);
 	if (!info)
 		return -ENOMEM;
 
-	/* cook the seqnum and packet type */
-	hdr = to_gbn_header(buf);
-	hdr->type = GBN_PKT_DATA;
+	/* Save into the pkt */
 	hdr->seqnum = seqnum;
 
 	info->buf = buf;

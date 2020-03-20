@@ -534,7 +534,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	mem_size = req->op.mem_size_bytes;
 
 	/* Add the remote party to our list */
-	bi = add_board(name, mem_size, ei, &default_local_ei);
+	bi = add_board(name, mem_size, ei, &default_local_ei, false);
 	if (!bi) {
 		resp->ret = -ENOMEM;
 		return;
@@ -572,8 +572,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
 	struct lego_header *lego_hdr;
+	struct gbn_header *gbn_hdr;
 	uint16_t opcode;
-	struct routing_info ri;
+	struct routing_info *ri;
 
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
@@ -604,11 +605,14 @@ static void worker_handle_request(struct thpool_worker *tw,
 		break;
 	};
 
-	memcpy(&ri, tb->rx, sizeof(ri));
-	swap_routing_info(&ri);
+	ri = (struct routing_info *)tb->rx;
+	swap_routing_info(ri);
+
+	gbn_hdr = to_gbn_header(tb->rx);
+	swap_gbn_session(gbn_hdr);
 
 	if (likely(!ThpoolBufferNoreply(tb)))
-		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, &ri);
+		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	free_thpool_buffer(tb);
 }
 

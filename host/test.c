@@ -130,7 +130,7 @@ void test_app(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 	 * Prepare the board, which should be done
 	 * by the system in a real setting.
 	 */
-	remote_board = add_board("remote_0", 1024, remote_ei, local_ei);
+	remote_board = add_board("remote_0", 1024, remote_ei, local_ei, true);
 	if (!remote_board)
 		return;
 

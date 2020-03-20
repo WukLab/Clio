@@ -29,11 +29,13 @@ int init_board_subsys(void)
 
 /*
  * Add a board to the system.
- * We will open a default management session with the board.
+ * We will open a local session to connect with remote party's mgmt session.
+ * The new session will be saved into the board_info structure.
  */
 struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,
-			     struct endpoint_info *local_ei)
+			     struct endpoint_info *local_ei,
+			     bool is_local)
 {
 	struct board_info *bi;
 	int key;
@@ -61,11 +63,11 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	hash_add(board_list, &bi->link, key);
 	pthread_spin_unlock(&board_lock);
 
-	/*
-	 * This is remote party's mgmt session.
-	 * We do not need to contact it in order to open.
-	 */
-	ses = legomem_open_session_mgmt(bi);
+	if (is_local)
+		ses = legomem_open_session_local_mgmt(bi);
+	else
+		ses = legomem_open_session_remote_mgmt(bi);
+
 	set_board_mgmt_session(bi, ses);
 
 	return bi;

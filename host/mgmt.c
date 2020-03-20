@@ -66,17 +66,24 @@ static void *mgmt_handler_func(void *_unused)
 	}
 }
 
+/*
+ * Open the local mgmt session
+ */
 int init_local_management_session(bool create_mgmt_thread)
 {
 	struct endpoint_info dummy_ei;
 	pthread_t t;
 	int ret;
 
-	mgmt_dummy_board = add_board("special_local_mgmt", 0, &dummy_ei, &dummy_ei);
+	/* This is LOCAL dummy board */
+	mgmt_dummy_board = add_board("special_local_mgmt", 0,
+				     &dummy_ei, &dummy_ei,
+				     true);
 	if (!mgmt_dummy_board)
 		return -ENOMEM;
 	mgmt_dummy_board->flags |= BOARD_INFO_FLAGS_DUMMY;
 
+	/* This is our LOCAL mgmt session */
 	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
 
 	if (!create_mgmt_thread)

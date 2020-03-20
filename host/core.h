@@ -119,7 +119,8 @@ struct session_net *context_find_session_by_board(struct legomem_context *p,
 int init_board_subsys(void);
 struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,
-			     struct endpoint_info *local_ei);
+			     struct endpoint_info *local_ei,
+			     bool is_local);
 void remove_board(struct board_info *bi);
 struct board_info *find_board_by_ip(unsigned int board_ip);
 void dump_boards(void);
@@ -132,6 +133,9 @@ int remove_net_session(struct session_net *ses);
 struct session_net *
 find_net_session(unsigned int board_ip, unsigned int session_id);
 
+int alloc_session_id(void);
+void free_session_id(unsigned int session_id);
+
 /*
  * LegoMem Public APIs
  */
@@ -139,7 +143,10 @@ struct legomem_context *legomem_open_context(void);
 struct legomem_context *legomem_open_context_mgmt(void);
 int legomem_close_context(struct legomem_context *ctx);
 struct session_net *legomem_open_session(struct legomem_context *ctx, struct board_info *bi);
-struct session_net *legomem_open_session_mgmt(struct board_info *bi);
+struct session_net *
+legomem_open_session_remote_mgmt(struct board_info *bi);
+struct session_net *
+legomem_open_session_local_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
 /* init and utils */

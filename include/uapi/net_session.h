@@ -15,6 +15,7 @@
 struct session_net {
 	unsigned int		board_ip;
 	unsigned int		session_id;
+	unsigned int		remote_session_id;
 
 	pthread_t		thread;
 
@@ -43,6 +44,28 @@ struct session_net {
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
 };
+
+static inline void set_local_session_id(struct session_net *ses, unsigned int id)
+{
+	ses->session_id = id;
+}
+
+static inline void set_remote_session_id(struct session_net *ses, unsigned int id)
+{
+	ses->remote_session_id = id;
+}
+
+static inline unsigned int
+get_local_session_id(struct session_net *ses)
+{
+	return ses->session_id;
+}
+
+static inline unsigned int
+get_remote_session_id(struct session_net *ses)
+{
+	return ses->remote_session_id;
+}
 
 struct transport_net_ops {
 	char *name;
@@ -222,7 +245,9 @@ prepare_headers(struct routing_info *route, void *buf, unsigned int len)
  */
 static inline bool test_management_session(struct session_net *ses)
 {
-	if (ses->session_id == LEGOMEM_MGMT_SESSION_ID)
+	if (get_local_session_id(ses) == LEGOMEM_MGMT_SESSION_ID)
+		return true;
+	if (get_remote_session_id(ses) == LEGOMEM_MGMT_SESSION_ID)
 		return true;
 	return false;
 }
