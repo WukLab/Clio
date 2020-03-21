@@ -122,24 +122,26 @@ void dump_net_sessions(void)
 {
 	int bkt;
 	struct session_net *ses;
+	char ip_str[INET_ADDRSTRLEN];
 
-	printf("**\n");
-	printf("** Dumping all network sessions: Start\n");
-	printf("**     HashBucket_ID | Board | IP | Local sesid | Remote sesid \n");
+	printf("  bucket    ses_local   ses_remote       ip_remote                    remote\n"); 
+	printf("-------- ------------ ------------ --------------- -------------------------\n");
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each(session_hash_array, bkt, ses, ht_link_host) {
 		struct board_info *bi;
-		
+
 		bi = ses->board_info;
-		printf("**    %10d | %s   |   %x   | %10u | %10u |\n",
-			bkt, bi ? bi->name : " mgmt session",
-			ses->board_ip,
+		get_ip_str(ses->board_ip, ip_str);
+
+		printf("%8d %12u %12u %15s %25s\n",
+			bkt,
 			get_local_session_id(ses),
-			get_remote_session_id(ses));
+			get_remote_session_id(ses),
+			ip_str,
+			bi->name);
 	}
 	pthread_spin_unlock(&session_lock);
-	printf("**\n");
 }
 
 /*

@@ -53,8 +53,14 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	if (board_name)
 		strncpy(bi->name, board_name, BOARD_NAME_LEN);
 
-	/* ip is in host order */
+	/*
+	 * Save the info
+	 * Note board_ip is in host order
+	 * Each host could probably have multiple legomem instances
+	 * thus we save udp_port to distinguish them
+	 */
 	bi->board_ip = remote_ei->ip;
+	bi->udp_port = remote_ei->udp_port;
 	bi->mem_total = mem_total;
 	bi->mem_avail = mem_total;
 
@@ -118,17 +124,20 @@ struct board_info *find_board_by_ip(unsigned int board_ip)
 void dump_boards(void)
 {
 	struct board_info *bi;
-	int i = 0;
+	char ip_str[INET_ADDRSTRLEN];
+	char ip_port_str[20];
+	int bkt = 0;
 
-	printf("**\n");
-	printf("** Dumping Boards Info\n");
-	printf("**    Index    Name    TotalMem    AvailMem\n");
+	printf("  bucket                      name              ip:port       type\n");
+	printf("-------- ------------------------- -------------------- ----------\n");
 	pthread_spin_lock(&board_lock);
-	hash_for_each(board_list, i, bi, link) {
-		printf("**   [%2d] %s %lu %lu\n", i, bi->name, bi->mem_total,
-		       bi->mem_avail);
-		i++;
+	hash_for_each(board_list, bkt, bi, link) {
+		get_ip_str(bi->board_ip, ip_str);
+		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
+
+		printf("%8d %25s %20s %10s\n",
+			bkt, bi->name, ip_port_str,
+			board_info_type_str(bi));
 	}
 	pthread_spin_unlock(&board_lock);
-	printf("**\n");
 }

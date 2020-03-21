@@ -41,12 +41,14 @@ struct vm_area_struct;
 
 #define BOARD_INFO_FLAGS_BOARD		(0x1)
 #define BOARD_INFO_FLAGS_HOST		(0x2)
-#define BOARD_INFO_FLAGS_MONITOR	(0x4)
-#define BOARD_INFO_FLAGS_DUMMY		(0x8)
+#define BOARD_INFO_FLAGS_MONITOR	(0x3)
+#define BOARD_INFO_FLAGS_DUMMY		(0x4)
+#define BOARD_INFO_FLAGS_BITS_MASK	(0xf)
 
 struct board_info {
 	char			name[BOARD_NAME_LEN];
 	unsigned int		board_ip;
+	unsigned int		udp_port;
 	unsigned long		flags;
 
 	/*
@@ -72,6 +74,21 @@ struct board_info {
 	unsigned long		mem_total;
 	unsigned long		mem_avail;
 };
+
+static inline char *board_info_type_str(struct board_info *bi)
+{
+	unsigned long type;
+
+	type = bi->flags & BOARD_INFO_FLAGS_BITS_MASK;
+	switch (type) {
+	case BOARD_INFO_FLAGS_BOARD:	return "board";
+	case BOARD_INFO_FLAGS_HOST:	return "host";
+	case BOARD_INFO_FLAGS_MONITOR:	return "monitor";
+	case BOARD_INFO_FLAGS_DUMMY:	return "s_dummy";
+	default:			return "unknown";
+	}
+	return "error";
+}
 
 static inline struct session_net *
 get_board_mgmt_session(struct board_info *bi)

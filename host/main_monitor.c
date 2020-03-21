@@ -497,9 +497,8 @@ static void handle_test(struct thpool_buffer *tb)
 }
 
 /*
- * The handler for join_cluster(). Handle requests
- * sent from either hosts or boards.
- *
+ * The handler for join_cluster(). Handle requests sent from either hosts or boards.
+ * Whenever a node comes online, it will try to contact us, the monitor.
  * We will further broadcast this great news to all out relatives.
  */
 static void handle_join_cluster(struct thpool_buffer *tb)
@@ -508,9 +507,9 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	struct legomem_membership_join_cluster_resp *resp;
 	struct endpoint_info *ei;
 	struct board_info *bi;
-	char name[32];
+	char name[BOARD_NAME_LEN];
+	char ip_str[INET_ADDRSTRLEN];
 	int id, i;
-	unsigned long mem_size;
 
 	resp = (struct legomem_membership_join_cluster_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
@@ -518,33 +517,48 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	req = (struct legomem_membership_join_cluster_req *)tb->rx;
 	ei = &req->op.ei;
 
-	/* Cook the name */
+	/*
+	 * Cook the node name
+	 * this name is globally unique and will be
+	 * broadcast to all online nodes.
+	 */
+	get_ip_str(ei->ip, ip_str);
 	if (req->op.type == BOARD_INFO_FLAGS_HOST) {
 		id = atomic_fetch_add(&nr_hosts, 1);
-		sprintf(name, "host_%d", id);
+		sprintf(name, "host%d_%s:%u", id, ip_str, ei->udp_port);
 	} else if (req->op.type == BOARD_INFO_FLAGS_BOARD) {
 		id = atomic_fetch_add(&nr_boards, 1);
-		sprintf(name, "board_%d", id);
+		sprintf(name, "board%d_%s:%u", id, ip_str, ei->udp_port);
 	} else {
 		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
 		resp->ret = -EINVAL;
 		return;
 	}
 
-	mem_size = req->op.mem_size_bytes;
-
 	/* Add the remote party to our list */
-	bi = add_board(name, mem_size, ei, &default_local_ei, false);
+	bi = add_board(name, req->op.mem_size_bytes,
+		       ei, &default_local_ei, false);
 	if (!bi) {
 		resp->ret = -ENOMEM;
 		return;
 	}
-	bi->flags |= req->op.type;
 
-	printf("%s():%d new remote node added: %s:%d name: %s\n",
-		__func__, __LINE__, ei->ip_str, ei->udp_port, name);
+	if (req->op.type == BOARD_INFO_FLAGS_HOST ||
+	    req->op.type == BOARD_INFO_FLAGS_BOARD) {
+		bi->flags = req->op.type;
+	} else {
+		printf("%s(): unknown remote type: %lu",
+			__func__, req->op.type);
+		remove_board(bi);
+		resp->ret = -EINVAL;
+		return;
+	}
 
+	printf("%s():%d new node added: %s:%d name: %s type: %s\n",
+		__func__, __LINE__, ip_str, ei->udp_port, name,
+		board_info_type_str(bi));
 	dump_boards();
+	dump_net_sessions();
 
 	/* Notify all online nodes */
 	pthread_spin_lock(&board_lock);
@@ -553,12 +567,18 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		struct lego_header *new_lego_header;
 		struct session_net *ses;
 
+		/* .. except this one */
+		if (bi->board_ip == ei->ip && bi->udp_port == ei->udp_port)
+			continue;
+
 		new_lego_header = to_lego_header(&new_req);
 		new_lego_header->opcode = OP_REQ_MEMBERSHIP_NEW_NODE;
 
+		/* Copy this new board into the req */
 		strncpy(new_req.op.name, bi->name, BOARD_NAME_LEN);
 		memcpy(&new_req.op.ei, ei, sizeof(*ei));
 
+		/* Send to remote party's mgmt session */
 		ses = get_board_mgmt_session(bi);
 		net_send(ses, &new_req, sizeof(new_req));
 	}
@@ -616,6 +636,11 @@ static void worker_handle_request(struct thpool_worker *tw,
 	free_thpool_buffer(tb);
 }
 
+/*
+ * Dispatcher uses local mgmt session to receive and send back msg.
+ * Since mgmt session does not have any remote end's information,
+ * we must rely on each packet's routing info to send it back.
+ */
 static void dispatcher(void)
 {
 	struct thpool_buffer *tb;

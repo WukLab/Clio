@@ -18,6 +18,18 @@
 #include "net.h"
 #include "../core.h"
 
+//#define CONFIG_DEBUG_GBN
+
+#ifdef CONFIG_DEBUG_GBN
+#define gbn_debug(fmt, ...) \
+	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
+#else
+#define gbn_debug(fmt, ...)  do { } while (0)
+#endif
+
+#define gbn_info(fmt, ...) \
+	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
+
 /*
  * The maximum number of unack'ed outgoing messages.
  * Organized as a ring.
@@ -25,12 +37,6 @@
 #define NR_BUFFER_INFO_SLOTS		(256)
 #define GBN_RETRANS_TIMEOUT_US		(2000)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
-
-#define gbn_info(fmt, ...) \
-	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
-
-#define gbn_debug(fmt, ...) \
-	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
 
 static int polling_thread_created = 0;
 static pthread_t polling_thread;
@@ -369,7 +375,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		 * ACK invalid, received seqnum is less than seqnum last
 		 * This case should not happen
 		 */
-		gbn_debug("WARN. Recevied Seq: %u. less than Last Acked Seq: %u\n",
+		gbn_info("WARN. Recevied Seq: %u. less than Last Acked Seq: %u\n",
 			  seq, seqnum_last);
 		return false;
 	}
@@ -415,8 +421,7 @@ static void handle_ack_packet(struct session_net *ses_net, void *packet)
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
-		gbn_debug("ERROR: corrupted ses_gbn %p\n",
-			ses_net);
+		gbn_info("ERROR: corrupted ses_gbn %p\n", ses_net);
 		return;
 	}
 
@@ -432,8 +437,7 @@ static void handle_nack_packet(struct session_net *ses_net, void *packet)
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
-		gbn_debug("ERROR: corrupted ses_gbn %p\n",
-			ses_net);
+		gbn_info("ERROR: corrupted ses_gbn %p\n", ses_net);
 		return;
 	}
 
@@ -466,7 +470,7 @@ static void handle_data_packet(struct session_net *ses_net,
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
-		gbn_debug("ERROR: corrupted ses_gbn %p\n", ses_net);
+		gbn_info("ERROR: corrupted ses_gbn %p\n", ses_net);
 		return;
 	}
 
@@ -633,19 +637,15 @@ static void *gbn_poll_func(void *_unused)
 			in_addr.s_addr = ipv4_hdr->src_ip;
 			inet_ntop(AF_INET, &in_addr, str, sizeof(str));
 
-			gbn_debug("Session not found: src_ip: %s ses_id: %u\n",
-				str, dst_sesid);
+			gbn_debug("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
+				str, get_gbn_src_session(gbn_hdr), dst_sesid);
 			continue;
 		}
 
-		printf("%s(): session info: remote sesid %d ip %x\n",
-			__func__, get_remote_session_id(ses_net), ses_net->board_ip);
-
 		dump_packet_headers(recv_buf, packet_dump_str);
-		printf("%s(): new pkt ETH/IP/UDP[%s] GBN [ses %u->%u pkt_type: %s]\n",
-			__func__, packet_dump_str,
-			get_gbn_src_session(gbn_hdr),
-			dst_sesid,
+		gbn_debug("new pkt: %s ses: %u->%u type: %s\n",
+			packet_dump_str,
+			get_gbn_src_session(gbn_hdr), dst_sesid,
 			gbn_pkt_type_str(gbn_hdr->type));
 
 		switch (gbn_hdr->type) {

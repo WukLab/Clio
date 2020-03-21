@@ -17,6 +17,8 @@ struct session_net {
 	unsigned int		session_id;
 	unsigned int		remote_session_id;
 
+	unsigned long		flags;
+
 	pthread_t		thread;
 
 	/*

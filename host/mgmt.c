@@ -71,7 +71,7 @@ static void *mgmt_handler_func(void *_unused)
  */
 int init_local_management_session(bool create_mgmt_thread)
 {
-	struct endpoint_info dummy_ei;
+	struct endpoint_info dummy_ei = { 0 };
 	pthread_t t;
 	int ret;
 
