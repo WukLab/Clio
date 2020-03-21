@@ -1,5 +1,33 @@
 # Host Stack
 
+## Testing and Run
+
+### loopback testing 
+
+Requirements
+1. monitor and host must use `lo` as the network device
+2. all instances must use different UDP ports
+
+```
+./monitor.o -d lo -p 8888
+./host.o -d lo -m 127.0.0.1:8888 -p 8887
+./host.o -d lo -m 127.0.0.1:8888 -p 8886
+```
+
+### Real testing
+
+Requirements
+1. Use the Mellanox device. It's usually `ens4` or `p4p1`. Use `ifconfig` to check.
+2. You need to know monitor's IP address
+
+```
+./monitor.o -d ens4 -p 8888 (assume runs on wuklab05)
+./host.o -d lo -m 192.168.1.5:8888 -p 8888 (assume runs on wuklab01)
+./host.o -d lo -m 192.168.1.5:8888 -p 8888 (assume runs on wuklab02)
+```
+
+## LegoMem Core APIs
+
 ## Network
 
 Public APIs
