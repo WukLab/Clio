@@ -4,31 +4,19 @@
 #include <fpga/axis_net.h>
 #include <fpga/kernel.h>
 #include <fpga/rel_net.h>
+#include <fpga/axis_internal.h>
 #include <hls_stream.h>
-#include <uapi/net_header.h>
 
 using hls::stream;
 
-struct bram_cmd {
-	unsigned char		index;
-	unsigned short		offset;
-};
-
-void tx_64(stream<struct udp_info>	*tx_header,
-	   stream<struct net_axis_64>	*tx_payload,
-	   stream<struct udp_info>	*usr_tx_header,
-	   stream<struct net_axis_64>	*usr_tx_payload,
-	   stream<struct udp_info>	*ack_header,
-	   stream<struct net_axis_64>	*ack_payload,
-	   stream<struct bram_cmd>	*queue_rd_cmd,
-	   stream<struct bram_cmd>	*queue_wr_cmd,
-	   stream<struct net_axis_64>	*queue_wr_data,
-	   stream<struct net_axis_64>	*queue_rd_data,
-	   stream<struct udp_info>	*rt_header,
-	   stream<struct net_axis_64>	*rt_payload
-#ifdef DEBUG_MODE
-	   ,ap_uint<1>			reset_seq
-#endif
-);
+void tx_64(stream<struct udp_info>		*tx_header,
+	   stream<struct net_axis_64>		*tx_payload,
+	   stream<struct udp_info>		*usr_tx_header,
+	   stream<struct net_axis_64>		*usr_tx_payload,
+	   stream<ap_uint<SLOT_ID_WIDTH> >	*check_full_req,
+	   stream<ap_uint<SEQ_WIDTH> >		*check_full_rsp,
+	   stream<bool>				*tx_finish_sig,
+	   stream<struct net_axis_64>		*tx_buff_payload,
+	   stream<struct route_info>		*tx_buff_route_info);
 
 #endif

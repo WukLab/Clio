@@ -11,7 +11,6 @@ open_project	-reset generated_hls_project
 
 add_files	tx_64_top.cpp	-cflags -I../../../../include/
 add_files -tb	tb.cpp		-cflags -I../../../../include/
-add_files -tb	../hls_queue/queue_64_top.cpp	-cflags -I../../../../include/
 
 # Specify the top-level function for synthesis
 set_top		tx_64
