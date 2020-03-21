@@ -9,6 +9,8 @@
 #ifndef _UAPI_NET_HEADER_H_
 #define _UAPI_NET_HEADER_H_
 
+#include <fpga/rel_net.h>
+
 struct ethernet_header {
 	char	mac_dst[6];
 	char	mac_src[6];
@@ -35,20 +37,11 @@ struct lego_header {
 	int	seq;
 } __attribute__((packed));
 
-#define SEQ_SIZE_BYTE		(4)
-#define SEQ_WIDTH		(SEQ_SIZE_BYTE * 8)
-
 struct gbn_header {
 	char		type;
 	unsigned int	seqnum;
 	char		_resv[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
-
-enum pkt_type {
-	pkt_type_ack = 1,
-	pkt_type_nack = 2,
-	pkt_type_data = 3
-};
 
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)

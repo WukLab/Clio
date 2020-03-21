@@ -5,7 +5,6 @@
 #include <fpga/axis_net.h>
 #include <hls_stream.h>
 #include <fpga/kernel.h>
-#include <uapi/net_header.h>
 
 using namespace hls;
 
