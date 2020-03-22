@@ -6,15 +6,60 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <fpga/rel_net.h>
 #include <uapi/net_header.h>
 
 #define FPGA_PORT 1234
 #define PACKET_SIZE 4
+#define SRC_SESSION_ID 20
+#define DEST_SESSION_ID 10
 
-union ip_addr {
-	uint32_t ip;
-	char ip_byte[4];
-};
+extern char *optarg;
+
+void make_sesid(char session_id[3], unsigned src, unsigned dest)
+{
+	unsigned tmp_sesid = 0;
+	unsigned msk = (1 << SLOT_ID_WIDTH) - 1;
+	tmp_sesid = src & msk;
+	tmp_sesid |= (dest & msk) << SLOT_ID_WIDTH;
+	memcpy(session_id, &tmp_sesid, 3);
+}
+
+int gbn_connect(int sockfd, struct sockaddr *addr, unsigned src_sesid)
+{
+	int ret;
+	unsigned long buff[2];
+	struct gbn_header *syn_header = (struct gbn_header *)buff;
+	syn_header->type = pkt_type_syn;
+	syn_header->seqnum = 0;
+	make_sesid(syn_header->session_id, SRC_SESSION_ID, 0);
+
+	buff[1] = 0x0101010101010101;
+	for (int i = 0; i < 2; i++) {
+		printf("buf[%d]: %016lx\n", i, buff[i]);
+	}
+	ret = sendto(sockfd, buff, sizeof(buff), 0, addr,
+		     sizeof(struct sockaddr));
+	return ret;
+}
+
+int gbn_close(int sockfd, struct sockaddr *addr, unsigned dest_sesid)
+{
+	int ret;
+	unsigned long buff[2];
+	struct gbn_header *fin_header = (struct gbn_header *)buff;
+	fin_header->type = pkt_type_fin;
+	fin_header->seqnum = 0;
+	make_sesid(fin_header->session_id, 0, DEST_SESSION_ID);
+
+	buff[1] = 0x0f0f0f0f0f0f0f0f;
+	for (int i = 0; i < 2; i++) {
+		printf("buf[%d]: %016lx\n", i, buff[i]);
+	}
+	ret = sendto(sockfd, buff, sizeof(buff), 0, addr,
+		     sizeof(struct sockaddr));
+	return ret;
+}
 
 int main(int argc, char *argv[])
 {
@@ -23,49 +68,86 @@ int main(int argc, char *argv[])
 
 	unsigned int seqnum;
 	unsigned long buf[PACKET_SIZE];
-	char *host = "www.google.com";
-	int i, send_size;
+	int send_size;
+	int operation_switch;
 
-	if (argc != 2) {
-		perror("arg error");
-		exit(EXIT_FAILURE);
+	struct gbn_header *header;
+
+	/*
+	 * usage:
+	 * -c: initiate gbn connection
+	 * -d i: send payload with seq# i
+	 * -x: close gbn connection 
+	 */
+	int ch;
+	while ((ch = getopt(argc, argv, "cxd:")) != -1) {
+		switch (ch) {
+		case 'c':
+			operation_switch = 1;
+			break;
+		case 'x':
+			operation_switch = 2;
+			break;
+		case 'd':
+			operation_switch = 3;
+			seqnum = atoi(optarg);
+			break;
+		default:
+			printf("error args\n");
+			exit(EXIT_FAILURE);
+		}
 	}
-	seqnum = atoi(argv[1]);
 
 	if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
 		perror("socket error");
 		exit(EXIT_FAILURE);
 	}
 
-	union ip_addr host_ip;
-	host_ip.ip_byte[0] = 192;
-	host_ip.ip_byte[1] = 168;
-	host_ip.ip_byte[2] = 1;
-	host_ip.ip_byte[3] = 128;
-
 	host_addr.sin_family = AF_INET;
 	host_addr.sin_port = htons(FPGA_PORT);
-	host_addr.sin_addr.s_addr = host_ip.ip;
+	host_addr.sin_addr.s_addr = inet_addr("192.168.1.128");
 
-	struct gbn_header header;
-	memcpy(&header.seqnum, &seqnum, SEQ_SIZE_BYTE);
-	header.type = pkt_type_data;
-	memcpy(&buf[0], &header, sizeof(header));
-	buf[1] = 0;
-	buf[2] = 1;
-	buf[3] = 2;
-	for (i = 0; i < PACKET_SIZE;i++) {
-		printf("buf[%d]: %lx\n", i, buf[i]);
+	switch (operation_switch) {
+	case 1:
+		if (gbn_connect(socketfd, (struct sockaddr *)&host_addr,
+				SRC_SESSION_ID) < 0) {
+			perror("gbn connect");
+			exit(EXIT_FAILURE);
+		}
+		break;
+	case 2:
+		if (gbn_close(socketfd, (struct sockaddr *)&host_addr,
+			      DEST_SESSION_ID) < 0) {
+			perror("gbn close");
+			exit(EXIT_FAILURE);
+		}
+		break;
+	case 3:
+		header = (struct gbn_header *)buf;
+		header->type = pkt_type_data;
+		header->seqnum = seqnum;
+		make_sesid(header->session_id, SRC_SESSION_ID, DEST_SESSION_ID);
+
+		buf[1] = 0x0101010101010101;
+		buf[2] = 0x0202020202020202;
+		buf[3] = 0x0303030303030303;
+		for (int i = 0; i < PACKET_SIZE; i++) {
+			printf("buf[%d]: %016lx\n", i, buf[i]);
+		}
+
+		send_size = sendto(socketfd, buf, sizeof(buf), 0,
+				   (struct sockaddr *)&host_addr,
+				   sizeof(struct sockaddr));
+
+		if (send_size < 0) {
+			perror("send error");
+			exit(EXIT_FAILURE);
+		}
+		printf("send %d bytes\n", send_size);
+		break;
+	default:
+		break;
 	}
-
-	send_size = sendto(socketfd, buf, sizeof(buf), 0, (struct sockaddr *)&host_addr,
-	       sizeof(struct sockaddr));
-
-	if (send_size < 0) {
-		perror("send error");
-		exit(EXIT_FAILURE);
-	}
-	printf("send %d bytes\n", send_size);
 
 	close(socketfd);
 

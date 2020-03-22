@@ -40,7 +40,7 @@ struct lego_header {
 struct gbn_header {
 	char		type;
 	unsigned int	seqnum;
-	char		_resv[7-SEQ_SIZE_BYTE];
+	char		session_id[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
 
 #define ETHERNET_HEADER_SIZE	(14)

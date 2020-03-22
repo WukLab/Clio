@@ -59,5 +59,3 @@ set_property -dict {LOC AF20 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports sfp_2_tx_
 # I2C interface
 #set_property -dict {LOC B9 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 12 PULLUP true} [get_ports eeprom_i2c_scl]
 #set_property -dict {LOC A9 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 12 PULLUP true} [get_ports eeprom_i2c_sda]
-
-set_property ALLOW_COMBINATORIAL_LOOPS true [get_nets core_inst/relnet_inst/queue_64_0/inst/rd_cmd_V_TREADY]
