@@ -63,7 +63,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 	case TX_STATE_UDP_HEADER:
 		if (usr_tx_header->empty())
 			break;
-		
+
 		send_udp_info = usr_tx_header->read();
 		PR("get header from MMU: %x:%d -> %x:%d\n",
 		   send_udp_info.src_ip.to_uint(),
@@ -71,45 +71,45 @@ void tx_64(stream<struct udp_info>		*tx_header,
 		   send_udp_info.dest_ip.to_uint(),
 		   send_udp_info.dest_port.to_uint());
 
+		/*
+		 * cook the session ID from the udp header
+		 * src_port -> src slot id
+		 * dest_port -> dest slot id
+		 */
+		gbn_header.data(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1, SRC_SLOT_OFFSET) =
+			send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
+		gbn_header.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET) =
+			send_udp_info.dest_port(SLOT_ID_WIDTH - 1, 0);
+
 		if (send_udp_info.src_port > 0 && send_udp_info.dest_port > 0) {
-			/*
-			 * cook the session ID from the udp header
-			 * src_port -> src slot id
-			 * dest_port -> dest slot id
-			 */
-			gbn_header.data(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1, SRC_SLOT_OFFSET) =
-				send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
-			gbn_header.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET) =
-				send_udp_info.dest_port(SLOT_ID_WIDTH - 1, 0);
-		
 			slot_id = send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
 
 			check_full_req->write(slot_id);
 			state = TX_STATE_GBN_HEADER;
-		} else if (send_udp_info.src_port > 0 && send_udp_info.dest_port == 0) {
-			/*
-			 * no session info on dest side, which means this is the packet to
-			 * establish a connection
-			 */
-			gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_syn;
-			
+		} else {
+			if (send_udp_info.src_port > 0 && send_udp_info.dest_port == 0) {
+				/*
+				 * no session info on dest side, which means this is the packet to
+				 * establish a connection
+				 */
+				gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_syn;
+			} else if (send_udp_info.src_port == 0 && send_udp_info.dest_port > 0) {
+				/*
+				* no session info on src side, which means this is the packet to
+				* close a connection
+				*/
+				gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_fin;
+			}
+			send_udp_info.src_port = LEGOMEM_PORT;
+			send_udp_info.dest_port = LEGOMEM_PORT;
+
+			gbn_header.keep = 0xff;
+			gbn_header.last = 0;
+
 			tx_header->write(send_udp_info);
 			tx_payload->write(gbn_header);
 
-			/* do not buffer SYN packet */
-			if_buffer = false;
-			state = TX_STATE_PAYLOAD;
-		} else if (send_udp_info.src_port == 0 && send_udp_info.dest_port > 0) {
-			/*
-			 * no session info on src side, which means this is the packet to
-			 * close a connection
-			 */
-			gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_fin;
-
-			tx_header->write(send_udp_info);
-			tx_payload->write(gbn_header);
-
-			/* do not buffer FIN packet */
+			/* do not buffer SYN and FIN packet */
 			if_buffer = false;
 			state = TX_STATE_PAYLOAD;
 		}
@@ -165,7 +165,8 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			 * send a signal to state table to
 			 * inform the completion of a packet transfer
 			 */
-			tx_finish_sig->write(true);
+			if (if_buffer)
+				tx_finish_sig->write(true);
 			if_buffer = true;
 		}
 

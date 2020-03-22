@@ -5,14 +5,14 @@
 VIVADO = vivado
 GCC = gcc
 
-HLS_IP_CORES	:= hls_rx,hls_tx,hls_queue,tx_arbiter
+HLS_IP_CORES	:= hls_rx,hls_tx,state_table,setup_manager,hls_timer,tx_arbiter,unacked_buffer
 
 all:
 	$(Q)./generate_hls.sh $(HLS_IP_CORES)
 	$(VIVADO) -mode tcl -source run_vivado.tcl
 
 test:
-	$(GCC) test_onboard.c -I../../../include -o test_onboard
+	$(GCC) test_onboard.c -I../../../include -o test_onboard.out
 	
 hls:
 	$(Q)./generate_hls.sh $(HLS_IP_CORES)
@@ -28,4 +28,4 @@ clean:
 	find ./ -name "*.str" | xargs rm -rf
 	find ./ -name ".Xil" | xargs rm -rf
 	find ./ -name "awsver.txt" | xargs rm -rf
-	rm test_onboard
+	rm test_onboard.out

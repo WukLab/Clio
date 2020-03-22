@@ -7,23 +7,36 @@
 import axi4stream_vip_pkg::*;
 import ex_sim_axi4stream_vip_tx_payload_0_pkg::*;
 import ex_sim_axi4stream_vip_tx_hdr_0_pkg::*;
+import ex_sim_axi4stream_vip_tx_setconn_0_pkg::*;
 
 module testbench_netstack_2;
 
 parameter CLK_PERIOD = 4;
 parameter SEQ_WIDTH = 4;
 
+typedef enum logic [7:0] {
+	pkt_ack=1,
+	pkt_nack=2,
+	pkt_data=3,
+	pkt_syn=4,
+	pkt_fin=5
+} pkt_type_t;
+
 axi4stream_transaction wr_trans;
 axi4stream_transaction wr_hdr_trans;
+axi4stream_transaction wr_set_trans;
 
 ex_sim_axi4stream_vip_tx_payload_0_mst_t	tx_agent;
 ex_sim_axi4stream_vip_tx_hdr_0_mst_t		tx_hdr_agent;
+ex_sim_axi4stream_vip_tx_setconn_0_mst_t	tx_set_agent;
 
 bit clk;
 bit rst;
 
 bit enable_rst;
 bit enable_send;
+bit enable_setconn;
+bit enable_close;
 
 logic [7:0] mst_ip[4];
 logic [7:0] slv_ip[4];
@@ -34,12 +47,8 @@ logic [7:0] src_port[2];
 logic [7:0] dest_port[2];
 logic [7:0] length[2];
 
-enum logic [7:0] {
-	pkt_ack=1,
-	pkt_nack=2,
-	pkt_data=3
-} typ;
 logic [7:0] data[8];
+logic [7:0] set_req[2];
 
 wire [63:0] m_txd_1;
 wire [7:0] m_txc_1;
@@ -49,6 +58,13 @@ wire [63:0] s_txd_1;
 wire [7:0] s_txc_1;
 wire [63:0] s_txd_2;
 wire [7:0] s_txc_2;
+
+wire [15:0] setconn_mst_axis_tdata;
+wire setconn_mst_axis_tready;
+wire setconn_mst_axis_tvalid;
+wire [15:0] setconn_slv_axis_tdata;
+wire setconn_slv_axis_tready;
+wire setconn_slv_axis_tvalid;
 
 wire [111:0] tx_udp_hdr_data;
 wire tx_udp_hdr_valid;
@@ -101,6 +117,9 @@ ex_sim ex_host (
 	.M_AXIS_payload_tlast(tx_udp_payload_axis_tlast),
 	.M_AXIS_payload_tready(tx_udp_payload_axis_tready),
 	.M_AXIS_payload_tvalid(tx_udp_payload_axis_tvalid),
+	.M_AXIS_setconn_tdata(setconn_mst_axis_tdata),
+	.M_AXIS_setconn_tready(setconn_mst_axis_tready),
+	.M_AXIS_setconn_tvalid(setconn_mst_axis_tvalid),
 	.aclk(clk),
 	.aresetn(~rst)
 );
@@ -173,6 +192,11 @@ relnet_core_mst (
 	.m_usr_payload_axis_tkeep(rx_udp_payload_axis_tkeep),
 	.m_usr_payload_axis_tuser(rx_udp_payload_axis_tuser),
 
+	// set connection input
+	.s_setconn_axis_tdata(setconn_mst_axis_tdata),
+	.s_setconn_axis_tvalid(setconn_mst_axis_tvalid),
+	.s_setconn_axis_tready(setconn_mst_axis_tready),
+
 	// identity info
 	.local_ip({>>{mst_ip}})
 );
@@ -223,8 +247,31 @@ relnet_core_slv (
 	.m_usr_payload_axis_tkeep(slv_rx_udp_payload_axis_tkeep),
 	.m_usr_payload_axis_tuser(slv_rx_udp_payload_axis_tuser),
 
+	// set connection input
+	.s_setconn_axis_tdata(setconn_slv_axis_tdata),
+	.s_setconn_axis_tvalid(setconn_slv_axis_tvalid),
+	.s_setconn_axis_tready(setconn_slv_axis_tready),
+
 	// identity info
 	.local_ip({>>{slv_ip}})
+);
+
+dummy_setup_inst
+your_instance_name (
+	.ap_clk(clk),                                    // input wire ap_clk
+	.ap_rst_n(~rst),                                // input wire ap_rst_n
+	.usr_rx_payload_TVALID(slv_rx_udp_payload_axis_tvalid),      // input wire usr_rx_payload_TVALID
+	.usr_rx_payload_TREADY(slv_rx_udp_payload_axis_tready),      // output wire usr_rx_payload_TREADY
+	.usr_rx_payload_TDATA(slv_rx_udp_payload_axis_tdata),        // input wire [63 : 0] usr_rx_payload_TDATA
+	.usr_rx_payload_TUSER(slv_rx_udp_payload_axis_tuser),        // input wire [0 : 0] usr_rx_payload_TUSER
+	.usr_rx_payload_TLAST(slv_rx_udp_payload_axis_tlast),        // input wire [0 : 0] usr_rx_payload_TLAST
+	.usr_rx_payload_TKEEP(slv_rx_udp_payload_axis_tkeep),        // input wire [7 : 0] usr_rx_payload_TKEEP
+	.usr_rx_hdr_V_TVALID(slv_rx_udp_hdr_valid),          // input wire usr_rx_hdr_V_TVALID
+	.usr_rx_hdr_V_TREADY(slv_rx_udp_hdr_ready),          // output wire usr_rx_hdr_V_TREADY
+	.usr_rx_hdr_V_TDATA(slv_rx_udp_hdr_data),            // input wire [111 : 0] usr_rx_hdr_V_TDATA
+	.conn_setup_req_V_TVALID(setconn_slv_axis_tvalid),  // output wire conn_setup_req_V_TVALID
+	.conn_setup_req_V_TREADY(setconn_slv_axis_tready),  // input wire conn_setup_req_V_TREADY
+	.conn_setup_req_V_TDATA(setconn_slv_axis_tdata)    // output wire [15 : 0] conn_setup_req_V_TDATA
 );
 
 always #CLK_PERIOD clk <= ~clk;
@@ -233,22 +280,26 @@ always #CLK_PERIOD clk <= ~clk;
 initial begin
 	enable_send <= 1'b0;
 	enable_rst <= 1'b0;
+	enable_setconn <= 1'b0;
+	enable_close <= 1'b0;
 
 	$display("initilization start");
 
 	tx_agent = new("tx pld agent",ex_host.axi4stream_vip_tx_payload.inst.IF);
 	tx_hdr_agent = new("tx hdr agent",ex_host.axi4stream_vip_tx_hdr.inst.IF);
+	tx_set_agent = new("set conn agent",ex_host.axi4stream_vip_tx_setconn.inst.IF);
 
 	tx_agent.vif_proxy.set_dummy_drive_type(XIL_AXI4STREAM_VIF_DRIVE_NONE);
 	tx_hdr_agent.vif_proxy.set_dummy_drive_type(XIL_AXI4STREAM_VIF_DRIVE_NONE);
+	tx_set_agent.vif_proxy.set_dummy_drive_type(XIL_AXI4STREAM_VIF_DRIVE_NONE);
 
 	wr_trans = tx_agent.driver.create_transaction("tx pld trans");
-	//tx_agent.driver.set_transaction_depth(128);
 	wr_hdr_trans = tx_hdr_agent.driver.create_transaction("tx hdr trans");
-	//tx_hdr_agent.driver.set_transaction_depth(16);
+	wr_set_trans = tx_set_agent.driver.create_transaction("set conn trans");
 
 	tx_agent.start_master();
 	tx_hdr_agent.start_master();
+	tx_set_agent.start_master();
 
 	enable_rst <= 1'b1;
 end
@@ -264,26 +315,58 @@ initial begin
 	rst <= 1'b0;
 
 	#20
-	mst_ip <= {8'd192, 8'd168, 8'd1,   8'd129};
+	mst_ip <= {8'd192, 8'd168, 8'd1,   8'd2};
 	slv_ip <= {8'd192, 8'd168, 8'd1,   8'd128};
-	enable_send <= 1'b1;
+	enable_setconn <= 1'b1;
 end
 
 initial begin
-	wait(enable_send == 1'b1);
+	wait(enable_setconn == 1'b1);
 
 	/*
 	 * somehow you have to do this otherwise it will output X
 	 */
 	assert(wr_trans.randomize());
 	assert(wr_hdr_trans.randomize());
+	assert(wr_set_trans.randomize());
+
+	// set connection state in master side: slot 20
+	set_req = '{8'd20, 8'd4};  // {10'd20(slot id), 6'd1(type set_type_setup)}
+
+	wr_set_trans.set_data(set_req);
+	tx_set_agent.driver.send(wr_set_trans);
+
+	#CLK_PERIOD;
+	// set connection state in slave side
+	src_ip = {<<8{mst_ip}};
+	dest_ip = {<<8{slv_ip}};
+	src_port = {<<8{16'd20}};  // source port acts as src slot id
+	dest_port = {<<8{16'd0}}; // destination port acts as dest slot id
+	length = {<<8{16'd16}};
+
+	wr_hdr_trans.set_data({src_ip, dest_ip, src_port, dest_port, length});
+
+	#CLK_PERIOD;
+	$display("send SYN udp head");
+	tx_hdr_agent.driver.send(wr_hdr_trans);
+	$display("send SYN udp data");
+	{>>{data}} = 64'h0101010101010101;
+	wr_trans.set_data(data);
+	wr_trans.set_last(1'b1);
+	tx_agent.driver.send(wr_trans);
+
+	#200;
+	enable_send <= 1'b1;
+end
+
+initial begin
+	wait(enable_send == 1'b1);
 
 	src_ip = {<<8{mst_ip}};
 	dest_ip = {<<8{slv_ip}};
-	src_port = {<<8{16'd1000}};
-	dest_port = {<<8{16'd1234}};
+	src_port = {<<8{16'd20}};  // source port acts as src slot id
+	dest_port = {<<8{16'd10}}; // destination port acts as dest slot id
 	length = {<<8{16'd24}};	// 2*64bit
-	typ = pkt_data;
 
 	wr_hdr_trans.set_data({src_ip, dest_ip, src_port, dest_port, length});
 
@@ -294,7 +377,6 @@ initial begin
 		tx_hdr_agent.driver.send(wr_hdr_trans);
 
 		$display("send udp data");
-		#CLK_PERIOD;
 		{>>{data}} = 64'h0f0f0f0f0f0f0f0f;
 		wr_trans.set_data(data);
 		wr_trans.set_last(1'b0);
@@ -306,6 +388,31 @@ initial begin
 		wr_trans.set_last(1'b1);
 		tx_agent.driver.send(wr_trans);
 	end
+
+	#CLK_PERIOD;
+	enable_close <= 1'b1;
+end
+
+initial begin
+	wait(enable_close == 1'b1);
+
+	src_ip = {<<8{mst_ip}};
+	dest_ip = {<<8{slv_ip}};
+	src_port = {<<8{16'd0}};  // source port acts as src slot id
+	dest_port = {<<8{16'd10}}; // destination port acts as dest slot id
+	length = {<<8{16'd16}};	// 2*64bit
+
+	wr_hdr_trans.set_data({src_ip, dest_ip, src_port, dest_port, length});
+
+	#CLK_PERIOD;
+	$display("send FIN udp head");
+	tx_hdr_agent.driver.send(wr_hdr_trans);
+	$display("send FIN udp data");
+	{>>{data}} = 64'h0101010101010101;
+	wr_trans.set_data(data);
+	wr_trans.set_last(1'b1);
+	tx_agent.driver.send(wr_trans);
+
 end
 
 always @(posedge clk) begin

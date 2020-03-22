@@ -103,19 +103,20 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		if (state_query_rsp->empty())
 			break;
 		deliver_data = state_query_rsp->read();
-		if (deliver_data)
-			usr_rx_header->write(recv_udp_info);
 
 		if (recv_pkt.last == 1)
 			state = RX_STATE_UDP_HEADER;
-		else
+		else {
+			if (deliver_data)
+				usr_rx_header->write(recv_udp_info);
 			state = RX_STATE_DELIVER_DATA;
+		}
 		break;
 	case RX_STATE_DELIVER_DATA:
 		if (rx_payload->empty())
 			break;
 		recv_pkt = rx_payload->read();
-		
+
 		PR("receive data from net %llx\n", recv_pkt.data.to_uint64());
 
 		if (deliver_data) {

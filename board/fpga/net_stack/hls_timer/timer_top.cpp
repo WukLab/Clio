@@ -39,7 +39,7 @@ void retrans_timer(stream<struct timer_req>		*timer_rst_req,
 		rst_req = timer_rst_req->read();
 		rst_slot_id = rst_req.slotid;
 		if (rst_req.rst_type == timer_rst_type_reset) {
-			timeout_array[rst_slot_id].time = RETRANS_TIMEOUT_CYCLE;
+			timeout_array[rst_slot_id].time = RETRANS_TIMEOUT_CYCLE / MAX_NR_CONN;
 			timeout_array[rst_slot_id].active = true;
 		} else if (rst_req.rst_type == timer_rst_type_stop) {
 			timeout_array[rst_slot_id].active = false;

@@ -312,6 +312,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		tx_complete = tx_finish_sig->read();
 		PR("slot %d finish send a packet\n", tx_slot_id.to_uint());
 
+		/*
+		 * if buffer for this flow is empty before sending out
+		 * this packet, restart timer after sending this packet
+		 */
 		if (tx_last_ackd_seqnum == tx_last_sent_seqnum) {
 			rst_timer_req.slotid = tx_slot_id;
 			rst_timer_req.rst_type = timer_rst_type_reset;
