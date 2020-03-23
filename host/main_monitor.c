@@ -554,8 +554,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		return;
 	}
 
-	printf("%s():%d new node added: %s:%d name: %s type: %s\n",
-		__func__, __LINE__, ip_str, ei->udp_port, name,
+	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
+		ip_str, ei->udp_port, name,
 		board_info_type_str(bi));
 	dump_boards();
 	dump_net_sessions();
@@ -574,7 +574,9 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		new_lego_header = to_lego_header(&new_req);
 		new_lego_header->opcode = OP_REQ_MEMBERSHIP_NEW_NODE;
 
-		/* Copy this new board into the req */
+		/* Cook the request */
+		new_req.op.type = req->op.type;
+		new_req.op.mem_size_bytes = req->op.mem_size_bytes;
 		strncpy(new_req.op.name, bi->name, BOARD_NAME_LEN);
 		memcpy(&new_req.op.ei, ei, sizeof(*ei));
 

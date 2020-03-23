@@ -21,16 +21,71 @@
 struct board_info *mgmt_dummy_board;
 struct session_net *mgmt_session;
 
+/* This request needs no reply */
 static void handle_new_node(void *rx)
 {
 	struct legomem_membership_new_node_req *req;
-	struct endpoint_info *ei;
+	struct endpoint_info *new_ei;
+	struct board_info *bi;
+	int ret, i;
+	unsigned char mac[6];
+	unsigned int ip;
+	char *ip_str;
 
 	req = (struct legomem_membership_new_node_req *)rx;
-	ei = &req->op.ei;
+	new_ei = &req->op.ei;
 
-	printf("%s(): new node name: %s, ip:port: %s:%d\n",
-		__func__, req->op.name, ei->ip_str, ei->udp_port);
+	/* Sanity check */
+	if (req->op.type != BOARD_INFO_FLAGS_HOST &&
+	    req->op.type != BOARD_INFO_FLAGS_BOARD) {
+		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
+		return;
+	}
+
+	/*
+	 * We may use a different local MAC address to reach the new host
+	 * run our local ARP protocol to get the latest and update if necessary.
+	 */
+	ip = new_ei->ip;
+	ip_str = (char *)new_ei->ip_str;
+	ret = get_mac_of_remote_ip(ip, ip_str, mac);
+	if (ret) {
+		printf("%s(): fail to get the mac of new node.\n",
+			__func__);
+		return;
+	}
+
+	if (memcmp(mac, new_ei->mac, 6)) {
+		printf("%s(): INFO mac updated ", __func__);
+		for (i = 0; i < 6; i++) {
+			if (i < 5)
+				printf("%x:", new_ei->mac[i]);
+			else
+				printf("%x -> ", new_ei->mac[i]);
+		}
+		for (i = 0; i < 6; i++) {
+			if (i < 5)
+				printf("%x:", mac[i]);
+			else
+				printf("%x\n", mac[i]);
+		}
+		
+		memcpy(new_ei->mac, mac, 6);
+	}
+
+	/* Finally add the board to the system */
+	bi = add_board(req->op.name, req->op.mem_size_bytes,
+		       new_ei, &default_local_ei, false);
+	if (!bi)
+		return;
+	bi->flags = req->op.type;
+
+	dprintf_INFO("new node added name: %s, ip:port: %s:%d type: %s\n",
+		req->op.name, new_ei->ip_str, new_ei->udp_port,
+		board_info_type_str(bi));
+
+	dump_boards();
+	dump_net_sessions();
 }
 
 static void *mgmt_handler_func(void *_unused)

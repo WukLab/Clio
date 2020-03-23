@@ -171,4 +171,9 @@ extern struct board_info *monitor_bi;
 extern DECLARE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
 extern pthread_spinlock_t board_lock;
 
+#define dprintf_INFO(fmt, ...) \
+	printf("\033[34m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+#define dprintf_ERROR(fmt, ...) \
+	printf("\033[31m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+
 #endif /* _HOST_CORE_H_ */

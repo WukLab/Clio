@@ -63,6 +63,13 @@ struct op_membership_join_cluster {
 } __packed;
 
 struct op_membership_new_node {
+	unsigned long type;
+	unsigned long mem_size_bytes;
+
+	/*
+	 * the endhost name is uniquely constructed
+	 * by monitor and is globally visible
+	 */
 	char name[BOARD_NAME_LEN];
 	struct endpoint_info ei;
 } __packed;

@@ -57,8 +57,9 @@ __legomem_open_context(bool is_mgmt)
 		lego_header->opcode = OP_CREATE_PROC;
 		memset(req.op.proc_name, 'a', PROC_NAME_LEN);
 
-		net_send(monitor_session, &req, sizeof(req));
-		net_receive(monitor_session, &resp, sizeof(resp));
+		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+					   &resp, sizeof(resp));
+		if (ret <= 0)
 
 		if (unlikely(resp.op.ret))
 			goto err;
@@ -179,7 +180,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	} else {
 		/*
 		 * Contact the remote party to open a network session.
-		 * If things went well, a remote session ID is returned.
+		 * If things go well, a remote session ID is returned.
 		 */
 		struct legomem_open_close_session_req req;
 		struct legomem_open_close_session_resp resp;
