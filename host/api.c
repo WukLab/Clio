@@ -448,6 +448,15 @@ found:
 
 	/* Check response from the board */
 	if (resp.op.ret != 0) {
+		/*
+		 * TODO
+		 *
+		 * there should be some legitimate failures for which
+		 * we need to handle. e.g., concurrent alloc make this
+		 * vregion too small thus we need to find a new one,
+		 * monitor somehow decided to free the vRegion thus we need
+		 * to ask monitor again etc. Those are valid failures.
+		 */
 		printf("%s(): legomem_alloc failure %d.\n",
 			__func__, resp.op.ret);
 		return 0;
