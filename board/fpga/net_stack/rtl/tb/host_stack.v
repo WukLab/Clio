@@ -505,14 +505,14 @@ axi4stream_vip_tx_hdr test_tx_hdr (
 */
 
 always @(posedge clk) begin
-	if (rx_udp_hdr_valid) begin
+	if (rx_udp_hdr_valid  && rx_udp_hdr_ready) begin
 		$display("receive udp header: %h:%d -> %h:%d",
 			rx_udp_ip_source_ip,
 			rx_udp_source_port,
 			rx_udp_ip_dest_ip,
 			rx_udp_dest_port);
 	end
-	if (m_udp_payload_axis_tvalid) begin
+	if (m_udp_payload_axis_tvalid && m_udp_payload_axis_tready) begin
 		$display("receive data: %x", m_udp_payload_axis_tdata);
 	end
 end

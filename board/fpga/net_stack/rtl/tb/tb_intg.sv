@@ -102,6 +102,16 @@ wire slv_rx_udp_payload_axis_tready;
 wire slv_rx_udp_payload_axis_tlast;
 wire slv_rx_udp_payload_axis_tuser;
 
+wire [111:0] slv_tx_udp_hdr_data;
+wire slv_tx_udp_hdr_valid;
+wire slv_tx_udp_hdr_ready;
+wire [63:0] slv_tx_udp_payload_axis_tdata;
+wire [7:0] slv_tx_udp_payload_axis_tkeep;
+wire slv_tx_udp_payload_axis_tvalid;
+wire slv_tx_udp_payload_axis_tready;
+wire slv_tx_udp_payload_axis_tlast;
+wire slv_tx_udp_payload_axis_tuser;
+
 wire [31:0] slv_rx_udp_ip_source_ip;
 wire [31:0] slv_rx_udp_ip_dest_ip;
 wire [15:0] slv_rx_udp_source_port;
@@ -127,8 +137,6 @@ ex_sim ex_host (
 assign tx_udp_payload_axis_tuser = 1'b0;
 assign rx_udp_hdr_ready = 1'b1;
 assign rx_udp_payload_axis_tready = 1'b1;
-assign slv_rx_udp_hdr_ready = 1'b1;
-assign slv_rx_udp_payload_axis_tready = 1'b1;
 
 assign {
 	rx_udp_length,
@@ -226,15 +234,15 @@ relnet_core_slv (
 	.sfp_2_rxc(m_txc_2),
 
 	// onboard pipeline input
-	.s_usr_hdr_data(),
-	.s_usr_hdr_valid(),
-	.s_usr_hdr_ready(),
-	.s_usr_payload_axis_tdata(),
-	.s_usr_payload_axis_tvalid(),
-	.s_usr_payload_axis_tready(),
-	.s_usr_payload_axis_tlast(),
-	.s_usr_payload_axis_tkeep(),
-	.s_usr_payload_axis_tuser(),
+	.s_usr_hdr_data(slv_tx_udp_hdr_data),
+	.s_usr_hdr_valid(slv_tx_udp_hdr_valid),
+	.s_usr_hdr_ready(slv_tx_udp_hdr_ready),
+	.s_usr_payload_axis_tdata(slv_tx_udp_payload_axis_tdata),
+	.s_usr_payload_axis_tvalid(slv_tx_udp_payload_axis_tvalid),
+	.s_usr_payload_axis_tready(slv_tx_udp_payload_axis_tready),
+	.s_usr_payload_axis_tlast(slv_tx_udp_payload_axis_tlast),
+	.s_usr_payload_axis_tkeep(slv_tx_udp_payload_axis_tkeep),
+	.s_usr_payload_axis_tuser(slv_tx_udp_payload_axis_tuser),
 
 	// onboard pipeline output
 	.m_usr_hdr_data(slv_rx_udp_hdr_data),
@@ -271,7 +279,16 @@ your_instance_name (
 	.usr_rx_hdr_V_TDATA(slv_rx_udp_hdr_data),            // input wire [111 : 0] usr_rx_hdr_V_TDATA
 	.conn_setup_req_V_TVALID(setconn_slv_axis_tvalid),  // output wire conn_setup_req_V_TVALID
 	.conn_setup_req_V_TREADY(setconn_slv_axis_tready),  // input wire conn_setup_req_V_TREADY
-	.conn_setup_req_V_TDATA(setconn_slv_axis_tdata)    // output wire [15 : 0] conn_setup_req_V_TDATA
+	.conn_setup_req_V_TDATA(setconn_slv_axis_tdata),    // output wire [15 : 0] conn_setup_req_V_TDATA
+	.usr_tx_payload_TVALID(slv_tx_udp_payload_axis_tvalid),      // output wire usr_tx_payload_TVALID
+	.usr_tx_payload_TREADY(slv_tx_udp_payload_axis_tready),      // input wire usr_tx_payload_TREADY
+	.usr_tx_payload_TDATA(slv_tx_udp_payload_axis_tdata),        // output wire [63 : 0] usr_tx_payload_TDATA
+	.usr_tx_payload_TUSER(slv_tx_udp_payload_axis_tuser),        // output wire [0 : 0] usr_tx_payload_TUSER
+	.usr_tx_payload_TLAST(slv_tx_udp_payload_axis_tlast),        // output wire [0 : 0] usr_tx_payload_TLAST
+	.usr_tx_payload_TKEEP(slv_tx_udp_payload_axis_tkeep),        // output wire [7 : 0] usr_tx_payload_TKEEP
+	.usr_tx_hdr_V_TVALID(slv_tx_udp_hdr_valid),          // output wire usr_tx_hdr_V_TVALID
+	.usr_tx_hdr_V_TREADY(slv_tx_udp_hdr_ready),          // input wire usr_tx_hdr_V_TREADY
+	.usr_tx_hdr_V_TDATA(slv_tx_udp_hdr_data)             // output wire [111 : 0] usr_tx_hdr_V_TDATA
 );
 
 always #CLK_PERIOD clk <= ~clk;
@@ -331,7 +348,7 @@ initial begin
 	assert(wr_set_trans.randomize());
 
 	// set connection state in master side: slot 20
-	set_req = '{8'd20, 8'd4};  // {10'd20(slot id), 6'd1(type set_type_setup)}
+	set_req = '{8'd20, 8'd4};  // {10'd20(slot id), 6'd1(type set_type_open)}
 
 	wr_set_trans.set_data(set_req);
 	tx_set_agent.driver.send(wr_set_trans);
@@ -416,27 +433,27 @@ initial begin
 end
 
 always @(posedge clk) begin
-	if (rx_udp_hdr_valid) begin
+	if (rx_udp_hdr_valid && rx_udp_hdr_ready) begin
 		$display("master receive udp header: %h:%d -> %h:%d",
 			rx_udp_ip_source_ip,
 			rx_udp_source_port,
 			rx_udp_ip_dest_ip,
 			rx_udp_dest_port);
 	end
-	if (rx_udp_payload_axis_tvalid) begin
+	if (rx_udp_payload_axis_tvalid && rx_udp_payload_axis_tready) begin
 		$display("master receive data: %x", rx_udp_payload_axis_tdata);
 	end
 end
 
 always @(posedge clk) begin
-	if (slv_rx_udp_hdr_valid) begin
+	if (slv_rx_udp_hdr_valid && slv_rx_udp_hdr_ready) begin
 		$display("slave deliever udp header: %h:%d -> %h:%d",
 			slv_rx_udp_ip_source_ip,
 			slv_rx_udp_source_port,
 			slv_rx_udp_ip_dest_ip,
 			slv_rx_udp_dest_port);
 	end
-	if (slv_rx_udp_payload_axis_tvalid) begin
+	if (slv_rx_udp_payload_axis_tvalid && slv_rx_udp_payload_axis_tready) begin
 		$display("slave deliever data: %x", slv_rx_udp_payload_axis_tdata);
 	end
 end

@@ -10,7 +10,7 @@
 #include <uapi/net_header.h>
 
 #define FPGA_PORT 1234
-#define PACKET_SIZE 4
+#define PACKET_SIZE 16
 #define SRC_SESSION_ID 20
 #define DEST_SESSION_ID 10
 
@@ -128,9 +128,8 @@ int main(int argc, char *argv[])
 		header->seqnum = seqnum;
 		make_sesid(header->session_id, SRC_SESSION_ID, DEST_SESSION_ID);
 
-		buf[1] = 0x0101010101010101;
-		buf[2] = 0x0202020202020202;
-		buf[3] = 0x0303030303030303;
+		for (int i = 1; i < PACKET_SIZE; i++)
+			buf[i] = i;
 		for (int i = 0; i < PACKET_SIZE; i++) {
 			printf("buf[%d]: %016lx\n", i, buf[i]);
 		}

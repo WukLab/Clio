@@ -32,7 +32,7 @@ struct timer_req {
 };
 
 enum conn_set_type {
-	set_type_setup = 1,
+	set_type_open = 1,
 	set_type_close
 };
 

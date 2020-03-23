@@ -80,6 +80,10 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
 		gbn_header.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET) =
 			send_udp_info.dest_port(SLOT_ID_WIDTH - 1, 0);
+		gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_data;
+
+		send_udp_info.src_port = LEGOMEM_PORT;
+		send_udp_info.dest_port = LEGOMEM_PORT;
 
 		if (send_udp_info.src_port > 0 && send_udp_info.dest_port > 0) {
 			slot_id = send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
@@ -87,21 +91,11 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			check_full_req->write(slot_id);
 			state = TX_STATE_GBN_HEADER;
 		} else {
-			if (send_udp_info.src_port > 0 && send_udp_info.dest_port == 0) {
-				/*
-				 * no session info on dest side, which means this is the packet to
-				 * establish a connection
-				 */
-				gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_syn;
-			} else if (send_udp_info.src_port == 0 && send_udp_info.dest_port > 0) {
-				/*
-				* no session info on src side, which means this is the packet to
-				* close a connection
-				*/
-				gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_fin;
-			}
-			send_udp_info.src_port = LEGOMEM_PORT;
-			send_udp_info.dest_port = LEGOMEM_PORT;
+			/*
+			 * Either src port (src slot id) or dest port (dest slot id)
+			 * is 0. This packet is from session 0. It's used for connection
+			 * management. Do not buffer it and diectly send it out.
+			 */
 
 			gbn_header.keep = 0xff;
 			gbn_header.last = 0;
@@ -124,7 +118,6 @@ void tx_64(stream<struct udp_info>		*tx_header,
 		/*
 		 * cook other fields in the gbn header
 		 */
-		gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_data;
 		gbn_header.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET) =
 			tx_ck_rsp;
 		gbn_header.keep = 0xff;

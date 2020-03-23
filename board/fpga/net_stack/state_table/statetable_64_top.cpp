@@ -118,6 +118,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			break;
 
 		gbn_query_req = state_query_req->read();
+		/* dest slot id in received packet is the slot on receiver FPGA */
 		rx_slot_id = gbn_query_req.gbn_header(
 			DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET);
 
@@ -148,27 +149,36 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		rsp_pkt.last = 1;
 		rsp_pkt.keep = 0xff;
 
-		if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-		    pkt_type_data) {
-			expt_seqnum = expected_seqnum_array[rx_slot_id];
-			handle_rx_state = TAB_STATE_HANDLE_DATA;
-		} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				   pkt_type_ack ||
-			   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				   pkt_type_nack) {
-			rx_last_ackd_seqnum = last_ackd_seqnum_array[rx_slot_id];
-			rx_last_sent_seqnum = last_sent_seqnum_array[rx_slot_id];
+		if (gbn_query_req.gbn_header(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
+					     DEST_SLOT_OFFSET) > 0 &&
+		    gbn_query_req.gbn_header(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
+					     SRC_SLOT_OFFSET) > 0) {
+			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+			    pkt_type_data) {
+				expt_seqnum = expected_seqnum_array[rx_slot_id];
+				handle_rx_state = TAB_STATE_HANDLE_DATA;
+			} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+					   pkt_type_ack ||
+				   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+					   pkt_type_nack) {
+				rx_last_ackd_seqnum =
+					last_ackd_seqnum_array[rx_slot_id];
+				rx_last_sent_seqnum =
+					last_sent_seqnum_array[rx_slot_id];
 
-			handle_rx_state = TAB_STATE_HANDLE_ACK;
-		} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				   pkt_type_syn ||
-			   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				   pkt_type_fin) {
-			state_query_rsp->write(true);
+				handle_rx_state = TAB_STATE_HANDLE_ACK;
+			} else {
+				/* unknown packet type */
+				state_query_rsp->write(false);
+			}
 		} else {
-			/* unknown packet type */
-			state_query_rsp->write(false);
-		}
+			/*
+			 * The packet is from session 0. It's used for connection
+			 * management. Do not process it and directly pass it to
+			 * CoreMem. The packet will be send to SoC by CoreMem.
+			 */
+			state_query_rsp->write(true);
+		} 
 		break;
 	case TAB_STATE_HANDLE_DATA:
 		/*

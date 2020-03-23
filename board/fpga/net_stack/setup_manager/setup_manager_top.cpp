@@ -20,7 +20,7 @@ void setup_manager(stream<ap_uint<SLOT_ID_WIDTH> >	*init_req,
 
 	if (!conn_set_req->empty()) {
 		conn_req = conn_set_req->read();
-		if (conn_req.set_type == set_type_setup) {
+		if (conn_req.set_type == set_type_open) {
 			slot_id = conn_req.slotid;
 			init_req->write(slot_id);
 		} else if (conn_req.set_type == set_type_close) {
