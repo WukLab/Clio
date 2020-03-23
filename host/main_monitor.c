@@ -490,10 +490,16 @@ static void handle_test(struct thpool_buffer *tb)
 	struct reply {
 		struct legomem_common_headers comm_headers;
 		int cnt;
-	} *reply;
+	} *reply, *req;
+	static int nr_rx = 0;
 
 	reply = (struct reply *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*reply));
+
+	nr_rx++;
+
+	req = tb->rx;
+	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
 }
 
 /*

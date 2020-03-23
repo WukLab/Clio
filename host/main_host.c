@@ -74,6 +74,26 @@ static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_
 	return 0;
 }
 
+void test(void)
+{
+	struct msg {
+		struct legomem_common_headers comm_headers;
+		int cnt;
+	} req, resp;
+	struct lego_header *lego_header;
+	int i;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_TEST;
+
+	for (i = 0; i < 100; i++) {
+		req.cnt = i;
+		net_send_and_receive(monitor_session, &req, sizeof(req),
+				    &resp, sizeof(resp));
+		printf("%s(): finished cnt %5d\n", __func__, req.cnt);
+	}
+}
+
 static int join_cluster(void)
 {
 	struct legomem_membership_join_cluster_req req;
@@ -220,6 +240,8 @@ int main(int argc, char **argv)
 	if (ret)
 		exit(-1);
 
+
+	test();
 	pthread_join(mgmt_session->thread, NULL);
 	return 0;
 }
