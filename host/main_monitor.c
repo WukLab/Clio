@@ -498,7 +498,7 @@ static void handle_test(struct thpool_buffer *tb)
 
 	nr_rx++;
 
-	req = tb->rx;
+	req = (struct reply *)tb->rx;
 	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
 }
 
@@ -515,7 +515,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	struct board_info *bi;
 	char name[BOARD_NAME_LEN];
 	char ip_str[INET_ADDRSTRLEN];
-	int id, i;
+	unsigned char mac[6];
+	int ret, id, i;
 
 	resp = (struct legomem_membership_join_cluster_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
@@ -539,6 +540,36 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
 		resp->ret = -EINVAL;
 		return;
+	}
+
+	/*
+	 * We may use a different local MAC address to reach the new host
+	 * run our local ARP protocol to get the latest and update if necessary.
+	 */
+	ret = get_mac_of_remote_ip(ei->ip, ip_str, mac);
+	if (ret) {
+		dprintf_ERROR("fail to get latest mac for new node. ip: %s\n",
+			ip_str);
+		resp->ret = -EINVAL;
+		return;
+	}
+	if (memcmp(mac, ei->mac, 6)) {
+		printf("%s(): INFO mac updated ", __func__);
+		for (i = 0; i < 6; i++) {
+			if (i < 5)
+				printf("%x:", ei->mac[i]);
+			else
+				printf("%x -> ", ei->mac[i]);
+		}
+		for (i = 0; i < 6; i++) {
+			if (i < 5)
+				printf("%x:", mac[i]);
+			else
+				printf("%x\n", mac[i]);
+		}
+
+		/* Override the original MAC */
+		memcpy(ei->mac, mac, 6);
 	}
 
 	/* Add the remote party to our list */

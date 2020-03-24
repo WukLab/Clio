@@ -909,6 +909,8 @@ static int gbn_close_session(struct session_net *ses_net)
  * If timeout, it will start a retransmission.
  * XXX
  * We maynot want to use a signal-like approach, since it involve with kernel
+ *
+ * TODO the timeout is simply not working
  */
 static void *gbn_timeout_watcher_func(void *_unused)
 {

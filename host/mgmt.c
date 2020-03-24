@@ -69,7 +69,8 @@ static void handle_new_node(void *rx)
 			else
 				printf("%x\n", mac[i]);
 		}
-		
+
+		/* Override the original MAC */
 		memcpy(new_ei->mac, mac, 6);
 	}
 

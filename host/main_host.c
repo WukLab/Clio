@@ -88,9 +88,10 @@ void test(void)
 
 	for (i = 0; i < 100; i++) {
 		req.cnt = i;
-		net_send_and_receive(monitor_session, &req, sizeof(req),
-				    &resp, sizeof(resp));
-		printf("%s(): finished cnt %5d\n", __func__, req.cnt);
+		net_send(monitor_session, &req, sizeof(req));
+		printf("%s(): finished sending cnt %5d\n", __func__, req.cnt);
+		//net_receive(monitor_session, &resp, sizeof(resp));
+		//printf("%s(): finished receiving cnt %5d\n", __func__, req.cnt);
 	}
 }
 
