@@ -21,6 +21,11 @@
 struct board_info *mgmt_dummy_board;
 struct session_net *mgmt_session;
 
+static void handle_open_session(void *rx)
+{
+
+}
+
 /* This request needs no reply */
 static void handle_new_node(void *rx)
 {
@@ -114,6 +119,9 @@ static void *mgmt_handler_func(void *_unused)
 		case OP_REQ_MEMBERSHIP_NEW_NODE:
 			handle_new_node(rx);
 			break;
+		case OP_OPEN_SESSION:
+			handle_open_session(rx);
+			break;
 		default:
 			printf("%s(): unknown opcode %u\n",
 				__func__, opcode);
@@ -124,6 +132,7 @@ static void *mgmt_handler_func(void *_unused)
 
 /*
  * Open the local mgmt session
+ * and its associated handler thread
  */
 int init_local_management_session(bool create_mgmt_thread)
 {
@@ -146,7 +155,8 @@ int init_local_management_session(bool create_mgmt_thread)
 		return 0;
 
 	/*
-	 * Create the mgmt thread.
+	 * Create the handler thread
+	 * if caller needs it
 	 */
 	ret = pthread_create(&t, NULL, mgmt_handler_func, NULL);
 	if (ret) {

@@ -120,8 +120,8 @@ int legomem_close_context(struct legomem_context *ctx)
 				     &resp, sizeof(resp));
 
 		if (resp.ret) {
-			printf("%s(): monitor fail to close a context. ret %d\n",
-				__func__, resp.ret);
+			dprintf_ERROR("monitor fail to close context: %#lx ret %d\n",
+				(unsigned long)ctx, resp.ret);
 		}
 	}
 

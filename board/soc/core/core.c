@@ -37,8 +37,8 @@
  *
  * The thpool buffer is using a simple ring-based design.
  */
-static int TW_HEAD;
-static int TB_HEAD;
+static int TW_HEAD = 0;
+static int TB_HEAD = 0;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
 
@@ -87,58 +87,6 @@ free_thpool_buffer(struct thpool_buffer *tb)
 {
 	tb->flags = 0;
 	barrier();
-}
-
-static int init_thpool_buffer(void)
-{
-	int i;
-	size_t buf_sz;
-	struct thpool_buffer *map;
-
-	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
-	map = malloc(buf_sz);
-	if (!map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
-		struct thpool_buffer *tb;
-
-		tb = map + i;
-		tb->flags = 0;
-		tb->rx_size = 0;
-		tb->tx_size = 0;
-		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
-		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
-	}
-
-	thpool_buffer_map = map;
-	TB_HEAD = 0;
-	return 0;
-}
-
-static int init_thpool(void)
-{
-	int i, ret;
-	size_t buf_sz;
-
-	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
-	thpool_worker_map = malloc(buf_sz);
-	if (!thpool_worker_map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
-		struct thpool_worker *tw;
-
-		tw = thpool_worker_map + i;
-		tw->cpu = 0;
-		tw->nr_queued = 0;
-		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
-
-		if (unlikely(ret))
-			return ret;
-	}
-	TW_HEAD = 0;
-	return 0;
 }
 
 /*
@@ -460,8 +408,8 @@ int main(int argc, char **argv)
 {
 	int ret;
 
-	init_thpool();
-	init_thpool_buffer();
+	init_thpool(NR_THPOOL_WORKERS, thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, thpool_buffer_map);
 
 	init_session_subsys();
 
