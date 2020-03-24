@@ -464,7 +464,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	struct legomem_membership_join_cluster_resp *resp;
 	struct endpoint_info *ei;
 	struct board_info *bi;
-	char name[BOARD_NAME_LEN];
+	char new_name[BOARD_NAME_LEN];
 	char ip_str[INET_ADDRSTRLEN];
 	unsigned char mac[6];
 	int ret, id, i;
@@ -483,10 +483,10 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	get_ip_str(ei->ip, ip_str);
 	if (req->op.type == BOARD_INFO_FLAGS_HOST) {
 		id = atomic_fetch_add(&nr_hosts, 1);
-		sprintf(name, "host%d_%s:%u", id, ip_str, ei->udp_port);
+		sprintf(new_name, "host%d_%s:%u", id, ip_str, ei->udp_port);
 	} else if (req->op.type == BOARD_INFO_FLAGS_BOARD) {
 		id = atomic_fetch_add(&nr_boards, 1);
-		sprintf(name, "board%d_%s:%u", id, ip_str, ei->udp_port);
+		sprintf(new_name, "board%d_%s:%u", id, ip_str, ei->udp_port);
 	} else {
 		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
 		resp->ret = -EINVAL;
@@ -524,7 +524,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	}
 
 	/* Add the remote party to our list */
-	bi = add_board(name, req->op.mem_size_bytes,
+	bi = add_board(new_name, req->op.mem_size_bytes,
 		       ei, &default_local_ei, false);
 	if (!bi) {
 		resp->ret = -ENOMEM;
@@ -543,7 +543,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	}
 
 	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
-		ip_str, ei->udp_port, name,
+		ip_str, ei->udp_port, new_name,
 		board_info_type_str(bi));
 	dump_boards();
 	dump_net_sessions();
@@ -565,7 +565,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		/* Cook the request */
 		new_req.op.type = req->op.type;
 		new_req.op.mem_size_bytes = req->op.mem_size_bytes;
-		strncpy(new_req.op.name, bi->name, BOARD_NAME_LEN);
+		strncpy(new_req.op.name, new_name, BOARD_NAME_LEN);
 		memcpy(&new_req.op.ei, ei, sizeof(*ei));
 
 		/* Send to remote party's mgmt session */
@@ -615,14 +615,26 @@ static void worker_handle_request(struct thpool_worker *tw,
 		break;
 	};
 
-	ri = (struct routing_info *)tb->rx;
-	swap_routing_info(ri);
+	if (likely(!ThpoolBufferNoreply(tb))) {
+		/*
+		 * We the mgmt session accepting all traffics
+		 * thus we do not really know who is the sender prior
+		 * we can only infer that info from the incoming traffic
+		 * To reply, we can only, and should, simply swap the routing info
+		 */
+		ri = (struct routing_info *)tb->rx;
+		swap_routing_info(ri);
 
-	gbn_hdr = to_gbn_header(tb->rx);
-	swap_gbn_session(gbn_hdr);
+		/*
+		 * Original must be X -> 0
+		 * It will become 0 -> X
+		 * (X is larger than 0)
+		 */
+		gbn_hdr = to_gbn_header(tb->rx);
+		swap_gbn_session(gbn_hdr);
 
-	if (likely(!ThpoolBufferNoreply(tb)))
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
+	}
 	free_thpool_buffer(tb);
 }
 
@@ -727,8 +739,8 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	init_thpool(NR_THPOOL_WORKERS, thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, thpool_buffer_map);
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
 
 	/* Same as host side init */
 	init_board_subsys();

@@ -1,5 +1,9 @@
 /*
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ *
+ * This file describes functions for handling management session requests.
+ * It has various handlers running on normal hosts, but not monitor.
+ * In terms of functionalaties, this file resembles legomem-board soc code.
  */
 
 #include <uapi/vregion.h>
@@ -7,6 +11,7 @@
 #include <uapi/sched.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
+#include <uapi/thpool.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,16 +23,77 @@
 #include "core.h"
 #include "net/net.h"
 
-struct board_info *mgmt_dummy_board;
-struct session_net *mgmt_session;
+/*
+ * We only need to a single worker
+ * thus inline handling
+ */
+#define NR_THPOOL_WORKERS	1
+#define NR_THPOOL_BUFFER	1
 
-static void handle_open_session(void *rx)
+static int TW_HEAD = 0;
+static int TB_HEAD = 0;
+static struct thpool_worker *thpool_worker_map;
+static struct thpool_buffer *thpool_buffer_map;
+
+static __always_inline struct thpool_worker *
+select_thpool_worker_rr(void)
+{
+	struct thpool_worker *tw;
+	int idx;
+
+	idx = TW_HEAD % NR_THPOOL_WORKERS;
+	tw = thpool_worker_map + idx;
+	TW_HEAD++;
+	return tw;
+}
+
+static __always_inline struct thpool_buffer *
+alloc_thpool_buffer(void)
+{
+	struct thpool_buffer *tb;
+	int idx;
+
+	idx = TB_HEAD % NR_THPOOL_BUFFER;
+	tb = thpool_buffer_map + idx;
+	TB_HEAD++;
+
+	/*
+	 * If this happens during runtime, it means:
+	 * - ring buffer is not large enough
+	 * - some previous handlers are too slow
+	 */
+	while (unlikely(ThpoolBufferUsed(tb))) {
+		;
+	}
+
+	SetThpoolBufferUsed(tb);
+	barrier();
+	return tb;
+}
+
+static __always_inline void
+free_thpool_buffer(struct thpool_buffer *tb)
+{
+	tb->flags = 0;
+	barrier();
+}
+
+
+/*
+ * Handle the case when a remote party wants to open a session
+ * with us. It must tell us its local session id.
+ */
+static void handle_open_session(struct thpool_buffer *tb)
 {
 
 }
 
-/* This request needs no reply */
-static void handle_new_node(void *rx)
+/*
+ * Handle the case when _monitor_ notifies us
+ * that there is a new node joining the cluster.
+ * We will add it to our local list.
+ */
+static void handle_new_node(struct thpool_buffer *tb)
 {
 	struct legomem_membership_new_node_req *req;
 	struct endpoint_info *new_ei;
@@ -37,7 +103,9 @@ static void handle_new_node(void *rx)
 	unsigned int ip;
 	char *ip_str;
 
-	req = (struct legomem_membership_new_node_req *)rx;
+	SetThpoolBufferNoreply(tb);
+
+	req = (struct legomem_membership_new_node_req *)tb->rx;
 	new_ei = &req->op.ei;
 
 	/* Sanity check */
@@ -94,41 +162,74 @@ static void handle_new_node(void *rx)
 	dump_net_sessions();
 }
 
+static void
+worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
+{
+	struct lego_header *lego_hdr;
+	struct gbn_header *gbn_hdr;
+	uint16_t opcode;
+	struct routing_info *ri;
+
+	lego_hdr = to_lego_header(tb->rx);
+	opcode = lego_hdr->opcode;
+
+	switch (opcode) {
+	case OP_REQ_MEMBERSHIP_NEW_NODE:
+		handle_new_node(tb);
+		break;
+	case OP_OPEN_SESSION:
+		handle_open_session(tb);
+		break;
+	default:
+		break;
+	};
+
+	if (likely(!ThpoolBufferNoreply(tb))) {
+		/*
+		 * We the mgmt session accepting all traffics
+		 * thus we do not really know who is the sender prior
+		 * we can only infer that info from the incoming traffic
+		 * To reply, we can only, and should, simply swap the routing info
+		 */
+		ri = (struct routing_info *)tb->rx;
+		swap_routing_info(ri);
+
+		/*
+		 * Original must be X -> 0
+		 * It will become 0 -> X
+		 * (X is larger than 0)
+		 */
+		gbn_hdr = to_gbn_header(tb->rx);
+		swap_gbn_session(gbn_hdr);
+
+		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
+	}
+	free_thpool_buffer(tb);
+}
+
 static void *mgmt_handler_func(void *_unused)
 {
+	struct thpool_buffer *tb;
+	struct thpool_worker *tw;
 	int ret;
-	uint16_t opcode;
-	size_t max_buf_size;
-	void *rx;
-	struct lego_header *lego_hdr;
-
-	max_buf_size = sysctl_link_mtu;
-	rx = malloc(max_buf_size);
-	if (!rx)
-		return NULL;
 
 	while (1) {
-		ret = net_receive(mgmt_session, rx, max_buf_size);
+		tb = alloc_thpool_buffer();
+		tw = select_thpool_worker_rr();
+
+		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
+		tb->rx_size = ret;
 
-		lego_hdr = to_lego_header(rx);
-		opcode = lego_hdr->opcode;
-
-		switch (opcode) {
-		case OP_REQ_MEMBERSHIP_NEW_NODE:
-			handle_new_node(rx);
-			break;
-		case OP_OPEN_SESSION:
-			handle_open_session(rx);
-			break;
-		default:
-			printf("%s(): unknown opcode %u\n",
-				__func__, opcode);
-			break;
-		}
+		/* We only have one thread, thus inline handling */
+		worker_handle_request_inline(tw, tb);
 	}
+	return NULL;
 }
+
+struct board_info *mgmt_dummy_board;
+struct session_net *mgmt_session;
 
 /*
  * Open the local mgmt session
@@ -155,9 +256,15 @@ int init_local_management_session(bool create_mgmt_thread)
 		return 0;
 
 	/*
-	 * Create the handler thread
-	 * if caller needs it
+	 * Normal host side needs this polling thread to handle
+	 * mgmt session. But monitor will not need this thread
+	 * because it will do-it-yourself. Besides, host and monitor
+	 * have totoally different handlers.
 	 */
+
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+
 	ret = pthread_create(&t, NULL, mgmt_handler_func, NULL);
 	if (ret) {
 		printf("%s(): fail to create the mgmt handler thread\n", __func__);

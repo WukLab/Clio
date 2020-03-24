@@ -408,8 +408,8 @@ int main(int argc, char **argv)
 {
 	int ret;
 
-	init_thpool(NR_THPOOL_WORKERS, thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, thpool_buffer_map);
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
 
 	init_session_subsys();
 

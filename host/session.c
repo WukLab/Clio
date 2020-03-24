@@ -123,9 +123,10 @@ void dump_net_sessions(void)
 	int bkt;
 	struct session_net *ses;
 	char ip_str[INET_ADDRSTRLEN];
+	char ip_port_str[20];
 
-	printf("  bucket    ses_local   ses_remote       ip_remote                    remote\n"); 
-	printf("-------- ------------ ------------ --------------- -------------------------\n");
+	printf("  bucket    ses_local   ses_remote       ip:port_remote               remote_name\n"); 
+	printf("-------- ------------ ------------ -------------------- -------------------------\n");
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each(session_hash_array, bkt, ses, ht_link_host) {
@@ -133,12 +134,13 @@ void dump_net_sessions(void)
 
 		bi = ses->board_info;
 		get_ip_str(ses->board_ip, ip_str);
+		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
 
-		printf("%8d %12u %12u %15s %25s\n",
+		printf("%8d %12u %12u %20s %25s\n",
 			bkt,
 			get_local_session_id(ses),
 			get_remote_session_id(ses),
-			ip_str,
+			ip_port_str,
 			bi->name);
 	}
 	pthread_spin_unlock(&session_lock);

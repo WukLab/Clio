@@ -124,48 +124,52 @@ static inline void ClearThpoolBufferNoreply(struct thpool_buffer *tb)
  * and the number of buffers to init.
  */
 static inline int init_thpool(unsigned int NR_THPOOL_WORKERS,
-			      struct thpool_worker *worker_map)
+			      struct thpool_worker **worker_map)
 {
 	int i;
 	size_t buf_sz;
+	struct thpool_worker *map;
 
 	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
-	worker_map = malloc(buf_sz);
-	if (!worker_map)
+	map = malloc(buf_sz);
+	if (!map)
 		return -ENOMEM;
 
 	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
 		struct thpool_worker *tw;
 
-		tw = worker_map + i;
+		tw = map + i;
 		tw->cpu = 0;
 		tw->nr_queued = 0;
 		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
 	}
+	*worker_map = map;
 	return 0;
 }
 
 static inline int init_thpool_buffer(unsigned int NR_THPOOL_BUFFER,
-				     struct thpool_buffer *buffer_map)
+				     struct thpool_buffer **buffer_map)
 {
 	int i;
 	size_t buf_sz;
+	struct thpool_buffer *map;
 
 	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
-	buffer_map = malloc(buf_sz);
-	if (!buffer_map)
+	map = malloc(buf_sz);
+	if (!map)
 		return -ENOMEM;
 
 	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
 		struct thpool_buffer *tb;
 
-		tb = buffer_map + i;
+		tb = map + i;
 		tb->flags = 0;
 		tb->rx_size = 0;
 		tb->tx_size = 0;
 		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
 		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
 	}
+	*buffer_map = map;
 	return 0;
 }
 
