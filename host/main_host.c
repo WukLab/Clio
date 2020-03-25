@@ -220,13 +220,21 @@ int main(int argc, char **argv)
 	init_context_subsys();
 	init_net_session_subsys();
 
-	/* Create a local session for remote monitor's mgmt session */
+	/*
+	 * Create a local session for remote monitor's mgmt session
+	 * A special monitor board_info is added as well
+	 */
 	ret = init_monitor_session(monitor_addr, &default_local_ei);
 	if (ret) {
 		printf("Fail to init monitor session\n");
 		exit(-1);
 	}
 
+	/*
+	 * add the special localhost board_info
+	 */
+	add_localhost_bi(&default_local_ei);
+ 
 	/* Open local mgmt session */
 	ret = init_local_management_session(true);
 	if (ret) {
@@ -242,7 +250,7 @@ int main(int argc, char **argv)
 		exit(-1);
 
 
-	test();
+	//test();
 	pthread_join(mgmt_session->thread, NULL);
 	return 0;
 }

@@ -171,6 +171,10 @@ extern struct board_info *monitor_bi;
 extern DECLARE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
 extern pthread_spinlock_t board_lock;
 
+extern struct endpoint_info default_local_ei;
+extern struct board_info *default_local_bi;
+int add_localhost_bi(struct endpoint_info *ei);
+
 #define dprintf_INFO(fmt, ...) \
 	printf("\033[34m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
 #define dprintf_ERROR(fmt, ...) \

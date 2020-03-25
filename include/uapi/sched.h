@@ -39,10 +39,11 @@ struct vm_area_struct;
 #define NR_HT_BOARD_SESSIONS_BITS	(3)
 #define NR_HT_BOARD_SESSIONS		(1 << NR_HT_BOARD_SESSIONS_BITS)
 
-#define BOARD_INFO_FLAGS_BOARD		(0x1)
-#define BOARD_INFO_FLAGS_HOST		(0x2)
-#define BOARD_INFO_FLAGS_MONITOR	(0x3)
-#define BOARD_INFO_FLAGS_DUMMY		(0x4)
+#define BOARD_INFO_FLAGS_BOARD		(0x1) /* represents a legomem board */
+#define BOARD_INFO_FLAGS_HOST		(0x2) /* represents a real host */
+#define BOARD_INFO_FLAGS_MONITOR	(0x3) /* represents the monitor */
+#define BOARD_INFO_FLAGS_DUMMY		(0x4) /* a dummy bi */
+#define BOARD_INFO_FLAGS_LOCALHOST	(0x5) /* localhost bi */
 #define BOARD_INFO_FLAGS_BITS_MASK	(0xf)
 
 struct board_info {
@@ -75,17 +76,26 @@ struct board_info {
 	unsigned long		mem_avail;
 };
 
-static inline char *board_info_type_str(struct board_info *bi)
+static inline bool special_board_info_type(unsigned long type)
 {
-	unsigned long type;
+	type &= BOARD_INFO_FLAGS_BITS_MASK;
+	if (type == BOARD_INFO_FLAGS_MONITOR ||
+	    type == BOARD_INFO_FLAGS_DUMMY ||
+	    type == BOARD_INFO_FLAGS_LOCALHOST)
+		return true;
+	return false;
+}
 
-	type = bi->flags & BOARD_INFO_FLAGS_BITS_MASK;
+static inline char *board_info_type_str(unsigned long type)
+{
+	type &= BOARD_INFO_FLAGS_BITS_MASK;
 	switch (type) {
-	case BOARD_INFO_FLAGS_BOARD:	return "board";
-	case BOARD_INFO_FLAGS_HOST:	return "host";
-	case BOARD_INFO_FLAGS_MONITOR:	return "monitor";
-	case BOARD_INFO_FLAGS_DUMMY:	return "s_dummy";
-	default:			return "unknown";
+	case BOARD_INFO_FLAGS_BOARD:		return "board";
+	case BOARD_INFO_FLAGS_HOST:		return "host";
+	case BOARD_INFO_FLAGS_MONITOR:		return "monitor";
+	case BOARD_INFO_FLAGS_DUMMY:		return "dummy";
+	case BOARD_INFO_FLAGS_LOCALHOST:	return "localhost";
+	default:				return "unknown";
 	}
 	return "error";
 }

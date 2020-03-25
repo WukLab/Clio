@@ -128,7 +128,7 @@ void dump_boards(void)
 	char ip_port_str[20];
 	int bkt = 0;
 
-	printf("  bucket                      name              ip:port       type\n");
+	printf("  bucket                board_name              ip:port       type\n");
 	printf("-------- ------------------------- -------------------- ----------\n");
 	pthread_spin_lock(&board_lock);
 	hash_for_each(board_list, bkt, bi, link) {
@@ -137,7 +137,7 @@ void dump_boards(void)
 
 		printf("%8d %25s %20s %10s\n",
 			bkt, bi->name, ip_port_str,
-			board_info_type_str(bi));
+			board_info_type_str(bi->flags));
 	}
 	pthread_spin_unlock(&board_lock);
 }

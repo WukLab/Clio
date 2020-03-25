@@ -111,7 +111,8 @@ static void handle_new_node(struct thpool_buffer *tb)
 	/* Sanity check */
 	if (req->op.type != BOARD_INFO_FLAGS_HOST &&
 	    req->op.type != BOARD_INFO_FLAGS_BOARD) {
-		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
+		dprintf_ERROR("invalid type: %lu %s\n",
+			req->op.type, board_info_type_str(req->op.type));
 		return;
 	}
 
@@ -123,8 +124,7 @@ static void handle_new_node(struct thpool_buffer *tb)
 	ip_str = (char *)new_ei->ip_str;
 	ret = get_mac_of_remote_ip(ip, ip_str, mac);
 	if (ret) {
-		printf("%s(): fail to get the mac of new node.\n",
-			__func__);
+		dprintf_ERROR("fail to get mac of new node. ip %s\n", ip_str);
 		return;
 	}
 
@@ -156,7 +156,7 @@ static void handle_new_node(struct thpool_buffer *tb)
 
 	dprintf_INFO("new node added name: %s, ip:port: %s:%d type: %s\n",
 		req->op.name, new_ei->ip_str, new_ei->udp_port,
-		board_info_type_str(bi));
+		board_info_type_str(bi->flags));
 
 	dump_boards();
 	dump_net_sessions();

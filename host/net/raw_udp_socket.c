@@ -18,6 +18,7 @@
 #include <arpa/inet.h>
 #include <uapi/net_header.h>
 #include "net.h"
+#include "../core.h"
 
 //#define CONFIG_DEBUG_RAW_UDP_SOCKET
 

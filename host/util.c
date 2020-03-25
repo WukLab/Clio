@@ -151,6 +151,13 @@ out:
 }
 
 /*
+ * This is the local endpoint info
+ * Constructed during startup based on network device and UDP port used.
+ */
+struct endpoint_info default_local_ei;
+struct board_info *default_local_bi;
+
+/*
  * Give us a @dev and port@, we will init the ei for you.
  * Mac, IP, port, we will take care of them.
  */
@@ -180,5 +187,15 @@ int init_default_local_ei(const char *dev, unsigned int port,
 		printf("%x ", mac[i]);
 	printf("\n");
 
+	return 0;
+}
+
+int add_localhost_bi(struct endpoint_info *ei)
+{
+	default_local_bi = add_board("special_localhost", 0, ei, ei, true);
+	if (!default_local_bi)
+		return -ENOMEM;
+
+	default_local_bi->flags |= BOARD_INFO_FLAGS_LOCALHOST;
 	return 0;
 }

@@ -463,7 +463,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	struct legomem_membership_join_cluster_req *req;
 	struct legomem_membership_join_cluster_resp *resp;
 	struct endpoint_info *ei;
-	struct board_info *bi;
+	struct board_info *new_bi, *bi;
 	char new_name[BOARD_NAME_LEN];
 	char ip_str[INET_ADDRSTRLEN];
 	unsigned char mac[6];
@@ -474,6 +474,11 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 
 	req = (struct legomem_membership_join_cluster_req *)tb->rx;
 	ei = &req->op.ei;
+
+	/*
+	 * Step 1:
+	 * Sanity check the original request and add the new node locally
+	 */
 
 	/*
 	 * Cook the node name
@@ -524,39 +529,45 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	}
 
 	/* Add the remote party to our list */
-	bi = add_board(new_name, req->op.mem_size_bytes,
+	new_bi = add_board(new_name, req->op.mem_size_bytes,
 		       ei, &default_local_ei, false);
-	if (!bi) {
+	if (!new_bi) {
 		resp->ret = -ENOMEM;
 		return;
 	}
 
 	if (req->op.type == BOARD_INFO_FLAGS_HOST ||
 	    req->op.type == BOARD_INFO_FLAGS_BOARD) {
-		bi->flags = req->op.type;
+		new_bi->flags |= req->op.type;
 	} else {
 		printf("%s(): unknown remote type: %lu",
 			__func__, req->op.type);
-		remove_board(bi);
+		remove_board(new_bi);
 		resp->ret = -EINVAL;
 		return;
 	}
 
+	/* Debugging info */
 	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
-		ip_str, ei->udp_port, new_name,
-		board_info_type_str(bi));
+		ip_str, ei->udp_port, new_name, board_info_type_str(new_bi->flags));
 	dump_boards();
 	dump_net_sessions();
 
-	/* Notify all online nodes */
+	/*
+	 * Step 2:
+	 * Notify all other online nodes about this new born
+	 */
 	pthread_spin_lock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
 		struct lego_header *new_lego_header;
 		struct session_net *ses;
 
-		/* .. except this one */
-		if (bi->board_ip == ei->ip && bi->udp_port == ei->udp_port)
+		/* .. except the original sender */
+		if (bi == new_bi)
+			continue;
+
+		if (special_board_info_type(bi->flags))
 			continue;
 
 		new_lego_header = to_lego_header(&new_req);
@@ -570,6 +581,40 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 
 		/* Send to remote party's mgmt session */
 		ses = get_board_mgmt_session(bi);
+		net_send(ses, &new_req, sizeof(new_req));
+	}
+	pthread_spin_unlock(&board_lock);
+
+	/*
+	 * Step 3:
+	 * Meanwhile, for implementation simplicity,
+	 * send a bunch of requests to the original sender
+	 * for each existing node in the cluster
+	 */
+	pthread_spin_lock(&board_lock);
+	hash_for_each(board_list, i, bi, link) {
+		struct legomem_membership_new_node_req new_req;
+		struct lego_header *new_lego_header;
+		struct session_net *ses;
+
+		/* .. except the original sender */
+		if (bi == new_bi)
+			continue;
+
+		if (special_board_info_type(bi->flags))
+			continue;
+
+		new_lego_header = to_lego_header(&new_req);
+		new_lego_header->opcode = OP_REQ_MEMBERSHIP_NEW_NODE;
+
+		/* Copy existing board's information into the req */
+		new_req.op.type = bi->flags & BOARD_INFO_FLAGS_BITS_MASK;
+		new_req.op.mem_size_bytes = bi->mem_total;
+		strncpy(new_req.op.name, bi->name, BOARD_NAME_LEN);
+		memcpy(&new_req.op.ei, &bi->remote_ei, sizeof(*ei));
+
+		/* Send to original sender's mgmt session */
+		ses = get_board_mgmt_session(new_bi);
 		net_send(ses, &new_req, sizeof(new_req));
 	}
 	pthread_spin_unlock(&board_lock);
@@ -746,6 +791,11 @@ int main(int argc, char **argv)
 	init_board_subsys();
 	init_context_subsys();
 	init_net_session_subsys();
+
+	/*
+	 * add the special localhost board_info
+	 */
+	add_localhost_bi(&default_local_ei);
 
 	atomic_init(&nr_hosts, 0);
 	atomic_init(&nr_boards, 0);

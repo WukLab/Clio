@@ -14,12 +14,6 @@
 
 #include "net.h"
 
-/*
- * This is the local endpoint info
- * Constructed during startup based on network device and UDP port used.
- */
-struct endpoint_info default_local_ei;
-
 int sysctl_link_mtu = 1500;
 
 struct raw_net_ops *raw_net_ops;
