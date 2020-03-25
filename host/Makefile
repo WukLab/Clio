@@ -12,7 +12,8 @@ SRCS := board.c \
 	net/raw_socket.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
-	net/transport_gbn.c
+	net/transport_gbn.c \
+	test_session.c
 
 # or -g
 DEBUG :=

@@ -131,6 +131,7 @@ static void print_usage(void)
 	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format\n"
 	       "  --dev=<name>                Specify the local network device\n"
 	       "  --port=<port>               Specify the local UDP port\n"
+	       "  --run_test                  Run built-in tests"
 	       "\n"
 	       "Examples:\n"
 	       "  ./host.o --monitor=\"127.0.0.1:8888\" --port 8887 --dev=\"lo\" \n"
@@ -141,6 +142,7 @@ static struct option long_options[] = {
 	{ "monitor",	required_argument,	NULL,	'm'},
 	{ "port",	required_argument,	NULL,	'p'},
 	{ "dev",	required_argument,	NULL,	'd'},
+	{ "run_test",	no_argument,	NULL,	't'},
 	{ 0,		0,			0,	0  }
 };
 
@@ -153,10 +155,11 @@ int main(int argc, char **argv)
 	char ndev[32];
 	bool ndev_set = false;
 	int port = 0;
+	bool run_test = false;
 
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "m:p:d:",
+		c = getopt_long(argc, argv, "m:p:d:t",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -172,6 +175,9 @@ int main(int argc, char **argv)
 		case 'd':
 			strncpy(ndev, optarg, sizeof(ndev));
 			ndev_set = true;
+			break;
+		case 't':
+			run_test = true;
 			break;
 		default:
 			print_usage();
@@ -249,8 +255,10 @@ int main(int argc, char **argv)
 	if (ret)
 		exit(-1);
 
+	if (run_test) {
+		ret = test_legomem_session();
+	}
 
-	//test();
 	pthread_join(mgmt_session->thread, NULL);
 	return 0;
 }

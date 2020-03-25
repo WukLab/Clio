@@ -409,7 +409,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 	 * We are randomly selecting a board now
 	 * During practice we should use nr_avail_space, load etc
 	 */
-	bi = find_board_by_ip(ANY_BOARD);
+	bi = find_board(ANY_BOARD, ANY_BOARD);
 	if (!bi) {
 		free_vregion(pi, vi);
 
@@ -425,6 +425,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 	 */
 	resp->op.ret = 0;
 	resp->op.board_ip = bi->board_ip;
+	resp->op.udp_port = bi->udp_port;
 	resp->op.vregion_idx = vregion_to_index(pi, vi);
 
 out:

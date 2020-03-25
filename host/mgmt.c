@@ -85,7 +85,48 @@ free_thpool_buffer(struct thpool_buffer *tb)
  */
 static void handle_open_session(struct thpool_buffer *tb)
 {
+	struct legomem_open_close_session_req *req;
+	struct legomem_open_close_session_resp *resp;
+	unsigned int ip, port;
+	struct board_info *bi;
+	struct ipv4_hdr *ipv4_hdr;
+	struct udp_hdr *udp_hdr;
+	struct session_net *ses_net;
 
+	req = (struct legomem_open_close_session_req *)tb->rx;
+	resp = (struct legomem_open_close_session_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	ipv4_hdr = to_ipv4_header(req);
+	udp_hdr = to_udp_header(req);
+
+	ip = ntohl(ipv4_hdr->src_ip);
+	port = ntohs(udp_hdr->src_port);
+
+	bi = find_board(ip, port);
+	if (!bi) {
+		char ip_str[INET_ADDRSTRLEN];
+		get_ip_str(ip, ip_str);
+		dprintf_ERROR("board not found %s:%d\n", ip_str, port);
+		goto error;
+	}
+
+	ses_net = generic_handle_open_session(bi, req->op.session_id);
+	if (!ses_net) {
+		dprintf_ERROR("fail to open receiver side session. sender: %s\n",
+			bi->name);
+		goto error;
+	}
+
+	resp->op.session_id = get_local_session_id(ses_net);
+
+	dprintf_DEBUG("session opened, remote sesid: %u local sesid: %u\n",
+		req->op.session_id, get_local_session_id(ses_net));
+
+	return;
+
+error:
+	resp->op.session_id = 0;
 }
 
 /*

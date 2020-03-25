@@ -122,7 +122,7 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *local_ei,
 			     bool is_local);
 void remove_board(struct board_info *bi);
-struct board_info *find_board_by_ip(unsigned int board_ip);
+struct board_info *find_board(unsigned int ip, unsigned int port);
 void dump_boards(void);
 
 /* Per-node session list */
@@ -143,6 +143,7 @@ struct legomem_context *legomem_open_context(void);
 struct legomem_context *legomem_open_context_mgmt(void);
 int legomem_close_context(struct legomem_context *ctx);
 struct session_net *legomem_open_session(struct legomem_context *ctx, struct board_info *bi);
+struct session_net *generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid);
 struct session_net *
 legomem_open_session_remote_mgmt(struct board_info *bi);
 struct session_net *
@@ -175,9 +176,21 @@ extern struct endpoint_info default_local_ei;
 extern struct board_info *default_local_bi;
 int add_localhost_bi(struct endpoint_info *ei);
 
+/* Debugging info, useful for dev */
+#define dprintf_DEBUG(fmt, ...) \
+	printf("\033[34m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+
+/* General info, always on */
 #define dprintf_INFO(fmt, ...) \
 	printf("\033[34m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+
+/* ERROR/WARNING info, always on */
 #define dprintf_ERROR(fmt, ...) \
 	printf("\033[31m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+
+/*
+ * for test
+ */
+int test_legomem_session(void);
 
 #endif /* _HOST_CORE_H_ */

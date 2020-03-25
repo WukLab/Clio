@@ -76,6 +76,10 @@ struct board_info {
 	unsigned long		mem_avail;
 };
 
+/*
+ * Special board_info types are created by the system, for special usages.
+ * They do not have remote counterparts.
+ */
 static inline bool special_board_info_type(unsigned long type)
 {
 	type &= BOARD_INFO_FLAGS_BITS_MASK;

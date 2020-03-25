@@ -28,6 +28,16 @@ int init_board_subsys(void)
 }
 
 /*
+ * We use ip and port to uniquely identify a legomem instance.
+ * Thus the key is based on both of them.
+ */
+static __always_inline int
+get_key(int ip, unsigned int port)
+{
+	return ip + port;
+}
+
+/*
  * Add a board to the system.
  * We will open a local session to connect with remote party's mgmt session.
  * The new session will be saved into the board_info structure.
@@ -64,7 +74,8 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	bi->mem_total = mem_total;
 	bi->mem_avail = mem_total;
 
-	key = bi->board_ip;
+	key = get_key(bi->board_ip, bi->udp_port);
+
 	pthread_spin_lock(&board_lock);
 	hash_add(board_list, &bi->link, key);
 	pthread_spin_unlock(&board_lock);
@@ -84,7 +95,7 @@ void remove_board(struct board_info *bi)
 	int key;
 	struct board_info *_bi;
 
-	key = bi->board_ip;
+	key = get_key(bi->board_ip, bi->udp_port);
 
 	pthread_spin_lock(&board_lock);
 	hash_for_each_possible(board_list, _bi, link, key) {
@@ -97,24 +108,34 @@ void remove_board(struct board_info *bi)
 	pthread_spin_unlock(&board_lock);
 }
 
-struct board_info *find_board_by_ip(unsigned int board_ip)
+struct board_info *
+find_board(unsigned int ip, unsigned int port)
 {
 	struct board_info *bi;
-	int key;
+	int key, bkt;
 
-	key = board_ip;
+	key = get_key(ip, port);
 
 	pthread_spin_lock(&board_lock);
-	hash_for_each_possible(board_list, bi, link, key) {
-		/* Return the first board in the list */
-		if (board_ip == ANY_BOARD) {
+	if (ip == ANY_BOARD) {
+		hash_for_each(board_list, bkt, bi, link) {
+			if (special_board_info_type(bi->flags))
+				continue;
+
+			/* Return the first board encountered*/
 			pthread_spin_unlock(&board_lock);
 			return bi;
 		}
+	} else {
+		hash_for_each_possible(board_list, bi, link, key) {
+			if (special_board_info_type(bi->flags))
+				continue;
 
-		if (bi->board_ip == board_ip) {
-			pthread_spin_unlock(&board_lock);
-			return bi;
+			if (bi->board_ip == ip &&
+			    bi->udp_port == port) {
+				pthread_spin_unlock(&board_lock);
+				return bi;
+			}
 		}
 	}
 	pthread_spin_unlock(&board_lock);

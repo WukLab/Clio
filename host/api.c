@@ -129,6 +129,42 @@ int legomem_close_context(struct legomem_context *ctx)
 	return 0;
 }
 
+/*
+ * @dst_sesis is from sender
+ * we will allocate a local session id
+ */
+struct session_net *
+generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
+{
+	struct session_net *ses;
+	unsigned int src_sesid;
+
+	ses = net_open_session(&bi->local_ei, &bi->remote_ei);
+	if (!ses)
+		return NULL;
+	ses->board_ip = bi->board_ip;
+	ses->board_info = bi;
+
+	src_sesid = alloc_session_id();
+	if (src_sesid <= 0)
+		goto close_ses;
+
+	set_local_session_id(ses, src_sesid);
+	set_remote_session_id(ses, dst_sesid);
+
+	add_net_session(ses);
+	board_add_session(bi, ses);
+	return ses;
+
+close_ses:
+	net_close_session(ses);
+	return NULL;
+}
+
+/*
+ * When open a session, there is a sender and a receiver.
+ * This function is for the sender side.
+ */
 static struct session_net *
 __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		       pid_t tid, bool is_local_mgmt, bool is_remote_mgmt)
@@ -185,36 +221,35 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		struct legomem_open_close_session_req req;
 		struct legomem_open_close_session_resp resp;
 		struct lego_header *lego_header;
-		struct session_net *ses;
+		struct session_net *remote_mgmt_ses;
 		int ret;
 
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_OPEN_SESSION;
 		lego_header->pid = ctx->pid;
+		req.op.session_id = src_sesid;
 
-		/* This should be open during add_board */
-		ses = get_board_mgmt_session(bi);
-		if (!ses) {
-			printf("%s(): error the mgmt session is not found\n", __func__);
-			goto free_id;
-		}
+		remote_mgmt_ses = get_board_mgmt_session(bi);
+		BUG_ON(!remote_mgmt_ses);
 
-		/* Do the RPC */
-		ret = net_send_and_receive(ses, &req, sizeof(req),
+		ret = net_send_and_receive(remote_mgmt_ses, &req, sizeof(req),
 					   &resp, sizeof(resp));
-		if (ret) {
-			printf("%s(): fail to contact remote board.\n", __func__);
+		if (ret <= 0) {
+			dprintf_ERROR("fail to contact remote board %d\n", ret);
 			goto free_id;
 		}
 
-		if (resp.op.session_id == 0) {
-			printf("%s(): remote fail to open the session.\n", __func__);
+		if (unlikely(resp.op.session_id == 0)) {
+			dprintf_DEBUG("remote fail to open the session %d\n", 0);
 			goto free_id;
 		}
 
 		dst_sesid = resp.op.session_id;
 		set_remote_session_id(ses, dst_sesid);
 	}
+
+	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
+		bi->name, src_sesid, dst_sesid);
 
 bookkeeping:
 	/*
@@ -319,7 +354,8 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 static int
 ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 			    unsigned long vm_flags,
-			    unsigned int *board_ip, unsigned int *vregion_idx)
+			    unsigned int *board_ip, unsigned int *board_port,
+			    unsigned int *vregion_idx)
 {
 	struct legomem_alloc_free_req req;
 	struct legomem_alloc_free_resp resp;
@@ -343,6 +379,7 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 
 	/* success */
 	*board_ip = resp.op.board_ip;
+	*board_port = resp.op.udp_port;
 	*vregion_idx = resp.op.vregion_idx;
 	return 0;
 }
@@ -362,7 +399,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	struct lego_header *lego_header;
 	struct legomem_vregion *v;
 	struct session_net *ses;
-	unsigned int board_ip, vregion_idx;
+	unsigned int board_ip, board_port, vregion_idx;
 	int ret;
 	pid_t tid;
 	unsigned long __remote addr;
@@ -385,7 +422,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 * and it will tell use the new board and vRegion index
 	 */
 	ret = ask_monitor_for_new_vregion(ctx, size, vm_flags,
-					  &board_ip, &vregion_idx);
+					  &board_ip, &board_port, &vregion_idx);
 	if (ret)
 		return 0;
 
@@ -407,10 +444,12 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 */
 		struct board_info *bi;
 
-		bi = find_board_by_ip(board_ip);
+		bi = find_board(board_ip, board_port);
 		if (unlikely(bi)) {
-			printf("%s(): WARN board_ip %x not found.\n",
-				__func__, board_ip);
+			char ip_str[INET_ADDRSTRLEN];
+			get_ip_str(board_ip, ip_str);
+			dprintf_ERROR("board not found. ip %s port %u\n",
+				ip_str, board_port);
 			return 0;
 		}
 
