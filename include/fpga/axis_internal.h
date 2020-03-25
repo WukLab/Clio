@@ -15,9 +15,14 @@ struct query_req {
 	ap_uint<32>		dest_ip;
 };
 
-struct route_info {
+struct route_ip {
 	ap_uint<32>		src_ip;
 	ap_uint<32>		dest_ip;
+};
+
+struct route_info {
+	struct route_ip		ip_info;
+	ap_uint<16>		length;
 };
 
 struct retrans_req {

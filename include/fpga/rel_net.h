@@ -5,7 +5,11 @@
 #ifndef _LEGO_MEM_REL_NET_H_
 #define _LEGO_MEM_REL_NET_H_
 
-#define WINDOW_SIZE		256
+// fix segment size: 9kb
+#define MAX_PACKET_SIZE		(9216)
+#define WINDOW_SIZE_WIDTH	(7)
+#define WINDOW_SIZE		(1 << (WINDOW_SIZE_WIDTH))
+#define WINDOW_IDX_MSK		(WINDOW_SIZE - 1)
 #define MAX_NR_CONN		(1024)
 
 #define LEGOMEM_PORT		(1234)
