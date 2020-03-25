@@ -21,6 +21,7 @@ DEBUG :=
 all: $(SRCS) 
 	gcc $(DEBUG) -Wall -o host.o $(INCLUDE) main_host.c test.c $(SRCS) $(CLIBS)
 	gcc $(DEBUG) -Wall -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) -Wall -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(CLIBS)
 
 clean:
 	rm *.o
