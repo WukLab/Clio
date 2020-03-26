@@ -243,7 +243,7 @@ prepare_headers(struct routing_info *route, void *buf, unsigned int len)
 #define LEGOMEM_MGMT_SESSION_ID	(0)
 
 /*
- * Check if a certain session is node local management session.
+ * Check if a certain session involves mgmt session at either end
  */
 static inline bool test_management_session(struct session_net *ses)
 {

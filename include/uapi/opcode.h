@@ -43,6 +43,27 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_SOC_PINGPONG,	/* For measurement */
 };
 
+static inline char *legomem_opcode_str(unsigned int opcode)
+{
+	switch (opcode) {
+	case OP_REQ_TEST:			return "op_test";
+	case OP_REQ_ALLOC:			return "op_alloc";
+	case OP_REQ_FREE:			return "op_free";
+	case OP_REQ_READ:			return "op_read";
+	case OP_REQ_WRITE:			return "op_write";
+	case OP_CREATE_PROC:			return "op_create_proc";
+	case OP_FREE_PROC:			return "op_free_proc";
+	case OP_OPEN_SESSION:			return "op_open_session";
+	case OP_CLOSE_SESSION:			return "op_close_session";
+	case OP_REQ_MIGRATION:			return "op_migration";
+	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:	return "op_join_cluster";
+	case OP_REQ_MEMBERSHIP_NEW_NODE:	return "op_new_node";
+	case OP_RESET_ALL:			return "op_reset_all";
+	default:				return "unknown";
+	};
+	return NULL;
+}
+
 /*
  * For all op structures, their position within packet are fixed.
  * They are placed right after struct lego_hdr.

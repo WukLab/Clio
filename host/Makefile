@@ -16,7 +16,7 @@ SRCS := board.c \
 	test_session.c
 
 # or -g
-DEBUG :=
+DEBUG := -g
 
 all: $(SRCS) 
 	gcc $(DEBUG) -Wall -o host.o $(INCLUDE) main_host.c test.c $(SRCS) $(CLIBS)

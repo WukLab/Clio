@@ -129,6 +129,31 @@ int legomem_close_context(struct legomem_context *ctx)
 	return 0;
 }
 
+int generic_handle_close_session(struct legomem_context *ctx,
+				 struct board_info *bi,
+				 struct session_net *ses)
+{
+	int local_sesid;
+
+	local_sesid = get_local_session_id(ses);
+	BUG_ON(local_sesid == LEGOMEM_MGMT_SESSION_ID);
+
+	free_session_id(local_sesid);
+
+	/*
+	 * Clear bookkeeping we've done when the session was open:
+	 * Check __legomem_open_session and generic_handle_open_session.
+	 */
+	remove_net_session(ses);
+	board_remove_session(bi, ses);
+	if (ctx)
+		context_remove_session(ctx, ses);
+
+	/* Finally ask network layer to free resources */
+	net_close_session(ses);
+	return 0;
+}
+
 /*
  * @dst_sesis is from sender
  * we will allocate a local session id
@@ -224,6 +249,11 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		struct session_net *remote_mgmt_ses;
 		int ret;
 
+		if (!ctx) {
+			dprintf_ERROR("User session must provide ctx.%d", 0);
+			goto free_id;
+		}
+
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_OPEN_SESSION;
 		lego_header->pid = ctx->pid;
@@ -235,12 +265,14 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		ret = net_send_and_receive(remote_mgmt_ses, &req, sizeof(req),
 					   &resp, sizeof(resp));
 		if (ret <= 0) {
-			dprintf_ERROR("fail to contact remote board %d\n", ret);
+			dprintf_ERROR("Fail to contact remote party %s\n",
+				bi->name);
 			goto free_id;
 		}
 
 		if (unlikely(resp.op.session_id == 0)) {
-			dprintf_DEBUG("remote fail to open the session %d\n", 0);
+			dprintf_DEBUG("remote fail to open session %s\n",
+				bi->name);
 			goto free_id;
 		}
 
@@ -298,31 +330,64 @@ legomem_open_session_local_mgmt(struct board_info *bi)
 
 /*
  * Close a open network session.
+ * This runs on the sender side of the session. We will send a request
+ * to the receiver side to ask to close it as well.
  */
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 {
 	struct board_info *bi;
+	int ret;
 
-	if (!test_management_session(ses)) {
-		/*
-		 * TODO
-		 * Contact monitor/board to free the connection
-		 */
-	}
+	bi = ses->board_info;
 
 	/*
-	 * Clear bookkeeping we've done
-	 * when the session was open:
+	 * If a session involves mgmt session at either end,
+	 * we do not need to contact the remote party: it is
+	 * established without contacting them (check __legomem_open_session).
+	 * For all other normal user sessions, we need to contact remote.
 	 */
-	bi = ses->board_info;
-	remove_net_session(ses);
-	board_remove_session(bi, ses);
-	context_remove_session(ctx, ses);
+	if (!test_management_session(ses)) {
+		struct legomem_open_close_session_req req;
+		struct legomem_open_close_session_resp resp;
+		struct lego_header *lego_header;
+		struct session_net *remote_mgmt_ses;
 
-	/* Finally ask network layer to free resources */
-	net_close_session(ses);
+		if (!ctx) {
+			dprintf_ERROR("User session must provide ctx.%d", 0);
+			return -EINVAL;
+		}
 
-	return 0;
+		lego_header = to_lego_header(&req);
+		lego_header->opcode = OP_CLOSE_SESSION;
+		lego_header->pid = ctx->pid;
+
+		/*
+		 * Yes, virginia. We need to use the remote side session id.
+		 * That's our counterparts.
+		 */
+		req.op.session_id = get_remote_session_id(ses);
+
+		remote_mgmt_ses = get_board_mgmt_session(bi);
+		BUG_ON(!remote_mgmt_ses);
+
+		ret = net_send_and_receive(remote_mgmt_ses, &req, sizeof(req),
+					   &resp, sizeof(resp));
+		if (ret <= 0) {
+			dprintf_ERROR("Fail to contact remote party %s [%u-%u]\n",
+				bi->name, get_local_session_id(ses),
+				get_remote_session_id(ses));
+			return -EIO;
+		}
+
+		if (resp.op.session_id != 0) {
+			dprintf_DEBUG("Remote fail to close session %s [%u-%u]\n",
+				bi->name, get_local_session_id(ses),
+				get_remote_session_id(ses));
+			return -EFAULT;
+		}
+	}
+
+	return generic_handle_close_session(ctx, bi, ses);
 }
 
 /*

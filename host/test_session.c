@@ -18,7 +18,7 @@
 
 #include "core.h"
 
-#define NR_SESSIONS	(128)
+#define NR_SESSIONS	(1)
 
 int test_legomem_session(void)
 {
