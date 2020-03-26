@@ -9,12 +9,6 @@
 #include <linux/types.h>
 #include <uapi/compiler.h>
 
-/*
- * ZCU106 Cortex-A53 is running at 64bit mode.
- * x86-64 as well.
- */
-#define BITS_PER_LONG	64
-
 #if BITS_PER_LONG == 32
 # define GOLDEN_RATIO_PRIME GOLDEN_RATIO_32
 # define hash_long(val, bits) hash_32(val, bits)

@@ -19,6 +19,11 @@
 #include "net.h"
 
 /*
+ * TODO
+ * We need to inspect if multithread is supported properly.
+ */
+
+/*
  * FIXME
  * The zerocopy trick that used by GBN works if and only if
  *   GBN window size > BUFFER_SIZE*NR_BUFFER_DEPTH
@@ -49,72 +54,12 @@ struct session_raw_verbs {
 	void *recv_buf;
 
 	struct ibv_flow *eth_flow;
+
+	pthread_spinlock_t *lock;
 };
 
-/*
- * This function install the flow control rules for @qp.
- */
-static struct ibv_flow *qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
-			  struct endpoint_info *remote, unsigned int qp_ib_port)
-{
-	struct raw_eth_flow_attr {
-		struct ibv_flow_attr		attr;
-		struct ibv_flow_spec_eth	spec_eth;
-		struct ibv_flow_spec_ipv4	spec_ipv4;
-		struct ibv_flow_spec_tcp_udp	spec_tcp_udp;
-	} __attribute__((packed)) flow_attr;
-
-	struct ibv_flow			*eth_flow;
-	struct ibv_flow_attr		*attr;
-	struct ibv_flow_spec_eth	*spec_eth;
-	struct ibv_flow_spec_ipv4	*spec_ipv4;
-	struct ibv_flow_spec_tcp_udp	*spec_tcp_udp;
-
-	if (!qp || !local || !remote)
-		return NULL;
-
-	if (!qp_ib_port)
-		return NULL;
-
-	memset(&flow_attr, 0, sizeof(flow_attr));
-	attr = &flow_attr.attr;
-	spec_eth = &flow_attr.spec_eth;
-	spec_ipv4 = &flow_attr.spec_ipv4;
-	spec_tcp_udp = &flow_attr.spec_tcp_udp;
-
-	attr->comp_mask = 0;
-	attr->type = IBV_FLOW_ATTR_NORMAL;
-	attr->size = sizeof(flow_attr);
-	attr->priority = 1;
-	attr->num_of_specs = 3;
-	attr->port = qp_ib_port;
-	attr->flags = 0;
-
-	spec_eth->type = IBV_FLOW_SPEC_ETH;
-	spec_eth->size = sizeof(struct ibv_flow_spec_eth);
-	memcpy(&spec_eth->val.dst_mac, local->mac, 6);
-	memset(&spec_eth->mask.dst_mac, 0xFF, 6);
-
-	/*
-	 * TODO Not sure if we need to have this
-	 * Enable it will lead to segfault
-	 */
-	//memcpy(&spec_eth->val.src_mac, remote->mac, 6);
-	//memset(&spec_eth->mask.src_mac, 0xFF, 6);
-
-	spec_ipv4->type = IBV_FLOW_SPEC_IPV4,
-	spec_ipv4->size = sizeof(struct ibv_flow_spec_ipv4);
-
-	spec_tcp_udp->type = IBV_FLOW_SPEC_UDP;
-	spec_tcp_udp->size = sizeof(struct ibv_flow_spec_tcp_udp);
-	spec_tcp_udp->val.dst_port = htons(local->udp_port);
-	spec_tcp_udp->mask.dst_port = 0xFFFFu;
-
-	eth_flow = ibv_create_flow(qp, &flow_attr.attr);
-	if (!eth_flow)
-		perror("Create_flow: ");
-	return eth_flow;
-}
+static struct session_raw_verbs cached_session_raw_verbs;
+static pthread_spinlock_t raw_verbs_lock;
 
 /*
  * TODO
@@ -123,7 +68,8 @@ static struct ibv_flow *qp_create_flow(struct ibv_qp *qp, struct endpoint_info *
  * 2) We could do batch signaling.
  * 3) Add timeout to poll_cq
  */
-static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_size)
+static int raw_verbs_send(struct session_net *ses_net,
+			  void *buf, size_t buf_size, void *_route)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_sge sge;
@@ -133,6 +79,7 @@ static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_siz
 	struct ibv_qp *qp;
 	struct ibv_cq *send_cq;
 	int ret;
+	struct routing_info *route;
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
@@ -151,7 +98,16 @@ static int raw_verbs_send(struct session_net *ses_net, void *buf, size_t buf_siz
 		return errno;
 	}
 
-	prepare_headers(&ses_net->route, buf, buf_size);
+	/*
+	 * Cook the L2-L4 layer headers
+	 * If users provide their own ri, we use it.
+	 * Otherwise use the session ri.
+	 */
+	if (_route)
+		route = (struct routing_info *)_route;
+	else
+		route = &ses_net->route;
+	prepare_headers(route, buf, buf_size);
 
 	sge.addr = (uint64_t)buf;
 	sge.length = buf_size;
@@ -217,18 +173,17 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 	}
 }
 
-static int raw_verbs_receive_zerocopy(struct session_net *ses_net,
-				      void **buf, size_t *buf_size)
+static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_cq *recv_cq;
 	int ret;
 	void *recv_buf;
 
-	if (unlikely(!ses_net || !buf || !buf_size))
+	if (unlikely(!buf || !buf_size))
 		return -EINVAL;
 
-	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	ses_verbs = &cached_session_raw_verbs;
 	recv_cq = ses_verbs->recv_cq;
 	recv_buf = ses_verbs->recv_buf;
 
@@ -259,18 +214,14 @@ static int raw_verbs_receive_zerocopy(struct session_net *ses_net,
 	return ret;
 }
 
-static int raw_verbs_receive(struct session_net *ses_net,
-			     void *buf, size_t buf_size)
+static int raw_verbs_receive(void *buf, size_t buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_cq *recv_cq;
 	void *recv_buf;
 	int ret;
 
-	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
-		return -EINVAL;
-
-	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	ses_verbs = &cached_session_raw_verbs;
 	recv_cq = ses_verbs->recv_cq;
 	recv_buf = ses_verbs->recv_buf;
 
@@ -338,26 +289,104 @@ static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 	post_recvs(ses_verbs);
 }
 
-void test_ib_raw_packet(struct session_net *ses_net)
+static int
+raw_verbs_open_session(struct session_net *ses_net,
+		       struct endpoint_info *local_ei,
+		       struct endpoint_info *remote_ei)
 {
-	void *send_buf, *recv_buf;
-	size_t send_buf_size, recv_buf_size;
-	int i;
+	struct session_raw_verbs *ses_verbs;
 
-	send_buf_size = 128;
-	recv_buf_size = 128;
-	send_buf = malloc(send_buf_size);
-	recv_buf = malloc(recv_buf_size);
+	ses_verbs = malloc(sizeof(struct session_raw_verbs));
+	if (!ses_verbs)
+		return -ENOMEM;
+	ses_net->raw_net_private = ses_verbs;
 
-	for (i = 0; i < 10; i++) {
-		raw_verbs_send(ses_net, send_buf, send_buf_size);
-		raw_verbs_receive(ses_net, recv_buf, recv_buf_size);
-		dump_packet_headers(recv_buf);
-	}
+	/* Copy the whole thing */
+	*ses_verbs = cached_session_raw_verbs;
+	return 0;
 }
 
-static struct session_net *
-init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
+static int raw_verbs_close_session(struct session_net *ses_net)
+{
+	struct session_raw_verbs *ses_verbs;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	free(ses_verbs);
+	return 0;
+}
+
+/*
+ * This function install the flow control rules for @qp.
+ *
+ * XXX
+ * need to take a closer look at this function
+ * make sure we are doing the right thing!
+ */
+static struct ibv_flow *
+qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
+	       unsigned int qp_ib_port)
+{
+	struct raw_eth_flow_attr {
+		struct ibv_flow_attr		attr;
+		struct ibv_flow_spec_eth	spec_eth;
+		struct ibv_flow_spec_ipv4	spec_ipv4;
+		struct ibv_flow_spec_tcp_udp	spec_tcp_udp;
+	} __attribute__((packed)) flow_attr;
+
+	struct ibv_flow			*eth_flow;
+	struct ibv_flow_attr		*attr;
+	struct ibv_flow_spec_eth	*spec_eth;
+	struct ibv_flow_spec_ipv4	*spec_ipv4;
+	struct ibv_flow_spec_tcp_udp	*spec_tcp_udp;
+
+	memset(&flow_attr, 0, sizeof(flow_attr));
+	attr = &flow_attr.attr;
+	spec_eth = &flow_attr.spec_eth;
+	spec_ipv4 = &flow_attr.spec_ipv4;
+	spec_tcp_udp = &flow_attr.spec_tcp_udp;
+
+	attr->comp_mask = 0;
+	attr->type = IBV_FLOW_ATTR_NORMAL;
+	attr->size = sizeof(flow_attr);
+	attr->priority = 1;
+	attr->num_of_specs = 3;
+	attr->port = qp_ib_port;
+	attr->flags = 0;
+
+	spec_eth->type = IBV_FLOW_SPEC_ETH;
+	spec_eth->size = sizeof(struct ibv_flow_spec_eth);
+	memcpy(&spec_eth->val.dst_mac, local->mac, 6);
+	memset(&spec_eth->mask.dst_mac, 0xFF, 6);
+
+	/*
+	 * XXX Not sure if we need to have this
+	 * Enable it will lead to segfault
+	 */
+#if 0
+	memcpy(&spec_eth->val.src_mac, remote->mac, 6);
+	memset(&spec_eth->mask.src_mac, 0xFF, 6);
+#endif
+
+	spec_ipv4->type = IBV_FLOW_SPEC_IPV4,
+	spec_ipv4->size = sizeof(struct ibv_flow_spec_ipv4);
+
+	spec_tcp_udp->type = IBV_FLOW_SPEC_UDP;
+	spec_tcp_udp->size = sizeof(struct ibv_flow_spec_tcp_udp);
+	spec_tcp_udp->val.dst_port = htons(local->udp_port);
+	spec_tcp_udp->mask.dst_port = 0xFFFFu;
+
+	eth_flow = ibv_create_flow(qp, &flow_attr.attr);
+	if (!eth_flow)
+		perror("Create_flow: ");
+	return eth_flow;
+}
+
+/*
+ * This function only run once at each host.
+ * This function creates a single QP, Send_CQ, Recv_CQ,
+ * and install flow control rules etc.
+ */
+static int raw_verbs_init_once(struct endpoint_info *local_ei)
 {
 	struct ibv_device **dev_list;
 	struct ibv_device *ib_dev;
@@ -366,61 +395,56 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 	struct ibv_qp *qp;
 	struct ibv_cq *cq, *recv_cq;
 	struct ibv_flow *eth_flow;
-	struct session_net *ses_net;
-	struct session_raw_verbs *ses_verbs;
+	struct ibv_qp_attr qp_attr;
+	int qp_flags;
 	int ret;
-
-	ses_net = malloc(sizeof(struct session_net));
-	if (!ses_net)
-		return NULL;
-
-	ses_verbs = malloc(sizeof(struct session_raw_verbs));
-	if (!ses_verbs) {
-		free(ses_net);
-		return NULL;
-	}
-	ses_net->raw_net_private = ses_verbs;
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		perror("Failed to get devices list");
-		goto free_session;
+		return -ENODEV;
 	}
 
 	ib_dev = dev_list[0];
 	if (!ib_dev) {
 		fprintf(stderr, "IB device not found\n");
-		goto free_session;
+		return -ENODEV;
 	}
 
-	printf("IB Device: %s\n", ibv_get_device_name(ib_dev));
-	printf("Netdev Device: %s\n", ibv_get_device_name(ib_dev));
+	printf("%s(): IB Device: %s\n", __func__, ibv_get_device_name(ib_dev));
+	printf("%s(): Netdev Device: %s\n", __func__, ibv_get_device_name(ib_dev));
 
 	context = ibv_open_device(ib_dev);
 	if (!context) {
 		fprintf(stderr, "Couldn't get context for %s\n",
 			ibv_get_device_name(ib_dev));
-		goto free_session;
+		return -ENODEV;
 	}
 
 	pd = ibv_alloc_pd(context);
 	if (!pd) {
 		fprintf(stderr, "Couldn't allocate PD\n");
-		goto free_session;
+		return -ENOMEM;
 	}
 
+	/* Create send CQ */
 	cq = ibv_create_cq(context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		goto out_pd;
 	}
 
+	/* Create recv CQ */
 	recv_cq = ibv_create_cq(context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!recv_cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		goto out_send_cq;
 	}
 
+	/*
+	 * Create a raw_packet QP
+	 * which uses the above send CQ and recv CQ
+	 */
 	struct ibv_qp_init_attr qp_init_attr = {
 		.qp_context = NULL,
 		.send_cq = cq,
@@ -446,9 +470,7 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		goto out_both_cq;
 	}
 
-	struct ibv_qp_attr qp_attr;
-	int qp_flags;
-
+	/* QP: to INIT state */
 	memset(&qp_attr, 0, sizeof(qp_attr));
 	qp_flags = IBV_QP_STATE | IBV_QP_PORT;
 	qp_attr.qp_state = IBV_QPS_INIT;
@@ -460,6 +482,7 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		goto out_qp;
 	}
 
+	/* QP: to Ready-to-Receive state */
 	memset(&qp_attr, 0, sizeof(qp_attr));
 	qp_flags = IBV_QP_STATE;
 	qp_attr.qp_state = IBV_QPS_RTR;
@@ -469,6 +492,7 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		goto out_qp;
 	}
 
+	/* QP: to Ready-to-Send state */
 	qp_flags = IBV_QP_STATE;
 	qp_attr.qp_state = IBV_QPS_RTS;
 	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
@@ -477,24 +501,25 @@ init_raw_verbs(struct endpoint_info *local_ei, struct endpoint_info *remote_ei)
 		goto out_qp;
 	}
 
-	eth_flow = qp_create_flow(qp, local_ei, remote_ei, ib_port);
+	/*
+	 * Install flow control rules
+	 * This step is necessary for RAW_
+	 */
+	eth_flow = qp_create_flow(qp, local_ei, ib_port);
 	if (!eth_flow)
 		goto out_qp;
 
-	/* Prepare the session info */
-	prepare_routing_info(&ses_net->route, local_ei, remote_ei);
-	memcpy(&ses_net->local_ei, local_ei, sizeof(*local_ei));
-	memcpy(&ses_net->remote_ei, remote_ei, sizeof(*remote_ei));
+	cached_session_raw_verbs.eth_flow = eth_flow;
+	cached_session_raw_verbs.pd = pd;
+	cached_session_raw_verbs.qp = qp;
+	cached_session_raw_verbs.send_cq = cq;
+	cached_session_raw_verbs.recv_cq = recv_cq;
+	cached_session_raw_verbs.lock = &raw_verbs_lock;
+	pthread_spin_init(&raw_verbs_lock, PTHREAD_PROCESS_PRIVATE);
 
-	ses_verbs->eth_flow = eth_flow;
-	ses_verbs->pd = pd;
-	ses_verbs->qp = qp;
-	ses_verbs->send_cq = cq;
-	ses_verbs->recv_cq = recv_cq;
+	initial_post_recvs(&cached_session_raw_verbs);
 
-	initial_post_recvs(ses_verbs);
-
-	return ses_net;
+	return 0;
 
 out_qp:
 	ibv_destroy_qp(qp);
@@ -504,17 +529,24 @@ out_send_cq:
 	ibv_destroy_cq(cq);
 out_pd:
 	ibv_dealloc_pd(pd);
-free_session:
-	free(ses_net);
-	free(ses_verbs);
-	return NULL;
+	return -1;
+}
+
+static void raw_verbs_exit(void)
+{
+	return;
 }
 
 struct raw_net_ops raw_verbs_ops = {
 	.name			= "raw_verbs",
+	.init_once		= raw_verbs_init_once,
+	.exit			= raw_verbs_exit,
+
+	.open_session		= raw_verbs_open_session,
+	.close_session		= raw_verbs_close_session,
+
 	.send_one		= raw_verbs_send,
 	.receive_one		= raw_verbs_receive,
 	.receive_one_zerocopy	= raw_verbs_receive_zerocopy,
 	.receive_one_nb		= NULL,
-	.init			= init_raw_verbs,
 };

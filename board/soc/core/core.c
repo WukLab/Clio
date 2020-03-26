@@ -10,6 +10,7 @@
 #include <uapi/vregion.h>
 #include <uapi/sched.h>
 #include <uapi/net_header.h>
+#include <uapi/thpool.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,7 +20,9 @@
 #include <stdatomic.h>
 
 #include "core.h"
-#include "thpool.h"
+
+#define NR_THPOOL_WORKERS	(1)
+#define NR_THPOOL_BUFFER	(32)
 
 /*
  * Each thpool worker is described by struct thpool_worker,
@@ -34,8 +37,8 @@
  *
  * The thpool buffer is using a simple ring-based design.
  */
-static int TW_HEAD;
-static int TB_HEAD;
+static int TW_HEAD = 0;
+static int TB_HEAD = 0;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
 
@@ -86,11 +89,21 @@ free_thpool_buffer(struct thpool_buffer *tb)
 	barrier();
 }
 
-static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
-			     struct thpool_buffer *tb, bool is_alloc)
+/*
+ * Handle alloc/free requests from host.
+ *
+ * Note that
+ * 1) This might be the first the host contacting with us,
+ * thus there might be no context created. We will create on if that's the case.
+ * 2) Upon alloc, remote will tell us the vRegion index, which, was chosen by monitor.
+ * 3) We only perform allocation withi one vRegion.
+ *    But we could perform free spanning multiple vRegions.
+ */
+static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
+			      struct thpool_buffer *tb, bool is_alloc)
 {
 	struct proc_info *pi;
-	unsigned int pid, node;
+	unsigned int pid, node, host_ip;
 	struct op_alloc_free *ops;
 	struct op_alloc_free_ret *reply;
 
@@ -99,23 +112,41 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 	set_tb_tx_size(tb, sizeof(*reply));
 
 	ops = get_op_struct(rx_buf);
-	pid = ops->pid;
+
+	// TODO the packet format is unknown for now.
+	pid = 0;
 	node = 0;
+	host_ip = 0;
 
 	pi = get_proc_by_pid(pid, node);
-	if (unlikely(!pi)) {
-		printf("WARN: invalid pid %d\n", pid);
-		reply->ret = -EINVAL;
-		return -EINVAL;
+	if (!pi) {
+		/*
+		 * This could happen.
+		 * Because we might be a new board assigned to the
+		 * host by monitor upon allocation.
+		 */
+		pi = alloc_proc(pid, node, NULL, host_ip);
+		if (!pi) {
+			reply->ret = -ENOMEM;
+			return;
+		}
+
+		/* We will drop in the end */
+		get_proc_by_pid(pid, node);
 	}
 
 	if (is_alloc) {
 		/* OP_REQ_ALLOC */
-		unsigned long addr, len, vm_flags;
+		unsigned long addr, len, vregion_idx, vm_flags;
+		struct vregion_info *vi;
 
 		len = ops->len;
+		vregion_idx = ops->vregion_idx;
 		vm_flags = ops->vm_flags;
-		addr = alloc_va(pi, len, vm_flags);
+
+		vi = index_to_vregion(pi, vregion_idx);
+
+		addr = alloc_va_vregion(pi, vi, len, vm_flags);
 		if (unlikely(IS_ERR_VALUE(addr)))
 			reply->ret = -ENOMEM;
 		else {
@@ -132,10 +163,9 @@ static int handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 	}
 
 	put_proc_info(pi);
-	return 0;
 }
 
-static int handle_create_proc(struct thpool_buffer *tb)
+static void handle_create_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *pi;
 	int *reply;
@@ -149,15 +179,15 @@ static int handle_create_proc(struct thpool_buffer *tb)
 	rx_buf = tb->rx;
 	pid = 1;
 	node = 0;
+
 	pi = alloc_proc(pid, node, NULL, 0);
 	if (!pi) {
 		*reply = -ENOMEM;
 	} else
 		*reply = 0;
-	return 0;
 }
 
-static int handle_free_proc(struct thpool_buffer *tb)
+static void handle_free_proc(struct thpool_buffer *tb)
 {
 	struct proc_info *pi;
 	int *reply;
@@ -171,16 +201,57 @@ static int handle_free_proc(struct thpool_buffer *tb)
 	rx_buf = tb->rx;
 	pid = 1;
 	node = 0;
+
 	pi = get_proc_by_pid(pid, node);
 	if (!pi) {
 		*reply = -EINVAL;
-		return 0;
+		return;
 	}
 
 	/* We grabbed one ref above, thus put twice */
 	put_proc_info(pi);
 	put_proc_info(pi);
-	return 0;
+}
+
+/*
+ * TODO:
+ *
+ * 1) Notify FPGA stack to handle this session.
+ * 2) Notify FPGA to free session. 
+ *
+ * Couple ways to implement this:
+ * 1) In the fpga stack, check for close/open msgs,
+ *    and act on its own.
+ * 2) soc explicitly notify fpga to do sth.
+ */
+static void handle_open_session(struct thpool_buffer *tb)
+{
+	struct op_open_close_session_ret *resp;
+	unsigned int session_id;
+
+	resp = (struct op_open_close_session_ret *)resp;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	session_id = alloc_session_id();
+	if (session_id < 0) {
+		resp->session_id = 0;
+		return;
+	}
+
+	resp->session_id = session_id;
+}
+
+static void handle_close_session(struct thpool_buffer *tb)
+{
+	struct op_open_close_session *req;
+	struct op_open_close_session_ret *resp;
+	unsigned int session_id;
+
+	resp = (struct op_open_close_session_ret *)resp;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	session_id = req->session_id;
+	free_session_id(session_id);
 }
 
 /*
@@ -248,7 +319,7 @@ static inline size_t axidma_fpga_to_soc(void *buf, size_t buf_size)
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
-	struct lego_hdr *lego_hdr;
+	struct lego_header *lego_hdr;
 	uint16_t opcode;
 	void *rx_buf;
 	size_t rx_buf_size;
@@ -256,7 +327,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	rx_buf = tb->rx;
 	rx_buf_size = tb->rx_size;
 
-	lego_hdr = (struct lego_hdr *)(rx_buf + LEGO_HEADER_OFFSET);
+	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
@@ -278,6 +349,13 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 	case OP_REQ_MIGRATION:
 		handle_migration(tb);
+		break;
+
+	case OP_OPEN_SESSION:
+		handle_open_session(tb);
+		break;
+	case OP_CLOSE_SESSION:
+		handle_close_session(tb);
 		break;
 
 	/* Misc */
@@ -326,64 +404,14 @@ static void dispatcher(void)
 	}
 }
 
-static int init_thpool_buffer(void)
-{
-	int i;
-	size_t buf_sz;
-	struct thpool_buffer *map;
-
-	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
-	map = malloc(buf_sz);
-	if (!map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_BUFFER; i++) {
-		struct thpool_buffer *tb;
-
-		tb = map + i;
-		tb->flags = 0;
-		tb->rx_size = 0;
-		tb->tx_size = 0;
-		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
-		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
-	}
-
-	thpool_buffer_map = map;
-	TB_HEAD = 0;
-	return 0;
-}
-
-static int init_thpool(void)
-{
-	int i, ret;
-	size_t buf_sz;
-
-	buf_sz = sizeof(struct thpool_worker) * NR_THPOOL_WORKERS;
-	thpool_worker_map = malloc(buf_sz);
-	if (!thpool_worker_map)
-		return -ENOMEM;
-
-	for (i = 0; i < NR_THPOOL_WORKERS; i++) {
-		struct thpool_worker *tw;
-
-		tw = thpool_worker_map + i;
-		tw->cpu = 0;
-		tw->nr_queued = 0;
-		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
-
-		if (unlikely(ret))
-			return ret;
-	}
-	TW_HEAD = 0;
-	return 0;
-}
-
 int main(int argc, char **argv)
 {
 	int ret;
 
-	init_thpool();
-	init_thpool_buffer();
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+
+	init_session_subsys();
 
 	ret = init_proc_subsystem();
 	if (ret) {

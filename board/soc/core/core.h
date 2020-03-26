@@ -7,14 +7,6 @@
 
 #include <uapi/sched.h>
 
-/*
- * The maximum number of processes from a host node
- * allowed to establish connections with a single board.
- *
- * This parameter is also used by hash calculation.
- */
-#define NR_MAX_PROCS_PER_NODE	(100000)
-
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 			       unsigned long len, unsigned long vm_flags);
@@ -44,24 +36,9 @@ struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node);
 void dump_proc(struct proc_info *pi);
 void dump_procs(void);
 
-static inline void get_proc_info(struct proc_info *pi)
-{
-	/*
-	 * fetch_add returns the old value,
-	 * it must have >= 1 refcount before this func.
-	 */
-	if (unlikely(atomic_fetch_add(&pi->refcount, 1) < 1))
-		BUG();
-}
-
-static inline void put_proc_info(struct proc_info *pi)
-{
-	/*
-	 * fetch_sub returns the old value,
-	 * thus we are the last user if it was 1.
-	 */
-	if (atomic_fetch_sub(&pi->refcount, 1) == 1)
-		free_proc(pi);
-}
+/* Session */
+void init_session_subsys(void);
+int alloc_session_id(void);
+void free_session_id(unsigned int session_id);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

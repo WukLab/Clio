@@ -18,32 +18,56 @@
 #include "net.h"
 
 static inline int bypass_send_one(struct session_net *net,
-				  void *buf, size_t buf_size)
+				  void *buf, size_t buf_size, void *route)
 {
-	return raw_net_send(net, buf, buf_size);
+	return raw_net_send(net, buf, buf_size, route);
 }
 
 static inline int bypass_receive_one(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
-	return raw_net_receive(net, buf, buf_size);
+	return raw_net_receive(buf, buf_size);
 }
 
 static inline int bypass_receive_one_nb(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
-	return raw_net_receive_nb(net, buf, buf_size);
+	return raw_net_receive_nb(buf, buf_size);
 }
 
-static inline int bypass_init(struct session_net *ses)
+static inline int
+bypass_open_session(struct session_net *ses, struct endpoint_info *local_ei,
+		    struct endpoint_info *remote_ei)
 {
 	return 0;
 }
 
+static inline int
+bypass_close_session(struct session_net *ses)
+{
+	return 0;
+}
+
+static inline int bypass_init_once(struct endpoint_info *local_ei)
+{
+	return 0;
+}
+
+static inline void bypass_exit(void)
+{
+	return;
+}
+
 struct transport_net_ops transport_bypass_ops = {
 	.name			= "transport_bypass",
+
+	.init_once		= bypass_init_once,
+	.exit			= bypass_exit,
+
+	.open_session		= bypass_open_session,
+	.close_session		= bypass_close_session,
+
 	.send_one		= bypass_send_one,
 	.receive_one		= bypass_receive_one,
 	.receive_one_nb		= bypass_receive_one_nb,
-	.init			= bypass_init,
 };

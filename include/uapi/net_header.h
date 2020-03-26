@@ -8,12 +8,12 @@
 #ifndef _UAPI_NET_HEADER_H_
 #define _UAPI_NET_HEADER_H_
 
+#include <uapi/compiler.h>
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include <uapi/compiler.h>
-#include <uapi/opcode.h>
+#include <net/if.h>
 
 struct eth_hdr {
 	uint8_t dst_mac[6];
@@ -49,7 +49,8 @@ struct udp_hdr {
  * This is our layer's header.
  * See uapi/opcode.h for opcode definitions.
  */
-struct lego_hdr {
+struct lego_header {
+	pid_t	pid;
 	uint16_t opcode;
 } __attribute__((packed));
 
@@ -58,9 +59,43 @@ struct lego_hdr {
 
 struct gbn_header {
 	char		type;
+	char		src_sesid;
+	char		dst_sesid;
 	unsigned int	seqnum;
 	char		_resv[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
+
+static inline void
+set_gbn_src_session(struct gbn_header *hdr, unsigned int id)
+{
+	hdr->src_sesid = id;
+}
+
+static inline void
+set_gbn_dst_session(struct gbn_header *hdr, unsigned int id)
+{
+	hdr->dst_sesid = id;
+}
+
+static inline unsigned int get_gbn_src_session(struct gbn_header *hdr)
+{
+	return hdr->src_sesid;
+}
+
+static inline unsigned int get_gbn_dst_session(struct gbn_header *hdr)
+{
+	return hdr->dst_sesid;
+}
+
+static __always_inline void
+swap_gbn_session(struct gbn_header *hdr)
+{
+	int tmp1, tmp2;
+	tmp1 = get_gbn_src_session(hdr);
+	tmp2 = get_gbn_dst_session(hdr);
+	set_gbn_src_session(hdr, tmp2);
+	set_gbn_dst_session(hdr, tmp1);
+}
 
 enum pkt_type {
 	pkt_type_ack = 1,
@@ -68,16 +103,52 @@ enum pkt_type {
 	pkt_type_data = 3
 };
 
+enum gbn_pkt_type {
+	GBN_PKT_ACK = 1,
+	GBN_PKT_NACK = 2,
+	GBN_PKT_DATA = 3,
+};
+
+static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
+{
+	switch (t) {
+	case GBN_PKT_ACK:		return "ack";
+	case GBN_PKT_NACK:		return "nack";
+	case GBN_PKT_DATA:		return "data";
+	default:			return "unknown";
+	}
+	return NULL;
+}
+
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
 #define GBN_HEADER_SIZE		(sizeof(struct gbn_header))
-#define LEGO_HEADER_SIZE	(sizeof(struct lego_hdr))
+#define LEGO_HEADER_SIZE	(sizeof(struct lego_header))
 
 #define GBN_HEADER_OFFSET \
 	(ETHERNET_HEADER_SIZE + IP_HEADER_SIZE + UDP_HEADER_SIZE)
 #define LEGO_HEADER_OFFSET \
 	(GBN_HEADER_OFFSET + GBN_HEADER_SIZE)
+
+static inline struct eth_hdr *to_eth_header(void *packet)
+{
+	return (struct eth_hdr *)packet;
+}
+
+static inline struct ipv4_hdr *to_ipv4_header(void *packet)
+{
+	struct ipv4_hdr *hdr;
+	hdr = (struct ipv4_hdr *)(packet + ETHERNET_HEADER_SIZE);
+	return hdr;
+}
+
+static inline struct udp_hdr *to_udp_header(void *packet)
+{
+	struct udp_hdr *hdr;
+	hdr = (struct udp_hdr *)(packet + ETHERNET_HEADER_SIZE + IP_HEADER_SIZE);
+	return hdr;
+}
 
 static inline struct gbn_header *to_gbn_header(void *packet)
 {
@@ -110,6 +181,9 @@ static inline void *get_op_struct(void *packet)
 /*
  * Format the IPv4 for UDP packet.
  * @data_size is the data payload in the UDP packet.
+ *
+ * @src_ip: source IP, host order
+ * @dst_ip: dest IP, host order
  */
 static __always_inline void
 prepare_ipv4_header(struct ipv4_hdr *hdr, uint32_t src_ip,
@@ -150,13 +224,14 @@ struct routing_info {
 	struct eth_hdr eth;
 	struct ipv4_hdr ipv4;
 	struct udp_hdr udp;
-} __attribute__((packed));
+} __packed;
 
 struct endpoint_info {
 	unsigned char mac[6];
-	uint32_t ip;
+	unsigned char ip_str[INET_ADDRSTRLEN];	/* human-readable IPv4 addr */
+	uint32_t ip;				/* ip addr in host order */
 	uint16_t udp_port;
-};
+} __packed;
 
 static __always_inline void
 prepare_routing_info(struct routing_info *ri, struct endpoint_info *src,
@@ -165,6 +240,18 @@ prepare_routing_info(struct routing_info *ri, struct endpoint_info *src,
 	prepare_eth_header(&ri->eth, src->mac, dst->mac);
 	prepare_ipv4_header(&ri->ipv4, src->ip, dst->ip, 0);
 	prepare_udp_header(&ri->udp, src->udp_port, dst->udp_port, 0);
+}
+
+static __always_inline void
+swap_routing_info(struct routing_info *ri)
+{
+	char mac[6];
+
+	memcpy(mac, ri->eth.src_mac, 6);
+	memcpy(ri->eth.src_mac, ri->eth.dst_mac, 6);
+	memcpy(ri->eth.dst_mac, mac, 6);
+	swap(ri->ipv4.src_ip, ri->ipv4.dst_ip);
+	swap(ri->udp.src_port, ri->udp.dst_port);
 }
 
 /**
