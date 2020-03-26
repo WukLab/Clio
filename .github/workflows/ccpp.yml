@@ -1,0 +1,17 @@
+#
+# This workflow will compile the code and report compiling errors
+#
+name: C CI
+on: [pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    - name: prepare
+      run: sudo apt-get -y install rdma-core libibverbs1 libibverbs-dev
+    - name: make_host_monitor
+      run: cd host && make

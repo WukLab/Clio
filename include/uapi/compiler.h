@@ -10,8 +10,20 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 #include <linux/types.h>
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+
+/*
+ * ZCU106 Cortex-A53 is running at 64bit mode.
+ * x86-64 as well.
+ */
+#define BITS_PER_LONG		(64)
+#define BITS_PER_LONG_SHIFT	(6)
 
 #define BUG()			(assert(0))
 #define BUG_ON(cond)		(assert(!!!(cond)))
@@ -64,9 +76,11 @@
  */
 #define barrier()		asm volatile("": : :"memory")
 
+#ifndef container_of
 #define container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
+#endif
 
 #ifndef FIELD_SIZEOF
 # define FIELD_SIZEOF(t, f)	(sizeof(((t*)0)->f))
@@ -218,5 +232,41 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 	__maybe_unused typeof(x) __var = (__force typeof(x)) 0;	\
 	*(volatile typeof(x) *)&(x);				\
 })
+
+#define L1_CACHE_BYTES	(64)
+
+/*
+ * ____cacheline_aligned just make the marked data cache line aligned
+ * __cacheline_aligned will also put the data into a specific section
+ */
+#define ____cacheline_aligned					\
+	__attribute__((__aligned__(L1_CACHE_BYTES)))
+
+/*
+ * Tell gcc if a function is cold. The compiler will assume any path
+ * directly leading to the call is unlikely.
+ */
+#if GCC_VERSION >= 40300
+# define __cold				__attribute__((__cold__))
+# define __compiletime_warning(message)	__attribute__((warning(message)))
+# define __compiletime_error(message)	__attribute__((error(message)))
+#else
+# define __cold
+# define __compiletime_warning(message)
+# define __compiletime_error(message)
+#endif
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+/* To mark a remote legomem address */
+#define __remote
+
+static inline pid_t gettid(void)
+{
+	return syscall(SYS_gettid);
+}
 
 #endif /* _LEGOMEM_UAPI_COMPILER_H_ */
