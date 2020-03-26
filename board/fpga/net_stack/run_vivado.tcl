@@ -157,6 +157,19 @@ set files [list \
 ]
 add_files -norecurse -fileset $obj $files
 
+# Set 'sources_1' fileset file properties for remote files
+# None
+
+# Set 'sources_1' fileset file properties for local files
+# None
+
+# Set 'sources_1' fileset properties
+set obj [get_filesets sources_1]
+set_property -name "top" -value "fpga" -objects $obj
+set_property -name "top_auto_set" -value "0" -objects $obj
+
+# Set 'sources_1' fileset object
+set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
  [file normalize "${origin_dir}/rtl/ip/gtwizard_ultrascale_0.xci"]\
@@ -176,16 +189,11 @@ if { ![get_property "is_locked" $file_obj] } {
 }
 
 
-# Set 'sources_1' fileset properties
-set obj [get_filesets sources_1]
-set_property -name "top" -value "fpga" -objects $obj
-set_property -name "top_auto_set" -value "0" -objects $obj
-
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- [file normalize "${origin_dir}/rtl/ip/dummy_setup_inst/dummy_setup_inst.xci"]\
+ [file normalize "${origin_dir}/rtl/ip/dummy_setup_inst.xci"]\
 ]
 set imported_files [import_files -fileset sources_1 $files]
 
@@ -247,25 +255,25 @@ if {[string equal [get_filesets -quiet sim_1] ""]} {
 # Set 'sim_1' fileset object
 set obj [get_filesets sim_1]
 set files [list \
- [file normalize "${origin_dir}/rtl/tb/tb_rt.sv"] \
  [file normalize "${origin_dir}/rtl/tb/tb_intg.sv"] \
  [file normalize "${origin_dir}/rtl/tb/host_stack.v"] \
  [file normalize "${origin_dir}/rtl/tb/tb_rx.sv"] \
+ [file normalize "${origin_dir}/rtl/tb/tb_rt.sv"] \
 ]
 add_files -norecurse -fileset $obj $files
 
 # Set 'sim_1' fileset file properties for remote files
-set file "$origin_dir/rtl/tb/tb_rt.sv"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
-set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
-
 set file "$origin_dir/rtl/tb/tb_intg.sv"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
 set file "$origin_dir/rtl/tb/tb_rx.sv"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
+set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
+
+set file "$origin_dir/rtl/tb/tb_rt.sv"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
@@ -310,9 +318,7 @@ proc cr_bd_relnet { parentCell } {
   if { $bCheckIPs == 1 } {
      set list_check_ips "\ 
   Wuklab.UCSD:hls:arbiter_64:1.0\
-  xilinx.com:ip:axi_vip:1.1\
   xilinx.com:ip:axis_data_fifo:2.0\
-  xilinx.com:ip:ila:6.2\
   Wuklab.UCSD:hls:rx_64:1.0\
   Wuklab.UCSD:hls:tx_64:1.0\
   Wuklab.UCSD:hls:retrans_timer:1.0\
@@ -579,6 +585,19 @@ proc create_hier_cell_state_table { parentCell nameHier } {
 
 
   # Create interface ports
+  set M_AXI [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI ]
+  set_property -dict [ list \
+   CONFIG.ADDR_WIDTH {32} \
+   CONFIG.DATA_WIDTH {64} \
+   CONFIG.HAS_BURST {0} \
+   CONFIG.HAS_LOCK {0} \
+   CONFIG.HAS_QOS {0} \
+   CONFIG.HAS_REGION {0} \
+   CONFIG.NUM_READ_OUTSTANDING {2} \
+   CONFIG.NUM_WRITE_OUTSTANDING {2} \
+   CONFIG.PROTOCOL {AXI4} \
+   ] $M_AXI
+
   set conn_set_req [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 conn_set_req ]
   set_property -dict [ list \
    CONFIG.HAS_TKEEP {0} \
@@ -656,50 +675,18 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   # Create ports
   set ap_clk [ create_bd_port -dir I -type clk ap_clk ]
   set_property -dict [ list \
-   CONFIG.ASSOCIATED_BUSIF {usr_tx_header:usr_tx_payload:usr_rx_header:usr_rx_payload:in_header:in_payload:out_header:out_payload:conn_set_req:M_AXI_RD:M_AXI_WR:M_AXI} \
+   CONFIG.ASSOCIATED_BUSIF {usr_tx_header:usr_tx_payload:usr_rx_header:usr_rx_payload:in_header:in_payload:out_header:out_payload:conn_set_req:M_AXI} \
  ] $ap_clk
   set ap_rst_n [ create_bd_port -dir I -type rst ap_rst_n ]
 
   # Create instance: arbiter_64_0, and set properties
   set arbiter_64_0 [ create_bd_cell -type ip -vlnv Wuklab.UCSD:hls:arbiter_64:1.0 arbiter_64_0 ]
 
-  # Create instance: axi_vip, and set properties
-  set axi_vip [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_vip:1.1 axi_vip ]
-  set_property -dict [ list \
-   CONFIG.INTERFACE_MODE {SLAVE} \
- ] $axi_vip
-
   # Create instance: axis_data_fifo_0, and set properties
   set axis_data_fifo_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 axis_data_fifo_0 ]
   set_property -dict [ list \
    CONFIG.FIFO_DEPTH {2048} \
  ] $axis_data_fifo_0
-
-  # Create instance: ila_hdr, and set properties
-  set ila_hdr [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_hdr ]
-  set_property -dict [ list \
-   CONFIG.C_NUM_OF_PROBES {9} \
-   CONFIG.C_SLOT_0_AXIS_TDATA_WIDTH {128} \
-   CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
- ] $ila_hdr
-
-  # Create instance: ila_payload, and set properties
-  set ila_payload [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_payload ]
-  set_property -dict [ list \
-   CONFIG.ALL_PROBE_SAME_MU_CNT {2} \
-   CONFIG.C_EN_STRG_QUAL {0} \
-   CONFIG.C_NUM_OF_PROBES {9} \
-   CONFIG.C_PROBE0_MU_CNT {2} \
-   CONFIG.C_PROBE1_MU_CNT {2} \
-   CONFIG.C_PROBE2_MU_CNT {2} \
-   CONFIG.C_PROBE3_MU_CNT {2} \
-   CONFIG.C_PROBE4_MU_CNT {2} \
-   CONFIG.C_PROBE5_MU_CNT {2} \
-   CONFIG.C_PROBE6_MU_CNT {2} \
-   CONFIG.C_PROBE7_MU_CNT {2} \
-   CONFIG.C_PROBE8_MU_CNT {2} \
-   CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
- ] $ila_payload
 
   # Create instance: rx_64_0, and set properties
   set rx_64_0 [ create_bd_cell -type ip -vlnv Wuklab.UCSD:hls:rx_64:1.0 rx_64_0 ]
@@ -721,9 +708,7 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   connect_bd_intf_net -intf_net rx_64_0_rsp_payload [get_bd_intf_pins arbiter_64_0/rsp_payload] [get_bd_intf_pins state_table/rsp_payload]
   connect_bd_intf_net -intf_net rx_64_0_state_query_req_V [get_bd_intf_pins rx_64_0/state_query_req_V] [get_bd_intf_pins state_table/state_query_req_V]
   connect_bd_intf_net -intf_net rx_64_0_usr_rx_header_V [get_bd_intf_ports usr_rx_header] [get_bd_intf_pins rx_64_0/usr_rx_header_V]
-connect_bd_intf_net -intf_net [get_bd_intf_nets rx_64_0_usr_rx_header_V] [get_bd_intf_ports usr_rx_header] [get_bd_intf_pins ila_hdr/SLOT_0_AXIS]
   connect_bd_intf_net -intf_net rx_64_0_usr_rx_payload [get_bd_intf_ports usr_rx_payload] [get_bd_intf_pins rx_64_0/usr_rx_payload]
-connect_bd_intf_net -intf_net [get_bd_intf_nets rx_64_0_usr_rx_payload] [get_bd_intf_ports usr_rx_payload] [get_bd_intf_pins ila_payload/SLOT_0_AXIS]
   connect_bd_intf_net -intf_net rx_header_V_0_1 [get_bd_intf_ports in_header] [get_bd_intf_pins rx_64_0/rx_header_V]
   connect_bd_intf_net -intf_net rx_payload_0_1 [get_bd_intf_ports in_payload] [get_bd_intf_pins rx_64_0/rx_payload]
   connect_bd_intf_net -intf_net state_table_64_0_check_full_rsp_V_V [get_bd_intf_pins state_table/check_full_rsp_V_V] [get_bd_intf_pins tx_64_0/check_full_rsp_V_V]
@@ -737,18 +722,18 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets rx_64_0_usr_rx_payload] [get_bd_
   connect_bd_intf_net -intf_net tx_64_0_tx_payload [get_bd_intf_pins arbiter_64_0/tx_payload] [get_bd_intf_pins tx_64_0/tx_payload]
   connect_bd_intf_net -intf_net tx_buff_payload_1 [get_bd_intf_pins axis_data_fifo_0/M_AXIS] [get_bd_intf_pins unacked_buffer_controller/tx_buff_payload]
   connect_bd_intf_net -intf_net unacked_buffer_0_timer_rst_req_V [get_bd_intf_pins state_table/S02_AXIS] [get_bd_intf_pins unacked_buffer_controller/timer_rst_req_V]
-  connect_bd_intf_net -intf_net unacked_buffer_controller_M_AXI_0 [get_bd_intf_pins axi_vip/S_AXI] [get_bd_intf_pins unacked_buffer_controller/M_AXI_0]
+  connect_bd_intf_net -intf_net unacked_buffer_controller_M_AXI_0 [get_bd_intf_ports M_AXI] [get_bd_intf_pins unacked_buffer_controller/M_AXI_0]
   connect_bd_intf_net -intf_net unacked_buffer_controller_rt_header_V [get_bd_intf_pins arbiter_64_0/rt_header_V] [get_bd_intf_pins unacked_buffer_controller/rt_header_V]
   connect_bd_intf_net -intf_net unacked_buffer_controller_rt_payload [get_bd_intf_pins arbiter_64_0/rt_payload] [get_bd_intf_pins unacked_buffer_controller/rt_payload]
   connect_bd_intf_net -intf_net usr_tx_header_V_0_1 [get_bd_intf_ports usr_tx_header] [get_bd_intf_pins tx_64_0/usr_tx_header_V]
   connect_bd_intf_net -intf_net usr_tx_payload_0_1 [get_bd_intf_ports usr_tx_payload] [get_bd_intf_pins tx_64_0/usr_tx_payload]
 
   # Create port connections
-  connect_bd_net -net ap_clk_0_1 [get_bd_ports ap_clk] [get_bd_pins arbiter_64_0/ap_clk] [get_bd_pins axi_vip/aclk] [get_bd_pins axis_data_fifo_0/s_axis_aclk] [get_bd_pins ila_hdr/clk] [get_bd_pins ila_payload/clk] [get_bd_pins rx_64_0/ap_clk] [get_bd_pins state_table/ap_clk] [get_bd_pins tx_64_0/ap_clk] [get_bd_pins unacked_buffer_controller/ap_clk]
-  connect_bd_net -net ap_rst_n_1 [get_bd_ports ap_rst_n] [get_bd_pins arbiter_64_0/ap_rst_n] [get_bd_pins axi_vip/aresetn] [get_bd_pins axis_data_fifo_0/s_axis_aresetn] [get_bd_pins rx_64_0/ap_rst_n] [get_bd_pins state_table/ap_rst_n] [get_bd_pins tx_64_0/ap_rst_n] [get_bd_pins unacked_buffer_controller/ap_rst_n]
+  connect_bd_net -net ap_clk_0_1 [get_bd_ports ap_clk] [get_bd_pins arbiter_64_0/ap_clk] [get_bd_pins axis_data_fifo_0/s_axis_aclk] [get_bd_pins rx_64_0/ap_clk] [get_bd_pins state_table/ap_clk] [get_bd_pins tx_64_0/ap_clk] [get_bd_pins unacked_buffer_controller/ap_clk]
+  connect_bd_net -net ap_rst_n_1 [get_bd_ports ap_rst_n] [get_bd_pins arbiter_64_0/ap_rst_n] [get_bd_pins axis_data_fifo_0/s_axis_aresetn] [get_bd_pins rx_64_0/ap_rst_n] [get_bd_pins state_table/ap_rst_n] [get_bd_pins tx_64_0/ap_rst_n] [get_bd_pins unacked_buffer_controller/ap_rst_n]
 
   # Create address segments
-  create_bd_addr_seg -range 0x000100000000 -offset 0x00000000 [get_bd_addr_spaces unacked_buffer_controller/axi_datamover_0/Data] [get_bd_addr_segs axi_vip/S_AXI/Reg] SEG_axi_vip_Reg
+  create_bd_addr_seg -range 0x000100000000 -offset 0x00000000 [get_bd_addr_spaces unacked_buffer_controller/axi_datamover_0/Data] [get_bd_addr_segs M_AXI/Reg] SEG_M_AXI_Reg
 
   # Restore current instance
   current_bd_instance $oldCurInst

@@ -29,8 +29,8 @@ struct dm_cmd {
 	ap_uint<4>	rsvd;
 };
 
-// buff starts at 2GB
-#define BUFF_ADDRESS_START	(0x80000000)
+// buff starts at 1GB
+#define BUFF_ADDRESS_START	(0x40000000)
 
 void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		    stream<struct net_axis_64>	*tx_buff_payload,
