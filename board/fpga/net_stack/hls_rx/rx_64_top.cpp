@@ -96,6 +96,8 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET);
 		recv_udp_info.src_port = recv_pkt.data(
 			SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1, SRC_SLOT_OFFSET);
+		// subtract the length of gbn header and udp header
+		recv_udp_info.length -= 16;
 
 		state = RX_STATE_WAIT_RSP;
 		break;

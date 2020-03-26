@@ -177,8 +177,12 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			 * management. Do not process it and directly pass it to
 			 * CoreMem. The packet will be send to SoC by CoreMem.
 			 */
-			state_query_rsp->write(true);
-		} 
+			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+			    pkt_type_data)
+				state_query_rsp->write(true);
+			else
+				state_query_rsp->write(false);
+		}
 		break;
 	case TAB_STATE_HANDLE_DATA:
 		/*
@@ -341,7 +345,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	ap_uint<SEQ_WIDTH> rt_last_acks_seqnum, rt_last_sent_seqnum;
 	if (!rt_timeout_sig->empty()) {
 		rt_slot_id = rt_timeout_sig->read();
-		rt_last_acks_seqnum = last_sent_seqnum_array[rt_slot_id];
+		rt_last_acks_seqnum = last_ackd_seqnum_array[rt_slot_id];
 		rt_last_sent_seqnum = last_sent_seqnum_array[rt_slot_id];
 		gbn_rt_req.slotid = rt_slot_id;
 		gbn_rt_req.seq_start = rt_last_acks_seqnum + 1;

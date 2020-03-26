@@ -38,12 +38,14 @@ void retrans_timer(stream<struct timer_req>		*timer_rst_req,
 	if (!timer_rst_req->empty()) {
 		rst_req = timer_rst_req->read();
 		rst_slot_id = rst_req.slotid;
+		current_entry = timeout_array[rst_slot_id];
 		if (rst_req.rst_type == timer_rst_type_reset) {
-			timeout_array[rst_slot_id].time = RETRANS_TIMEOUT_CYCLE / MAX_NR_CONN;
-			timeout_array[rst_slot_id].active = true;
+			current_entry.time = RETRANS_TIMEOUT_CYCLE / MAX_NR_CONN;
+			current_entry.active = true;
 		} else if (rst_req.rst_type == timer_rst_type_stop) {
-			timeout_array[rst_slot_id].active = false;
+			current_entry.active = false;
 		}
+		timeout_array[rst_slot_id] = current_entry;
 	} else {
 		scan_slot_id++;
 		PR("scan slot %d\n", scan_slot_id.to_ushort());

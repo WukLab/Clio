@@ -82,8 +82,6 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			send_udp_info.dest_port(SLOT_ID_WIDTH - 1, 0);
 		gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = pkt_type_data;
 
-		send_udp_info.src_port = LEGOMEM_PORT;
-		send_udp_info.dest_port = LEGOMEM_PORT;
 		send_udp_info.length += 8;  // add the length of gbn header
 
 		if (send_udp_info.src_port > 0 && send_udp_info.dest_port > 0) {
@@ -108,6 +106,9 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			if_buffer = false;
 			state = TX_STATE_PAYLOAD;
 		}
+
+		send_udp_info.src_port = LEGOMEM_PORT;
+		send_udp_info.dest_port = LEGOMEM_PORT;
 
 		break;
 	case TX_STATE_GBN_HEADER:

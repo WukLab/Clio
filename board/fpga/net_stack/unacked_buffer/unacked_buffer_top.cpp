@@ -139,6 +139,9 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		PR("receive retrans request: [from %ld to %ld, slot %d]\n",
 		   gbn_rt_req.seq_start.to_uint(), gbn_rt_req.seq_end.to_uint(),
 		   gbn_rt_req.slotid.to_uint());
+		
+		if (gbn_rt_req.seq_end < gbn_rt_req.seq_start)
+			break;
 
 		rt_slot_id = gbn_rt_req.slotid;
 		rt_seq = gbn_rt_req.seq_start;
@@ -201,7 +204,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 			rt_seq++;
 			if (rt_seq > gbn_rt_req.seq_end) {
 				rst_timer_req.rst_type = timer_rst_type_reset;
-				rst_timer_req.slotid = 0;
+				rst_timer_req.slotid = rt_slot_id;
 				timer_rst_req->write(rst_timer_req);
 				retrans_state = BUF_STATE_RECV_REQ;
 			} else {
