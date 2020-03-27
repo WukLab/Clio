@@ -28,6 +28,7 @@ int test_legomem_session(void)
 	int i;
 	int ret;
 
+	printf("%s(): Running session test\n", __func__);
 	/*
 	 * Step I
 	 * open a global unique context

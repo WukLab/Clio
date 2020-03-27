@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <linux/types.h>
+#include <execinfo.h>
+#include <stdio.h>
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -25,8 +27,27 @@
 #define BITS_PER_LONG		(64)
 #define BITS_PER_LONG_SHIFT	(6)
 
-#define BUG()			(assert(0))
-#define BUG_ON(cond)		(assert(!!!(cond)))
+static inline void print_backtrace(void)
+{
+#define BT_BUFFER_SIZE	128
+	void *buffer[BT_BUFFER_SIZE];
+	size_t size;
+
+	size = backtrace(buffer, BT_BUFFER_SIZE);
+	backtrace_symbols_fd(buffer, size, STDOUT_FILENO);
+}
+
+#define BUG()					\
+	do {					\
+		print_backtrace();		\
+		assert(0);			\
+	} while (0)
+#define BUG_ON(cond)				\
+	do {					\
+		bool __cond = !!(cond);		\
+		if (__cond)			\
+			BUG();			\
+	} while (0)
 
 #define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))
 #define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))

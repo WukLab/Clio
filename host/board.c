@@ -74,18 +74,26 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	bi->mem_total = mem_total;
 	bi->mem_avail = mem_total;
 
-	key = get_key(bi->board_ip, bi->udp_port);
-
-	pthread_spin_lock(&board_lock);
-	hash_add(board_list, &bi->link, key);
-	pthread_spin_unlock(&board_lock);
-
+	/*
+	 * We will create a local session for each bi's mgmt session.
+	 * Since some board_info are used to represent special local
+	 * data structures such as localhost, local_mgmt etc, they
+	 * will fall into the "is_local" catagory.
+	 */
 	if (is_local)
 		ses = legomem_open_session_local_mgmt(bi);
 	else
 		ses = legomem_open_session_remote_mgmt(bi);
-
 	set_board_mgmt_session(bi, ses);
+
+	/*
+	 * Now everything is ready, add it to the list
+	 * and it will be visible across this node.
+	 */
+	key = get_key(bi->board_ip, bi->udp_port);
+	pthread_spin_lock(&board_lock);
+	hash_add(board_list, &bi->link, key);
+	pthread_spin_unlock(&board_lock);
 
 	return bi;
 }

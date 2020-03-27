@@ -196,6 +196,7 @@ error:
 static void handle_new_node(struct thpool_buffer *tb)
 {
 	struct legomem_membership_new_node_req *req;
+	struct legomem_membership_new_node_resp *resp;
 	struct endpoint_info *new_ei;
 	struct board_info *bi;
 	int ret, i;
@@ -203,8 +204,12 @@ static void handle_new_node(struct thpool_buffer *tb)
 	unsigned int ip;
 	char *ip_str;
 
-	SetThpoolBufferNoreply(tb);
+	/* Setup response */
+	resp = (struct legomem_membership_new_node_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+	resp->ret = 0;
 
+	/* Setup request */
 	req = (struct legomem_membership_new_node_req *)tb->rx;
 	new_ei = &req->op.ei;
 

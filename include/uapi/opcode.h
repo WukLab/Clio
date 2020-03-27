@@ -242,4 +242,9 @@ struct legomem_membership_new_node_req {
 	struct op_membership_new_node op;
 };
 
+struct legomem_membership_new_node_resp {
+	struct legomem_common_headers comm_headers;
+	int ret;
+};
+
 #endif /* _LEGOFPGA_OPCODE_H_ */
