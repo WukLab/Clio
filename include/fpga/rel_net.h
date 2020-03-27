@@ -49,9 +49,7 @@
 enum pkt_type {
 	pkt_type_ack = 1,
 	pkt_type_nack = 2,
-	pkt_type_data = 3,
-	pkt_type_syn,
-	pkt_type_fin
+	pkt_type_data = 3
 };
 
 #endif

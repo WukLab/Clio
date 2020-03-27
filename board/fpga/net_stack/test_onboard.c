@@ -29,8 +29,8 @@ int gbn_connect(int sockfd, struct sockaddr *addr, unsigned src_sesid)
 {
 	int ret;
 	unsigned long buff[2];
-	struct gbn_header *syn_header = (struct gbn_header *)buff;
-	syn_header->type = pkt_type_syn;
+	struct gbn_header_board *syn_header = (struct gbn_header_board *)buff;
+	syn_header->type = pkt_type_data;
 	syn_header->seqnum = 0;
 	make_sesid(syn_header->session_id, SRC_SESSION_ID, 0);
 
@@ -47,8 +47,8 @@ int gbn_close(int sockfd, struct sockaddr *addr, unsigned dest_sesid)
 {
 	int ret;
 	unsigned long buff[2];
-	struct gbn_header *fin_header = (struct gbn_header *)buff;
-	fin_header->type = pkt_type_fin;
+	struct gbn_header_board *fin_header = (struct gbn_header_board *)buff;
+	fin_header->type = pkt_type_data;
 	fin_header->seqnum = 0;
 	make_sesid(fin_header->session_id, 0, DEST_SESSION_ID);
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	int send_size;
 	int operation_switch;
 
-	struct gbn_header *header;
+	struct gbn_header_board *header;
 
 	/*
 	 * usage:
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case 3:
-		header = (struct gbn_header *)buf;
+		header = (struct gbn_header_board *)buf;
 		header->type = pkt_type_data;
 		header->seqnum = seqnum;
 		make_sesid(header->session_id, SRC_SESSION_ID, DEST_SESSION_ID);
