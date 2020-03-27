@@ -168,6 +168,7 @@ generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
 	if (!ses)
 		return NULL;
 	ses->board_ip = bi->board_ip;
+	ses->udp_port = bi->udp_port;
 	ses->board_info = bi;
 
 	src_sesid = alloc_session_id();
@@ -213,6 +214,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	if (!ses)
 		return NULL;
 	ses->board_ip = bi->board_ip;
+	ses->udp_port = bi->udp_port;
 	ses->board_info = bi;
 	ses->tid = tid;
 

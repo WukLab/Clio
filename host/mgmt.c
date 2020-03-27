@@ -110,7 +110,7 @@ static void handle_close_session(struct thpool_buffer *tb)
 
 	/* Find if the session exist */
 	dst_sesid = req->op.session_id;
-	ses_net = find_net_session(ip, dst_sesid);
+	ses_net = find_net_session(ip, port, dst_sesid);
 	if (!ses_net) {
 		dprintf_ERROR("session not found %s:%d sesid %u\n",
 			ip_str, port, dst_sesid);

@@ -83,21 +83,25 @@ index_to_legomem_vregion(struct legomem_context *p, unsigned int index)
 
 /* ip is host order. */
 static inline int __get_session_key(unsigned int ip,
+				    unsigned int udp_port,
 				    unsigned int ses_id,
 				    unsigned int tid)
 {
-	return ip + ses_id + tid;
+	return ip + udp_port + ses_id + tid;
 }
 
 static inline int get_session_key(struct session_net *ses)
 {
-	unsigned int ip, ses_id, tid;
+	unsigned int ip, udp_port, ses_id, tid;
 
+	/* Uniquely identify a remote party */
 	ip = ses->board_ip;
+	udp_port = ses->udp_port;
+
 	ses_id = ses->session_id;
 	tid = ses->tid;
 
-	return __get_session_key(ip, ses_id, tid);
+	return __get_session_key(ip, udp_port, ses_id, tid);
 }
 
 /* Per-node context list */
@@ -131,7 +135,7 @@ void dump_net_sessions(void);
 int add_net_session(struct session_net *ses);
 int remove_net_session(struct session_net *ses);
 struct session_net *
-find_net_session(unsigned int board_ip, unsigned int session_id);
+find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id);
 
 int alloc_session_id(void);
 void free_session_id(unsigned int session_id);

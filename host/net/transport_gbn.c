@@ -581,8 +581,9 @@ static void *gbn_poll_func(void *_unused)
 {
 	struct session_net *ses_net;
 	struct gbn_header *gbn_hdr;
+	struct udp_hdr *udp_hdr;
 	struct ipv4_hdr *ipv4_hdr;
-	unsigned int remote_ip, dst_sesid;
+	unsigned int udp_port, remote_ip, dst_sesid;
 	void *recv_buf;
 	size_t buf_size, max_buf_size;
 	int ret;
@@ -620,9 +621,11 @@ static void *gbn_poll_func(void *_unused)
 
 		gbn_hdr = to_gbn_header(recv_buf);
 		ipv4_hdr = to_ipv4_header(recv_buf);
+		udp_hdr = to_udp_header(recv_buf);
 
 		dst_sesid = get_gbn_dst_session(gbn_hdr);
 		remote_ip = ntohl(ipv4_hdr->src_ip);
+		udp_port = ntohs(udp_hdr->src_port);
 
 		/*
 		 * Try to locate the net session. There are 3 cases:
@@ -630,7 +633,7 @@ static void *gbn_poll_func(void *_unused)
 		 * 2) the matched session, if both IP+ID match.
 		 * 3) NULL, if none of the above options fulfill
 		 */
-		ses_net = find_net_session(remote_ip, dst_sesid);
+		ses_net = find_net_session(remote_ip, udp_port, dst_sesid);
 		if (unlikely(!ses_net)) {
 			char str[INET_ADDRSTRLEN];
 			struct in_addr in_addr;

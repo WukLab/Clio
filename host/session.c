@@ -60,7 +60,7 @@ int add_net_session(struct session_net *ses)
 	 * session_id and board_id. We do not need to concern about tid.
 	 * This applies to the full scope of this file.
 	 */
-	key = __get_session_key(ses->board_ip, ses->session_id, 0);
+	key = __get_session_key(ses->board_ip, ses->udp_port, ses->session_id, 0);
 
 	pthread_spin_lock(&session_lock);
 	hash_add(session_hash_array, &ses->ht_link_host, key);
@@ -74,7 +74,7 @@ int remove_net_session(struct session_net *ses)
 	struct session_net *_ses;
 	int key;
 
-	key = __get_session_key(ses->board_ip, ses->session_id, 0);
+	key = __get_session_key(ses->board_ip, ses->udp_port, ses->session_id, 0);
 
 	/*
 	 * Walk through the hash bucket and check for session_id and board_ip
@@ -94,7 +94,7 @@ int remove_net_session(struct session_net *ses)
 }
 
 struct session_net *
-find_net_session(unsigned int board_ip, unsigned int session_id)
+find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id)
 {
 	struct session_net *ses;
 	int key;
@@ -102,15 +102,16 @@ find_net_session(unsigned int board_ip, unsigned int session_id)
 	if (session_id == LEGOMEM_MGMT_SESSION_ID)
 		return mgmt_session;
 
-	key = __get_session_key(board_ip, session_id, 0);
+	key = __get_session_key(board_ip, udp_port, session_id, 0);
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each_possible(session_hash_array, ses, ht_link_host, key) {
-		if (likely(ses->session_id == session_id)) {
-			if (ses->board_ip == board_ip) {
-				pthread_spin_unlock(&session_lock);
-				return ses;
-			}
+		if (likely(ses->session_id == session_id &&
+			   ses->udp_port == udp_port &&
+			   ses->board_ip == board_ip)) {
+			pthread_spin_unlock(&session_lock);
+			dprintf_DEBUG("%s %d\n", ses->board_info->name, ses->session_id);
+			return ses;
 		}
 	}
 	pthread_spin_unlock(&session_lock);

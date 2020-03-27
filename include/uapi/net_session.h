@@ -14,6 +14,8 @@
  */
 struct session_net {
 	unsigned int		board_ip;
+	unsigned int		udp_port;
+
 	unsigned int		session_id;
 	unsigned int		remote_session_id;
 
