@@ -260,7 +260,12 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		req.op.session_id = src_sesid;
 
 		remote_mgmt_ses = get_board_mgmt_session(bi);
-		BUG_ON(!remote_mgmt_ses);
+		if (!remote_mgmt_ses) {
+			dump_boards();
+			dump_net_sessions();
+			printf("%s: bi->name %s\n", __func__, bi->name);
+			BUG();
+		}
 
 		ret = net_send_and_receive(remote_mgmt_ses, &req, sizeof(req),
 					   &resp, sizeof(resp));
@@ -386,6 +391,9 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 			return -EFAULT;
 		}
 	}
+
+	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
+		bi->name, get_local_session_id(ses), get_remote_session_id(ses));
 
 	return generic_handle_close_session(ctx, bi, ses);
 }

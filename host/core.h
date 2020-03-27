@@ -181,15 +181,15 @@ int add_localhost_bi(struct endpoint_info *ei);
 
 /* Debugging info, useful for dev */
 #define dprintf_DEBUG(fmt, ...) \
-	printf("\033[34m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+	printf("\033[34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
 
 /* General info, always on */
 #define dprintf_INFO(fmt, ...) \
-	printf("\033[34m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+	printf("\033[34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
 
 /* ERROR/WARNING info, always on */
 #define dprintf_ERROR(fmt, ...) \
-	printf("\033[31m%s:%d " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+	printf("\033[31m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
 
 /*
  * for test

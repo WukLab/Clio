@@ -459,6 +459,7 @@ static void handle_test(struct thpool_buffer *tb)
  * Whenever a node comes online, it will try to contact us, the monitor.
  * We will further broadcast this great news to all out relatives.
  */
+static pthread_spinlock_t join_cluster_lock;
 static void handle_join_cluster(struct thpool_buffer *tb)
 {
 	struct legomem_membership_join_cluster_req *req;
@@ -561,6 +562,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	pthread_spin_lock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
+		struct legomem_membership_new_node_resp new_resp;
 		struct lego_header *new_lego_header;
 		struct session_net *ses;
 
@@ -582,7 +584,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 
 		/* Send to remote party's mgmt session */
 		ses = get_board_mgmt_session(bi);
-		net_send(ses, &new_req, sizeof(new_req));
+		net_send_and_receive(ses, &new_req, sizeof(new_req),
+					  &new_resp, sizeof(new_resp));
 	}
 	pthread_spin_unlock(&board_lock);
 
@@ -595,6 +598,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	pthread_spin_lock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
+		struct legomem_membership_new_node_resp new_resp;
 		struct lego_header *new_lego_header;
 		struct session_net *ses;
 
@@ -616,7 +620,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 
 		/* Send to original sender's mgmt session */
 		ses = get_board_mgmt_session(new_bi);
-		net_send(ses, &new_req, sizeof(new_req));
+		net_send_and_receive(ses, &new_req, sizeof(new_req),
+					  &new_resp, sizeof(new_resp));
 	}
 	pthread_spin_unlock(&board_lock);
 
@@ -655,7 +660,15 @@ static void worker_handle_request(struct thpool_worker *tw,
 		break;
 
 	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:
+		/*
+		 * Yeah this is ugly, but necessary to rule out nasty race conditions.
+		 * This only happens only when a node join/leave the cluster, thus rare.
+		 * Lock is needed inside handle_join_cluster because
+		 * we will walk though the list of boards multiple times.
+		 */
+		pthread_spin_lock(&join_cluster_lock);
 		handle_join_cluster(tb);
+		pthread_spin_unlock(&join_cluster_lock);
 		break;
 	default:
 		break;
@@ -803,6 +816,7 @@ int main(int argc, char **argv)
 
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
 
 	ret = init_local_management_session(false);
 	if (ret) {
