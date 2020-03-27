@@ -734,29 +734,33 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 	return 0;
 }
 
+/*
+ * TODO
+ * We need to stop all read/write/other activies using this vregion.
+ * some sort of lock is needed
+ */
 int legomem_migration_vregion(struct legomem_context *ctx,
 			      struct board_info *src_bi, struct board_info *dst_bi,
-			      unsigned int old_vregion_index)
+			      unsigned int vregion_index)
 {
 	struct legomem_migration_req req;
 	struct legomem_migration_resp resp;
 	struct lego_header *lego_header;
 	struct op_migration *op;
 	int ret;
-	unsigned int new_vregion_index;
 
-	/* Prepare legomem headers */
+	/* Prepare legomem header */
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_MIGRATION_H2M;
 	lego_header->pid = ctx->pid;
 
+	/* Prepare migration req header */
 	op = &req.op;
 	op->src_board_ip = src_bi->board_ip;
 	op->src_udp_port = src_bi->udp_port;
-	op->src_vregion_index = old_vregion_index;
-
 	op->dst_board_ip = dst_bi->board_ip;
 	op->dst_udp_port = dst_bi->udp_port;
+	op->vregion_index = vregion_index;
 
 	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
 				   &resp, sizeof(resp));
@@ -767,17 +771,17 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 
 	if (unlikely(resp.op.ret)) {
 		dprintf_DEBUG("fail to migrate vregion %u from %s to %s\n",
-			old_vregion_index, src_bi->name, dst_bi->name);
+			vregion_index, src_bi->name, dst_bi->name);
 		return resp.op.ret;
 	}
 
 	/*
+	 * TODO
 	 * Data was migrated
 	 * We need to update our local vregion metadata
-	 * TODO
+	 * the code is simialr to legomem_alloc's
+	 * establish connection mostly
 	 */
-	new_vregion_index = resp.op.new_vregion_index;
-
 
 	return 0;
 }

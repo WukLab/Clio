@@ -277,9 +277,26 @@ static int handle_reset_all(struct thpool_buffer *tb)
 	return 0;
 }
 
-static int handle_migration(struct thpool_buffer *tb)
+/*
+ * Monitor asked us to migrate a certain vregion to a new node.
+ * The new node has already been notified and waiting for us.
+ *
+ * TODO
+ * 1. Tell fpga to stop/hold any traffic targeting this vRegion.
+ *    actually we can also make sure of this at host side?
+ * 2. ask fpga to migrate the data
+ */
+static void handle_migration_send(struct thpool_buffer *tb)
 {
-	return 0;
+}
+
+/*
+ * Monitor asked us to prepare for a upcoming migration.
+ * We need to create context, vregion etc, and wait for
+ * the old owner to send the data.
+ */
+static void handle_migration_recv(struct thpool_buffer *tb)
+{
 }
 
 /*
@@ -347,8 +364,11 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_free_proc(tb);
 		break;
 
-	case OP_REQ_MIGRATION_M2B:
-		handle_migration(tb);
+	case OP_REQ_MIGRATION_M2B_SEND:
+		handle_migration_send(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV:
+		handle_migration_recv(tb);
 		break;
 
 	case OP_OPEN_SESSION:

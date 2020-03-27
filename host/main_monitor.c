@@ -455,6 +455,68 @@ static void handle_test(struct thpool_buffer *tb)
 }
 
 /*
+ * Handle the case where a host application explicitly asking
+ * for data migration. The requester has already choosed the new board.
+ */
+static void handle_migration_h2m(struct thpool_buffer *tb)
+{
+	struct legomem_migration_req *req;
+	struct legomem_migration_resp *resp;
+	struct lego_header *lego_header;
+	struct board_info *src_bi, *dst_bi;
+	unsigned int vregion_index;
+	unsigned int pid;
+
+	resp = (struct legomem_migration_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	req = (struct legomem_migration_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	pid = lego_header->opcode;
+
+	/* Found those two involved boards */
+	src_bi = find_board(req->op.src_board_ip, req->op.src_udp_port);
+	if (!src_bi) {
+		char ip_str[INET_ADDRSTRLEN];
+		get_ip_str(req->op.src_board_ip, ip_str);
+		dprintf_DEBUG("src board %s:%d not found\n",
+			ip_str, req->op.src_udp_port);
+		goto error;
+	}
+	dst_bi = find_board(req->op.dst_board_ip, req->op.dst_udp_port);
+	if (!dst_bi) {
+		char ip_str[INET_ADDRSTRLEN];
+		get_ip_str(req->op.dst_board_ip, ip_str);
+		dprintf_DEBUG("dst board %s:%d not found\n",
+			ip_str, req->op.dst_udp_port);
+		goto error;
+	}
+
+	vregion_index = req->op.vregion_index;
+
+	/*
+	 * TODO
+	 * notify the new board, let it prepare for a upcoming migration
+	 * notify the original board to start migration
+	 * wait for confirmation from both boards
+	 * then reply to host
+	 */
+
+	resp->op.ret = 0;
+error:
+	resp->op.ret = -EFAULT;
+	return;
+}
+
+/*
+ * Handle the case where a board explicitly asking for data migration.
+ */
+static void handle_migration_b2m(struct thpool_buffer *tb)
+{
+
+}
+
+/*
  * The handler for join_cluster(). Handle requests sent from either hosts or boards.
  * Whenever a node comes online, it will try to contact us, the monitor.
  * We will further broadcast this great news to all out relatives.
@@ -651,12 +713,20 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_free(tb);
 		break;
 
-	/* Proc */
+	/* Handle process management */
 	case OP_CREATE_PROC:
 		handle_create_proc(tb);
 		break;
 	case OP_FREE_PROC:
 		handle_free_proc(tb);
+		break;
+
+	/* Handle migration requests */
+	case OP_REQ_MIGRATION_H2M:
+		handle_migration_h2m(tb);
+		break;
+	case OP_REQ_MIGRATION_B2M:
+		handle_migration_b2m(tb);
 		break;
 
 	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:

@@ -31,7 +31,8 @@ enum LEGOFPGA_OPCODE_REQ {
 
 	OP_REQ_MIGRATION_H2M,
 	OP_REQ_MIGRATION_B2M,
-	OP_REQ_MIGRATION_M2B,
+	OP_REQ_MIGRATION_M2B_RECV,	/* new board, prepare for a incoming mig */
+	OP_REQ_MIGRATION_M2B_SEND,	/* old board, start migrate to new board */
 
 	/* Host to Monitor */
 	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
@@ -57,7 +58,8 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case OP_FREE_PROC:			return "op_free_proc";
 	case OP_REQ_MIGRATION_H2M:		return "op_migration_h2m";
 	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
-	case OP_REQ_MIGRATION_M2B:		return "op_migration_m2b";
+	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
+	case OP_REQ_MIGRATION_M2B_SEND:		return "op_migration_m2b_send";
 	case OP_OPEN_SESSION:			return "op_open_session";
 	case OP_CLOSE_SESSION:			return "op_close_session";
 	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:	return "op_join_cluster";
@@ -161,13 +163,13 @@ struct op_open_close_session_ret {
 };
 
 struct op_migration {
-	unsigned int src_board_ip, src_udp_port, src_vregion_index;
-	unsigned int dst_board_ip, dst_udp_port, dst_vregion_index;
+	unsigned int src_board_ip, src_udp_port;
+	unsigned int dst_board_ip, dst_udp_port;
+	unsigned int vregion_index;
 };
 
 struct op_migration_ret {
 	int ret;
-	unsigned int new_vregion_index;
 };
 
 struct legomem_common_headers {
