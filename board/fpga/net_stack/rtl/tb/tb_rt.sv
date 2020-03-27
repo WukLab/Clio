@@ -286,7 +286,7 @@ initial begin
 	dest_ip = {<<8{slv_ip}};
 	src_port = {<<8{16'd20}};  // source port acts as src slot id
 	dest_port = {<<8{16'd0}}; // destination port acts as dest slot id
-	length = {<<8{16'd16}};
+	length = {<<8{16'd24}};
 
 	session_id = {<<8{8'd20, 8'd0, 8'd0}};  // {10'd20(src slot), 10'd0(dest slot), 4'd0}
 
@@ -319,7 +319,7 @@ initial begin
 	dest_ip = {<<8{8'd192, 8'd168, 8'd1,   8'd128}};
 	src_port = {<<8{16'd1000}};
 	dest_port = {<<8{16'd1234}};
-	length = {<<8{16'd24}};	// 2*64bit
+	length = {<<8{16'd32}};	// 2*64bit
 
 	session_id = {<<8{8'd20, 8'd40, 8'd0}};  // {10'd20(src slot), 10'd10(dest slot), 4'd0}
 
@@ -362,7 +362,7 @@ initial begin
 	dest_ip = {<<8{8'd192, 8'd168, 8'd1,   8'd128}};
 	src_port = {<<8{16'd1000}};
 	dest_port = {<<8{16'd1234}};
-	length = {<<8{16'd8}};	// 2*64bit
+	length = {<<8{16'd16}};	// 2*64bit
 
 	session_id = {<<8{8'd20, 8'd40, 8'd0}};  // {10'd20(src slot), 10'd10(dest slot), 4'd0}
 

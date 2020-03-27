@@ -53,28 +53,16 @@ void rx_64(stream<struct udp_info>	*rx_header,
 
 	switch (state) {
 	case RX_STATE_UDP_HEADER:
-		if (rx_header->empty())
+		if (rx_header->empty() || rx_payload->empty())
 			break;
 		recv_udp_info = rx_header->read();
+		recv_pkt = rx_payload->read();
 
 		PR("receive udp header from net: %x:%d -> %x:%d\n",
 		   recv_udp_info.src_ip.to_uint(),
 		   recv_udp_info.src_port.to_uint(),
 		   recv_udp_info.dest_ip.to_uint(),
 		   recv_udp_info.dest_port.to_uint());
-
-		/*
-		 * src/dest ip are reversed in state table
-		 */
-		gbn_query_req.src_ip = recv_udp_info.src_ip;
-		gbn_query_req.dest_ip = recv_udp_info.dest_ip;
-
-		state = RX_STATE_GBN_HEADER;
-		break;
-	case RX_STATE_GBN_HEADER:
-		if (rx_payload->empty())
-			break;
-		recv_pkt = rx_payload->read();
 
 		PR("receive gbn header: [type %d, seq %lld, src slot %d, dest slot %d]\n",
 		   recv_pkt.data(PKT_TYPE_WIDTH - 1, 0).to_uint(),
@@ -84,6 +72,11 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		   recv_pkt.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				 DEST_SLOT_OFFSET).to_uint());
 
+		/*
+		 * src/dest ip are reversed in state table
+		 */
+		gbn_query_req.src_ip = recv_udp_info.src_ip;
+		gbn_query_req.dest_ip = recv_udp_info.dest_ip;
 		gbn_query_req.gbn_header = recv_pkt.data;
 		state_query_req->write(gbn_query_req);
 		/*
