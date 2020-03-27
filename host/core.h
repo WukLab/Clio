@@ -11,6 +11,18 @@ struct legomem_vregion {
 	struct session_net *ses_net;
 };
 
+static inline void
+set_vregion_session(struct legomem_vregion *v, struct session_net *ses)
+{
+	v->ses_net = ses;
+}
+
+static inline struct session_net *
+get_vregion_session(struct legomem_vregion *v)
+{
+	return v->ses_net;
+}
+
 #define LEGOMEM_CONTEXT_FLAGS_MGMT	0x1
 
 struct legomem_context {
@@ -199,5 +211,6 @@ int add_localhost_bi(struct endpoint_info *ei);
  * for test
  */
 int test_legomem_session(void);
+int test_legomem_migration(void);
 
 #endif /* _HOST_CORE_H_ */

@@ -79,7 +79,7 @@ void test(void)
 	struct msg {
 		struct legomem_common_headers comm_headers;
 		int cnt;
-	} req, resp;
+	} req;
 	struct lego_header *lego_header;
 	int i;
 
@@ -257,6 +257,7 @@ int main(int argc, char **argv)
 
 	if (run_test) {
 		ret = test_legomem_session();
+		ret = test_legomem_migration();
 	}
 
 	pthread_join(mgmt_session->thread, NULL);

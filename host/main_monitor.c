@@ -454,6 +454,16 @@ static void handle_test(struct thpool_buffer *tb)
 	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
 }
 
+static int migration_notify_recv(void)
+{
+	return 0;
+}
+
+static int migration_notify_send(void)
+{
+	return 0;
+}
+
 /*
  * Handle the case where a host application explicitly asking
  * for data migration. The requester has already choosed the new board.
@@ -465,7 +475,7 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	struct lego_header *lego_header;
 	struct board_info *src_bi, *dst_bi;
 	unsigned int vregion_index;
-	unsigned int pid;
+	unsigned int pid, ret;
 
 	resp = (struct legomem_migration_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
@@ -494,13 +504,8 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 
 	vregion_index = req->op.vregion_index;
 
-	/*
-	 * TODO
-	 * notify the new board, let it prepare for a upcoming migration
-	 * notify the original board to start migration
-	 * wait for confirmation from both boards
-	 * then reply to host
-	 */
+	ret = migration_notify_recv();
+	ret = migration_notify_send();
 
 	resp->op.ret = 0;
 error:

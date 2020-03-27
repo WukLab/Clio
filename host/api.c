@@ -485,7 +485,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 */
 	v = find_vregion_candidate(ctx, size);
 	if (v) {
-		ses = v->ses_net;
+		ses = get_vregion_session(v);
 		BUG_ON(!ses);
 
 		vregion_idx = legomem_vregion_to_index(ctx, v);
@@ -539,7 +539,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 * link them together:
 	 */
 	v = index_to_legomem_vregion(ctx, vregion_idx);
-	v->ses_net = ses;
+	set_vregion_session(v, ses);
 
 found:
 	/*
@@ -747,6 +747,8 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	struct legomem_migration_resp resp;
 	struct lego_header *lego_header;
 	struct op_migration *op;
+	struct session_net *ses;
+	struct legomem_vregion *v;
 	int ret;
 
 	/* Prepare legomem header */
@@ -776,12 +778,23 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	}
 
 	/*
-	 * TODO
-	 * Data was migrated
-	 * We need to update our local vregion metadata
-	 * the code is simialr to legomem_alloc's
-	 * establish connection mostly
+	 * Data was migrated. Now update vregion medadata.
+	 * First close the original session with the old board,
+	 * then open a new session with new board.
 	 */
+	v = index_to_legomem_vregion(ctx, vregion_index);
+	ses = get_vregion_session(v);
+	legomem_close_session(ctx, ses);
+
+	ses = legomem_open_session(ctx, dst_bi);
+	if (!ses) {
+		dprintf_DEBUG("Fail to open a session with the new board %s. "
+			      "Data was already migrated to it though. "
+			      "We are not moving it back now.\n",
+			dst_bi->name);
+		return -ENOMEM;
+	}
+	set_vregion_session(v, ses);
 
 	return 0;
 }
