@@ -733,3 +733,77 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 
 	return 0;
 }
+
+int legomem_migration_vregion(struct legomem_context *ctx,
+			      struct board_info *src_bi, struct board_info *dst_bi,
+			      unsigned int old_vregion_index)
+{
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct op_migration *op;
+	int ret;
+	unsigned int new_vregion_index;
+
+	/* Prepare legomem headers */
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_H2M;
+	lego_header->pid = ctx->pid;
+
+	op = &req.op;
+	op->src_board_ip = src_bi->board_ip;
+	op->src_udp_port = src_bi->udp_port;
+	op->src_vregion_index = old_vregion_index;
+
+	op->dst_board_ip = dst_bi->board_ip;
+	op->dst_udp_port = dst_bi->udp_port;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_ERROR("net error %d\n", ret);
+		return -EIO;
+	}
+
+	if (unlikely(resp.op.ret)) {
+		dprintf_DEBUG("fail to migrate vregion %u from %s to %s\n",
+			old_vregion_index, src_bi->name, dst_bi->name);
+		return resp.op.ret;
+	}
+
+	/*
+	 * Data was migrated
+	 * We need to update our local vregion metadata
+	 * TODO
+	 */
+	new_vregion_index = resp.op.new_vregion_index;
+
+
+	return 0;
+}
+
+/*
+ * Migrate [address, address+size) from @src_bi to @dst_bi.
+ * We will contact monitor first.
+ */
+int legomem_migration(struct legomem_context *ctx,
+		      struct board_info *src_bi, struct board_info *dst_bi,
+		      unsigned long __remote addr, unsigned long size)
+{
+	unsigned long end;
+	unsigned int ret, start_index, end_index;
+
+	end = addr + size;
+
+	start_index = va_to_vregion_index(addr);
+	end_index = va_to_vregion_index(end);
+
+	while (start_index <= end_index) {
+		ret = legomem_migration_vregion(ctx, src_bi, dst_bi, start_index);
+		start_index++;
+
+		if (ret)
+			break;
+	}
+	return ret;
+}

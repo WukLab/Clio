@@ -347,7 +347,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_free_proc(tb);
 		break;
 
-	case OP_REQ_MIGRATION:
+	case OP_REQ_MIGRATION_M2B:
 		handle_migration(tb);
 		break;
 
