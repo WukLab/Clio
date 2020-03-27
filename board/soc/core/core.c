@@ -299,6 +299,10 @@ static void handle_migration_recv(struct thpool_buffer *tb)
 {
 }
 
+static void handle_migration_recv_cancel(struct thpool_buffer *tb)
+{
+}
+
 /*
  * This handler is a generic debug handler that could
  * handle various debugging requests
@@ -369,6 +373,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 		break;
 	case OP_REQ_MIGRATION_M2B_RECV:
 		handle_migration_recv(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:
+		handle_migration_recv_cancel(tb);
 		break;
 
 	case OP_OPEN_SESSION:

@@ -454,19 +454,85 @@ static void handle_test(struct thpool_buffer *tb)
 	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
 }
 
-static int migration_notify_recv(void)
+static int migration_notify_cancel_recv(struct board_info *dst_bi,
+					struct legomem_migration_req *orig_req)
 {
-	return 0;
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_M2B_RECV_CANCEL;
+	lego_header->pid = to_lego_header(orig_req)->pid;
+	memcpy(&req.op, &orig_req->op, sizeof(struct op_migration));
+
+	ses = get_board_mgmt_session(dst_bi);
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d board: %s\n", ret, dst_bi->name);
+		return -EIO;
+	}
+	return resp.op.ret;
 }
 
-static int migration_notify_send(void)
+/*
+ * Notify the remote party @dst_bi to prepare for a upcoming migration.
+ * We will send the vregion_index and original owner info.
+ * Return 0 on success otherwise failures.
+ */
+static int migration_notify_recv(struct board_info *dst_bi,
+				 struct legomem_migration_req *orig_req)
 {
-	return 0;
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_M2B_RECV;
+	lego_header->pid = to_lego_header(orig_req)->pid;
+	memcpy(&req.op, &orig_req->op, sizeof(struct op_migration));
+
+	ses = get_board_mgmt_session(dst_bi);
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d board: %s\n", ret, dst_bi->name);
+		return -EIO;
+	}
+	return resp.op.ret;
+}
+
+static int migration_notify_send(struct board_info *src_bi,
+				 struct legomem_migration_req *orig_req)
+{
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_M2B_SEND;
+	lego_header->pid = to_lego_header(orig_req)->pid;
+	memcpy(&req.op, &orig_req->op, sizeof(struct op_migration));
+
+	ses = get_board_mgmt_session(src_bi);
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d board: %s\n", ret, src_bi->name);
+		return -EIO;
+	}
+	return resp.op.ret;
 }
 
 /*
  * Handle the case where a host application explicitly asking
  * for data migration. The requester has already choosed the new board.
+ *
+ * Monitor is the coordinate for vRegion migrations.
  */
 static void handle_migration_h2m(struct thpool_buffer *tb)
 {
@@ -487,30 +553,46 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	/* Found those two involved boards */
 	src_bi = find_board(req->op.src_board_ip, req->op.src_udp_port);
 	if (!src_bi) {
-		char ip_str[INET_ADDRSTRLEN];
-		get_ip_str(req->op.src_board_ip, ip_str);
-		dprintf_DEBUG("src board %s:%d not found\n",
-			ip_str, req->op.src_udp_port);
+		dprintf_DEBUG("src board %s not found\n", src_bi->name);
 		goto error;
 	}
 	dst_bi = find_board(req->op.dst_board_ip, req->op.dst_udp_port);
 	if (!dst_bi) {
-		char ip_str[INET_ADDRSTRLEN];
-		get_ip_str(req->op.dst_board_ip, ip_str);
-		dprintf_DEBUG("dst board %s:%d not found\n",
-			ip_str, req->op.dst_udp_port);
+		dprintf_DEBUG("dst board %s not found\n", dst_bi->name);
 		goto error;
 	}
 
 	vregion_index = req->op.vregion_index;
 
-	ret = migration_notify_recv();
-	ret = migration_notify_send();
+	/* First notify the new board to let it prepare */
+	ret = migration_notify_recv(dst_bi, req);
+	if (ret) {
+		dprintf_DEBUG("dst board %s does not accept migration. Error %d\n",
+			dst_bi->name, ret);
+		goto error;
+	}
+
+	/* Then notify the old board to start migration */
+	ret = migration_notify_send(src_bi, req);
+	if (ret) {
+		/* Tell new board to cancel the party */
+		migration_notify_cancel_recv(dst_bi, req);
+		dprintf_DEBUG("src board %s cannot start migration. Error %d\n",
+			src_bi->name, ret);
+		goto error;
+	}
+
+	/*
+	 * TODO
+	 * Update monitor local vRegion info
+	 * Similar to handle_alloc's
+	 */
 
 	resp->op.ret = 0;
+	return;
+
 error:
 	resp->op.ret = -EFAULT;
-	return;
 }
 
 /*

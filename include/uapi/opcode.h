@@ -32,6 +32,7 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_MIGRATION_H2M,
 	OP_REQ_MIGRATION_B2M,
 	OP_REQ_MIGRATION_M2B_RECV,	/* new board, prepare for a incoming mig */
+	OP_REQ_MIGRATION_M2B_RECV_CANCEL,
 	OP_REQ_MIGRATION_M2B_SEND,	/* old board, start migrate to new board */
 
 	/* Host to Monitor */
@@ -59,6 +60,7 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case OP_REQ_MIGRATION_H2M:		return "op_migration_h2m";
 	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
 	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:	return "op_migration_m2b_recv_cancel";
 	case OP_REQ_MIGRATION_M2B_SEND:		return "op_migration_m2b_send";
 	case OP_OPEN_SESSION:			return "op_open_session";
 	case OP_CLOSE_SESSION:			return "op_close_session";
