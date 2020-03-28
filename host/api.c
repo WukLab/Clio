@@ -32,18 +32,11 @@ __legomem_open_context(bool is_mgmt)
 	p = malloc(sizeof(*p));
 	if (!p)
 		return NULL;
-
 	init_legomem_context(p);
-
-	/* Add to per-node context list */
-	ret = add_legomem_context(p);
-	if (ret) {
-		free(p);
-		return NULL;
-	}
 
 	if (is_mgmt) {
 		p->flags |= LEGOMEM_CONTEXT_FLAGS_MGMT;
+		p->pid = 0;
 	} else {
 		/*
 		 * Normal context creation
@@ -59,18 +52,28 @@ __legomem_open_context(bool is_mgmt)
 
 		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
 					   &resp, sizeof(resp));
-		if (ret <= 0)
-
-		if (unlikely(resp.op.ret))
+		if (ret <= 0) {
+			dprintf_DEBUG("net error: %d\n", ret);
 			goto err;
+		}
+
+		if (resp.op.ret) {
+			dprintf_DEBUG("monitor fail to create context: %d\n",
+				resp.op.ret);
+			goto err;
+		}
 
 		p->pid = resp.op.pid;
 	}
 
+	/* Add to per-node context list */
+	ret = add_legomem_context(p);
+	if (ret)
+		goto err;
 	return p;
 
 err:
-	remove_legomem_context(p);
+	free(p);
 	return NULL;
 }
 
@@ -102,12 +105,8 @@ int legomem_close_context(struct legomem_context *ctx)
 	if (!ctx)
 		return -EINVAL;
 
-	/* Remove from per-node context list */
-	ret = remove_legomem_context(ctx);
-	if (ret)
-		return ret;
-
-	if (!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT)) {
+	/* Non-mgmt context need to contact monitor */
+	if (likely(!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT))) {
 		struct legomem_close_context_req req;
 		struct legomem_close_context_resp resp;
 		struct lego_header *lego_header;
@@ -116,15 +115,21 @@ int legomem_close_context(struct legomem_context *ctx)
 		lego_header->opcode = OP_FREE_PROC;
 		lego_header->pid = ctx->pid;
 
-		net_send_and_receive(monitor_session, &req, sizeof(req),
-				     &resp, sizeof(resp));
-
+		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+					   &resp, sizeof(resp));
+		if (ret <= 0) {
+			dprintf_DEBUG("net error: %d\n", ret);
+			return -EIO;
+		}
+		
 		if (resp.ret) {
-			dprintf_ERROR("monitor fail to close context: %#lx ret %d\n",
-				(unsigned long)ctx, resp.ret);
+			dprintf_DEBUG("monitor fail to close context (pid %u) ret %d\n",
+				ctx->pid, resp.ret);
+			return -EFAULT;
 		}
 	}
 
+	remove_legomem_context(ctx);
 	free(ctx);
 	return 0;
 }

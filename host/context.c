@@ -14,10 +14,11 @@
 #include "core.h"
 
 /*
- * This is a per-node global legomem context list.
+ * This is a per-node global legomem context hashtable.
  * One context per process.
  */
-static LIST_HEAD(context_list);
+#define CONTEXT_HASH_ARRAY_BITS	(5)
+static DEFINE_HASHTABLE(context_list, CONTEXT_HASH_ARRAY_BITS);
 static pthread_spinlock_t context_lock;
 
 int init_context_subsys(void)
@@ -28,33 +29,63 @@ int init_context_subsys(void)
 
 int add_legomem_context(struct legomem_context *p)
 {
+	unsigned int key;
+
+	key = p->pid;
+
 	pthread_spin_lock(&context_lock);
-	list_add(&p->list, &context_list);
+	hash_add(context_list, &p->link, key);
 	pthread_spin_unlock(&context_lock);
+
 	return 0;
 }
 
 int remove_legomem_context(struct legomem_context *p)
 {
-	BUG_ON(!p);
+	unsigned int key;
+	struct legomem_context *_p;
+
+	key = p->pid;
 
 	pthread_spin_lock(&context_lock);
-	list_del(&p->list);
+	hash_for_each_possible(context_list, _p, link, key) {
+		if (_p->pid == p->pid) {
+			hash_del(&p->link);
+			pthread_spin_unlock(&context_lock);
+			return 0;
+		}
+	}
 	pthread_spin_unlock(&context_lock);
+	return -ESRCH;
+}
 
-	return 0;
+struct legomem_context *find_legomem_context(unsigned int pid)
+{
+	unsigned int key;
+	struct legomem_context *p;
+
+	key = pid;
+	pthread_spin_lock(&context_lock);
+	hash_for_each_possible(context_list, p, link, key) {
+		if (p->pid == pid) {
+			pthread_spin_unlock(&context_lock);
+			return p;
+		}
+	}
+	pthread_spin_unlock(&context_lock);
+	return NULL;
 }
 
 void dump_legomem_context(void)
 {
 	struct legomem_context *p;
-	int i = 0;
+	int bkt = 0;
 
-	printf("-- Dumping LegoMem Contexts: --\n");
+	printf("  bucket      pid\n");
+	printf("-------- --------\n");
 	pthread_spin_lock(&context_lock);
-	list_for_each_entry(p, &context_list, list) {
-		printf("[%2d] pid %d\n", i, p->pid);
-		i++;
+	hash_for_each(context_list, bkt, p, link) {
+		printf("%8d %8d\n", bkt, p->pid);
 	}
 	pthread_spin_unlock(&context_lock);
 }

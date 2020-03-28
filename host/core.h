@@ -30,7 +30,7 @@ struct legomem_context {
 	unsigned int pid;
 
 	/* List all contexts */
-	struct list_head list;
+	struct hlist_node link;
 
 	/*
 	 * List of all open sessions of this context.
@@ -51,7 +51,7 @@ static inline void init_legomem_context(struct legomem_context *p)
 	BUG_ON(!p);
 
 	memset(p, 0, sizeof(*p));
-	INIT_LIST_HEAD(&p->list);
+	INIT_HLIST_NODE(&p->link);
 	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* init all vregions */
@@ -120,6 +120,7 @@ static inline int get_session_key(struct session_net *ses)
 int init_context_subsys(void);
 int add_legomem_context(struct legomem_context *p);
 int remove_legomem_context(struct legomem_context *p);
+struct legomem_context *find_legomem_context(unsigned int pid);
 void dump_legomem_context(void);
 int context_add_session(struct legomem_context *p, struct session_net *ses);
 int context_remove_session(struct legomem_context *p, struct session_net *ses);

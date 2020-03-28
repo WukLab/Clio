@@ -194,7 +194,8 @@ board_find_session(struct board_info *p, int session_id)
 #define VREGION_INFO_FLAG_ALLOCATED	(0x1)
 struct vregion_info {
 	unsigned int		flags;
-	unsigned long		board_id;
+	unsigned int		board_ip;
+	unsigned int		udp_port;
 
 	/*
 	 * List of VMAs
