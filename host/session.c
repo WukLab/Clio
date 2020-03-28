@@ -110,7 +110,6 @@ find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int sess
 			   ses->udp_port == udp_port &&
 			   ses->board_ip == board_ip)) {
 			pthread_spin_unlock(&session_lock);
-			dprintf_DEBUG("%s %d\n", ses->board_info->name, ses->session_id);
 			return ses;
 		}
 	}
@@ -126,8 +125,8 @@ void dump_net_sessions(void)
 	char ip_str[INET_ADDRSTRLEN];
 	char ip_port_str[20];
 
-	printf("  bucket    ses_local   ses_remote       ip:port_remote               remote_name\n"); 
-	printf("-------- ------------ ------------ -------------------- -------------------------\n");
+	printf("  bucket    ses_local   ses_remote       ip:port_remote                    remote_name\n"); 
+	printf("-------- ------------ ------------ -------------------- ------------------------------\n");
 
 	pthread_spin_lock(&session_lock);
 	hash_for_each(session_hash_array, bkt, ses, ht_link_host) {
@@ -137,7 +136,7 @@ void dump_net_sessions(void)
 		get_ip_str(ses->board_ip, ip_str);
 		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
 
-		printf("%8d %12u %12u %20s %25s\n",
+		printf("%8d %12u %12u %20s %30s\n",
 			bkt,
 			get_local_session_id(ses),
 			get_remote_session_id(ses),

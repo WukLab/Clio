@@ -112,14 +112,16 @@ static int join_cluster(void)
 	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
 				   &resp, sizeof(resp));
 	if (ret <= 0) {
-		printf("%s(): fail to join cluster, net error\n", __func__);
+		dprintf_ERROR("net error %d\n", ret);
 		return -1;
 	}
 
 	if (resp.ret == 0)
-		printf("%s(): succefully joined cluster.\n", __func__);
+		dprintf_INFO("Succefully joined cluster! (monitor: %s)\n",
+			monitor_bi->name);
 	else
-		printf("%s(): fail to join cluster, monitor error\n", __func__);
+		dprintf_ERROR("Fail to join cluster, monitor error %d\n",
+			resp.ret);
 	return resp.ret;
 }
 
@@ -129,8 +131,11 @@ static void print_usage(void)
 	       "\n"
 	       "Options:\n"
 	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format\n"
+	       "  --skip_join                 Do not contact monitor for cluster join\n"
+	       "                              This is useful if there is no real monitor running\n"
 	       "  --dev=<name>                Specify the local network device\n"
 	       "  --port=<port>               Specify the local UDP port\n"
+	       "  --add_board=<ip:port>       Manually add a remote board\n"
 	       "  --run_test                  Run built-in tests"
 	       "\n"
 	       "Examples:\n"
@@ -140,8 +145,10 @@ static void print_usage(void)
 
 static struct option long_options[] = {
 	{ "monitor",	required_argument,	NULL,	'm'},
+	{ "skip_join",  no_argument,		NULL,	's'},
 	{ "port",	required_argument,	NULL,	'p'},
 	{ "dev",	required_argument,	NULL,	'd'},
+	{ "add_board",	required_argument,	NULL,	'b'},
 	{ "run_test",	no_argument,	NULL,	't'},
 	{ 0,		0,			0,	0  }
 };
@@ -152,14 +159,18 @@ int main(int argc, char **argv)
 	int c, option_index = 0;
 	char monitor_addr[32];
 	bool monitor_addr_set = false;
+	bool skip_join_set = false;
 	char ndev[32];
 	bool ndev_set = false;
 	int port = 0;
 	bool run_test = false;
 
+	char board_addr[32];
+	char board_addr_set = false;
+
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "m:p:d:t",
+		c = getopt_long(argc, argv, "m:p:d:b:t",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -169,12 +180,20 @@ int main(int argc, char **argv)
 			strncpy(monitor_addr, optarg, sizeof(monitor_addr));
 			monitor_addr_set = true;
 			break;
+		case 's': {
+			skip_join_set = true;
+			break;
+		}
 		case 'p':
 			port = atoi(optarg);
 			break;
 		case 'd':
 			strncpy(ndev, optarg, sizeof(ndev));
 			ndev_set = true;
+			break;
+		case 'b':
+			strncpy(board_addr, optarg, sizeof(board_addr));
+			board_addr_set = true;
 			break;
 		case 't':
 			run_test = true;
@@ -193,7 +212,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!monitor_addr_set) {
-		printf("ERROR: Please specify the monitor address.\n\n");
+		printf("ERROR: Please specify the monitor address\n\n");
 		print_usage();
 		return 0;
 	}
@@ -236,26 +255,41 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	/*
-	 * add the special localhost board_info
-	 */
+	/* Add the special localhost board_info */
 	add_localhost_bi(&default_local_ei);
  
-	/* Open local mgmt session */
+	/* Open the local mgmt session */
 	ret = init_local_management_session(true);
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
 
-	dump_boards();
-	dump_net_sessions();
+	/*
+	 * We only contact monitor
+	 * if the --skip_join flag is NOT passed
+	 */
+	if (!skip_join_set) {
+		ret = join_cluster();
+		if (ret)
+			exit(-1);
+	} else {
+		dprintf_INFO("Skipped join_cluster, monitor (%s) is not contacted.\n",
+			monitor_bi->name);
+	}
 
-	ret = join_cluster();
-	if (ret)
-		exit(-1);
+	/*
+	 * Manually add some remote boards
+	 * Do this after we've joined cluster
+	 */
+	if (board_addr_set) {
+		manually_add_new_node_str(board_addr, BOARD_INFO_FLAGS_BOARD);
+	}
 
 	if (run_test) {
+		if (board_addr_set)
+			ret = test_legomem_board(board_addr);
+
 		ret = test_legomem_session();
 		ret = test_legomem_migration();
 	}

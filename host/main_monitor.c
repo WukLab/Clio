@@ -636,7 +636,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		id = atomic_fetch_add(&nr_boards, 1);
 		sprintf(new_name, "board%d_%s:%u", id, ip_str, ei->udp_port);
 	} else {
-		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
+		dprintf_ERROR("Unknown node type: %s\n",
+			board_info_type_str(req->op.type));
 		resp->ret = -EINVAL;
 		return;
 	}

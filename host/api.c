@@ -256,14 +256,20 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		struct session_net *remote_mgmt_ses;
 		int ret;
 
-		if (!ctx) {
-			dprintf_ERROR("User session must provide ctx.%d", 0);
-			goto free_id;
-		}
-
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_OPEN_SESSION;
-		lego_header->pid = ctx->pid;
+
+		if (ctx) {
+			lego_header->pid = ctx->pid;
+		} else {
+			lego_header->pid = 0;
+			/*
+			 * User does not provide ctx to associate the session.
+			 * This is okay but we lost some bookkeeping, and the
+			 * remote will not know who requested this.
+			 */
+		}
+
 		req.op.session_id = src_sesid;
 
 		remote_mgmt_ses = get_board_mgmt_session(bi);
@@ -364,14 +370,20 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 		struct lego_header *lego_header;
 		struct session_net *remote_mgmt_ses;
 
-		if (!ctx) {
-			dprintf_ERROR("User session must provide ctx.%d", 0);
-			return -EINVAL;
-		}
-
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_CLOSE_SESSION;
-		lego_header->pid = ctx->pid;
+		if (ctx)
+			lego_header->pid = ctx->pid;
+		else {
+			lego_header->pid = 0;
+			/*
+			 * User does not provide ctx to associate the session.
+			 * This is okay but we lost some bookkeeping, and the
+			 * remote will not know who requested this.
+			 *
+			 * Same as open_session.
+			 */
+		}
 
 		/*
 		 * Yes, virginia. We need to use the remote side session id.

@@ -14,7 +14,8 @@ SRCS := board.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
 	test_session.c \
-	test_migration.c
+	test_migration.c \
+	test_board.c
 
 # or -g
 DEBUG := -g

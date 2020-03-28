@@ -267,6 +267,60 @@ static void handle_new_node(struct thpool_buffer *tb)
 	dump_net_sessions();
 }
 
+/*
+ * Manually add a new remote node.
+ * Since this is not broadcast from monitor, this information is local only.
+ * This interface is mainly designed for testing purpose.
+ */
+int manually_add_new_node(unsigned int ip, unsigned int udp_port,
+			  unsigned int node_type)
+{
+	struct thpool_buffer tb;
+	struct legomem_membership_new_node_req *req;
+	struct endpoint_info *ei;
+	char ip_str[INET_ADDRSTRLEN];
+	char new_name[BOARD_NAME_LEN];
+
+	/* Cook the name */
+	get_ip_str(ip, ip_str);
+	if (node_type == BOARD_INFO_FLAGS_BOARD) {
+		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
+	} else {
+		dprintf_ERROR("Manual adding only supports _board_ for now. (%s)\n",
+			board_info_type_str(node_type));
+		return -EINVAL;
+	}
+
+	req = (struct legomem_membership_new_node_req *)tb.rx;
+
+	/*
+	 * We do not need to fill the mac addr
+	 * let the handler figure it out
+	 */
+	ei = &req->op.ei;
+	memcpy(ei->ip_str, ip_str, INET_ADDRSTRLEN);
+	ei->ip = ip;
+	ei->udp_port = udp_port;
+
+	/* Fill in the fake request */
+	req->op.type = node_type;
+	req->op.mem_size_bytes = 0;
+	memcpy(req->op.name, new_name, BOARD_NAME_LEN);
+
+	handle_new_node(&tb);
+	return 0;
+}
+
+int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
+{
+	unsigned int ip, port;
+	unsigned int ip1, ip2, ip3, ip4;
+
+	sscanf(ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+	return manually_add_new_node(ip, port, node_type);
+}
+
 static void
 worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 {
