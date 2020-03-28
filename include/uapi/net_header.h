@@ -9,12 +9,12 @@
 #define _UAPI_NET_HEADER_H_
 
 #include <uapi/compiler.h>
+#include <uapi/gbn.h>
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <net/if.h>
-#include <fpga/rel_net.h>
 
 struct eth_hdr {
 	uint8_t dst_mac[6];
@@ -104,12 +104,6 @@ swap_gbn_session(struct gbn_header *hdr)
 	set_gbn_src_session(hdr, tmp2);
 	set_gbn_dst_session(hdr, tmp1);
 }
-
-enum gbn_pkt_type {
-	GBN_PKT_ACK = 1,
-	GBN_PKT_NACK = 2,
-	GBN_PKT_DATA = 3,
-};
 
 static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
 {

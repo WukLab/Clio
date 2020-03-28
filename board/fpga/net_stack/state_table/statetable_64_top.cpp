@@ -100,10 +100,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	 * These are connection states
 	 * Need to be initialized when a connection is setup
 	 */
-	static bool ack_enable_bitmap[MAX_NR_CONN];
-	static ap_uint<SEQ_WIDTH> expected_seqnum_array[MAX_NR_CONN];
-	static ap_uint<SEQ_WIDTH> last_ackd_seqnum_array[MAX_NR_CONN];
-	static ap_uint<SEQ_WIDTH> last_sent_seqnum_array[MAX_NR_CONN];
+	static bool ack_enable_bitmap[NR_MAX_SESSIONS_PER_NODE];
+	static ap_uint<SEQ_WIDTH> expected_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
+	static ap_uint<SEQ_WIDTH> last_ackd_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
+	static ap_uint<SEQ_WIDTH> last_sent_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
 #pragma HLS DEPENDENCE variable=ack_enable_bitmap false
 #pragma HLS DEPENDENCE variable=expected_seqnum_array false
 #pragma HLS DEPENDENCE variable=last_acked_seqnum_array false
@@ -154,13 +154,13 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		    gbn_query_req.gbn_header(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 					     SRC_SLOT_OFFSET) > 0) {
 			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-			    pkt_type_data) {
+			    GBN_PKT_DATA) {
 				expt_seqnum = expected_seqnum_array[rx_slot_id];
 				handle_rx_state = TAB_STATE_HANDLE_DATA;
 			} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-					   pkt_type_ack ||
+					   GBN_PKT_ACK ||
 				   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-					   pkt_type_nack) {
+					   GBN_PKT_NACK) {
 				rx_last_ackd_seqnum =
 					last_ackd_seqnum_array[rx_slot_id];
 				rx_last_sent_seqnum =
@@ -178,7 +178,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			 * CoreMem. The packet will be send to SoC by CoreMem.
 			 */
 			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-			    pkt_type_data)
+			    GBN_PKT_DATA)
 				state_query_rsp->write(true);
 			else
 				state_query_rsp->write(false);
@@ -197,7 +197,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			rsp_header->write(rsp_udp_info);
 			/* generate response packet */
 			rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
-				pkt_type_ack;
+				GBN_PKT_ACK;
 			rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 					SEQ_OFFSET) = expt_seqnum;
 
@@ -211,7 +211,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				rsp_header->write(rsp_udp_info);
 				/* generate response packet */
 				rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
-					pkt_type_nack;
+					GBN_PKT_NACK;
 				rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 					     SEQ_OFFSET) = expt_seqnum - 1;
 
@@ -223,7 +223,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				rsp_header->write(rsp_udp_info);
 				/* generate response packet */
 				rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
-					pkt_type_ack;
+					GBN_PKT_ACK;
 				rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 						SEQ_OFFSET) = expt_seqnum - 1;
 
@@ -259,7 +259,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			}
 
 			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-			    pkt_type_ack) {
+			    GBN_PKT_ACK) {
 				/* set net timeout for this flow and enable timeout */
 				rst_timer_req.slotid = gbn_query_req.gbn_header(
 					DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
@@ -276,7 +276,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			}
 		} else if (recv_seqnum == rx_last_ackd_seqnum &&
 			   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				   pkt_type_nack) {
+				   GBN_PKT_NACK) {
 			retrans_data = true;
 		}
 

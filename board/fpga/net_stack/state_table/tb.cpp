@@ -151,7 +151,7 @@ void test_rx(vector<unsigned> &test_seq)
 		if (i < test_seq.size()) {
 			ses_id = build_sesid(20, 10);
 			test_query.gbn_header =
-				build_gbn_header(ses_id, pkt_type_data,
+				build_gbn_header(ses_id, GBN_PKT_DATA,
 						 test_seq[i], 0).data;
 			dph("[cycle %2d] host send gbn header [type %d, seq %lld, src slot %d, dest slot %d]\n",
 			    cycle, test_query.gbn_header(7, 0).to_uint(),
@@ -168,7 +168,7 @@ void test_rx(vector<unsigned> &test_seq)
 	printf("-------test rx done---------\n");
 }
 
-void test_ack(vector<unsigned> &ack_seq, vector<enum pkt_type> &ack_type)
+void test_ack(vector<unsigned> &ack_seq, vector<enum gbn_pkt_type> &ack_type)
 {
 	printf("----------test ack-----------\n");
 
@@ -241,9 +241,9 @@ void test_consistency()
 				     &rt_timeout, &init_req);
 	
 	ses_id = build_sesid(20, 10);
-	test_query.gbn_header = build_gbn_header(ses_id, pkt_type_data, 2, 0).data;
+	test_query.gbn_header = build_gbn_header(ses_id, GBN_PKT_DATA, 2, 0).data;
 	rx_query.write(test_query);
-	test_query.gbn_header = build_gbn_header(ses_id, pkt_type_fin, 2, 0).data;
+	test_query.gbn_header = build_gbn_header(ses_id, GBN_PKT_DATA, 2, 0).data;
 	rx_query.write(test_query);
 
 	for (; cycle < MAX_CYCLE; )
@@ -263,11 +263,11 @@ int main()
 	// test_rx(seq4);
 
 	vector<unsigned> seqack1 = {1, 2, 3, 2, 5, 6, 7};
-	vector<enum pkt_type> type1(7, pkt_type_ack);
+	vector<enum gbn_pkt_type> type1(7, GBN_PKT_ACK);
 	vector<unsigned> seqack2 = {1, 2, 3, 3, 6, 8};
-	vector<enum pkt_type> type2 = {pkt_type_ack, pkt_type_ack,
-				       pkt_type_ack, pkt_type_nack,
-				       pkt_type_ack, pkt_type_ack};
+	vector<enum gbn_pkt_type> type2 = {GBN_PKT_ACK, GBN_PKT_ACK,
+				       GBN_PKT_ACK, GBN_PKT_NACK,
+				       GBN_PKT_ACK, GBN_PKT_ACK};
 	test_ack(seqack1, type1);
 	test_ack(seqack2, type2);
 

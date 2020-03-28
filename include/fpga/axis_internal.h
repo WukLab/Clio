@@ -1,7 +1,7 @@
 #ifndef _LEGO_MEM_AXIS_INTERNAL_
 #define _LEGO_MEM_AXIS_INTERNAL_
 
-#include <fpga/rel_net.h>
+#include <uapi/gbn.h>
 #include <ap_int.h>
 
 enum timer_rst_type {

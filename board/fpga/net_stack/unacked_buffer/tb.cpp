@@ -184,7 +184,7 @@ void test_write()
 			buff_route_info.write(test_header);
 
 			ses_id = build_sesid(20, 10);
-			test_payload = build_gbn_header(ses_id, pkt_type_data,
+			test_payload = build_gbn_header(ses_id, GBN_PKT_DATA,
 							test_seq[i], 0);
 			dph("[cycle %2d] host send gbn header [type %d, seq %lld, src slot %d, dest slot %d]\n",
 			    cycle, test_payload.data(7, 0).to_uint(),

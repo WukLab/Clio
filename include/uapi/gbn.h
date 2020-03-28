@@ -10,7 +10,7 @@
 #define WINDOW_SIZE_WIDTH	(7)
 #define WINDOW_SIZE		(1 << (WINDOW_SIZE_WIDTH))
 #define WINDOW_IDX_MSK		(WINDOW_SIZE - 1)
-#define MAX_NR_CONN		(1024)
+#define NR_MAX_SESSIONS_PER_NODE	(1024)
 
 #define LEGOMEM_PORT		(1234)
 
@@ -44,12 +44,20 @@
 #define SUBNET			(0xc0a80100)
 #define SUBNET_MASK		(0xffffff00)
 
-#define RETRANS_TIMEOUT_CYCLE	100000000
+/*
+ * attention: don't make retrans_timeout_cycle less than 1
+ */
+#define RETRANS_TIMEOUT_US	(4000)
+#define CYCLE_TIME_NS		(4)
+#define RETRANS_TIMEOUT_CYCLE	(RETRANS_TIMEOUT_US * 1000 / CYCLE_TIME_NS)
 
-enum pkt_type {
-	pkt_type_ack = 1,
-	pkt_type_nack = 2,
-	pkt_type_data = 3
+// buff starts at 1GB
+#define BUFF_ADDRESS_START	(0x40000000)
+
+enum gbn_pkt_type {
+	GBN_PKT_ACK = 1,
+	GBN_PKT_NACK = 2,
+	GBN_PKT_DATA = 3,
 };
 
 #endif

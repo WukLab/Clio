@@ -2,7 +2,7 @@
 #define _RELNET_RX64_H_
 
 #include <hls_stream.h>
-#include <fpga/rel_net.h>
+#include <uapi/gbn.h>
 #include <fpga/axis_net.h>
 #include <fpga/axis_internal.h>
 #include <fpga/kernel.h>

@@ -33,8 +33,8 @@ This is a Go-Back-N based reliable network built on top of UDP network stack. It
 - Priority: rsp > retrans > normal
 
 ## Configuration
-There are a few configurations in `include/fpga/rel_net.h`
+There are a few configurations in `include/uapi/gbn.h`
 - `MAX_PACKET_SIZE`: The size in byte of the largest packet that can be stored in the unacked packet queue. Default value is 9216(9 kb)
 - `WINDOW_SIZE`: The max num of packets that can be sent out without acknowledgement. Default value is 128.
-- `MAX_NR_CONN`: Maximum number of connection, default value is 1024.
+- `NR_MAX_SESSIONS_PER_NODE`: Maximum number of connection, default value is 1024.
 - `RETRANS_TIMEOUT_CYCLE`: Retransmission timeout in clock cycles. Default is 100000000 cycles(4ms).

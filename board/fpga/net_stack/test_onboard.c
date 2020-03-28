@@ -6,13 +6,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <fpga/rel_net.h>
+#include <uapi/gbn.h>
 #include <uapi/net_header.h>
 
 #define FPGA_PORT 1234
 #define PACKET_SIZE 16
-#define SRC_SESSION_ID 20
-#define DEST_SESSION_ID 10
+#define SRC_SESSION_ID 0
+#define DEST_SESSION_ID 0
 
 extern char *optarg;
 
@@ -30,7 +30,7 @@ int gbn_connect(int sockfd, struct sockaddr *addr, unsigned src_sesid)
 	int ret;
 	unsigned long buff[2];
 	struct gbn_header_board *syn_header = (struct gbn_header_board *)buff;
-	syn_header->type = pkt_type_data;
+	syn_header->type = GBN_PKT_DATA;
 	syn_header->seqnum = 0;
 	make_sesid(syn_header->session_id, SRC_SESSION_ID, 0);
 
@@ -48,7 +48,7 @@ int gbn_close(int sockfd, struct sockaddr *addr, unsigned dest_sesid)
 	int ret;
 	unsigned long buff[2];
 	struct gbn_header_board *fin_header = (struct gbn_header_board *)buff;
-	fin_header->type = pkt_type_data;
+	fin_header->type = GBN_PKT_DATA;
 	fin_header->seqnum = 0;
 	make_sesid(fin_header->session_id, 0, DEST_SESSION_ID);
 
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 		break;
 	case 3:
 		header = (struct gbn_header_board *)buf;
-		header->type = pkt_type_data;
+		header->type = GBN_PKT_DATA;
 		header->seqnum = seqnum;
 		make_sesid(header->session_id, SRC_SESSION_ID, DEST_SESSION_ID);
 

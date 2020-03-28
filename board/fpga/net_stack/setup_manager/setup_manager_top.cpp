@@ -22,12 +22,12 @@ void setup_manager(stream<ap_uint<SLOT_ID_WIDTH> >	*init_req,
 		conn_req = conn_set_req->read();
 		if (conn_req.set_type == set_type_open) {
 			slot_id = conn_req.slotid;
+			/* when open session, initiate sequence num */
 			init_req->write(slot_id);
-		} else if (conn_req.set_type == set_type_close) {
-			slot_id = conn_req.slotid;
-			rst_timer_req.rst_type = timer_rst_type_stop;
-			rst_timer_req.slotid = slot_id;
-			timer_rst_req->write(rst_timer_req);
 		}
+		/* at both open and close session, deactive timeout */
+		rst_timer_req.rst_type = timer_rst_type_stop;
+		rst_timer_req.slotid = slot_id;
+		timer_rst_req->write(rst_timer_req);
 	}
 }

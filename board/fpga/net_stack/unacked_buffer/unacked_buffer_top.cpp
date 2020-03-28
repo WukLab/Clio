@@ -53,7 +53,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 	static enum buff_recv_status recv_state = BUF_STATE_RECV_INFO;
 	static enum buff_retrans_status retrans_state = BUF_STATE_RECV_REQ;
 
-	static struct route_ip route_info_array[MAX_NR_CONN];
+	static struct route_ip route_info_array[NR_MAX_SESSIONS_PER_NODE];
 #pragma HLS DATA_PACK variable=route_info_array
 #pragma HLS DEPENDENCE variable=route_info_array inter false
 
@@ -77,6 +77,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 			buff_slot_id = buff_packet.data(
 				SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				SRC_SLOT_OFFSET);
+			/* calculate the index in the window based on seqnum */ 
 			buff_window_idx = buff_packet.data(
 				SEQ_OFFSET + WINDOW_SIZE_WIDTH - 1, SEQ_OFFSET);
 			PR("slot %d, window index %d\n", buff_slot_id,
@@ -89,7 +90,10 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 			length.keep = 0xff;
 			length.last = 0;
 
-			/* write packet length in the first 8 bytes */
+			/*
+			 * write packet length in the first 8 bytes
+			 * total write length is packet length + 8
+			 */
 			out_cmd.btt = buff_route_info.length + 8;
 			out_cmd.type = DM_CMD_TYPE_INCR;
 			out_cmd.dsa = 0;
@@ -145,6 +149,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 		rt_slot_id = gbn_rt_req.slotid;
 		rt_seq = gbn_rt_req.seq_start;
+		/* calculate the start address for that slot */
 		slot_base = BUFF_ADDRESS_START +
 			    (rt_slot_id << WINDOW_SIZE_WIDTH) * MAX_PACKET_SIZE;
 		PR("slot %d base address: %lx\n", rt_slot_id, slot_base);
@@ -152,6 +157,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		retrans_state = BUF_STATE_READ_LEN;
 		break;
 	case BUF_STATE_READ_LEN:
+		/* calculate the start address for that packet */
 		start_addr =
 			slot_base + (rt_seq & WINDOW_IDX_MSK) * MAX_PACKET_SIZE;
 
@@ -188,6 +194,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		retrans_udp_info.src_port = LEGOMEM_PORT;
 		retrans_udp_info.length = rd_length.data(15, 0);
 
+		/* read the packet content of packet #rt_seq */
 		dm_rd_cmd_2->write(in_cmd);
 		rt_header->write(retrans_udp_info);
 
@@ -203,11 +210,13 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		if (retrans_pkt.last == 1) {
 			rt_seq++;
 			if (rt_seq > gbn_rt_req.seq_end) {
+				/* retrans finish, reset timeout */
 				rst_timer_req.rst_type = timer_rst_type_reset;
 				rst_timer_req.slotid = rt_slot_id;
 				timer_rst_req->write(rst_timer_req);
 				retrans_state = BUF_STATE_RECV_REQ;
 			} else {
+				/* retrans next packet */
 				retrans_state = BUF_STATE_READ_LEN;
 			}
 		}

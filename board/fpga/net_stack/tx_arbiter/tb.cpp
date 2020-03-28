@@ -32,7 +32,7 @@ int main() {
 	test_header.dest_port = 2345;
 
 	rsp_header.write(test_header);
-	test_payload = build_gbn_header(pkt_type_ack, 1, 1);
+	test_payload = build_gbn_header(GBN_PKT_ACK, 1, 1);
 	rsp_payload.write(test_payload);
 
 	test_payload.keep = 0xff;

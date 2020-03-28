@@ -3,7 +3,7 @@
 
 #include <fpga/axis_net.h>
 #include <fpga/kernel.h>
-#include <fpga/rel_net.h>
+#include <uapi/gbn.h>
 #include <hls_stream.h>
 #include "../state_table/statetable_64.hpp"
 
