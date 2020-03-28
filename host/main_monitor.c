@@ -18,9 +18,7 @@
 #include <uapi/thpool.h>
 #include <uapi/opcode.h>
 #include <uapi/net_header.h>
-
 #include "core.h"
-#include "endpoint.h"
 
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	32

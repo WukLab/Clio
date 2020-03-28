@@ -16,7 +16,6 @@
 #include <net/if.h>
 #include "core.h"
 #include "net/net.h"
-#include "endpoint.h"
 
 /*
  * Use input @monitor_addr to create a local network session with the monitor.
