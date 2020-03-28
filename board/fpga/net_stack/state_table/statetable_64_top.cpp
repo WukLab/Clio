@@ -118,6 +118,13 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			break;
 
 		gbn_query_req = state_query_req->read();
+
+		if (gbn_query_req.dest_ip(7, 0) == 0xff) {
+			/* filter broadcast packet */
+			state_query_rsp->write(false);
+			break;
+		}
+
 		/* dest slot id in received packet is the slot on receiver FPGA */
 		rx_slot_id = gbn_query_req.gbn_header(
 			DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET);
