@@ -684,8 +684,7 @@ prepare_gbn_headers(struct gbn_header *hdr, struct session_net *net)
 	src_sesid = get_local_session_id(net);
 	dst_sesid = get_remote_session_id(net);
 
-	set_gbn_src_session(hdr, src_sesid);
-	set_gbn_dst_session(hdr, dst_sesid);
+	set_gbn_src_dst_session(hdr, src_sesid, dst_sesid);
 }
 
 /*

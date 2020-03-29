@@ -57,42 +57,34 @@ struct lego_header {
 
 struct gbn_header {
 	char		type;
-	char		src_sesid;
-	char		dst_sesid;
 	unsigned int	seqnum;
-	char		session_id[7-SEQ_SIZE_BYTE];
+	char		ses_id[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
 
-/*
- * This is the current gbn header definition on board
- * Will unify the definition later
- */
-struct gbn_header_board {
-	char		type;
-	unsigned int	seqnum;
-	char		session_id[7-SEQ_SIZE_BYTE];
-} __attribute__((packed));
+#define SLOT_ID_WIDTH		(10)
 
 static inline void
-set_gbn_src_session(struct gbn_header *hdr, unsigned int id)
+set_gbn_src_dst_session(struct gbn_header *hdr, unsigned int src_id, unsigned int dst_id)
 {
-	hdr->src_sesid = id;
-}
-
-static inline void
-set_gbn_dst_session(struct gbn_header *hdr, unsigned int id)
-{
-	hdr->dst_sesid = id;
+	unsigned tmp_sesid = 0;
+	unsigned msk = (1 << SLOT_ID_WIDTH) - 1;
+	tmp_sesid = src_id & msk;
+	tmp_sesid |= (dst_id & msk) << SLOT_ID_WIDTH;
+	memcpy(hdr->ses_id, &tmp_sesid, 3);
 }
 
 static inline unsigned int get_gbn_src_session(struct gbn_header *hdr)
 {
-	return hdr->src_sesid;
+	short *src_part = (short *)hdr->ses_id;
+	return *src_part & ((1 << SLOT_ID_WIDTH) - 1);
 }
 
 static inline unsigned int get_gbn_dst_session(struct gbn_header *hdr)
 {
-	return hdr->dst_sesid;
+	short *dst_part = (short *)(hdr->ses_id + 1);
+	return (*dst_part &
+		(((1 << SLOT_ID_WIDTH) - 1) << (SLOT_ID_WIDTH - 8))) >>
+	       (SLOT_ID_WIDTH - 8);
 }
 
 static __always_inline void
@@ -101,8 +93,7 @@ swap_gbn_session(struct gbn_header *hdr)
 	int tmp1, tmp2;
 	tmp1 = get_gbn_src_session(hdr);
 	tmp2 = get_gbn_dst_session(hdr);
-	set_gbn_src_session(hdr, tmp2);
-	set_gbn_dst_session(hdr, tmp1);
+	set_gbn_src_dst_session(hdr, tmp2, tmp1);
 }
 
 static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
