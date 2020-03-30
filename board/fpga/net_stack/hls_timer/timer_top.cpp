@@ -14,7 +14,19 @@ struct rt_timer_entry {
 	bool		active;
 	ap_uint<31>	time;
 };
-
+/*
+ * @timer_rst_req: request to restart/stop the timer for a certain slot
+ * @rt_timer_sig: timeout signal indicates which slot has timeout
+ * 
+ * The timer will be reset/stop in the following cases:
+ * Reset:
+ * 	1. There are packets get dequeued from the buffer but the buffer is not empty
+ * 	2. A packet is sent out, and the buffer is empty before sending out the packet
+ * 	3. A retransmission is finished
+ * Stop:
+ * 	1. Open/Close session
+ * 	2. The buffer becomes empty
+ */
 void retrans_timer(stream<struct timer_req>		*timer_rst_req,
 		   stream<ap_uint<SLOT_ID_WIDTH> >	*rt_timeout_sig)
 {
@@ -41,7 +53,7 @@ void retrans_timer(stream<struct timer_req>		*timer_rst_req,
 		current_entry = timeout_array[rst_slot_id];
 		/* reset or stop the timer based on request type */
 		if (rst_req.rst_type == timer_rst_type_reset) {
-			current_entry.time = RETRANS_TIMEOUT_CYCLE / NR_MAX_SESSIONS_PER_NODE;
+			current_entry.time = DIV_ROUND_UP(RETRANS_TIMEOUT_CYCLE, NR_MAX_SESSIONS_PER_NODE);
 			current_entry.active = true;
 		} else if (rst_req.rst_type == timer_rst_type_stop) {
 			current_entry.active = false;

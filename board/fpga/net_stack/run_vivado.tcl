@@ -542,7 +542,7 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   connect_bd_intf_net -intf_net retrans_timer_0_rt_timeout_sig_V_V [get_bd_intf_pins retrans_timer_0/rt_timeout_sig_V_V] [get_bd_intf_pins state_table_64_0/rt_timeout_sig_V_V]
   connect_bd_intf_net -intf_net rx_64_0_rsp_header_V [get_bd_intf_pins rsp_header_V] [get_bd_intf_pins state_table_64_0/rsp_header_V]
   connect_bd_intf_net -intf_net rx_64_0_rsp_payload [get_bd_intf_pins rsp_payload] [get_bd_intf_pins state_table_64_0/rsp_payload]
-  connect_bd_intf_net -intf_net setup_manager_0_init_req_V_V [get_bd_intf_pins setup_manager_0/init_req_V_V] [get_bd_intf_pins state_table_64_0/init_req_V_V]
+  connect_bd_intf_net -intf_net setup_manager_0_init_req_V_V [get_bd_intf_pins setup_manager_0/init_req_V] [get_bd_intf_pins state_table_64_0/init_req_V]
   connect_bd_intf_net -intf_net setup_manager_0_timer_rst_req_V [get_bd_intf_pins axis_interconnect_0/S01_AXIS] [get_bd_intf_pins setup_manager_0/timer_rst_req_V]
   connect_bd_intf_net -intf_net state_table_64_0_check_full_rsp_V_V [get_bd_intf_pins check_full_rsp_V_V] [get_bd_intf_pins state_table_64_0/check_full_rsp_V_V]
   connect_bd_intf_net -intf_net state_table_64_0_state_query_rsp_V [get_bd_intf_pins state_query_rsp_V] [get_bd_intf_pins state_table_64_0/state_query_rsp_V]

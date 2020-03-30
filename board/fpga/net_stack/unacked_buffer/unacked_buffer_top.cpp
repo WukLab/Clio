@@ -59,8 +59,8 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 	static struct net_axis_64 buff_packet;
 	static struct route_info buff_route_info;
-	static unsigned buff_slot_id;
-	static unsigned buff_window_idx;
+	unsigned buff_slot_id;
+	unsigned buff_window_idx;
 
 	struct dm_cmd out_cmd;
 	struct dm_cmd in_cmd;

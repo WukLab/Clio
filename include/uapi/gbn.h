@@ -5,6 +5,8 @@
 #ifndef _LEGO_MEM_REL_NET_H_
 #define _LEGO_MEM_REL_NET_H_
 
+#include <uapi/compiler.h>
+
 // fix segment size: 9kb
 #define MAX_PACKET_SIZE		(9216)
 #define WINDOW_SIZE_WIDTH	(7)
@@ -48,8 +50,9 @@
  * attention: don't make retrans_timeout_cycle less than 1
  */
 #define RETRANS_TIMEOUT_US	(4000)
-#define CYCLE_TIME_NS		(4)
-#define RETRANS_TIMEOUT_CYCLE	(RETRANS_TIMEOUT_US * 1000 / CYCLE_TIME_NS)
+#define FREQUENCY_MHZ		(250)
+#define CYCLE_TIME_NS		(1000 / FREQUENCY_MHZ)
+#define RETRANS_TIMEOUT_CYCLE	(DIV_ROUND_UP(RETRANS_TIMEOUT_US * 1000, CYCLE_TIME_NS))
 
 // buff starts at 1GB
 #define BUFF_ADDRESS_START	(0x40000000)

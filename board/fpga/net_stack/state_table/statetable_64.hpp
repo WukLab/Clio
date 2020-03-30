@@ -19,6 +19,6 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		    stream<bool>			*tx_finish_sig,
 		    stream<ap_uint<SLOT_ID_WIDTH> >	*check_full_req,
 		    stream<ap_uint<SEQ_WIDTH> >		*check_full_rsp,
-		    stream<ap_uint<SLOT_ID_WIDTH> >	*init_req);
+		    stream<struct conn_mgmt_req>	*init_req);
 
 #endif

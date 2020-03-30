@@ -28,7 +28,24 @@ enum table_handle_tx_status {
  * @tx_finish_sig: signal for inform completion of a packet transfer
  * @check_full_req: request to check if buffer for this flow is full
  * @check_full_res: returned last sent seqnum for this flow
- * @init_req: initiate states for one connection
+ * @init_req: control requests from SoC via setup_manager to open or close session
+ * 
+ * This modules save all the session states, including the per-session
+ * last_sent_seqnum, lack_ack and more. However, we are saving the
+ * per-session route info out in the unacked buffer. Internally, there are two big
+ * state machines to handle requests from net RX and TX path.
+ * 
+ * This module handles the following operations:
+ * 1. Open session: we accept requests via @init_req from setup_manager.
+ *   We will reset the arrays.
+ * 2. Close session: we accept requests via @init_req from setup_manager
+ *   and make the slot invalid by setting expect seqnum to 0
+ * 3. retransmission timer: We receive timeout signal from timer, then fetch
+ *   the state information and pass it to unacked buffer
+ * 4. On the packet RX path: We check the gbn header of received packet and
+ *   response accordingly
+ * 5. On the packet TX path: We check if the buffer is full and tell the
+ *   seqnum associated with the packet to be sent out
  */
 void state_table_64(stream<struct udp_info>		*rsp_header,
 		    stream<struct net_axis_64>		*rsp_payload,
@@ -40,7 +57,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		    stream<bool>			*tx_finish_sig,
 		    stream<ap_uint<SLOT_ID_WIDTH> >	*check_full_req,
 		    stream<ap_uint<SEQ_WIDTH> >		*check_full_rsp,
-		    stream<ap_uint<SLOT_ID_WIDTH> >	*init_req)
+		    stream<struct conn_mgmt_req>	*init_req)
 {
 #pragma HLS INTERFACE axis both port=rsp_header
 #pragma HLS DATA_PACK variable=rsp_header
@@ -60,6 +77,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 
 #pragma HLS DATA_PACK variable=gbn_retrans_req
 #pragma HLS DATA_PACK variable=timer_rst_req
+#pragma HLS DATA_PACK variable=init_req
 
 /*
  * It's very hard to achieve II=1 since we need to read and write BRAM.
@@ -131,6 +149,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 
 		recv_seqnum = gbn_query_req.gbn_header(
 			SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
+
 		/*
 		 * cook udp header from session ID,
 		 * src ip and dest ip is needed in our application,
@@ -160,22 +179,30 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 					     DEST_SLOT_OFFSET) > 0 &&
 		    gbn_query_req.gbn_header(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 					     SRC_SLOT_OFFSET) > 0) {
-			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-			    GBN_PKT_DATA) {
-				expt_seqnum = expected_seqnum_array[rx_slot_id];
-				handle_rx_state = TAB_STATE_HANDLE_DATA;
-			} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-					   GBN_PKT_ACK ||
-				   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-					   GBN_PKT_NACK) {
-				rx_last_ackd_seqnum =
-					last_ackd_seqnum_array[rx_slot_id];
-				rx_last_sent_seqnum =
-					last_sent_seqnum_array[rx_slot_id];
+			expt_seqnum = expected_seqnum_array[rx_slot_id];
+			/*
+			 * While a session is valid, expected seqnum should always be
+			 * greater than zero.
+			 */
+			if (expt_seqnum > 0) {
+				if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+				GBN_PKT_DATA) {
+					handle_rx_state = TAB_STATE_HANDLE_DATA;
+				} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+						GBN_PKT_ACK ||
+					gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+						GBN_PKT_NACK) {
+					rx_last_ackd_seqnum =
+						last_ackd_seqnum_array[rx_slot_id];
+					rx_last_sent_seqnum =
+						last_sent_seqnum_array[rx_slot_id];
 
-				handle_rx_state = TAB_STATE_HANDLE_ACK;
+					handle_rx_state = TAB_STATE_HANDLE_ACK;
+				} else {
+					/* unknown packet type */
+					state_query_rsp->write(false);
+				}
 			} else {
-				/* unknown packet type */
 				state_query_rsp->write(false);
 			}
 		} else {
@@ -360,16 +387,23 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		gbn_retrans_req->write(gbn_rt_req);
 	}
 
-	ap_uint<SLOT_ID_WIDTH> init_slot_id;
+	struct conn_mgmt_req set_state_req;
+	ap_uint<SLOT_ID_WIDTH> set_state_slot_id;
 	if (!init_req->empty()) {
 		/*
 		 * initialize per-flow states when connection is first setup
 		 */
-		init_slot_id = init_req->read();
-		PR("initialize slot %d\n", init_slot_id.to_uint());
-		ack_enable_bitmap[init_slot_id] = 1;
-		last_ackd_seqnum_array[init_slot_id] = 0;
-		last_sent_seqnum_array[init_slot_id] = 0;
-		expected_seqnum_array[init_slot_id] = 1;
+		set_state_req = init_req->read();
+		set_state_slot_id = set_state_req.slotid;
+		PR("initialize slot %d\n", set_state_slot_id.to_uint());
+		if (set_state_req.set_type == set_type_open) {
+			ack_enable_bitmap[set_state_slot_id] = 1;
+			last_ackd_seqnum_array[set_state_slot_id] = 0;
+			last_sent_seqnum_array[set_state_slot_id] = 0;
+			expected_seqnum_array[set_state_slot_id] = 1;
+		} else {
+			/* set expected seqnum to 0 to devalid a session */
+			expected_seqnum_array[set_state_slot_id] = 0;
+		}
 	}
 }

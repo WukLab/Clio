@@ -9,7 +9,7 @@
 
 using hls::stream;
 
-void setup_manager(stream<ap_uint<SLOT_ID_WIDTH> >	*init_req,
+void setup_manager(stream<struct conn_mgmt_req>		*init_req,
 		   stream<struct conn_mgmt_req>		*conn_set_req,
 		   stream<struct timer_req>		*timer_rst_req);
 
