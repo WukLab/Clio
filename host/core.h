@@ -171,12 +171,14 @@ legomem_open_session_local_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
 /* init and utils */
+extern char global_net_dev[32];
 extern struct board_info *mgmt_dummy_board;
 extern struct session_net *mgmt_session;
 int get_ip_str(unsigned int ip, char *ip_str);
-int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac);
+int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
+			 unsigned char *mac);
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
-			     char *ip_str, unsigned int *ip);
+			     char *ip_str, int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
 int init_local_management_session(bool);

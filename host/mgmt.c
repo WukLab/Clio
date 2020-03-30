@@ -201,7 +201,7 @@ static void handle_new_node(struct thpool_buffer *tb)
 	struct board_info *bi;
 	int ret, i;
 	unsigned char mac[6];
-	unsigned int ip;
+	int ip;
 	char *ip_str;
 
 	/* Setup response */
@@ -227,7 +227,7 @@ static void handle_new_node(struct thpool_buffer *tb)
 	 */
 	ip = new_ei->ip;
 	ip_str = (char *)new_ei->ip_str;
-	ret = get_mac_of_remote_ip(ip, ip_str, mac);
+	ret = get_mac_of_remote_ip(ip, ip_str, global_net_dev, mac);
 	if (ret) {
 		dprintf_ERROR("fail to get mac of new node. ip %s\n", ip_str);
 		return;
@@ -313,10 +313,10 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
 {
-	unsigned int ip, port;
-	unsigned int ip1, ip2, ip3, ip4;
+	int ip, port;
+	int ip1, ip2, ip3, ip4;
 
-	sscanf(ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	sscanf(ip_port_str, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
 	return manually_add_new_node(ip, port, node_type);
 }

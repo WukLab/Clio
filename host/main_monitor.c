@@ -644,7 +644,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 * We may use a different local MAC address to reach the new host
 	 * run our local ARP protocol to get the latest and update if necessary.
 	 */
-	ret = get_mac_of_remote_ip(ei->ip, ip_str, mac);
+	ret = get_mac_of_remote_ip(ei->ip, ip_str, global_net_dev, mac);
 	if (ret) {
 		dprintf_ERROR("fail to get latest mac for new node. ip: %s\n",
 			ip_str);
@@ -921,6 +921,7 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			strncpy(ndev, optarg, sizeof(ndev));
+			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
 			break;
 		default:

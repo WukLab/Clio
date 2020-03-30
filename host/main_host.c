@@ -22,25 +22,28 @@
  * Note we just create local data structures for monitor's management session.
  * We do not need to contact monitor for this particular creation.
  */
-static int init_monitor_session(char *monitor_addr, struct endpoint_info *local_ei)
+static int init_monitor_session(char *ndev, char *monitor_addr,
+				struct endpoint_info *local_ei)
 {
 	char ip_str[INET_ADDRSTRLEN];
-	unsigned int ip, port;
-	unsigned int ip1, ip2, ip3, ip4;
+	int ip, port;
+	int ip1, ip2, ip3, ip4;
 	struct in_addr in_addr;
 	unsigned char mac[6];
 	struct endpoint_info monitor_ei;
 	int ret, i;
 
-	sscanf(monitor_addr, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	sscanf(monitor_addr, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
 
 	in_addr.s_addr = htonl(ip);
 	inet_ntop(AF_INET, &in_addr, ip_str, sizeof(ip_str));
 
-	ret = get_mac_of_remote_ip(ip, ip_str, mac);
-	if (ret)
+	ret = get_mac_of_remote_ip(ip, ip_str, ndev, mac);
+	if (ret) {
+		dprintf_ERROR("cannot get mac of ip %s\n", ip_str);
 		return ret;
+	}
 
 	/*
 	 * Now let's save the info
@@ -188,6 +191,7 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			strncpy(ndev, optarg, sizeof(ndev));
+			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
 			break;
 		case 'b':
@@ -248,7 +252,7 @@ int main(int argc, char **argv)
 	 * Create a local session for remote monitor's mgmt session
 	 * A special monitor board_info is added as well
 	 */
-	ret = init_monitor_session(monitor_addr, &default_local_ei);
+	ret = init_monitor_session(ndev, monitor_addr, &default_local_ei);
 	if (ret) {
 		printf("Fail to init monitor session\n");
 		exit(-1);

@@ -216,6 +216,7 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			strncpy(ndev, optarg, sizeof(ndev));
+			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
 			break;
 		default:
