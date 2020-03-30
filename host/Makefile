@@ -1,5 +1,5 @@
 INCLUDE := -I../include
-CLIBS := -libverbs -pthread
+CLIBS := -libverbs -lrt -pthread
 
 SRCS := board.c \
 	mgmt.c \

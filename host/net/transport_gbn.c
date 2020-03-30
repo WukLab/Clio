@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <signal.h>
+#include <time.h>
 #include <stdatomic.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
@@ -18,7 +20,7 @@
 #include "net.h"
 #include "../core.h"
 
-//#define CONFIG_DEBUG_GBN
+#define CONFIG_DEBUG_GBN
 
 #ifdef CONFIG_DEBUG_GBN
 #define gbn_debug(fmt, ...) \
@@ -92,7 +94,10 @@ struct session_gbn {
 	struct buffer_info		unack_buffer_info_ring[NR_BUFFER_INFO_SLOTS];
 	atomic_int			seqnum_cur;
 	atomic_int			seqnum_last;
-	struct timespec			next_timeout;
+	
+	/* Timer */
+	timer_t				rt_timer;
+	struct sigevent			timeout_event;
 
 	/*
 	 * For the incoming data, we do it differently with the above approach.
@@ -141,30 +146,28 @@ index_to_data_buffer_info(struct session_gbn *ses, unsigned int index)
 static __always_inline void
 disable_timeout(struct session_gbn *ses)
 {
-	/* set next timeout to infinity */
-	ses->next_timeout.tv_sec = LONG_MAX;
-	ses->next_timeout.tv_nsec = LONG_MAX;
-}
+	struct itimerspec timeout;
 
-/*
- * return if time t1 is greater then t2
- */
-static __always_inline bool
-time_greater_than(struct timespec *t1, struct timespec *t2)
-{
-	if (t1->tv_sec == t2->tv_sec)
-		return t1->tv_nsec > t2->tv_nsec;
-	else
-		return t1->tv_sec > t2->tv_sec;
+	timeout.it_interval.tv_nsec = 0;
+	timeout.it_interval.tv_sec = 0;
+	timeout.it_value.tv_nsec = 0;
+	timeout.it_value.tv_sec = 0;
+
+	timer_settime(ses->rt_timer, 0, &timeout, NULL);
 }
 
 static __always_inline void
-set_next_timeout(struct timespec *t)
+set_next_timeout(struct session_gbn *ses)
 {
-	long ns;
-	ns = t->tv_nsec + GBN_RETRANS_TIMEOUT_US * 1000;
-	t->tv_nsec = ns % 1000000000;
-	t->tv_sec += ns / 1000000000;
+	struct itimerspec timeout;
+
+	timeout.it_interval.tv_nsec = 0;
+	timeout.it_interval.tv_sec = 0;
+	timeout.it_value.tv_nsec = GBN_RETRANS_TIMEOUT_US * 1000;
+	timeout.it_value.tv_sec = 0;
+
+	// Set flag to 0, timeout is relative time to current time
+	timer_settime(ses->rt_timer, 0, &timeout, NULL);
 }
 
 /*
@@ -360,7 +363,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		if (!nr_unack_buffer(ses_gbn))
 			disable_timeout(ses_gbn);
 		else if (hdr->type == GBN_PKT_ACK)
-			set_next_timeout(&ses_gbn->next_timeout);
+			set_next_timeout(ses_gbn);
 
 		return true;
 	} else if (seq == seqnum_last) {
@@ -411,7 +414,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 	 * This case should always happen
 	 */
 	if (likely(retrans_end - retrans_start > 0))
-		set_next_timeout(&ses_gbn->next_timeout);
+		set_next_timeout(ses_gbn);
 }
 
 static void handle_ack_packet(struct session_net *ses_net, void *packet)
@@ -697,7 +700,6 @@ static inline int gbn_send_one(struct session_net *net,
 {
 	struct buffer_info *info;
 	struct session_gbn *ses;
-	struct timespec e;
 	int seqnum;
 	bool unacked_buffer_empty;
 	struct gbn_header *hdr;
@@ -746,9 +748,7 @@ static inline int gbn_send_one(struct session_net *net,
 	 * Timeout is only (re)set when the unack buffer is originally empty
 	 */
 	if (unacked_buffer_empty) {
-		clock_gettime(CLOCK_MONOTONIC, &e);
-		set_next_timeout(&e);
-		ses->next_timeout = e;
+		set_next_timeout(ses);
 	}
 
 send:
@@ -826,7 +826,19 @@ static inline int gbn_receive_one_nb(struct session_net *net,
 	return -ENOSYS;
 }
 
-static int init_session_gbn(struct session_gbn *ses)
+void gbn_timeout_handler(union sigval val)
+{
+	struct session_net *ses_net;
+	struct session_gbn *ses_gbn;
+
+	ses_net = (struct session_net *)val.sival_ptr;
+	ses_gbn = (struct session_gbn *)ses_net->transport_private;
+
+	printf("Session %d timeout\n", ses_net->session_id);
+	retrans_unack_buffer_info(ses_net, ses_gbn);
+}
+
+static int init_session_gbn(struct session_net* net, struct session_gbn *ses)
 {
 	int i;
 	struct buffer_info *info;
@@ -839,7 +851,20 @@ static int init_session_gbn(struct session_gbn *ses)
 	}
 	atomic_init(&ses->seqnum_cur, 0);
 	atomic_init(&ses->seqnum_last, 0);
-	disable_timeout(ses);
+
+	/*
+	 * Create timer for this gbn session
+	 * Store net session in the sigevent struct
+	 */
+	ses->timeout_event.sigev_notify = SIGEV_THREAD;
+	ses->timeout_event.sigev_value.sival_ptr = (void *)net;
+	ses->timeout_event.sigev_notify_function = gbn_timeout_handler;
+	ret = timer_create(CLOCK_MONOTONIC, &ses->timeout_event, &ses->rt_timer);
+	if (ret < 0) {
+		ret = -errno;
+		printf("gbn: Failed to create timer\n");
+		goto out;
+	}
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
 		info = index_to_data_buffer_info(ses, i);
@@ -884,7 +909,7 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 		return -ENOMEM;
 	ses_net->transport_private = ses_gbn;
 
-	ret = init_session_gbn(ses_gbn);
+	ret = init_session_gbn(ses_net, ses_gbn);
 	if (ret) {
 		free(ses_gbn);
 		ses_net->transport_private = NULL;
@@ -899,8 +924,10 @@ static int gbn_close_session(struct session_net *ses_net)
 	struct session_gbn *ses_gbn;
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
-	if (ses_gbn)
+	if (ses_gbn) {
+		timer_delete(ses_gbn->rt_timer);
 		free(ses_gbn);
+	}
 	return 0;
 }
 
