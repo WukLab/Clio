@@ -11,6 +11,18 @@ struct legomem_vregion {
 	struct session_net *ses_net;
 };
 
+static inline void
+set_vregion_session(struct legomem_vregion *v, struct session_net *ses)
+{
+	v->ses_net = ses;
+}
+
+static inline struct session_net *
+get_vregion_session(struct legomem_vregion *v)
+{
+	return v->ses_net;
+}
+
 #define LEGOMEM_CONTEXT_FLAGS_MGMT	0x1
 
 struct legomem_context {
@@ -18,7 +30,7 @@ struct legomem_context {
 	unsigned int pid;
 
 	/* List all contexts */
-	struct list_head list;
+	struct hlist_node link;
 
 	/*
 	 * List of all open sessions of this context.
@@ -39,7 +51,7 @@ static inline void init_legomem_context(struct legomem_context *p)
 	BUG_ON(!p);
 
 	memset(p, 0, sizeof(*p));
-	INIT_LIST_HEAD(&p->list);
+	INIT_HLIST_NODE(&p->link);
 	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* init all vregions */
@@ -83,27 +95,32 @@ index_to_legomem_vregion(struct legomem_context *p, unsigned int index)
 
 /* ip is host order. */
 static inline int __get_session_key(unsigned int ip,
+				    unsigned int udp_port,
 				    unsigned int ses_id,
 				    unsigned int tid)
 {
-	return ip + ses_id + tid;
+	return ip + udp_port + ses_id + tid;
 }
 
 static inline int get_session_key(struct session_net *ses)
 {
-	unsigned int ip, ses_id, tid;
+	unsigned int ip, udp_port, ses_id, tid;
 
+	/* Uniquely identify a remote party */
 	ip = ses->board_ip;
+	udp_port = ses->udp_port;
+
 	ses_id = ses->session_id;
 	tid = ses->tid;
 
-	return __get_session_key(ip, ses_id, tid);
+	return __get_session_key(ip, udp_port, ses_id, tid);
 }
 
 /* Per-node context list */
 int init_context_subsys(void);
 int add_legomem_context(struct legomem_context *p);
 int remove_legomem_context(struct legomem_context *p);
+struct legomem_context *find_legomem_context(unsigned int pid);
 void dump_legomem_context(void);
 int context_add_session(struct legomem_context *p, struct session_net *ses);
 int context_remove_session(struct legomem_context *p, struct session_net *ses);
@@ -131,7 +148,7 @@ void dump_net_sessions(void);
 int add_net_session(struct session_net *ses);
 int remove_net_session(struct session_net *ses);
 struct session_net *
-find_net_session(unsigned int board_ip, unsigned int session_id);
+find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id);
 
 int alloc_session_id(void);
 void free_session_id(unsigned int session_id);
@@ -154,12 +171,14 @@ legomem_open_session_local_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 
 /* init and utils */
+extern char global_net_dev[32];
 extern struct board_info *mgmt_dummy_board;
 extern struct session_net *mgmt_session;
 int get_ip_str(unsigned int ip, char *ip_str);
-int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac);
+int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
+			 unsigned char *mac);
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
-			     char *ip_str, unsigned int *ip);
+			     char *ip_str, int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
 int init_local_management_session(bool);
@@ -195,5 +214,11 @@ int add_localhost_bi(struct endpoint_info *ei);
  * for test
  */
 int test_legomem_session(void);
+int test_legomem_migration(void);
+int test_legomem_board(char *);
+
+int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
+int manually_add_new_node(unsigned int ip, unsigned int udp_port,
+			  unsigned int node_type);
 
 #endif /* _HOST_CORE_H_ */

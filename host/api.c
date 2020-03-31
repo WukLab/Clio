@@ -32,18 +32,11 @@ __legomem_open_context(bool is_mgmt)
 	p = malloc(sizeof(*p));
 	if (!p)
 		return NULL;
-
 	init_legomem_context(p);
-
-	/* Add to per-node context list */
-	ret = add_legomem_context(p);
-	if (ret) {
-		free(p);
-		return NULL;
-	}
 
 	if (is_mgmt) {
 		p->flags |= LEGOMEM_CONTEXT_FLAGS_MGMT;
+		p->pid = 0;
 	} else {
 		/*
 		 * Normal context creation
@@ -59,18 +52,28 @@ __legomem_open_context(bool is_mgmt)
 
 		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
 					   &resp, sizeof(resp));
-		if (ret <= 0)
-
-		if (unlikely(resp.op.ret))
+		if (ret <= 0) {
+			dprintf_DEBUG("net error: %d\n", ret);
 			goto err;
+		}
+
+		if (resp.op.ret) {
+			dprintf_DEBUG("monitor fail to create context: %d\n",
+				resp.op.ret);
+			goto err;
+		}
 
 		p->pid = resp.op.pid;
 	}
 
+	/* Add to per-node context list */
+	ret = add_legomem_context(p);
+	if (ret)
+		goto err;
 	return p;
 
 err:
-	remove_legomem_context(p);
+	free(p);
 	return NULL;
 }
 
@@ -102,12 +105,8 @@ int legomem_close_context(struct legomem_context *ctx)
 	if (!ctx)
 		return -EINVAL;
 
-	/* Remove from per-node context list */
-	ret = remove_legomem_context(ctx);
-	if (ret)
-		return ret;
-
-	if (!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT)) {
+	/* Non-mgmt context need to contact monitor */
+	if (likely(!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT))) {
 		struct legomem_close_context_req req;
 		struct legomem_close_context_resp resp;
 		struct lego_header *lego_header;
@@ -116,15 +115,21 @@ int legomem_close_context(struct legomem_context *ctx)
 		lego_header->opcode = OP_FREE_PROC;
 		lego_header->pid = ctx->pid;
 
-		net_send_and_receive(monitor_session, &req, sizeof(req),
-				     &resp, sizeof(resp));
-
+		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+					   &resp, sizeof(resp));
+		if (ret <= 0) {
+			dprintf_DEBUG("net error: %d\n", ret);
+			return -EIO;
+		}
+		
 		if (resp.ret) {
-			dprintf_ERROR("monitor fail to close context: %#lx ret %d\n",
-				(unsigned long)ctx, resp.ret);
+			dprintf_DEBUG("monitor fail to close context (pid %u) ret %d\n",
+				ctx->pid, resp.ret);
+			return -EFAULT;
 		}
 	}
 
+	remove_legomem_context(ctx);
 	free(ctx);
 	return 0;
 }
@@ -168,6 +173,7 @@ generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
 	if (!ses)
 		return NULL;
 	ses->board_ip = bi->board_ip;
+	ses->udp_port = bi->udp_port;
 	ses->board_info = bi;
 
 	src_sesid = alloc_session_id();
@@ -213,6 +219,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	if (!ses)
 		return NULL;
 	ses->board_ip = bi->board_ip;
+	ses->udp_port = bi->udp_port;
 	ses->board_info = bi;
 	ses->tid = tid;
 
@@ -249,14 +256,20 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		struct session_net *remote_mgmt_ses;
 		int ret;
 
-		if (!ctx) {
-			dprintf_ERROR("User session must provide ctx.%d", 0);
-			goto free_id;
-		}
-
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_OPEN_SESSION;
-		lego_header->pid = ctx->pid;
+
+		if (ctx) {
+			lego_header->pid = ctx->pid;
+		} else {
+			/*
+			 * User does not provide ctx to associate the session.
+			 * This is okay but we lost some bookkeeping, and the
+			 * remote will not know who requested this.
+			 */
+			lego_header->pid = 0;
+		}
+
 		req.op.session_id = src_sesid;
 
 		remote_mgmt_ses = get_board_mgmt_session(bi);
@@ -357,14 +370,20 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 		struct lego_header *lego_header;
 		struct session_net *remote_mgmt_ses;
 
-		if (!ctx) {
-			dprintf_ERROR("User session must provide ctx.%d", 0);
-			return -EINVAL;
-		}
-
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_CLOSE_SESSION;
-		lego_header->pid = ctx->pid;
+		if (ctx)
+			lego_header->pid = ctx->pid;
+		else {
+			/*
+			 * User does not provide ctx to associate the session.
+			 * This is okay but we lost some bookkeeping, and the
+			 * remote will not know who requested this.
+			 *
+			 * Same as open_session.
+			 */
+			lego_header->pid = 0;
+		}
 
 		/*
 		 * Yes, virginia. We need to use the remote side session id.
@@ -483,7 +502,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 */
 	v = find_vregion_candidate(ctx, size);
 	if (v) {
-		ses = v->ses_net;
+		ses = get_vregion_session(v);
 		BUG_ON(!ses);
 
 		vregion_idx = legomem_vregion_to_index(ctx, v);
@@ -537,7 +556,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 * link them together:
 	 */
 	v = index_to_legomem_vregion(ctx, vregion_idx);
-	v->ses_net = ses;
+	set_vregion_session(v, ses);
 
 found:
 	/*
@@ -730,4 +749,95 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 	free(req);
 
 	return 0;
+}
+
+/*
+ * TODO
+ * We need to stop all read/write/other activies using this vregion.
+ * some sort of lock is needed
+ */
+int legomem_migration_vregion(struct legomem_context *ctx,
+			      struct board_info *src_bi, struct board_info *dst_bi,
+			      unsigned int vregion_index)
+{
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct op_migration *op;
+	struct session_net *ses;
+	struct legomem_vregion *v;
+	int ret;
+
+	/* Prepare legomem header */
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_H2M;
+	lego_header->pid = ctx->pid;
+
+	/* Prepare migration req header */
+	op = &req.op;
+	op->src_board_ip = src_bi->board_ip;
+	op->src_udp_port = src_bi->udp_port;
+	op->dst_board_ip = dst_bi->board_ip;
+	op->dst_udp_port = dst_bi->udp_port;
+	op->vregion_index = vregion_index;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_ERROR("net error %d\n", ret);
+		return -EIO;
+	}
+
+	if (unlikely(resp.op.ret)) {
+		dprintf_DEBUG("fail to migrate vregion %u from %s to %s\n",
+			vregion_index, src_bi->name, dst_bi->name);
+		return resp.op.ret;
+	}
+
+	/*
+	 * Data was migrated. Now update vregion medadata.
+	 * First close the original session with the old board,
+	 * then open a new session with new board.
+	 */
+	v = index_to_legomem_vregion(ctx, vregion_index);
+	ses = get_vregion_session(v);
+	legomem_close_session(ctx, ses);
+
+	ses = legomem_open_session(ctx, dst_bi);
+	if (!ses) {
+		dprintf_DEBUG("Fail to open a session with the new board %s. "
+			      "Data was already migrated to it though. "
+			      "We are not moving it back now.\n",
+			dst_bi->name);
+		return -ENOMEM;
+	}
+	set_vregion_session(v, ses);
+
+	return 0;
+}
+
+/*
+ * Migrate [address, address+size) from @src_bi to @dst_bi.
+ * We will contact monitor first.
+ */
+int legomem_migration(struct legomem_context *ctx,
+		      struct board_info *src_bi, struct board_info *dst_bi,
+		      unsigned long __remote addr, unsigned long size)
+{
+	unsigned long end;
+	unsigned int ret, start_index, end_index;
+
+	end = addr + size;
+
+	start_index = va_to_vregion_index(addr);
+	end_index = va_to_vregion_index(end);
+
+	while (start_index <= end_index) {
+		ret = legomem_migration_vregion(ctx, src_bi, dst_bi, start_index);
+		start_index++;
+
+		if (ret)
+			break;
+	}
+	return ret;
 }

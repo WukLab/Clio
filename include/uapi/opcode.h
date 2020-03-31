@@ -29,7 +29,11 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_OPEN_SESSION,
 	OP_CLOSE_SESSION,
 
-	OP_REQ_MIGRATION,
+	OP_REQ_MIGRATION_H2M,
+	OP_REQ_MIGRATION_B2M,
+	OP_REQ_MIGRATION_M2B_RECV,	/* new board, prepare for a incoming mig */
+	OP_REQ_MIGRATION_M2B_RECV_CANCEL,
+	OP_REQ_MIGRATION_M2B_SEND,	/* old board, start migrate to new board */
 
 	/* Host to Monitor */
 	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
@@ -53,9 +57,13 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case OP_REQ_WRITE:			return "op_write";
 	case OP_CREATE_PROC:			return "op_create_proc";
 	case OP_FREE_PROC:			return "op_free_proc";
+	case OP_REQ_MIGRATION_H2M:		return "op_migration_h2m";
+	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
+	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:	return "op_migration_m2b_recv_cancel";
+	case OP_REQ_MIGRATION_M2B_SEND:		return "op_migration_m2b_send";
 	case OP_OPEN_SESSION:			return "op_open_session";
 	case OP_CLOSE_SESSION:			return "op_close_session";
-	case OP_REQ_MIGRATION:			return "op_migration";
 	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:	return "op_join_cluster";
 	case OP_REQ_MEMBERSHIP_NEW_NODE:	return "op_new_node";
 	case OP_RESET_ALL:			return "op_reset_all";
@@ -156,6 +164,16 @@ struct op_open_close_session_ret {
 	unsigned int	session_id;
 };
 
+struct op_migration {
+	unsigned int src_board_ip, src_udp_port;
+	unsigned int dst_board_ip, dst_udp_port;
+	unsigned int vregion_index;
+};
+
+struct op_migration_ret {
+	int ret;
+};
+
 struct legomem_common_headers {
 	struct eth_hdr		eth;
 	struct ipv4_hdr		ipv4;
@@ -245,6 +263,18 @@ struct legomem_membership_new_node_req {
 struct legomem_membership_new_node_resp {
 	struct legomem_common_headers comm_headers;
 	int ret;
+};
+
+/*
+ * Migration
+ */
+struct legomem_migration_req {
+	struct legomem_common_headers comm_headers;
+	struct op_migration op;
+};
+struct legomem_migration_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_migration_ret op;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

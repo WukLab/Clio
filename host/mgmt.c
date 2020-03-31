@@ -110,7 +110,7 @@ static void handle_close_session(struct thpool_buffer *tb)
 
 	/* Find if the session exist */
 	dst_sesid = req->op.session_id;
-	ses_net = find_net_session(ip, dst_sesid);
+	ses_net = find_net_session(ip, port, dst_sesid);
 	if (!ses_net) {
 		dprintf_ERROR("session not found %s:%d sesid %u\n",
 			ip_str, port, dst_sesid);
@@ -201,7 +201,7 @@ static void handle_new_node(struct thpool_buffer *tb)
 	struct board_info *bi;
 	int ret, i;
 	unsigned char mac[6];
-	unsigned int ip;
+	int ip;
 	char *ip_str;
 
 	/* Setup response */
@@ -227,7 +227,7 @@ static void handle_new_node(struct thpool_buffer *tb)
 	 */
 	ip = new_ei->ip;
 	ip_str = (char *)new_ei->ip_str;
-	ret = get_mac_of_remote_ip(ip, ip_str, mac);
+	ret = get_mac_of_remote_ip(ip, ip_str, global_net_dev, mac);
 	if (ret) {
 		dprintf_ERROR("fail to get mac of new node. ip %s\n", ip_str);
 		return;
@@ -265,6 +265,60 @@ static void handle_new_node(struct thpool_buffer *tb)
 
 	dump_boards();
 	dump_net_sessions();
+}
+
+/*
+ * Manually add a new remote node.
+ * Since this is not broadcast from monitor, this information is local only.
+ * This interface is mainly designed for testing purpose.
+ */
+int manually_add_new_node(unsigned int ip, unsigned int udp_port,
+			  unsigned int node_type)
+{
+	struct thpool_buffer tb;
+	struct legomem_membership_new_node_req *req;
+	struct endpoint_info *ei;
+	char ip_str[INET_ADDRSTRLEN];
+	char new_name[BOARD_NAME_LEN];
+
+	/* Cook the name */
+	get_ip_str(ip, ip_str);
+	if (node_type == BOARD_INFO_FLAGS_BOARD) {
+		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
+	} else {
+		dprintf_ERROR("Manual adding only supports _board_ for now. (%s)\n",
+			board_info_type_str(node_type));
+		return -EINVAL;
+	}
+
+	req = (struct legomem_membership_new_node_req *)tb.rx;
+
+	/*
+	 * We do not need to fill the mac addr
+	 * let the handler figure it out
+	 */
+	ei = &req->op.ei;
+	memcpy(ei->ip_str, ip_str, INET_ADDRSTRLEN);
+	ei->ip = ip;
+	ei->udp_port = udp_port;
+
+	/* Fill in the fake request */
+	req->op.type = node_type;
+	req->op.mem_size_bytes = 0;
+	memcpy(req->op.name, new_name, BOARD_NAME_LEN);
+
+	handle_new_node(&tb);
+	return 0;
+}
+
+int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
+{
+	int ip, port;
+	int ip1, ip2, ip3, ip4;
+
+	sscanf(ip_port_str, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+	return manually_add_new_node(ip, port, node_type);
 }
 
 static void

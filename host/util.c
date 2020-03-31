@@ -18,6 +18,8 @@
 #include "core.h"
 #include "net/net.h"
 
+char global_net_dev[32];
+
 /*
  * Given the host order @ip, fill in the @ip_str
  * @ip_str must be INET_ADDRSTRLEN bytes long.
@@ -37,15 +39,23 @@ int get_ip_str(unsigned int ip, char *ip_str)
  * - If it is behind switches, it would be the directly attached switch
  * - If it is loopback, it would be 0.
  *
- * @ip and @ip_str from caller in host order, we will fill @mac.
+ * @ip and @ip_str from caller in host order.
+ * @dev is the network interface we are using, can be NULL.
+ *
+ * In return, we will fill @mac. Return value 0 means we have filled @mac,
+ * otherwire it's a failure.
  */
-int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac)
+int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
+			 unsigned char *mac)
 {
 	FILE *fp;
 	char ping_cmd[128];
 	char ip_neigh_cmd[128];
 	char line[1024];
 	int ret;
+	unsigned char dev_mac[6];
+	char dev_ip_str[INET_ADDRSTRLEN];
+	int dev_ip;
 
 	if (ip == 0x7f000001) {
 		/*
@@ -95,7 +105,24 @@ int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac)
 		break;
 	}
 	pclose(fp);
-	return ret;
+
+	/* We found one from ip neigh */
+	if (ret == 0)
+		return 0;
+
+	if (!dev)
+		return -ENODEV;
+
+	/* Last try: check if the IP matches device IP */
+	ret = get_interface_mac_and_ip(dev, dev_mac, dev_ip_str, &dev_ip);
+	if (ret)
+		return ret;
+
+	if (dev_ip == ip) {
+		memcpy(mac, dev_mac, 6);
+		return 0;
+	}
+	return -ENODEV;
 }
 
 /*
@@ -107,7 +134,7 @@ int get_mac_of_remote_ip(unsigned int ip, char *ip_str, unsigned char *mac)
  * @ip will be host order.
  */
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
-			     char *ip_str, unsigned int *ip)
+			     char *ip_str, int *ip)
 {
 	int fd, ret;
 	struct ifreq ifr;
@@ -118,7 +145,7 @@ int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 	strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd <= 0)
+	if (fd < 0)
 		return fd;
 
 	/* Get MAC */
@@ -166,7 +193,7 @@ int init_default_local_ei(const char *dev, unsigned int port,
 {
 	unsigned char mac[6];
 	char ip_str[INET_ADDRSTRLEN];
-	unsigned int ip;
+	int ip;
 	int ret;
 	int i;
 

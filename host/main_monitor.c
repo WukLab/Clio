@@ -18,9 +18,7 @@
 #include <uapi/thpool.h>
 #include <uapi/opcode.h>
 #include <uapi/net_header.h>
-
 #include "core.h"
-#include "endpoint.h"
 
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	32
@@ -100,11 +98,6 @@ static pthread_spinlock_t(pid_lock);
 static DEFINE_HASHTABLE(proc_hash_array, PID_ARRAY_HASH_BITS);
 static pthread_spinlock_t proc_lock;
 
-static inline int getKey(unsigned int pid, unsigned int node)
-{
-        return node * NR_MAX_PROCS_PER_NODE + pid;
-}
-
 static void init_vregion(struct vregion_info *v)
 {
 	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
@@ -173,54 +166,40 @@ static struct proc_info *
 alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 {
 	struct proc_info *new;
-	struct proc_info *old;
 	unsigned int key;
 
 	new = malloc(sizeof(*new));
 	if (!new)
 		return NULL;
-
 	init_proc_info(new);
+	new->pid = pid;
 	new->host_ip = host_ip;
 
 	if (proc_name)
 		strncpy(new->proc_name, proc_name, PROC_NAME_LEN);
 
-	key = getKey(pid, host_ip);
-
-	/* Insert into the hashtable */
+	key = pid;
 	pthread_spin_lock(&proc_lock);
-	hash_for_each_possible(proc_hash_array, old, link, key) {
-		if (unlikely(old->pid == pid && old->host_ip == host_ip)) {
-			pthread_spin_unlock(&proc_lock);
-			free(new);
-			printf("alloc_proc: pid %u exists\n", pid);
-			return NULL;
-		}
-	}
 	hash_add(proc_hash_array, &new->link, key);
 	pthread_spin_unlock(&proc_lock);
-
-	printf("alloc_proc: new proc pid %u ip %x\n", pid, host_ip);
 
 	return new;
 }
 
 /*
- * Find the pi structure by given pid and ip.
  * The refcount is incremented by 1 if found.
  * The caller must call put_proc() afterwards.
  */
-struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int host_ip)
+struct proc_info *get_proc_by_pid(unsigned int pid)
 {
 	struct proc_info *pi;
 	unsigned int key;
 
-	key = getKey(pid, host_ip);
-
+	key = pid;
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, pi, link, key) {
-		if (likely(pi->pid == pid && pi->host_ip == host_ip)) {
+		dprintf_INFO("pid %d\n", pi->pid);
+		if (likely(pi->pid == pid)) {
 			get_proc_info(pi);
 			pthread_spin_unlock(&proc_lock);
 			return pi;
@@ -236,8 +215,8 @@ struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int host_ip)
  */
 void free_proc(struct proc_info *pi)
 {
-	unsigned int ip, pid, key;
-	struct proc_info *tsk;
+	unsigned int key;
+	struct proc_info *_pi;
 
 	if (!pi)
 		return;
@@ -247,22 +226,18 @@ void free_proc(struct proc_info *pi)
 		return;
 	}
 
-	ip = pi->host_ip;
-	pid = pi->pid;
-	key = getKey(pid, ip);
+	key = pi->pid;
 
-	/* Walk through all the possible buckets, check ip and pid */
 	pthread_spin_lock(&proc_lock);
-	hash_for_each_possible(proc_hash_array, tsk, link, key) {
-		if (likely(tsk->host_ip == ip && tsk->pid == pid)) {
-			hash_del(&tsk->link);
+	hash_for_each_possible(proc_hash_array, _pi, link, key) {
+		if (likely(_pi == pi)) {
+			hash_del(&pi->link);
 			pthread_spin_unlock(&proc_lock);
-			free(tsk);
+			free(pi);
 			return;
 		}
 	}
 	pthread_spin_unlock(&proc_lock);
-	printf("WARN: Fail to find tsk (ip %u pid %d)\n", ip, pid);
 }
 
 /*
@@ -275,8 +250,9 @@ static void handle_create_proc(struct thpool_buffer *tb)
 {
 	struct legomem_create_context_req *req;
 	struct legomem_create_context_resp *resp;
+	struct ipv4_hdr *ipv4_hdr;
 	struct proc_info *proc;
-	unsigned int pid, host_ip;
+	unsigned int pid, src_ip;
 	char *proc_name;
 
 	resp = (struct legomem_create_context_resp *)tb->tx;
@@ -284,7 +260,9 @@ static void handle_create_proc(struct thpool_buffer *tb)
 
 	req = (struct legomem_create_context_req *)tb->rx;
 	proc_name = req->op.proc_name;
-	host_ip = 0;
+
+	ipv4_hdr = to_ipv4_header(req);
+	src_ip = ntohl(ipv4_hdr->src_ip);
 
 	/* Allocate global unique PID and proc structure */
 	pid = alloc_pid();
@@ -293,7 +271,7 @@ static void handle_create_proc(struct thpool_buffer *tb)
 		return;
 	}
 
-	proc = alloc_proc(pid, proc_name, host_ip);
+	proc = alloc_proc(pid, proc_name, src_ip);
 	if (unlikely(!proc)) {
 		free_pid(pid);
 		resp->op.ret = -ENOMEM;
@@ -303,6 +281,13 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	/* Succeed, return PID to user */
 	resp->op.ret = 0;
 	resp->op.pid = pid;
+
+	if (1) {
+		char ip_str[INET_ADDRSTRLEN];
+		get_ip_str(src_ip, ip_str);
+		dprintf_DEBUG("new context pid %u for host %s\n",
+			pid, ip_str);
+	}
 }
 
 static void handle_free_proc(struct thpool_buffer *tb)
@@ -311,27 +296,28 @@ static void handle_free_proc(struct thpool_buffer *tb)
 	struct legomem_close_context_resp *resp;
 	struct lego_header *lego_header;
 	struct proc_info *pi;
-	unsigned int pid, host_ip;
+	unsigned int pid;
 
 	resp = (struct legomem_close_context_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*req));
+	set_tb_tx_size(tb, sizeof(*resp));
 
 	req = (struct legomem_close_context_req *)tb->rx;
 	lego_header = to_lego_header(req);
 	pid = lego_header->pid;
-	host_ip = 0;
 
-	pi = get_proc_by_pid(pid, host_ip);
+	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		resp->ret = -ESRCH;
 		return;
 	}
 
-	/* We grabbed one ref above, thus put twice */
+	/* We grabbed one ref above, thus put twice to FREE it */
 	put_proc_info(pi);
 	put_proc_info(pi);
 
 	resp->ret = 0;
+
+	dprintf_DEBUG("free context pid: %u\n", pid);
 }
 
 static inline struct vregion_info *
@@ -373,7 +359,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 {
 	struct legomem_alloc_free_req *req;
 	struct legomem_alloc_free_resp *resp;
-	unsigned int pid, host_ip;
+	unsigned int pid;
 	struct proc_info *pi;
 	unsigned long len;
 	struct board_info *bi;
@@ -384,8 +370,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 
 	req = (struct legomem_alloc_free_req *)tb->rx;
 	pid = 0;
-	host_ip = 0;
-	pi = get_proc_by_pid(pid, host_ip);
+	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		resp->op.ret = -ESRCH;
 		return;
@@ -414,8 +399,8 @@ static void handle_alloc(struct thpool_buffer *tb)
 		free_vregion(pi, vi);
 
 		resp->op.ret = -EPERM;
-		printf("%s(): WARN. No board available. Requester: %d %x\n",
-			__func__, pid, host_ip);
+		printf("%s(): WARN. No board available. Requester: %d\n",
+			__func__, pid);
 		goto out;
 	}
 
@@ -452,6 +437,166 @@ static void handle_test(struct thpool_buffer *tb)
 
 	req = (struct reply *)tb->rx;
 	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
+}
+
+static int migration_notify_cancel_recv(struct board_info *dst_bi,
+					struct legomem_migration_req *orig_req)
+{
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_M2B_RECV_CANCEL;
+	lego_header->pid = to_lego_header(orig_req)->pid;
+	memcpy(&req.op, &orig_req->op, sizeof(struct op_migration));
+
+	ses = get_board_mgmt_session(dst_bi);
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d board: %s\n", ret, dst_bi->name);
+		return -EIO;
+	}
+	return resp.op.ret;
+}
+
+/*
+ * Notify the remote party @dst_bi to prepare for a upcoming migration.
+ * We will send the vregion_index and original owner info.
+ * Return 0 on success otherwise failures.
+ */
+static int migration_notify_recv(struct board_info *dst_bi,
+				 struct legomem_migration_req *orig_req)
+{
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_M2B_RECV;
+	lego_header->pid = to_lego_header(orig_req)->pid;
+	memcpy(&req.op, &orig_req->op, sizeof(struct op_migration));
+
+	ses = get_board_mgmt_session(dst_bi);
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d board: %s\n", ret, dst_bi->name);
+		return -EIO;
+	}
+	return resp.op.ret;
+}
+
+static int migration_notify_send(struct board_info *src_bi,
+				 struct legomem_migration_req *orig_req)
+{
+	struct legomem_migration_req req;
+	struct legomem_migration_resp resp;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MIGRATION_M2B_SEND;
+	lego_header->pid = to_lego_header(orig_req)->pid;
+	memcpy(&req.op, &orig_req->op, sizeof(struct op_migration));
+
+	ses = get_board_mgmt_session(src_bi);
+	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d board: %s\n", ret, src_bi->name);
+		return -EIO;
+	}
+	return resp.op.ret;
+}
+
+/*
+ * Handle the case where a host application explicitly asking
+ * for data migration. The requester has already choosed the new board.
+ *
+ * Monitor is the coordinate for vRegion migrations.
+ *
+ * TODO
+ * Be careful about future vRegion sharing case. Especially if there are
+ * multiple hosts using the same vRegion. We have to make sure everyone
+ * is on the samge page before we proceed any real migration.
+ * (See our design slides.)
+ */
+static void handle_migration_h2m(struct thpool_buffer *tb)
+{
+	struct legomem_migration_req *req;
+	struct legomem_migration_resp *resp;
+	struct lego_header *lego_header;
+	struct board_info *src_bi, *dst_bi;
+	struct proc_info *p;
+	struct vregion_info *v;
+	unsigned int vregion_index;
+	unsigned int pid, ret;
+
+	resp = (struct legomem_migration_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	req = (struct legomem_migration_req *)tb->rx;
+	lego_header = to_lego_header(req);
+
+	/* Found those two involved boards */
+	src_bi = find_board(req->op.src_board_ip, req->op.src_udp_port);
+	if (!src_bi) {
+		dprintf_DEBUG("src board %s not found\n", src_bi->name);
+		goto error;
+	}
+	dst_bi = find_board(req->op.dst_board_ip, req->op.dst_udp_port);
+	if (!dst_bi) {
+		dprintf_DEBUG("dst board %s not found\n", dst_bi->name);
+		goto error;
+	}
+
+	/* First notify the new board to let it prepare */
+	ret = migration_notify_recv(dst_bi, req);
+	if (ret) {
+		dprintf_DEBUG("dst board %s does not accept migration. Error %d\n",
+			dst_bi->name, ret);
+		goto error;
+	}
+
+	/* Then notify the old board to start migration */
+	ret = migration_notify_send(src_bi, req);
+	if (ret) {
+		/* Tell new board to cancel the party */
+		migration_notify_cancel_recv(dst_bi, req);
+		dprintf_DEBUG("src board %s cannot start migration. Error %d\n",
+			src_bi->name, ret);
+		goto error;
+	}
+
+	/*
+	 * Update monitor local vRegion info
+	 * to the latest board
+	 */
+	pid = lego_header->pid;
+	vregion_index = req->op.vregion_index;
+
+	p = get_proc_by_pid(pid);
+	v = index_to_vregion(p, vregion_index);
+	v->board_ip = dst_bi->board_ip;
+	v->udp_port = dst_bi->udp_port;
+
+	resp->op.ret = 0;
+	return;
+
+error:
+	resp->op.ret = -EFAULT;
+}
+
+/*
+ * Handle the case where a board explicitly asking for data migration.
+ */
+static void handle_migration_b2m(struct thpool_buffer *tb)
+{
+
 }
 
 /*
@@ -495,7 +640,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		id = atomic_fetch_add(&nr_boards, 1);
 		sprintf(new_name, "board%d_%s:%u", id, ip_str, ei->udp_port);
 	} else {
-		printf("%s(): invalid type: %lu\n", __func__, req->op.type);
+		dprintf_ERROR("Unknown node type: %s\n",
+			board_info_type_str(req->op.type));
 		resp->ret = -EINVAL;
 		return;
 	}
@@ -504,7 +650,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 * We may use a different local MAC address to reach the new host
 	 * run our local ARP protocol to get the latest and update if necessary.
 	 */
-	ret = get_mac_of_remote_ip(ei->ip, ip_str, mac);
+	ret = get_mac_of_remote_ip(ei->ip, ip_str, global_net_dev, mac);
 	if (ret) {
 		dprintf_ERROR("fail to get latest mac for new node. ip: %s\n",
 			ip_str);
@@ -640,6 +786,11 @@ static void worker_handle_request(struct thpool_worker *tw,
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
+	if (0) {
+		dprintf_INFO("received opcode: %u (%s)\n",
+			opcode, legomem_opcode_str(opcode));
+	}
+
 	switch (opcode) {
 	case OP_REQ_TEST:
 		handle_test(tb);
@@ -651,12 +802,20 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_free(tb);
 		break;
 
-	/* Proc */
+	/* Handle process management */
 	case OP_CREATE_PROC:
 		handle_create_proc(tb);
 		break;
 	case OP_FREE_PROC:
 		handle_free_proc(tb);
+		break;
+
+	/* Handle migration requests */
+	case OP_REQ_MIGRATION_H2M:
+		handle_migration_h2m(tb);
+		break;
+	case OP_REQ_MIGRATION_B2M:
+		handle_migration_b2m(tb);
 		break;
 
 	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:
@@ -671,7 +830,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 		pthread_spin_unlock(&join_cluster_lock);
 		break;
 	default:
-		break;
+		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
+			opcode, legomem_opcode_str(opcode));
+		goto free;
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
@@ -694,6 +855,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	}
+free:
 	free_thpool_buffer(tb);
 }
 
@@ -765,6 +927,7 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			strncpy(ndev, optarg, sizeof(ndev));
+			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
 			break;
 		default:
