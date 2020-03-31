@@ -16,7 +16,9 @@
 #include <linux/types.h>
 #include <execinfo.h>
 #include <stdio.h>
-#define _GNU_SOURCE
+#ifndef  _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <unistd.h>
 #include <sys/syscall.h>
 
