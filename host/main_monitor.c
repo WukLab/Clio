@@ -518,6 +518,12 @@ static int migration_notify_send(struct board_info *src_bi,
  * for data migration. The requester has already choosed the new board.
  *
  * Monitor is the coordinate for vRegion migrations.
+ *
+ * TODO
+ * Be careful about future vRegion sharing case. Especially if there are
+ * multiple hosts using the same vRegion. We have to make sure everyone
+ * is on the samge page before we proceed any real migration.
+ * (See our design slides.)
  */
 static void handle_migration_h2m(struct thpool_buffer *tb)
 {

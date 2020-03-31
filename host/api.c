@@ -262,12 +262,12 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		if (ctx) {
 			lego_header->pid = ctx->pid;
 		} else {
-			lego_header->pid = 0;
 			/*
 			 * User does not provide ctx to associate the session.
 			 * This is okay but we lost some bookkeeping, and the
 			 * remote will not know who requested this.
 			 */
+			lego_header->pid = 0;
 		}
 
 		req.op.session_id = src_sesid;
@@ -375,7 +375,6 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 		if (ctx)
 			lego_header->pid = ctx->pid;
 		else {
-			lego_header->pid = 0;
 			/*
 			 * User does not provide ctx to associate the session.
 			 * This is okay but we lost some bookkeeping, and the
@@ -383,6 +382,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 			 *
 			 * Same as open_session.
 			 */
+			lego_header->pid = 0;
 		}
 
 		/*
