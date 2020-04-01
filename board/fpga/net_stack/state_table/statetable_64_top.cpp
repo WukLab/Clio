@@ -179,30 +179,32 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 					     DEST_SLOT_OFFSET) > 0 &&
 		    gbn_query_req.gbn_header(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 					     SRC_SLOT_OFFSET) > 0) {
-			expt_seqnum = expected_seqnum_array[rx_slot_id];
 			/*
-			 * While a session is valid, expected seqnum should always be
-			 * greater than zero.
+			 * XXX
+			 * Checking if a session is valid is not done here due to
+			 * some issue in Vivado
+			 * 
+			 * if (expt_seqnum == 0) {
+			 * 	state_query_rsp->write(false);
+			 * 	break;
+			 * } 
 			 */
-			if (expt_seqnum > 0) {
-				if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
 				GBN_PKT_DATA) {
-					handle_rx_state = TAB_STATE_HANDLE_DATA;
-				} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-						GBN_PKT_ACK ||
-					gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-						GBN_PKT_NACK) {
-					rx_last_ackd_seqnum =
-						last_ackd_seqnum_array[rx_slot_id];
-					rx_last_sent_seqnum =
-						last_sent_seqnum_array[rx_slot_id];
+				expt_seqnum = expected_seqnum_array[rx_slot_id];
+				handle_rx_state = TAB_STATE_HANDLE_DATA;
+			} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+					GBN_PKT_ACK ||
+				gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
+					GBN_PKT_NACK) {
+				rx_last_ackd_seqnum =
+					last_ackd_seqnum_array[rx_slot_id];
+				rx_last_sent_seqnum =
+					last_sent_seqnum_array[rx_slot_id];
 
-					handle_rx_state = TAB_STATE_HANDLE_ACK;
-				} else {
-					/* unknown packet type */
-					state_query_rsp->write(false);
-				}
+				handle_rx_state = TAB_STATE_HANDLE_ACK;
 			} else {
+				/* unknown packet type */
 				state_query_rsp->write(false);
 			}
 		} else {

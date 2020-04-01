@@ -367,12 +367,16 @@ initial begin
 	$display("send SYN udp head");
 	tx_hdr_agent.driver.send(wr_hdr_trans);
 	$display("send SYN udp data");
-	{>>{data}} = 64'h0101010101010101;
+	wr_trans.set_data({8'd0, 8'd0, 8'd0, 8'd0, 8'd7, 8'd0, 8'd0, 8'd0});  // lego header open session
+	wr_trans.set_last(1'b0);
+	tx_agent.driver.send(wr_trans);
+
+	data = {<<8{64'd10}};
 	wr_trans.set_data(data);
 	wr_trans.set_last(1'b1);
 	tx_agent.driver.send(wr_trans);
 
-	#200;
+	wait(rx_udp_hdr_valid == 1'b1);
 	enable_send <= 1'b1;
 end
 
@@ -425,7 +429,11 @@ initial begin
 	$display("send FIN udp head");
 	tx_hdr_agent.driver.send(wr_hdr_trans);
 	$display("send FIN udp data");
-	{>>{data}} = 64'h0101010101010101;
+	wr_trans.set_data({8'd0, 8'd0, 8'd0, 8'd0, 8'd8, 8'd0, 8'd0, 8'd0});  // lego header open session
+	wr_trans.set_last(1'b0);
+	tx_agent.driver.send(wr_trans);
+
+	data = {<<8{64'd10}};
 	wr_trans.set_data(data);
 	wr_trans.set_last(1'b1);
 	tx_agent.driver.send(wr_trans);
