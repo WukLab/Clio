@@ -9,11 +9,10 @@ set board "[lindex $argv 2]"
 # Create a project
 open_project	-reset generated_hls_project 
 
-add_files	tx_64_top.cpp	-cflags -I../../../../include/
-add_files -tb	tb.cpp		-cflags -I../../../../include/
+add_files	unacked_buffer_top.cpp	-cflags -I../../../../include/
 
 # Specify the top-level function for synthesis
-set_top		tx_64
+set_top		unacked_buffer
 
 ###########################
 # Solution settings
@@ -57,7 +56,7 @@ config_rtl -reset all -reset_async
 csynth_design
 
 # Export IP block
-export_design -format ip_catalog -display_name "relnet_tx_hls" -description "reliable network sender HLS" -vendor "Wuklab.UCSD" -version "1.0"
+export_design -format ip_catalog -display_name "unacked_buffer_hls" -description "unacknowledged buffer" -vendor "Wuklab.UCSD" -version "1.0"
 
 # Do not perform any other steps
 # - The basic project will be opened in the GUI 

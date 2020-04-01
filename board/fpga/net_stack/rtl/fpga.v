@@ -442,17 +442,36 @@ sfp_2_phy_inst (
     .rx_high_ber()
 );
 
+wire [111:0] rx_usr_hdr_data;
+wire rx_usr_hdr_valid;
 wire rx_usr_hdr_ready;
+wire [63:0] rx_usr_payload_axis_tdata;
+wire rx_usr_payload_axis_tvalid;
 wire rx_usr_payload_axis_tready;
+wire rx_usr_payload_axis_tlast;
+wire [7:0] rx_usr_payload_axis_tkeep;
+wire rx_usr_payload_axis_tuser;
+
+wire [111:0] tx_usr_hdr_data;
+wire tx_usr_hdr_valid;
+wire tx_usr_hdr_ready;
+wire [63:0] tx_usr_payload_axis_tdata;
+wire tx_usr_payload_axis_tvalid;
+wire tx_usr_payload_axis_tready;
+wire tx_usr_payload_axis_tlast;
+wire [7:0] tx_usr_payload_axis_tkeep;
+wire tx_usr_payload_axis_tuser;
+
+wire [15:0] usr_setconn_axis_tdata;
+wire usr_setconn_axis_tvalid;
+wire usr_setconn_axis_tready;
 
 assign led[0] = sfp_1_rx_block_lock;
 assign led[1] = sfp_2_rx_block_lock;
 assign led[7:2] = led_int[5:0];
-assign rx_usr_hdr_ready = 1'b1;
-assign rx_usr_payload_axis_tready = 1'b1;
 
 fpga_core #(
-    .INTEGRATION_ENABLE(1)
+    .INTEGRATION_MODE(1)
 )
 core_inst (
     /*
@@ -485,10 +504,104 @@ core_inst (
     .sfp_2_rxd(sfp_2_rxd_int),
     .sfp_2_rxc(sfp_2_rxc_int),
 
+    .m_usr_hdr_data(rx_usr_hdr_data),
+    .m_usr_hdr_valid(rx_usr_hdr_valid),
     .m_usr_hdr_ready(rx_usr_hdr_ready),
+    .m_usr_payload_axis_tdata(rx_usr_payload_axis_tdata),
+    .m_usr_payload_axis_tvalid(rx_usr_payload_axis_tvalid),
     .m_usr_payload_axis_tready(rx_usr_payload_axis_tready),
+    .m_usr_payload_axis_tlast(rx_usr_payload_axis_tlast),
+    .m_usr_payload_axis_tkeep(rx_usr_payload_axis_tkeep),
+    .m_usr_payload_axis_tuser(rx_usr_payload_axis_tuser),
+
+    .s_usr_hdr_data(tx_usr_hdr_data),
+    .s_usr_hdr_valid(tx_usr_hdr_valid),
+    .s_usr_hdr_ready(tx_usr_hdr_ready),
+    .s_usr_payload_axis_tdata(tx_usr_payload_axis_tdata),
+    .s_usr_payload_axis_tvalid(tx_usr_payload_axis_tvalid),
+    .s_usr_payload_axis_tready(tx_usr_payload_axis_tready),
+    .s_usr_payload_axis_tlast(tx_usr_payload_axis_tlast),
+    .s_usr_payload_axis_tkeep(tx_usr_payload_axis_tkeep),
+    .s_usr_payload_axis_tuser(tx_usr_payload_axis_tuser),
+
+    .s_setconn_axis_tdata(usr_setconn_axis_tdata),
+    .s_setconn_axis_tvalid(usr_setconn_axis_tvalid),
+    .s_setconn_axis_tready(usr_setconn_axis_tready),
 
     .local_ip({8'd192, 8'd168, 8'd1,   8'd128})
+);
+
+wire [63:0] tx_fifo_payload_axis_tdata;
+wire tx_fifo_payload_axis_tvalid;
+wire tx_fifo_payload_axis_tready;
+wire tx_fifo_payload_axis_tlast;
+wire [7:0] tx_fifo_payload_axis_tkeep;
+wire tx_fifo_payload_axis_tuser;
+
+// dummy user application: loop back
+dummy_setup_inst
+relnet_setup (
+    .ap_clk(clk_156mhz_int),                                    // input wire ap_clk
+    .ap_rst_n(~rst_156mhz_int),                                // input wire ap_rst_n
+    .usr_rx_payload_TVALID(rx_usr_payload_axis_tvalid),      // input wire usr_rx_payload_TVALID
+    .usr_rx_payload_TREADY(rx_usr_payload_axis_tready),      // output wire usr_rx_payload_TREADY
+    .usr_rx_payload_TDATA(rx_usr_payload_axis_tdata),        // input wire [63 : 0] usr_rx_payload_TDATA
+    .usr_rx_payload_TUSER(rx_usr_payload_axis_tuser),        // input wire [0 : 0] usr_rx_payload_TUSER
+    .usr_rx_payload_TLAST(rx_usr_payload_axis_tlast),        // input wire [0 : 0] usr_rx_payload_TLAST
+    .usr_rx_payload_TKEEP(rx_usr_payload_axis_tkeep),        // input wire [7 : 0] usr_rx_payload_TKEEP
+    .usr_rx_hdr_V_TVALID(rx_usr_hdr_valid),          // input wire usr_rx_hdr_V_TVALID
+    .usr_rx_hdr_V_TREADY(rx_usr_hdr_ready),          // output wire usr_rx_hdr_V_TREADY
+    .usr_rx_hdr_V_TDATA(rx_usr_hdr_data),            // input wire [111 : 0] usr_rx_hdr_V_TDATA
+    .conn_setup_req_V_TVALID(usr_setconn_axis_tvalid),  // output wire conn_setup_req_V_TVALID
+    .conn_setup_req_V_TREADY(usr_setconn_axis_tready),  // input wire conn_setup_req_V_TREADY
+    .conn_setup_req_V_TDATA(usr_setconn_axis_tdata),    // output wire [15 : 0] conn_setup_req_V_TDATA
+    .usr_tx_payload_TVALID(tx_fifo_payload_axis_tvalid),      // output wire usr_tx_payload_TVALID
+    .usr_tx_payload_TREADY(tx_fifo_payload_axis_tready),      // input wire usr_tx_payload_TREADY
+    .usr_tx_payload_TDATA(tx_fifo_payload_axis_tdata),        // output wire [63 : 0] usr_tx_payload_TDATA
+    .usr_tx_payload_TUSER(tx_fifo_payload_axis_tuser),        // output wire [0 : 0] usr_tx_payload_TUSER
+    .usr_tx_payload_TLAST(tx_fifo_payload_axis_tlast),        // output wire [0 : 0] usr_tx_payload_TLAST
+    .usr_tx_payload_TKEEP(tx_fifo_payload_axis_tkeep),        // output wire [7 : 0] usr_tx_payload_TKEEP
+    .usr_tx_hdr_V_TVALID(tx_usr_hdr_valid),          // output wire usr_tx_hdr_V_TVALID
+    .usr_tx_hdr_V_TREADY(tx_usr_hdr_ready),          // input wire usr_tx_hdr_V_TREADY
+    .usr_tx_hdr_V_TDATA(tx_usr_hdr_data)            // output wire [111 : 0] usr_tx_hdr_V_TDATA
+);
+
+axis_fifo #(
+    .DEPTH(4096),
+    .DATA_WIDTH(64),
+    .KEEP_ENABLE(1),
+    .KEEP_WIDTH(8),
+    .ID_ENABLE(0),
+    .DEST_ENABLE(0),
+    .USER_ENABLE(1),
+    .USER_WIDTH(1),
+    .FRAME_FIFO(0)
+)
+udp_payload_fifo (
+    .clk(clk_156mhz_int),
+    .rst(rst_156mhz_int),
+    // AXI input
+    .s_axis_tdata(tx_fifo_payload_axis_tdata),
+    .s_axis_tkeep(tx_fifo_payload_axis_tkeep),
+    .s_axis_tvalid(tx_fifo_payload_axis_tvalid),
+    .s_axis_tready(tx_fifo_payload_axis_tready),
+    .s_axis_tlast(tx_fifo_payload_axis_tlast),
+    .s_axis_tid(0),
+    .s_axis_tdest(0),
+    .s_axis_tuser(tx_fifo_payload_axis_tuser),
+    // AXI output
+    .m_axis_tdata(tx_usr_payload_axis_tdata),
+    .m_axis_tkeep(tx_usr_payload_axis_tkeep),
+    .m_axis_tvalid(tx_usr_payload_axis_tvalid),
+    .m_axis_tready(tx_usr_payload_axis_tready),
+    .m_axis_tlast(tx_usr_payload_axis_tlast),
+    .m_axis_tid(),
+    .m_axis_tdest(),
+    .m_axis_tuser(tx_usr_payload_axis_tuser),
+    // Status
+    .status_overflow(),
+    .status_bad_frame(),
+    .status_good_frame()
 );
 
 endmodule

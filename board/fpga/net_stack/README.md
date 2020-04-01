@@ -1,28 +1,40 @@
 # Go-Back-N Reliable Network
-Last Updated: Feb 13, 2020
+Last Updated: MAr 26, 2020
 
 ## Introduction
-This is a Go-Back-N based reliable network built on top of UDP network stack. It consists of four major parts. Their functions are described as below.
+This is a Go-Back-N based reliable network built on top of UDP network stack. It consists of several parts. Their functions are described as below.
 
 ### Reliable receiver
-- receive data packet, check seqnum, deliever to onboard pipeline and send back ack/nack response.
-- receive ack/nack packet and forward to unacked packets queue
+- Receive data packet, send gbn header to state table for seqnum checking, deliever to onboard pipeline according to check result.
+- Receive ack/nack packet, send to state table for dequeue.
 
 ### Reliable sender
-- get data from onboard pipeline, append seqnum, send out to network and store it in unacked packet queue
-- receive ack and remove acked packets in queue accordingly
-- retransmit unacked packets if receive nack or timeout
+- Get data from onboard pipeline, check with state table to get the seqnum.
+- Append seqnum, send out to network and store it in unacked packet buffer.
 
-### Unacked packets queue
-- store unacked packets
+### Net session state table
+#### State table
+- Check seqnum of received data packets and send ACK/NACK response accordingly.
+- Check seqnum of received ack/nack packets and perform dequeue and issue retransmission requests accordingly.
+- Check if buffer for certain session is full and tell sender the seqnum to sent.
+#### Timer
+- Store the timeout for every net session
+- Reset/stop timer for certain session according to request
+- Generate timeout signal upon timeout event
+#### Setup manager
+- Accept connection open/close request and set the session state and timer
+
+### Unacked packets buffer
+- Store sent out packets into dram
+- Retransmit unacked packet upon receiving retransmission request.
 
 ### Send arbiter
 - Arbitrate between response packet, normal send-out packet and retransmission packets
 - Priority: rsp > retrans > normal
 
 ## Configuration
-There are only a few configurations in `include/fpga/rel_net.h`
-- `DEBUG_MODE`: define this to run hls c-simulation, undefine this to run hls synthesis
-- `MAX_PACKET_SIZE`: the size in 8bytes(per transfer size) of the largest packet that can be stored in the unacked packet queue. default value is 4096/8
-- `WINDOW_SIZE`: the max num of packets that can be sent out without acknowledgement. Since it's a circular queue, the actual capacity is `WINDOWSIZE-1`. default value is 8
-- `RETRANS_TIMEOUT_CYCLE`: retransmission timeout in clock cycles
+There are a few configurations in `include/uapi/gbn.h`
+- `MAX_PACKET_SIZE`: The size in byte of the largest packet that can be stored in the unacked packet queue. Default value is 9216(9 kb)
+- `WINDOW_SIZE`: The max num of packets that can be sent out without acknowledgement. Default value is 128.
+- `NR_MAX_SESSIONS_PER_NODE`: Maximum number of connection, default value is 1024.
+- `RETRANS_TIMEOUT_CYCLE`: Retransmission timeout in clock cycles. Default is 100000000 cycles(4ms).

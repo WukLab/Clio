@@ -12,7 +12,6 @@
 
 #include <ap_axi_sdata.h>
 #include <hls_stream.h>
-#include <uapi/net_header.h>
 
 #define NR_BYTES_AXIS_64	(8)
 #define NR_BYTES_AXIS_256	(32)

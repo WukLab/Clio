@@ -9,6 +9,7 @@
 #define _UAPI_NET_HEADER_H_
 
 #include <uapi/compiler.h>
+#include <uapi/gbn.h>
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -54,15 +55,22 @@ struct lego_header {
 	uint16_t opcode;
 } __attribute__((packed));
 
-#define SEQ_SIZE_BYTE		(4)
-#define SEQ_WIDTH		(SEQ_SIZE_BYTE * 8)
-
 struct gbn_header {
 	char		type;
 	char		src_sesid;
 	char		dst_sesid;
 	unsigned int	seqnum;
-	char		_resv[7-SEQ_SIZE_BYTE];
+	char		session_id[7-SEQ_SIZE_BYTE];
+} __attribute__((packed));
+
+/*
+ * This is the current gbn header definition on board
+ * Will unify the definition later
+ */
+struct gbn_header_board {
+	char		type;
+	unsigned int	seqnum;
+	char		session_id[7-SEQ_SIZE_BYTE];
 } __attribute__((packed));
 
 static inline void
@@ -96,18 +104,6 @@ swap_gbn_session(struct gbn_header *hdr)
 	set_gbn_src_session(hdr, tmp2);
 	set_gbn_dst_session(hdr, tmp1);
 }
-
-enum pkt_type {
-	pkt_type_ack = 1,
-	pkt_type_nack = 2,
-	pkt_type_data = 3
-};
-
-enum gbn_pkt_type {
-	GBN_PKT_ACK = 1,
-	GBN_PKT_NACK = 2,
-	GBN_PKT_DATA = 3,
-};
 
 static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
 {

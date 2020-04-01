@@ -193,7 +193,7 @@ wire [15:0] tx_udp_checksum;
 
 // Configuration
 wire [47:0] local_mac   = 48'h02_00_00_00_00_00;
-wire [31:0] local_ip    = {8'd192, 8'd168, 8'd1,   8'd129};
+wire [31:0] local_ip    = {8'd192, 8'd168, 8'd1,   8'd2};
 wire [31:0] gateway_ip  = {8'd192, 8'd168, 8'd1,   8'd1};
 wire [31:0] subnet_mask = {8'd255, 8'd255, 8'd255, 8'd0};
 
@@ -505,14 +505,14 @@ axi4stream_vip_tx_hdr test_tx_hdr (
 */
 
 always @(posedge clk) begin
-	if (rx_udp_hdr_valid) begin
+	if (rx_udp_hdr_valid  && rx_udp_hdr_ready) begin
 		$display("receive udp header: %h:%d -> %h:%d",
 			rx_udp_ip_source_ip,
 			rx_udp_source_port,
 			rx_udp_ip_dest_ip,
 			rx_udp_dest_port);
 	end
-	if (m_udp_payload_axis_tvalid) begin
+	if (m_udp_payload_axis_tvalid && m_udp_payload_axis_tready) begin
 		$display("receive data: %x", m_udp_payload_axis_tdata);
 	end
 end
