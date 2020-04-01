@@ -394,6 +394,8 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 
 	retrans_start = atomic_load(&ses_gbn->seqnum_last);
 	retrans_end = atomic_load(&ses_gbn->seqnum_cur);
+	gbn_debug("retrans %d to %d, session %d\n", retrans_start, retrans_end,
+		  ses_net->session_id);
 	for (i = retrans_start; i < retrans_end; i++) {
 		/*
 		 * retrans seq#: (seqnum_last, seqnum_cur]
@@ -834,7 +836,7 @@ void gbn_timeout_handler(union sigval val)
 	ses_net = (struct session_net *)val.sival_ptr;
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 
-	printf("Session %d timeout\n", ses_net->session_id);
+	gbn_debug("Session %d timeout\n", ses_net->session_id);
 	retrans_unack_buffer_info(ses_net, ses_gbn);
 }
 

@@ -293,7 +293,7 @@ int main(int argc, char **argv)
 		if (board_addr_set)
 			ret = test_legomem_board(board_addr);
 
-		ret = test_legomem_session();
+		//ret = test_legomem_session();
 		ret = test_legomem_migration();
 	}
 

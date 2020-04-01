@@ -236,11 +236,11 @@ struct legomem_alloc_free_resp {
 struct legomem_open_close_session_req {
 	struct legomem_common_headers comm_headers;
 	struct op_open_close_session op;
-};
+} __packed;
 struct legomem_open_close_session_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_open_close_session_ret op;
-};
+} __packed;
 
 /*
  * Membership

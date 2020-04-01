@@ -53,6 +53,7 @@ struct udp_hdr {
 struct lego_header {
 	pid_t	pid;
 	uint16_t opcode;
+	uint16_t pad;
 } __attribute__((packed));
 
 struct gbn_header {
