@@ -962,7 +962,8 @@ int main(int argc, char **argv)
 	}
 
 	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
+			   default_thpool_buffer_alloc_cb);
 
 	/* Same as host side init */
 	init_board_subsys();

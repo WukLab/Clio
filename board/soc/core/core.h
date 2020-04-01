@@ -6,6 +6,7 @@
 #define _LEGOPGA_BOARD_SOC_CORE_H_
 
 #include <uapi/sched.h>
+#include <uapi/thpool.h>
 
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,

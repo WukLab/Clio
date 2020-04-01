@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
+#include <uapi/stringify.h>
+
 /*
  * ZCU106 Cortex-A53 is running at 64bit mode.
  * x86-64 as well.

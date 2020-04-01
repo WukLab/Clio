@@ -429,7 +429,8 @@ int init_local_management_session(bool create_mgmt_thread)
 	 */
 
 	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
+			   default_thpool_buffer_alloc_cb);
 
 	ret = pthread_create(&t, NULL, mgmt_handler_func, NULL);
 	if (ret) {

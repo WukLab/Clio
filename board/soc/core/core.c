@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
+#include "dma.h"
 #include "core.h"
 
 #define NR_THPOOL_WORKERS	(1)
@@ -317,47 +318,22 @@ static int handle_soc_debug(struct thpool_buffer *tb)
 	return 0;
 }
 
-/*
- * This is the AXI DMA interface.
- * Each direction has its own channel.
- * Nonetheless, the interface is simple enough.
- */
-#if 0
-int axidma_oneway_transfer(axidma_dev_t dev, int channel, void *buf,
-        size_t len, bool wait);
-#endif
-
-static inline size_t axidma_soc_to_fpga(void *buf, size_t buf_size)
-{
-	return -ENOSYS;
-}
-
-static inline size_t axidma_fpga_to_soc(void *buf, size_t buf_size)
-{
-	return -ENOSYS;
-}
-
-static void worker_handle_request(struct thpool_worker *tw,
-				  struct thpool_buffer *tb)
+static void worker_handle_request_inline(struct thpool_worker *tw,
+					 struct thpool_buffer *tb)
 {
 	struct lego_header *lego_hdr;
 	uint16_t opcode;
-	void *rx_buf;
-	size_t rx_buf_size;
 
-	rx_buf = tb->rx;
-	rx_buf_size = tb->rx_size;
-
-	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
+	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
 	/* VM */
 	case OP_REQ_ALLOC:
-		handle_alloc_free(rx_buf, rx_buf_size, tb, true);
+		handle_alloc_free(tb->rx, tb->rx_size, tb, true);
 		break;
 	case OP_REQ_FREE:
-		handle_alloc_free(rx_buf, rx_buf_size, tb, false);
+		handle_alloc_free(tb->rx, tb->rx_size, tb, false);
 		break;
 
 	/* Proc */
@@ -400,16 +376,10 @@ static void worker_handle_request(struct thpool_worker *tw,
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb)))
-		axidma_fpga_to_soc(tb->tx, tb->tx_size);
+		dma_send(tb->tx, tb->tx_size);
 	free_thpool_buffer(tb);
 }
 
-/*
- * General rules:
- * The dispatcher will allocate the whole thpool_buffer,
- * which will be passed to each worker handler, and its
- * the worker's responsibility to free the thpool buffer.
- */
 static void dispatcher(void)
 {
 	struct thpool_buffer *tb;
@@ -417,17 +387,39 @@ static void dispatcher(void)
 	size_t ret;
 
 	while (1) {
+		struct lego_header *lego_header;
+		int payload_size;
+		void *payload_ptr;
+
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
-		ret = axidma_fpga_to_soc(tb->rx, tb->rx_size);
+		/*
+		 * FPGA does not deliver the L2-L4 and GBN headers to us.
+		 * But to keep the handlers consistent, we skip the first portion
+		 * of the receive buffer and reserve the space.
+		 *
+		 * We will first use a recv to get the headers, which has a field
+		 * indicating the whole length of the packet. We then use that length
+		 * to read the payload. Thus the whole process has two recv.
+		 */
+		lego_header = to_lego_header(tb->rx);
+		ret = dma_recv_blocking(lego_header, LEGO_HEADER_SIZE);
 		if (ret < 0) {
-			printf("axi dma fpga to soc failed\n");
-			return;
+			printf("%s(): fail to recv lego_header\n", __func__);
+			continue;
 		}
 
-		/* Inline handling for now */
-		worker_handle_request(tw, tb);
+		payload_size = lego_header->size - LEGO_HEADER_OFFSET;
+		payload_ptr = (void *)(lego_header + 1);
+		ret = dma_recv_blocking(payload_ptr, payload_size);
+		if (ret < 0) {
+			printf("%s(): fail to recv payload\n", __func__);
+			continue;
+		}
+
+		/* Inline handling */
+		worker_handle_request_inline(tw, tb);
 	}
 }
 
@@ -435,8 +427,23 @@ int main(int argc, char **argv)
 {
 	int ret;
 
-	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+	ret = init_dma();
+	if (ret) {
+		printf("Fail to init dma\n");
+		return 0;
+	}
+
+	ret = init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	if (ret) {
+		printf("Fail to init thpool\n");
+		return 0;
+	}
+
+	ret = init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map, dma_thpool_alloc_cb);
+	if (ret) {
+		printf("Fail to init thpool buffer\n");
+		return 0;
+	}
 
 	init_session_subsys();
 
@@ -446,7 +453,6 @@ int main(int argc, char **argv)
 		return ret;
 	}
 
-	test_vm();
-
+	dispatcher();
 	return 0;
 }

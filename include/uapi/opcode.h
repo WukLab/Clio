@@ -66,7 +66,7 @@ enum LEGOFPGA_OPCODE_REQ {
 static inline char *legomem_opcode_str(unsigned int opcode)
 {
 	switch (opcode) {
-	case OP_REQ_TEST:			return "op_test";
+	case OP_REQ_TEST:			return __stringify(OP_REQ_TEST);
 	case OP_REQ_ALLOC:			return "op_alloc";
 	case OP_REQ_ALLOC_RESP:			return "op_alloc_resp";
 	case OP_REQ_FREE:			return "op_free";
