@@ -51,10 +51,27 @@ struct udp_hdr {
  * See uapi/opcode.h for opcode definitions.
  */
 struct lego_header {
-	pid_t	pid;
-	uint16_t opcode;
-	uint16_t pad;
-} __attribute__((packed));
+	uint16_t	pid;
+	uint8_t		tag;
+	uint8_t		opcode;
+
+	uint8_t		req_status : 4;
+	uint8_t		flag_route : 1;
+	uint8_t		flag_repl : 1;
+	uint8_t		reserved : 2;
+
+	uint8_t		seqId;
+	uint16_t	size;
+
+	/*
+	 * Runtime infomation for on board end points
+	 * For normal across-network packets, we do not need to
+	 * fill this part.
+	 */
+	uint16_t cont;
+	uint16_t dest_port;
+	uint32_t dest_ip;
+} __packed;
 
 struct gbn_header {
 	char		type;

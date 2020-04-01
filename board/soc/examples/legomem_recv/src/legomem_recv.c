@@ -86,22 +86,22 @@ int main(int argc, char **argv)
 
     // Since the function is blocking, we need to call with exact data size
     // First, get the header
-    rc = axidma_oneway_transfer(axidma_dev, DATA_RECV_CHANNEL, buf, LEGOMEM_HEADER_SIZE, true);
+    rc = axidma_oneway_transfer(axidma_dev, DATA_RECV_CHANNEL, buf, LEGO_HEADER_SIZE, true);
     if (rc < 0) {
 		fprintf(stderr, "DMA read header transaction failed.\n");
 		goto free_buf;
     }
 
     // Then read the payload
-    int payload_size = ((struct lego_mem_header *)buf)->size - LEGOMEM_HEADER_SIZE;
-    printf("Total Size %d, Expected payload size %d\n", ((struct lego_mem_header *)buf)->size, payload_size);
-    rc = axidma_oneway_transfer(axidma_dev, DATA_RECV_CHANNEL, buf + LEGOMEM_HEADER_SIZE, payload_size, true);
+    int payload_size = ((struct lego_header *)buf)->size - LEGO_HEADER_SIZE;
+    printf("Total Size %d, Expected payload size %d\n", ((struct lego_header *)buf)->size, payload_size);
+    rc = axidma_oneway_transfer(axidma_dev, DATA_RECV_CHANNEL, buf + LEGO_HEADER_SIZE, payload_size, true);
     if (rc < 0) {
 		fprintf(stderr, "DMA read payload transaction failed.\n");
 		goto free_buf;
     }
 
-    printf("Lego Mem Read %d Bytes", LEGOMEM_HEADER_SIZE + payload_size);
+    printf("Lego Mem Read %d Bytes", LEGO_HEADER_SIZE + payload_size);
 
     // Recv Test
 free_buf:

@@ -65,10 +65,10 @@ void build_write_cmd(void * buf, int buf_size) {
 	for (int i = 0; i < buf_size; i++)
 		bytes[i] = i % 256;
 
-	struct lego_mem_header * header = (struct lego_mem_header *)buf;
+	struct lego_header * header = (struct lego_header *)buf;
 	header->pid = 0x5335;
 	header->tag = 0x86;
-	header->req_type = LEGOMEM_REQ_WRITE;
+	header->opcode = OP_REQ_WRITE;
 	header->seqId = 0;
 	header->size = buf_size;
 

@@ -17,28 +17,44 @@
 enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_TEST = 0,
 
-	OP_REQ_ALLOC = 1,
+	OP_REQ_ALLOC,
+	OP_REQ_ALLOC_RESP,
 	OP_REQ_FREE,
+	OP_REQ_FREE_RESP,
 
 	OP_REQ_READ,
+	OP_REQ_READ_RESP,
 	OP_REQ_WRITE,
+	OP_REQ_WRITE_RESP,
 
 	OP_CREATE_PROC,
+	OP_CREATE_PROC_RESP,
 	OP_FREE_PROC,
+	OP_FREE_PROC_RESP,
 
 	OP_OPEN_SESSION,
+	OP_OPEN_SESSION_RESP,
 	OP_CLOSE_SESSION,
+	OP_CLOSE_SESSION_RESP,
 
+	/* Migration */
 	OP_REQ_MIGRATION_H2M,
+	OP_REQ_MIGRATION_H2M_RESP,
 	OP_REQ_MIGRATION_B2M,
+	OP_REQ_MIGRATION_B2M_RESP,
 	OP_REQ_MIGRATION_M2B_RECV,	/* new board, prepare for a incoming mig */
+	OP_REQ_MIGRATION_M2B_RECV_RESP,
 	OP_REQ_MIGRATION_M2B_RECV_CANCEL,
+	OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP,
 	OP_REQ_MIGRATION_M2B_SEND,	/* old board, start migrate to new board */
+	OP_REQ_MIGRATION_M2B_SEND_RESP,
 
 	/* Host to Monitor */
 	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
+	OP_REQ_MEMBERSHIP_JOIN_CLUSTER_RESP,
 
 	OP_REQ_MEMBERSHIP_NEW_NODE,
+	OP_REQ_MEMBERSHIP_NEW_NODE_RESP,
 
 	OP_RESET_ALL,
 
@@ -52,20 +68,36 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	switch (opcode) {
 	case OP_REQ_TEST:			return "op_test";
 	case OP_REQ_ALLOC:			return "op_alloc";
+	case OP_REQ_ALLOC_RESP:			return "op_alloc_resp";
 	case OP_REQ_FREE:			return "op_free";
+	case OP_REQ_FREE_RESP:			return "op_free_resp";
 	case OP_REQ_READ:			return "op_read";
+	case OP_REQ_READ_RESP:			return "op_read_resp";
 	case OP_REQ_WRITE:			return "op_write";
+	case OP_REQ_WRITE_RESP:			return "op_write_resp";
 	case OP_CREATE_PROC:			return "op_create_proc";
+	case OP_CREATE_PROC_RESP:		return "op_create_proc_resp";
 	case OP_FREE_PROC:			return "op_free_proc";
+	case OP_FREE_PROC_RESP:			return "op_free_proc_resp";
 	case OP_REQ_MIGRATION_H2M:		return "op_migration_h2m";
+	case OP_REQ_MIGRATION_H2M_RESP:		return "op_migration_h2m_resp";
 	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
+	case OP_REQ_MIGRATION_B2M_RESP:		return "op_migration_b2m_resp";
 	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
-	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:	return "op_migration_m2b_recv_cancel";
+	case OP_REQ_MIGRATION_M2B_RECV_RESP:	return "op_migration_m2b_recv_resp";
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP:
+						return "op_migration_m2b_recv_cancel_resp";
 	case OP_REQ_MIGRATION_M2B_SEND:		return "op_migration_m2b_send";
+	case OP_REQ_MIGRATION_M2B_SEND_RESP:	return "op_migration_m2b_send_resp";
 	case OP_OPEN_SESSION:			return "op_open_session";
+	case OP_OPEN_SESSION_RESP:		return "op_open_session_resp";
 	case OP_CLOSE_SESSION:			return "op_close_session";
+	case OP_CLOSE_SESSION_RESP:		return "op_close_session_resp";
 	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:	return "op_join_cluster";
+	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER_RESP:
+						return "op_join_cluster_resp";
 	case OP_REQ_MEMBERSHIP_NEW_NODE:	return "op_new_node";
+	case OP_REQ_MEMBERSHIP_NEW_NODE_RESP:	return "op_new_node_resp";
 	case OP_RESET_ALL:			return "op_reset_all";
 	default:				return "unknown";
 	};
