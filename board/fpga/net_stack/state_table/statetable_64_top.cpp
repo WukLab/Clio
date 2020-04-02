@@ -291,6 +291,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 					DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 					DEST_SLOT_OFFSET);
 				timer_rst_req->write(rst_timer_req);
+				handle_rx_state = TAB_STATE_RECV_RX_REQ;
 				break;
 			}
 

@@ -22,53 +22,14 @@ struct dummy_payload {
 
 #define NR_MSG_PER_THREAD	(10)
 #define NR_SESSIONS		(3)
-
-void send_msg(struct session_net *ses)
-{
 #define NR_SEND_BUF_SLOTS	(256)
-	void *send_buf;
-	struct dummy_payload *send_buf_ring[NR_SEND_BUF_SLOTS];
-	int buf_size, i, ret;
-	struct dummy_payload *payload;
-
-	buf_size = 256;
-
-	for (i = 0; i < NR_SEND_BUF_SLOTS; i++) {
-		if (!(send_buf_ring[i] = malloc(buf_size)))
-			return;
-		memset(send_buf_ring[i], 0, buf_size);
-	}
-
-	i = 0;
-
-	while (1) {
-		send_buf = send_buf_ring[i % NR_SEND_BUF_SLOTS];
-		payload = send_buf + LEGO_HEADER_OFFSET;
-		payload->mark = i++;
-
-		printf("send %d\n", i - 1);
-		ret = net_send(ses, send_buf, buf_size);
-		if (ret <= 0) {
-			printf("send error\n");
-			return;
-		}
-
-		if (i >= NR_MSG_PER_THREAD)
-			break;
-	}
-
-	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
-		free(send_buf_ring[i]);
-	
-	return;
-}
 
 void *test_net(void *arg)
 {
-	void *recv_buf;
+	void *recv_buf, *send_buf;
 	int buf_size, i, ret;
-	bool server;
 	struct dummy_payload *payload;
+	struct dummy_payload *send_buf_ring[NR_SEND_BUF_SLOTS];
 	struct gbn_header *hdr;
 	struct session_net *ses;
 
@@ -80,40 +41,56 @@ void *test_net(void *arg)
 		return NULL;
 	memset(recv_buf, 0, buf_size);
 
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++) {
+		if (!(send_buf_ring[i] = malloc(buf_size)))
+			return NULL;
+		memset(send_buf_ring[i], 0, buf_size);
+	}
+
 	i = 0;
 
 	/*
 	 * Please tune this during testing.
 	 * One side is server, another is client.
 	 */
-	server = false;
-	if (server) {
 		/* Server, recv msg */
-		while (1) {
-			ret = net_receive(ses, recv_buf, buf_size);
-			if (ret <= 0) {
-				printf("receive error\n");
-				return NULL;
-			}
+	while (1) {
+		send_buf = send_buf_ring[i % NR_SEND_BUF_SLOTS];
+		payload = send_buf + LEGO_HEADER_OFFSET;
+		payload->mark = i;
 
-			hdr = recv_buf + GBN_HEADER_OFFSET;
-			payload = recv_buf + LEGO_HEADER_OFFSET;
-			printf("Msg %d Payload mark: %lu\n", i, payload->mark);
-			/* seqnum starts from 1 */
-			if (hdr->seqnum != i + 1) {
-				printf("Receive out of order. Expected seq#: %d, Received seq#: %d\n",
-				       i + 1, hdr->seqnum);
-			}
-			i++;
+		printf("send %d\n", i);
+		ret = net_send(ses, send_buf, buf_size);
+		if (ret <= 0) {
+			printf("send error\n");
+			return NULL;
 		}
-	} else {
-		/* Client, send msg */
-		send_msg(ses);
+
+		ret = net_receive(ses, recv_buf, buf_size);
+		if (ret <= 0) {
+			printf("receive error\n");
+			return NULL;
+		}
+
+		hdr = recv_buf + GBN_HEADER_OFFSET;
+		payload = recv_buf + LEGO_HEADER_OFFSET;
+		printf("Msg %d Payload mark: %lu\n", i, payload->mark);
+		/* seqnum starts from 1 */
+		if (hdr->seqnum != i + 1) {
+			printf("Receive out of order. Expected seq#: %d, Received seq#: %d\n",
+			       i + 1, hdr->seqnum);
+		}
+		
+		i++;
+		if (i >= NR_MSG_PER_THREAD)
+			break;
 	}
 
 	sleep(3);
 
 	free(recv_buf);
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
+		free(send_buf_ring[i]);
 
 	return NULL;
 }
@@ -199,9 +176,9 @@ int test_legomem_board(char *board_ip_port_str)
 	 * Step III.4
 	 * End test: close sessions
 	 */
-	// for (i = 0; i < NR_SESSIONS; i++)
-	// 	if (ses_net[i])
-	// 		legomem_close_session(NULL, ses_net[i]);
+	for (i = 0; i < NR_SESSIONS; i++)
+		if (ses_net[i])
+			legomem_close_session(NULL, ses_net[i]);
 
 	return 0;
 }

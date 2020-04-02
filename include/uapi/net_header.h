@@ -71,18 +71,18 @@ set_gbn_src_dst_session(struct gbn_header *hdr, unsigned int src_id, unsigned in
 	unsigned msk = (1 << SLOT_ID_WIDTH) - 1;
 	tmp_sesid = src_id & msk;
 	tmp_sesid |= (dst_id & msk) << SLOT_ID_WIDTH;
-	memcpy(hdr->ses_id, &tmp_sesid, 3);
+	memcpy(hdr->session_id, &tmp_sesid, 3);
 }
 
 static inline unsigned int get_gbn_src_session(struct gbn_header *hdr)
 {
-	short *src_part = (short *)hdr->ses_id;
+	short *src_part = (short *)hdr->session_id;
 	return *src_part & ((1 << SLOT_ID_WIDTH) - 1);
 }
 
 static inline unsigned int get_gbn_dst_session(struct gbn_header *hdr)
 {
-	short *dst_part = (short *)(hdr->ses_id + 1);
+	short *dst_part = (short *)(hdr->session_id + 1);
 	return (*dst_part &
 		(((1 << SLOT_ID_WIDTH) - 1) << (SLOT_ID_WIDTH - 8))) >>
 	       (SLOT_ID_WIDTH - 8);

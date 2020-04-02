@@ -20,7 +20,7 @@
 #include "net.h"
 #include "../core.h"
 
-#define CONFIG_DEBUG_GBN
+//#define CONFIG_DEBUG_GBN
 
 #ifdef CONFIG_DEBUG_GBN
 #define gbn_debug(fmt, ...) \
@@ -504,6 +504,10 @@ static void handle_data_packet(struct session_net *ses_net,
 
 	hdr = to_gbn_header(packet);
 	seq = hdr->seqnum;
+	/* ACK packet has swapped session id as DATA packet */
+	set_gbn_src_dst_session(&ack.ack_header,
+				get_gbn_dst_session(hdr),
+				get_gbn_src_session(hdr));
 
 	if (likely(seq == atomic_load(&ses_gbn->seqnum_expect))) {
 		/*
