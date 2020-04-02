@@ -91,49 +91,47 @@ free_thpool_buffer(struct thpool_buffer *tb)
 }
 
 /*
- * Handle alloc/free requests from host.
+ * Handle alloc/free requests from _host_.
  *
  * Note that
  * 1) This might be the first the host contacting with us,
- * thus there might be no context created. We will create on if that's the case.
+ *    thus there might be no context created. We will create on if that's the case.
  * 2) Upon alloc, remote will tell us the vRegion index, which, was chosen by monitor.
  * 3) We only perform allocation withi one vRegion.
  *    But we could perform free spanning multiple vRegions.
  */
-static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
-			      struct thpool_buffer *tb, bool is_alloc)
+static void handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 {
-	struct proc_info *pi;
-	unsigned int pid, node, host_ip;
+	struct legomem_alloc_free_req *req;
 	struct op_alloc_free *ops;
-	struct op_alloc_free_ret *reply;
+	struct legomem_alloc_free_resp *resp;
+	struct lego_header *lego_header;
+	struct proc_info *pi;
+	pid_t pid;
 
-	/* Setup the reply buffer */
-	reply = (struct op_alloc_free_ret *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*reply));
+	resp = (struct legomem_alloc_free_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
 
-	ops = get_op_struct(rx_buf);
+	req = (struct legomem_alloc_free_req *)tb->rx;
+	ops = &req->op;
+	lego_header = to_lego_header(req);
 
-	// TODO the packet format is unknown for now.
-	pid = 0;
-	node = 0;
-	host_ip = 0;
-
-	pi = get_proc_by_pid(pid, node);
+	pid = lego_header->pid;
+	pi = get_proc_by_pid(pid, 0);
 	if (!pi) {
 		/*
 		 * This could happen.
 		 * Because we might be a new board assigned to the
 		 * host by monitor upon allocation.
 		 */
-		pi = alloc_proc(pid, node, NULL, host_ip);
+		pi = alloc_proc(pid, 0, NULL, 0);
 		if (!pi) {
-			reply->ret = -ENOMEM;
+			resp->op.ret = -ENOMEM;
 			return;
 		}
 
 		/* We will drop in the end */
-		get_proc_by_pid(pid, node);
+		get_proc_by_pid(pid, 0);
 	}
 
 	if (is_alloc) {
@@ -149,10 +147,10 @@ static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 
 		addr = alloc_va_vregion(pi, vi, len, vm_flags);
 		if (unlikely(IS_ERR_VALUE(addr)))
-			reply->ret = -ENOMEM;
+			resp->op.ret = -ENOMEM;
 		else {
-			reply->ret = 0;
-			reply->addr = addr;
+			resp->op.ret = 0;
+			resp->op.addr = addr;
 		}
 	} else {
 		/* OP_REQ_FREE */
@@ -160,99 +158,127 @@ static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 
 		start = ops->addr;
 		len = ops->len;
-		reply->ret = free_va(pi, start, len);
+		resp->op.ret = free_va(pi, start, len);
 	}
 
 	put_proc_info(pi);
 }
 
+/*
+ * Note that in the current implementation flow, neither host nor monitor
+ * will explicitly contact the board for new proc creation. That will be
+ * postponed until vRegion allocation time. This design choice simplies
+ * the flow at the cost of some security issues.
+ *
+ * Thus this handler is actually not used. But keep it here and assume
+ * the sender can either by host or monitor. Further, we assume the PID
+ * has been allocated alreay.
+ */
 static void handle_create_proc(struct thpool_buffer *tb)
 {
+	struct legomem_create_context_req *req;
+	struct legomem_create_context_resp *resp;
+	struct lego_header *lego_header;
 	struct proc_info *pi;
-	int *reply;
-	unsigned int pid, node;
-	void *rx_buf;
+	pid_t pid;
 
-	reply = (int *)tb->tx;
-	set_tb_tx_size(tb, sizeof(int));
+	resp = (struct legomem_create_context_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
 
-	/* TODO: Get PID and NODE from request buffer */
-	rx_buf = tb->rx;
-	pid = 1;
-	node = 0;
+	req = (struct legomem_create_context_req *)tb->rx;
+	lego_header = to_lego_header(req);
 
-	pi = alloc_proc(pid, node, NULL, 0);
+	pid = lego_header->pid;
+
+	pi = alloc_proc(pid, 0, NULL, 0);
 	if (!pi) {
-		*reply = -ENOMEM;
-	} else
-		*reply = 0;
+		resp->op.ret = -ENOMEM;
+		return;
+	} 
+
+	/* Success */
+	resp->op.ret = 0;
+	resp->op.pid = pid;
 }
 
 static void handle_free_proc(struct thpool_buffer *tb)
 {
+	struct legomem_close_context_req *req;
+	struct legomem_close_context_resp *resp;
+	struct lego_header *lego_header;
 	struct proc_info *pi;
-	int *reply;
-	unsigned int pid, node;
-	void *rx_buf;
+	pid_t pid;
 
-	reply = (int *)tb->tx;
-	set_tb_tx_size(tb, sizeof(int));
+	resp = (struct legomem_close_context_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
 
-	/* TODO: Get PID and NODE from request buffer */
-	rx_buf = tb->rx;
-	pid = 1;
-	node = 0;
+	req = (struct legomem_close_context_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
 
-	pi = get_proc_by_pid(pid, node);
+	pi = get_proc_by_pid(pid, 0);
 	if (!pi) {
-		*reply = -EINVAL;
+		resp->ret = -ESRCH;
 		return;
 	}
 
 	/* We grabbed one ref above, thus put twice */
 	put_proc_info(pi);
 	put_proc_info(pi);
+
+	resp->ret = 0;
 }
 
-/*
- * TODO:
- *
- * 1) Notify FPGA stack to handle this session.
- * 2) Notify FPGA to free session. 
- *
- * Couple ways to implement this:
- * 1) In the fpga stack, check for close/open msgs,
- *    and act on its own.
- * 2) soc explicitly notify fpga to do sth.
- */
 static void handle_open_session(struct thpool_buffer *tb)
 {
-	struct op_open_close_session_ret *resp;
-	unsigned int session_id;
+	struct legomem_open_close_session_req *req;
+	struct legomem_open_close_session_resp *resp;
+	unsigned int session_id, src_sesid;
 
-	resp = (struct op_open_close_session_ret *)resp;
+	req = (struct legomem_open_close_session_req *)tb->rx;
+	resp = (struct legomem_open_close_session_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
+
+	src_sesid = req->op.session_id;
 
 	session_id = alloc_session_id();
 	if (session_id < 0) {
-		resp->session_id = 0;
+		resp->op.session_id = 0;
 		return;
 	}
 
-	resp->session_id = session_id;
+	/* Success */
+	resp->op.session_id = session_id;
+
+	printf("%s(): src_sesid: %u dst_sesid: %u\n",
+		__func__, src_sesid, session_id);
+
+	/*
+	 * TODO
+	 * Use which API to notify the GBN setup_manager?
+	 */
 }
 
 static void handle_close_session(struct thpool_buffer *tb)
 {
-	struct op_open_close_session *req;
-	struct op_open_close_session_ret *resp;
+	struct legomem_open_close_session_req *req;
+	struct legomem_open_close_session_resp *resp;
 	unsigned int session_id;
 
-	resp = (struct op_open_close_session_ret *)resp;
+	req = (struct legomem_open_close_session_req *)tb->rx;
+	resp = (struct legomem_open_close_session_resp *)tb->rx;
 	set_tb_tx_size(tb, sizeof(*resp));
 
-	session_id = req->session_id;
+	session_id = req->op.session_id;
 	free_session_id(session_id);
+
+	/* Success */
+	resp->op.session_id = 0;
+
+	/*
+	 * TODO
+	 * Use which API to notify the GBN setup_manager?
+	 */
 }
 
 /*
@@ -261,11 +287,6 @@ static void handle_close_session(struct thpool_buffer *tb)
  */
 static int handle_soc_pingpong(struct thpool_buffer *tb)
 {
-	int *reply;
-
-	reply = (int *)tb->tx;
-	*reply = 0;
-	set_tb_tx_size(tb, sizeof(int));
 	return 0;
 }
 
@@ -330,10 +351,10 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	switch (opcode) {
 	/* VM */
 	case OP_REQ_ALLOC:
-		handle_alloc_free(tb->rx, tb->rx_size, tb, true);
+		handle_alloc_free(tb, true);
 		break;
 	case OP_REQ_FREE:
-		handle_alloc_free(tb->rx, tb->rx_size, tb, false);
+		handle_alloc_free(tb, false);
 		break;
 
 	/* Proc */
@@ -410,7 +431,7 @@ static void dispatcher(void)
 			continue;
 		}
 
-		payload_size = lego_header->size - LEGO_HEADER_OFFSET;
+		payload_size = lego_header->size - LEGO_HEADER_SIZE;
 		payload_ptr = (void *)(lego_header + 1);
 		ret = dma_recv_blocking(payload_ptr, payload_size);
 		if (ret < 0) {

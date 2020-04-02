@@ -185,14 +185,17 @@ struct op_read_write_ret {
  */
 struct op_open_close_session {
 	/*
-	 * For OPEN, this is not used.
+	 * For OPEN, this is the src session id
 	 * For CLOSE, this is the intended session
 	 */
 	unsigned int	session_id;
 };
 
 struct op_open_close_session_ret {
-	/* Opposite of the above definitions */
+	/*
+	 * For OPEN, this is the dst session id.
+	 * For CLOSE, this is the status.
+	 */
 	unsigned int	session_id;
 };
 
