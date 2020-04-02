@@ -13,11 +13,12 @@
 #include <uapi/net_header.h>
 
 #include "net.h"
+#include "../core.h"
 
 int sysctl_link_mtu = 1500;
 
-struct raw_net_ops *raw_net_ops;
-struct transport_net_ops *transport_net_ops;
+struct raw_net_ops *raw_net_ops = &raw_verbs_ops;
+struct transport_net_ops *transport_net_ops = &transport_gbn_ops;
 
 /*
  * Create a session between @local_ei and @remote_ei.
@@ -150,14 +151,11 @@ int init_net(struct endpoint_info *local_ei)
 
 	pthread_spin_init(&dump_lock, PTHREAD_PROCESS_PRIVATE);
 
-	raw_net_ops = &raw_verbs_ops;
-	//raw_net_ops = &raw_socket_ops;
-	//raw_net_ops = &udp_socket_ops;
-	printf("%s(): Raw Net Layer: using %s\n", __func__, raw_net_ops->name);
+	dprintf_INFO("Raw Net Layer: using %s\n", raw_net_ops->name);
 
 	transport_net_ops = &transport_gbn_ops;
 	//transport_net_ops = &transport_bypass_ops;
-	printf("%s(): Transport Layer: using %s\n", __func__, transport_net_ops->name);
+	dprintf_INFO("Transport Layer: using %s\n", transport_net_ops->name);
 
 	ret = raw_net_ops->init_once(local_ei);
 	if (ret) {

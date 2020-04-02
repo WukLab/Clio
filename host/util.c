@@ -13,12 +13,54 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <sys/ioctl.h>
+#include <dirent.h>
 #include <net/if.h>
 
 #include "core.h"
 #include "net/net.h"
 
+/*
+ * The network device we are using.
+ * This is passed by command line during startup
+ */
 char global_net_dev[32];
+
+/*
+ * Given the @ibvdev name, we will try to fill the @ndev.
+ * This is Linux-specific and relys on /sys files.
+ */
+int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size)
+{
+	char dev_dir[128];
+	DIR *dp;
+	struct dirent *dirp;
+	int ret;
+
+	sprintf(dev_dir, "/sys/class/infiniband/%s/device/net", ibdev);
+
+	dp = opendir(dev_dir);
+	if (!dp)
+		return errno;
+
+	ret = -1;
+	while (1) {
+		dirp = readdir(dp);
+		if (!dirp)
+			break;
+
+		if (!strcmp(dirp->d_name, "."))
+			continue;
+		if (!strcmp(dirp->d_name, ".."))
+			continue;
+
+		strncpy(ndev, dirp->d_name, ndev_buf_size);
+		ret = 0;
+		break;
+	}
+	closedir(dp);
+
+	return ret;
+}
 
 /*
  * Given the host order @ip, fill in the @ip_str
@@ -207,12 +249,11 @@ int init_default_local_ei(const char *dev, unsigned int port,
 	ei->ip = ip;
 	ei->udp_port = port;
 
-	/* Debugging info */
-	printf("%s(): Local Endpoint dev: %s IP: %s %x Port: %d MAC: ",
-		__func__, dev, ip_str, ip, port);
+	printf("\033\[34m[%s:%d]: Local Endpoint dev: %s IP: %s %x Port: %d MAC: ",
+		__func__, __LINE__, dev, ip_str, ip, port);
 	for (i = 0; i < 6; i++)
 		printf("%x ", mac[i]);
-	printf("\n");
+	printf("\033[0m\n");
 
 	return 0;
 }

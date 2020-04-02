@@ -132,13 +132,18 @@ static void print_usage(void)
 	printf("Usage ./host.o [Options]\n"
 	       "\n"
 	       "Options:\n"
-	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format\n"
+	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format (Required)\n"
 	       "  --skip_join                 Do not contact monitor for cluster join\n"
-	       "                              This is useful if there is no real monitor running\n"
-	       "  --dev=<name>                Specify the local network device\n"
-	       "  --port=<port>               Specify the local UDP port\n"
-	       "  --add_board=<ip:port>       Manually add a remote board\n"
-	       "  --run_test                  Run built-in tests"
+	       "                              This is useful if there is no real monitor running (Optional)\n"
+	       "  --dev=<name>                Specify the local network device (Required)\n"
+	       "  --port=<port>               Specify the local UDP port (Required)\n"
+	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. raw_verbs (default if nothing is specified)\n"
+	       "                                2. raw_udp\n"
+	       "                                3. raw_socket\n"
+	       "  --add_board=<ip:port>       Manually add a remote board (Optional)\n"
+	       "  --run_test                  Run built-in tests (Optional)"
 	       "\n"
 	       "Examples:\n"
 	       "  ./host.o --monitor=\"127.0.0.1:8888\" --port 8887 --dev=\"lo\" \n"
@@ -150,6 +155,7 @@ static struct option long_options[] = {
 	{ "skip_join",  no_argument,		NULL,	's'},
 	{ "port",	required_argument,	NULL,	'p'},
 	{ "dev",	required_argument,	NULL,	'd'},
+	{ "net_raw_ops", required_argument,	NULL,	'n'},
 	{ "add_board",	required_argument,	NULL,	'b'},
 	{ "run_test",	no_argument,	NULL,	't'},
 	{ 0,		0,			0,	0  }
@@ -193,6 +199,22 @@ int main(int argc, char **argv)
 			strncpy(ndev, optarg, sizeof(ndev));
 			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
+			break;
+		case 'n':
+			if (!strncmp(optarg, "raw_verbs", 16))
+				raw_net_ops = &raw_verbs_ops;
+			else if (!strncmp(optarg, "raw_udp", 16))
+				raw_net_ops = &raw_udp_socket_ops;
+			else if (!strncmp(optarg, "raw_socket", 16))
+				raw_net_ops = &raw_socket_ops;
+			else {
+				printf("Invalid net_raw_ops: %s\n"
+				       "Available Options are:\n"
+				       "  1. raw_verbs (default if nothing is specified)\n"
+				       "  2. raw_udp\n"
+				       "  3. raw_socket\n", optarg);
+				exit(-1);
+			}
 			break;
 		case 'b':
 			strncpy(board_addr, optarg, sizeof(board_addr));

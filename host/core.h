@@ -174,6 +174,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 extern char global_net_dev[32];
 extern struct board_info *mgmt_dummy_board;
 extern struct session_net *mgmt_session;
+int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size);
 int get_ip_str(unsigned int ip, char *ip_str);
 int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 			 unsigned char *mac);

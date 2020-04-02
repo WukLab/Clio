@@ -17,6 +17,7 @@
 #include <infiniband/verbs.h>
 
 #include "net.h"
+#include "../core.h"
 
 /*
  * TODO
@@ -339,12 +340,14 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	struct ibv_flow_spec_ipv4	*spec_ipv4;
 	struct ibv_flow_spec_tcp_udp	*spec_tcp_udp;
 
+	/* Shift to get all pointers */
 	memset(&flow_attr, 0, sizeof(flow_attr));
 	attr = &flow_attr.attr;
 	spec_eth = &flow_attr.spec_eth;
 	spec_ipv4 = &flow_attr.spec_ipv4;
 	spec_tcp_udp = &flow_attr.spec_tcp_udp;
 
+	/* Fill ibv_flow_attr */
 	attr->comp_mask = 0;
 	attr->type = IBV_FLOW_ATTR_NORMAL;
 	attr->size = sizeof(flow_attr);
@@ -353,6 +356,7 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	attr->port = qp_ib_port;
 	attr->flags = 0;
 
+	/* Fill ibv_flow_spec_eth */
 	spec_eth->type = IBV_FLOW_SPEC_ETH;
 	spec_eth->size = sizeof(struct ibv_flow_spec_eth);
 	memcpy(&spec_eth->val.dst_mac, local->mac, 6);
@@ -398,6 +402,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 	struct ibv_qp_attr qp_attr;
 	int qp_flags;
 	int ret;
+	char ndev[32];
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
@@ -411,8 +416,22 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		return -ENODEV;
 	}
 
-	printf("%s(): IB Device: %s\n", __func__, ibv_get_device_name(ib_dev));
-	printf("%s(): Netdev Device: %s\n", __func__, ibv_get_device_name(ib_dev));
+	ret = ibdev2netdev(ibv_get_device_name(ib_dev), ndev, sizeof(ndev));
+	if (ret) {
+		dprintf_ERROR("fail to do ibdev2netdev %d\n", 0);
+		return ret;
+	}
+
+	if (strncmp(ndev, global_net_dev, sizeof(ndev))) {
+		dprintf_ERROR("We are using ibdev [%s], which maps to network "
+			      "device [%s]. But user passed device is [%s]. "
+			      "If you wish to continue using raw_verbs, "
+			      "please restart and use \"--dev=%s\"\n",
+		ibv_get_device_name(ib_dev), ndev, global_net_dev, ndev);
+		return -EIO;
+	}
+	dprintf_INFO("Using IB Device: %s (ndev: %s)\n",
+		ibv_get_device_name(ib_dev), ndev);
 
 	context = ibv_open_device(ib_dev);
 	if (!context) {

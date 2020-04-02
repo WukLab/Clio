@@ -892,8 +892,13 @@ static void print_usage(void)
 	printf("Usage ./host.o [Options]\n"
 	       "\n"
 	       "Options:\n"
-	       "  --dev=<name>                Specify the local network device\n"
-	       "  --port=<port>               Specify the local UDP port we listen to\n"
+	       "  --dev=<name>                Specify the local network device (Required)\n"
+	       "  --port=<port>               Specify the local UDP port we listen to (Required)\n"
+	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. raw_verbs (default if nothing is specified)\n"
+	       "                                2. raw_udp\n"
+	       "                                3. raw_socket\n"
 	       "\n"
 	       "Examples:\n"
 	       "  ./monitor.o --port 8888 --dev=\"lo\" \n"
@@ -903,6 +908,7 @@ static void print_usage(void)
 static struct option long_options[] = {
 	{ "port",	required_argument,	NULL,	'p'},
 	{ "dev",	required_argument,	NULL,	'd'},
+	{ "net_raw_ops", required_argument,	NULL,	'n'},
 	{ 0,		0,			0,	0  }
 };
 
@@ -929,6 +935,22 @@ int main(int argc, char **argv)
 			strncpy(ndev, optarg, sizeof(ndev));
 			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
+			break;
+		case 'n':
+			if (!strncmp(optarg, "raw_verbs", 16))
+				raw_net_ops = &raw_verbs_ops;
+			else if (!strncmp(optarg, "raw_udp", 16))
+				raw_net_ops = &raw_udp_socket_ops;
+			else if (!strncmp(optarg, "raw_socket", 16))
+				raw_net_ops = &raw_socket_ops;
+			else {
+				printf("Invalid net_raw_ops: %s\n"
+				       "Available Options are:\n"
+				       "  1. raw_verbs (default if nothing is specified)\n"
+				       "  2. raw_udp\n"
+				       "  3. raw_socket\n", optarg);
+				exit(-1);
+			}
 			break;
 		default:
 			print_usage();
