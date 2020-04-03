@@ -59,33 +59,36 @@ struct lego_header {
 struct gbn_header {
 	char		type;
 	unsigned int	seqnum;
-	char		ses_id[7-SEQ_SIZE_BYTE];
+	char		session_id[SES_ID_SIZE_BYTE];
 } __attribute__((packed));
 
-#define SLOT_ID_WIDTH		(10)
+#define GBN_HEADER_SLOT_ID_MSK	((1 << SLOT_ID_WIDTH) - 1)
+#define GBN_HEADER_SRC_ID_SHIFT	(0)
+#define GBN_HEADER_DST_ID_SHIFT	(SLOT_ID_WIDTH)
+#define GBN_HEADER_SRC_ID_MSK	(GBN_HEADER_SLOT_ID_MSK << GBN_HEADER_SRC_ID_SHIFT)
+#define GBN_HEADER_DST_ID_MSK	(GBN_HEADER_SLOT_ID_MSK << GBN_HEADER_DST_ID_SHIFT)
 
 static inline void
 set_gbn_src_dst_session(struct gbn_header *hdr, unsigned int src_id, unsigned int dst_id)
 {
-	unsigned tmp_sesid = 0;
-	unsigned msk = (1 << SLOT_ID_WIDTH) - 1;
-	tmp_sesid = src_id & msk;
-	tmp_sesid |= (dst_id & msk) << SLOT_ID_WIDTH;
-	memcpy(hdr->session_id, &tmp_sesid, 3);
+	unsigned int tmp_sesid = 0;
+	tmp_sesid = (src_id & GBN_HEADER_SLOT_ID_MSK)
+		    << GBN_HEADER_SRC_ID_SHIFT;
+	tmp_sesid |= (dst_id & GBN_HEADER_SLOT_ID_MSK)
+		     << GBN_HEADER_DST_ID_SHIFT;
+	memcpy(hdr->session_id, &tmp_sesid, SES_ID_SIZE_BYTE);
 }
 
 static inline unsigned int get_gbn_src_session(struct gbn_header *hdr)
 {
-	short *src_part = (short *)hdr->session_id;
-	return *src_part & ((1 << SLOT_ID_WIDTH) - 1);
+	return (*((unsigned int *)hdr->session_id) & GBN_HEADER_SRC_ID_MSK) >>
+	       GBN_HEADER_SRC_ID_SHIFT;
 }
 
 static inline unsigned int get_gbn_dst_session(struct gbn_header *hdr)
 {
-	short *dst_part = (short *)(hdr->session_id + 1);
-	return (*dst_part &
-		(((1 << SLOT_ID_WIDTH) - 1) << (SLOT_ID_WIDTH - 8))) >>
-	       (SLOT_ID_WIDTH - 8);
+	return (*((unsigned int *)hdr->session_id) & GBN_HEADER_DST_ID_MSK) >>
+	       GBN_HEADER_DST_ID_SHIFT;
 }
 
 static __always_inline void

@@ -150,9 +150,9 @@ int init_net(struct endpoint_info *local_ei)
 
 	pthread_spin_init(&dump_lock, PTHREAD_PROCESS_PRIVATE);
 
-	//raw_net_ops = &raw_verbs_ops;
+	raw_net_ops = &raw_verbs_ops;
 	//raw_net_ops = &raw_socket_ops;
-	raw_net_ops = &udp_socket_ops;
+	//raw_net_ops = &udp_socket_ops;
 	printf("%s(): Raw Net Layer: using %s\n", __func__, raw_net_ops->name);
 
 	transport_net_ops = &transport_gbn_ops;

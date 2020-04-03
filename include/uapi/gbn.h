@@ -24,7 +24,7 @@
 #define PKT_TYPE_WIDTH		(8)
 #define SEQ_SIZE_BYTE		(4)
 #define SEQ_WIDTH		(32)
-#define SES_ID_SIZE_BYTE	(3)
+#define SES_ID_SIZE_BYTE	(7 - SEQ_SIZE_BYTE)
 #define SES_ID_WIDTH		(24)
 
 #define SEQ_OFFSET		(PKT_TYPE_WIDTH)

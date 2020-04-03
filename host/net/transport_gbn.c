@@ -37,7 +37,7 @@
  * Organized as a ring.
  */
 #define NR_BUFFER_INFO_SLOTS		(256)
-#define GBN_RETRANS_TIMEOUT_US		(2000)
+#define GBN_RETRANS_TIMEOUT_US		(4000)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
 
 static int polling_thread_created = 0;
@@ -97,7 +97,6 @@ struct session_gbn {
 	
 	/* Timer */
 	timer_t				rt_timer;
-	struct sigevent			timeout_event;
 
 	/*
 	 * For the incoming data, we do it differently with the above approach.
@@ -832,7 +831,7 @@ static inline int gbn_receive_one_nb(struct session_net *net,
 	return -ENOSYS;
 }
 
-void gbn_timeout_handler(union sigval val)
+static void gbn_timeout_handler(union sigval val)
 {
 	struct session_net *ses_net;
 	struct session_gbn *ses_gbn;
@@ -844,28 +843,29 @@ void gbn_timeout_handler(union sigval val)
 	retrans_unack_buffer_info(ses_net, ses_gbn);
 }
 
-static int init_session_gbn(struct session_net* net, struct session_gbn *ses)
+static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 {
 	int i;
 	struct buffer_info *info;
+	struct sigevent timeout_event;
 	int ret;
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_unack_buffer_info(ses, i);
+		info = index_to_unack_buffer_info(gbn, i);
 		memset(info, 0, sizeof(*info));
 		INIT_LIST_HEAD(&info->list);
 	}
-	atomic_init(&ses->seqnum_cur, 0);
-	atomic_init(&ses->seqnum_last, 0);
+	atomic_init(&gbn->seqnum_cur, 0);
+	atomic_init(&gbn->seqnum_last, 0);
 
 	/*
 	 * Create timer for this gbn session
 	 * Store net session in the sigevent struct
 	 */
-	ses->timeout_event.sigev_notify = SIGEV_THREAD;
-	ses->timeout_event.sigev_value.sival_ptr = (void *)net;
-	ses->timeout_event.sigev_notify_function = gbn_timeout_handler;
-	ret = timer_create(CLOCK_MONOTONIC, &ses->timeout_event, &ses->rt_timer);
+	timeout_event.sigev_notify = SIGEV_THREAD;
+	timeout_event.sigev_value.sival_ptr = (void *)net;
+	timeout_event.sigev_notify_function = gbn_timeout_handler;
+	ret = timer_create(CLOCK_MONOTONIC, &timeout_event, &gbn->rt_timer);
 	if (ret < 0) {
 		ret = -errno;
 		printf("gbn: Failed to create timer\n");
@@ -873,7 +873,7 @@ static int init_session_gbn(struct session_net* net, struct session_gbn *ses)
 	}
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_data_buffer_info(ses, i);
+		info = index_to_data_buffer_info(gbn, i);
 		memset(info, 0, sizeof(*info));
 		INIT_LIST_HEAD(&info->list);
 
@@ -891,12 +891,12 @@ static int init_session_gbn(struct session_net* net, struct session_gbn *ses)
 			}
 		}
 	}
-	atomic_init(&ses->data_buffer_info_HEAD, 0);
-	atomic_init(&ses->seqnum_expect, 1);
+	atomic_init(&gbn->data_buffer_info_HEAD, 0);
+	atomic_init(&gbn->seqnum_expect, 1);
 
-	INIT_LIST_HEAD(&ses->data_list);
-	pthread_spin_init(&ses->data_lock, PTHREAD_PROCESS_PRIVATE);
-	ses->nr_data = 0;
+	INIT_LIST_HEAD(&gbn->data_list);
+	pthread_spin_init(&gbn->data_lock, PTHREAD_PROCESS_PRIVATE);
+	gbn->nr_data = 0;
 
 	ret = 0;
 out:
@@ -931,6 +931,9 @@ static int gbn_close_session(struct session_net *ses_net)
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (ses_gbn) {
+		gbn_debug("session %d, ack %ld, nack %ld\n",
+			  ses_net->session_id, ses_gbn->nr_rx_ack,
+			  ses_gbn->nr_rx_nack);
 		timer_delete(ses_gbn->rt_timer);
 		free(ses_gbn);
 	}
