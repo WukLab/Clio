@@ -152,9 +152,6 @@ int init_net(struct endpoint_info *local_ei)
 	pthread_spin_init(&dump_lock, PTHREAD_PROCESS_PRIVATE);
 
 	dprintf_INFO("Raw Net Layer: using %s\n", raw_net_ops->name);
-
-	transport_net_ops = &transport_gbn_ops;
-	//transport_net_ops = &transport_bypass_ops;
 	dprintf_INFO("Transport Layer: using %s\n", transport_net_ops->name);
 
 	ret = raw_net_ops->init_once(local_ei);

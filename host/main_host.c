@@ -135,13 +135,17 @@ static void print_usage(void)
 	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format (Required)\n"
 	       "  --skip_join                 Do not contact monitor for cluster join\n"
 	       "                              This is useful if there is no real monitor running (Optional)\n"
-	       "  --dev=<name>                Specify the local network device (Required)\n"
-	       "  --port=<port>               Specify the local UDP port (Required)\n"
-	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
+	       "  --dev=<name>                Specify local network device (Required)\n"
+	       "  --port=<port>               Specify local UDP port (Required)\n"
+	       "  --net_raw_ops=[options]     Select raw network layer implementation (Optional)\n"
 	       "                              Available Options are:\n"
 	       "                                1. raw_verbs (default if nothing is specified)\n"
 	       "                                2. raw_udp\n"
 	       "                                3. raw_socket\n"
+	       "  --net_trans_ops=[options]   Select transport layer implementations (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
+	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
 	       "  --add_board=<ip:port>       Manually add a remote board (Optional)\n"
 	       "  --run_test                  Run built-in tests (Optional)"
 	       "\n"
@@ -150,15 +154,17 @@ static void print_usage(void)
 	       "  ./host.o -m 127.0.0.1:8888 -p 8887 -d lo\n");
 }
 
+#define OPT_NET_TRANS_OPS		(10000)
 static struct option long_options[] = {
-	{ "monitor",	required_argument,	NULL,	'm'},
-	{ "skip_join",  no_argument,		NULL,	's'},
-	{ "port",	required_argument,	NULL,	'p'},
-	{ "dev",	required_argument,	NULL,	'd'},
-	{ "net_raw_ops", required_argument,	NULL,	'n'},
-	{ "add_board",	required_argument,	NULL,	'b'},
-	{ "run_test",	no_argument,	NULL,	't'},
-	{ 0,		0,			0,	0  }
+	{ "monitor",		required_argument,	NULL,	'm'},
+	{ "skip_join",  	no_argument,		NULL,	's'},
+	{ "port",		required_argument,	NULL,	'p'},
+	{ "dev",		required_argument,	NULL,	'd'},
+	{ "net_raw_ops",	required_argument,	NULL,	'n'},
+	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
+	{ "add_board",		required_argument,	NULL,	'b'},
+	{ "run_test",		no_argument,		NULL,	't'},
+	{ 0,			0,			0,	0  }
 };
 
 int main(int argc, char **argv)
@@ -213,6 +219,19 @@ int main(int argc, char **argv)
 				       "  1. raw_verbs (default if nothing is specified)\n"
 				       "  2. raw_udp\n"
 				       "  3. raw_socket\n", optarg);
+				exit(-1);
+			}
+			break;
+		case OPT_NET_TRANS_OPS:
+			if (!strncmp(optarg, "gbn", 8))
+				transport_net_ops = &transport_gbn_ops;
+			else if (!strncmp(optarg, "bypass", 8))
+				transport_net_ops = &transport_bypass_ops;
+			else {
+				printf("Invalid net_trans_ops: %s\n"
+				       "Available Options are:\n"
+				       "1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
+				       "2. bypass (simple bypass transport layer, unreliable)\n", optarg);
 				exit(-1);
 			}
 			break;
@@ -312,7 +331,7 @@ int main(int argc, char **argv)
 	}
 
 	if (run_test) {
-		ret = test_raw_net(NULL);
+		ret = test_raw_net();
 
 		if (board_addr_set)
 			ret = test_legomem_board(board_addr);

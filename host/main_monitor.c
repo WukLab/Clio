@@ -903,24 +903,30 @@ static void print_usage(void)
 	printf("Usage ./host.o [Options]\n"
 	       "\n"
 	       "Options:\n"
-	       "  --dev=<name>                Specify the local network device (Required)\n"
-	       "  --port=<port>               Specify the local UDP port we listen to (Required)\n"
-	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
+	       "  --dev=<name>                Specify local network device (Required)\n"
+	       "  --port=<port>               Specify local UDP port we listen to (Required)\n"
+	       "  --net_raw_ops=[options]     Select raw network layer implementation (Optional)\n"
 	       "                              Available Options are:\n"
 	       "                                1. raw_verbs (default if nothing is specified)\n"
 	       "                                2. raw_udp\n"
 	       "                                3. raw_socket\n"
+	       "  --net_trans_ops=[options]   Select transport layer implementations (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
+	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
 	       "\n"
 	       "Examples:\n"
 	       "  ./monitor.o --port 8888 --dev=\"lo\" \n"
 	       "  ./monitor.o -p 8888 -d ens4\n");
 }
 
+#define OPT_NET_TRANS_OPS		(10000)
 static struct option long_options[] = {
-	{ "port",	required_argument,	NULL,	'p'},
-	{ "dev",	required_argument,	NULL,	'd'},
-	{ "net_raw_ops", required_argument,	NULL,	'n'},
-	{ 0,		0,			0,	0  }
+	{ "port",		required_argument,	NULL,	'p'},
+	{ "dev",		required_argument,	NULL,	'd'},
+	{ "net_raw_ops",	required_argument,	NULL,	'n'},
+	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
+	{ 0,			0,			0,	0  }
 };
 
 int main(int argc, char **argv)
@@ -960,6 +966,19 @@ int main(int argc, char **argv)
 				       "  1. raw_verbs (default if nothing is specified)\n"
 				       "  2. raw_udp\n"
 				       "  3. raw_socket\n", optarg);
+				exit(-1);
+			}
+			break;
+		case OPT_NET_TRANS_OPS:
+			if (!strncmp(optarg, "gbn", 8))
+				transport_net_ops = &transport_gbn_ops;
+			else if (!strncmp(optarg, "bypass", 8))
+				transport_net_ops = &transport_bypass_ops;
+			else {
+				printf("Invalid net_trans_ops: %s\n"
+				       "Available Options are:\n"
+				       "1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
+				       "2. bypass (simple bypass transport layer, unreliable)\n", optarg);
 				exit(-1);
 			}
 			break;
