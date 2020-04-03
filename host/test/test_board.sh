@@ -3,7 +3,6 @@
 set -x
 set -e
 
-#
 # Single board, no monitor setting
 
 # Note
