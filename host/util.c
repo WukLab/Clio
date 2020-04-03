@@ -267,3 +267,30 @@ int add_localhost_bi(struct endpoint_info *ei)
 	default_local_bi->flags |= BOARD_INFO_FLAGS_LOCALHOST;
 	return 0;
 }
+
+struct board_info *mgmt_dummy_board;
+struct session_net *mgmt_session;
+
+/*
+ * Open the local mgmt session
+ * and its associated handler thread
+ */
+int init_local_management_session(void)
+{
+	struct endpoint_info dummy_ei = { 0 };
+
+	/*
+	 * This is LOCAL dummy board.
+	 * We will never use the endpoint_info from this special bi,
+	 * thus using a dummy_ei is fine.
+	 */
+	mgmt_dummy_board = add_board("special_local_mgmt", 0,
+				     &dummy_ei, &dummy_ei, true);
+	if (!mgmt_dummy_board)
+		return -ENOMEM;
+	mgmt_dummy_board->flags |= BOARD_INFO_FLAGS_DUMMY;
+
+	/* This is our LOCAL mgmt session */
+	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
+	return 0;
+}

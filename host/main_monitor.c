@@ -875,7 +875,7 @@ free:
  * Since mgmt session does not have any remote end's information,
  * we must rely on each packet's routing info to send it back.
  */
-static void dispatcher(void)
+static void *dispatcher(void *_unused)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
@@ -896,6 +896,7 @@ static void dispatcher(void)
 		 */
 		worker_handle_request(tw, tb);
 	}
+	return NULL;
 }
 
 static void print_usage(void)
@@ -1013,9 +1014,12 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
-			   default_thpool_buffer_alloc_cb);
+	atomic_init(&nr_hosts, 0);
+	atomic_init(&nr_boards, 0);
+
+	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* Same as host side init */
 	init_board_subsys();
@@ -1027,19 +1031,24 @@ int main(int argc, char **argv)
 	 */
 	add_localhost_bi(&default_local_ei);
 
-	atomic_init(&nr_hosts, 0);
-	atomic_init(&nr_boards, 0);
-
-	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
-
-	ret = init_local_management_session(false);
+	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
 
-	dump_net_sessions();
-	dispatcher();
+	/*
+	 * Now init the thpool stuff and create a new thread
+	 * to handle the mgmt session traffic. 
+	 */
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
+			   default_thpool_buffer_alloc_cb);
+
+	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
+	if (ret) {
+		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
+		exit(-1);
+	}
+	pthread_join(mgmt_session->thread, NULL);
 }

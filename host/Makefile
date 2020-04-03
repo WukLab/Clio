@@ -7,7 +7,6 @@ TEST_SRCS := test_session.c \
 	     test_board.c
 
 C_SRCS := board.c \
-	mgmt.c \
 	util.c \
 	api.c \
 	context.c \

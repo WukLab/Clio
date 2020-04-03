@@ -78,5 +78,6 @@ int test_raw_net(void)
 
 	test_pingpong(remote_board, remote_mgmt_session);
 
+	exit(1);
 	return 0;
 }

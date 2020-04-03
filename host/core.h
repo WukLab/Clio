@@ -182,7 +182,7 @@ int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 			     char *ip_str, int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
-int init_local_management_session(bool);
+int init_local_management_session(void);
 
 /* Host-side only */
 extern unsigned int monitor_ip_h;
