@@ -88,8 +88,7 @@ static void init_proc_info(struct proc_info *pi)
  * The PID and Node can uniquely identify a process.
  * proc_name and host_ip are optional.
  */
-struct proc_info *alloc_proc(unsigned int pid, unsigned int node,
-			     char *proc_name, unsigned int host_ip)
+struct proc_info *alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 {
 	struct proc_info *new;
 	struct proc_info *old;
@@ -101,30 +100,28 @@ struct proc_info *alloc_proc(unsigned int pid, unsigned int node,
 	init_proc_info(new);
 
 	new->pid = pid;
-	new->node = node;
 
 	if (proc_name)
 		strncpy(new->proc_name, proc_name, PROC_NAME_LEN);
 	if (host_ip)
 		new->host_ip = host_ip;
 
-	key = getKey(pid, node);
+	key = pid;
 
 	/* Insert into the hashtable */
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, old, link, key) {
-		if (unlikely(old->pid == pid && old->node == node)) {
+		if (unlikely(old->pid == pid)) {
 			pthread_spin_unlock(&proc_lock);
 			free(new);
-			printf("alloc_proc: pid %u node %u exists\n",
-				pid, node);
+			printf("alloc_proc: pid %u exists\n", pid);
 			return NULL;
 		}
 	}
 	hash_add(proc_hash_array, &new->link, key);
 	pthread_spin_unlock(&proc_lock);
 
-	printf("alloc_proc: new proc pid %u node %u\n", pid, node);
+	printf("alloc_proc: new proc pid %u\n", pid);
 	return new;
 }
 
@@ -134,7 +131,7 @@ struct proc_info *alloc_proc(unsigned int pid, unsigned int node,
  */
 void free_proc(struct proc_info *pi)
 {
-	unsigned int node, pid, key;
+	unsigned int pid, key;
 	struct proc_info *tsk;
 
 	if (!pi)
@@ -145,14 +142,13 @@ void free_proc(struct proc_info *pi)
 		return;
 	}
 
-	node = pi->node;
 	pid = pi->pid;
-	key = getKey(pid, node);
+	key = pid;
 
-	/* Walk through all the possible buckets, check node and pid */
+	/* Walk through all the possible buckets, check pid */
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, tsk, link, key) {
-		if (likely(tsk->node == node && tsk->pid == pid)) {
+		if (likely(tsk->pid == pid)) {
 			hash_del(&tsk->link);
 			pthread_spin_unlock(&proc_lock);
 			free(tsk);
@@ -160,24 +156,24 @@ void free_proc(struct proc_info *pi)
 		}
 	}
 	pthread_spin_unlock(&proc_lock);
-	printf("WARN: Fail to find tsk (node %u pid %d)\n", node, pid);
+	printf("WARN: Fail to find tsk (pid %d)\n", pid);
 }
 
 /*
- * Find the pi structure by given pid and node.
+ * Find the pi structure by given pid.
  * The refcount is incremented by 1 if found.
  * The caller must call put_proc() afterwards.
  */
-struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node)
+struct proc_info *get_proc_by_pid(unsigned int pid)
 {
 	struct proc_info *pi;
 	unsigned int key;
 
-	key = getKey(pid, node);
+	key = pid;
 
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, pi, link, key) {
-		if (likely(pi->pid == pid && pi->node == node)) {
+		if (likely(pi->pid == pid)) {
 			get_proc_info(pi);
 			pthread_spin_unlock(&proc_lock);
 			return pi;

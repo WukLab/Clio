@@ -117,21 +117,21 @@ static void handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 	lego_header = to_lego_header(req);
 
 	pid = lego_header->pid;
-	pi = get_proc_by_pid(pid, 0);
+	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		/*
 		 * This could happen.
 		 * Because we might be a new board assigned to the
 		 * host by monitor upon allocation.
 		 */
-		pi = alloc_proc(pid, 0, NULL, 0);
+		pi = alloc_proc(pid, NULL, 0);
 		if (!pi) {
 			resp->op.ret = -ENOMEM;
 			return;
 		}
 
 		/* We will drop in the end */
-		get_proc_by_pid(pid, 0);
+		get_proc_by_pid(pid);
 	}
 
 	if (is_alloc) {
@@ -190,7 +190,7 @@ static void handle_create_proc(struct thpool_buffer *tb)
 
 	pid = lego_header->pid;
 
-	pi = alloc_proc(pid, 0, NULL, 0);
+	pi = alloc_proc(pid, NULL, 0);
 	if (!pi) {
 		resp->op.ret = -ENOMEM;
 		return;
@@ -216,7 +216,7 @@ static void handle_free_proc(struct thpool_buffer *tb)
 	lego_header = to_lego_header(req);
 	pid = lego_header->pid;
 
-	pi = get_proc_by_pid(pid, 0);
+	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		resp->ret = -ESRCH;
 		return;
