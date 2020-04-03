@@ -144,6 +144,12 @@ extern struct transport_net_ops transport_gbn_ops;
 extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;
 
+/*
+ * From raw network layer's pespective, this no such concept
+ * as session, which is a transport layer concept.
+ * We pass down the @net because we have saved the private
+ * data inside that one.
+ */
 static inline int
 raw_net_send(struct session_net *net, void *buf, size_t buf_size, void *route)
 {

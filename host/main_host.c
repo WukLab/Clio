@@ -312,10 +312,11 @@ int main(int argc, char **argv)
 	}
 
 	if (run_test) {
+		ret = test_raw_net(NULL);
+
 		if (board_addr_set)
 			ret = test_legomem_board(board_addr);
-
-		//ret = test_legomem_session();
+		ret = test_legomem_session();
 		ret = test_legomem_migration();
 	}
 

@@ -59,16 +59,35 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_RESET_ALL,
 
 	OP_REQ_SOC_DEBUG,
-	OP_REQ_FPGA_PINGPOING,	/* For measurement */
-	OP_REQ_SOC_PINGPONG,	/* For measurement */
+
+	/*
+	 * For host and monitor, this is a normal pingpong.
+	 * For legomem-board, this is undefined.
+	 */
+	OP_REQ_PINGPONG,
+
+	/*
+	 * For legomem-board, this pingpong msg should
+	 * return at the point of reaching network stack
+	 */
+	OP_REQ_FPGA_PINGPONG,
+
+	/*
+	 * For legomem-board, this pingpoong msg shoul
+	 * return at the point of reaching SoC
+	 */
+	OP_REQ_SOC_PINGPONG,
 };
 
 static inline char *legomem_opcode_str(unsigned int opcode)
 {
+#define S(_OP) \
+	case _OP:				return __stringify(_OP)
+
 	switch (opcode) {
-	case OP_REQ_TEST:			return __stringify(OP_REQ_TEST);
-	case OP_REQ_ALLOC:			return "op_alloc";
-	case OP_REQ_ALLOC_RESP:			return "op_alloc_resp";
+	S(OP_REQ_TEST);
+	S(OP_REQ_ALLOC);
+	S(OP_REQ_ALLOC_RESP);
 	case OP_REQ_FREE:			return "op_free";
 	case OP_REQ_FREE_RESP:			return "op_free_resp";
 	case OP_REQ_READ:			return "op_read";
@@ -84,9 +103,8 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
 	case OP_REQ_MIGRATION_B2M_RESP:		return "op_migration_b2m_resp";
 	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
-	case OP_REQ_MIGRATION_M2B_RECV_RESP:	return "op_migration_m2b_recv_resp";
-	case OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP:
-						return "op_migration_m2b_recv_cancel_resp";
+	S(OP_REQ_MIGRATION_M2B_RECV_RESP);
+	S(OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP);
 	case OP_REQ_MIGRATION_M2B_SEND:		return "op_migration_m2b_send";
 	case OP_REQ_MIGRATION_M2B_SEND_RESP:	return "op_migration_m2b_send_resp";
 	case OP_OPEN_SESSION:			return "op_open_session";
@@ -98,7 +116,9 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 						return "op_join_cluster_resp";
 	case OP_REQ_MEMBERSHIP_NEW_NODE:	return "op_new_node";
 	case OP_REQ_MEMBERSHIP_NEW_NODE_RESP:	return "op_new_node_resp";
-	case OP_RESET_ALL:			return "op_reset_all";
+	S(OP_REQ_PINGPONG);
+	S(OP_REQ_FPGA_PINGPONG);
+	S(OP_REQ_SOC_PINGPONG);
 	default:				return "unknown";
 	};
 	return NULL;
@@ -310,6 +330,17 @@ struct legomem_migration_req {
 struct legomem_migration_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_migration_ret op;
+};
+
+/*
+ * Debug and Measurement
+ */
+struct legomem_pingpong_req {
+	struct legomem_common_headers comm_headers;
+};
+
+struct legomem_pingpong_resp {
+	struct legomem_common_headers comm_headers;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

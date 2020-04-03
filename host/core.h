@@ -217,6 +217,7 @@ int add_localhost_bi(struct endpoint_info *ei);
 int test_legomem_session(void);
 int test_legomem_migration(void);
 int test_legomem_board(char *);
+int test_raw_net(char *);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

@@ -85,8 +85,8 @@ static void init_proc_info(struct proc_info *pi)
 
 /*
  * This is a public API to allocate a new process address space.
- * The PID and Node can uniquely identify a process.
  * proc_name and host_ip are optional.
+ * @pid is a globally unique id allocated by monitor.
  */
 struct proc_info *alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 {

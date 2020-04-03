@@ -20,7 +20,9 @@
 #include "net.h"
 #include "../core.h"
 
+#if 1
 #define CONFIG_DEBUG_GBN
+#endif
 
 #ifdef CONFIG_DEBUG_GBN
 #define gbn_debug(fmt, ...) \
@@ -595,7 +597,6 @@ static void *gbn_poll_func(void *_unused)
 	void *recv_buf;
 	size_t buf_size, max_buf_size;
 	int ret;
-	char packet_dump_str[256];
 
 	/*
 	 * If there is no zerocopy,
@@ -648,16 +649,21 @@ static void *gbn_poll_func(void *_unused)
 			in_addr.s_addr = ipv4_hdr->src_ip;
 			inet_ntop(AF_INET, &in_addr, str, sizeof(str));
 
-			gbn_debug("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
+			dprintf_ERROR("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
 				str, get_gbn_src_session(gbn_hdr), dst_sesid);
 			continue;
 		}
 
-		dump_packet_headers(recv_buf, packet_dump_str);
-		gbn_debug("new pkt: %s ses: %u->%u type: %s\n",
-			packet_dump_str,
-			get_gbn_src_session(gbn_hdr), dst_sesid,
-			gbn_pkt_type_str(gbn_hdr->type));
+#ifdef CONFIG_DEBUG_GBN
+		{
+			char packet_dump_str[256];
+			dump_packet_headers(recv_buf, packet_dump_str);
+			gbn_debug("new pkt: %s ses: %u->%u type: %s\n",
+				packet_dump_str,
+				get_gbn_src_session(gbn_hdr), dst_sesid,
+				gbn_pkt_type_str(gbn_hdr->type));
+		}
+#endif
 
 		switch (gbn_hdr->type) {
 		case GBN_PKT_ACK:
@@ -670,7 +676,7 @@ static void *gbn_poll_func(void *_unused)
 			handle_data_packet(ses_net, recv_buf, buf_size);
 			break;
 		default:
-			gbn_info("WARN: Unknown GBN packet type: %d\n",
+			dprintf_ERROR("Unknown GBN packet type: %d\n",
 				gbn_hdr->type);
 			break;
 		};

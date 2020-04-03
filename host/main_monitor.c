@@ -775,6 +775,14 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	resp->ret = 0;
 }
 
+static void handle_pingpong(struct thpool_buffer *tb)
+{
+	struct legomem_pingpong_resp *resp;
+
+	resp = (struct legomem_pingpong_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+}
+
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -828,6 +836,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 		pthread_spin_lock(&join_cluster_lock);
 		handle_join_cluster(tb);
 		pthread_spin_unlock(&join_cluster_lock);
+		break;
+	case OP_REQ_PINGPONG:
+		handle_pingpong(tb);
 		break;
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",

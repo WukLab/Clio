@@ -120,9 +120,18 @@ static void handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		/*
-		 * This could happen.
-		 * Because we might be a new board assigned to the
-		 * host by monitor upon allocation.
+		 * This is correct and follows our current design flow:
+		 * Neither monitor nor board will contact us when the context
+		 * was first created. Monitor choose this board without checking
+		 * whether this board has created the context or not.
+		 *
+		 * This makes the flow simple but we could not do authentication
+		 * check at this point, we could only allocate the vRegion
+		 * This kind of design is fine for a proof-of-concept system,
+		 * but not okay for a production one.
+		 *
+		 * The simpliest fix is to let monitor contact the board when
+		 * the monitor was chosing vRegion.
 		 */
 		pi = alloc_proc(pid, NULL, 0);
 		if (!pi) {
@@ -168,7 +177,7 @@ static void handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
  * Note that in the current implementation flow, neither host nor monitor
  * will explicitly contact the board for new proc creation. That will be
  * postponed until vRegion allocation time. This design choice simplies
- * the flow at the cost of some security issues.
+ * the flow with some cost of lost security (check comment on vRegion handler).
  *
  * Thus this handler is actually not used. But keep it here and assume
  * the sender can either by host or monitor. Further, we assume the PID
@@ -188,8 +197,11 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	req = (struct legomem_create_context_req *)tb->rx;
 	lego_header = to_lego_header(req);
 
+	/*
+	 * @pid was allocated by monitor
+	 * and it is globally unique
+	 */
 	pid = lego_header->pid;
-
 	pi = alloc_proc(pid, NULL, 0);
 	if (!pi) {
 		resp->op.ret = -ENOMEM;

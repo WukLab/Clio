@@ -321,6 +321,14 @@ int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
 	return manually_add_new_node(ip, port, node_type);
 }
 
+static void handle_pingpong(struct thpool_buffer *tb)
+{
+	struct legomem_pingpong_resp *resp;
+
+	resp = (struct legomem_pingpong_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+}
+
 static void
 worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 {
@@ -341,6 +349,9 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		break;
 	case OP_CLOSE_SESSION:
 		handle_close_session(tb);
+		break;
+	case OP_REQ_PINGPONG:
+		handle_pingpong(tb);
 		break;
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",

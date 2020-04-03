@@ -49,7 +49,7 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
-	
+
 	ses_socket = (struct session_udp_socket *)ses_net->raw_net_private;
 	sockfd = ses_socket->sockfd;
 

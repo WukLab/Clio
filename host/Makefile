@@ -1,7 +1,12 @@
 INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread
 
-SRCS := board.c \
+TEST_SRCS := test_session.c \
+	     test_migration.c \
+	     test_raw_net.c \
+	     test_board.c
+
+C_SRCS := board.c \
 	mgmt.c \
 	util.c \
 	api.c \
@@ -12,10 +17,9 @@ SRCS := board.c \
 	net/raw_socket.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
-	net/transport_gbn.c \
-	test_session.c \
-	test_migration.c \
-	test_board.c
+	net/transport_gbn.c
+
+SRCS := $(C_SRCS) $(TEST_SRCS)
 
 # or -g
 DEBUG := -g

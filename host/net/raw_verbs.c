@@ -20,8 +20,12 @@
 #include "../core.h"
 
 /*
- * TODO
- * We need to inspect if multithread is supported properly.
+ * There is only one global QP and paired CQs for one running instance.
+ * It works even if there are multiple instances on the same machine
+ * (each using different udp ports of course).
+ *
+ * Parameters can be tuned:
+ * 1. qp_init_attr, esp max_send_wr and max_recv_wr.
  */
 
 /*
@@ -174,6 +178,10 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 	}
 }
 
+/*
+ * Our current caller is gbn_poll_func, and it is single thread.
+ * Thus this function basically is single-threaded.
+ */
 static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
@@ -318,10 +326,10 @@ static int raw_verbs_close_session(struct session_net *ses_net)
 
 /*
  * This function install the flow control rules for @qp.
+ * Once NIC can install multiple flows at the same time.
  *
- * XXX
- * need to take a closer look at this function
- * make sure we are doing the right thing!
+ * It is a requirement to install this flow for Mellanox NIC.
+ * The flow is more like a filter rather than a flow control method.
  */
 static struct ibv_flow *
 qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
@@ -362,18 +370,11 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	memcpy(&spec_eth->val.dst_mac, local->mac, 6);
 	memset(&spec_eth->mask.dst_mac, 0xFF, 6);
 
-	/*
-	 * XXX Not sure if we need to have this
-	 * Enable it will lead to segfault
-	 */
-#if 0
-	memcpy(&spec_eth->val.src_mac, remote->mac, 6);
-	memset(&spec_eth->mask.src_mac, 0xFF, 6);
-#endif
-
+	/* IPv4 widecard */
 	spec_ipv4->type = IBV_FLOW_SPEC_IPV4,
 	spec_ipv4->size = sizeof(struct ibv_flow_spec_ipv4);
 
+	/* Steer packets for this UDP port */
 	spec_tcp_udp->type = IBV_FLOW_SPEC_UDP;
 	spec_tcp_udp->size = sizeof(struct ibv_flow_spec_tcp_udp);
 	spec_tcp_udp->val.dst_port = htons(local->udp_port);
