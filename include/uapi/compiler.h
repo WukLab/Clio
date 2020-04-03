@@ -75,10 +75,6 @@ static inline void print_backtrace(void)
 #define likely(x)		__builtin_expect(!!(x), 1)
 #define unlikely(x)		__builtin_expect(!!(x), 0)
 
-#ifndef always_inline
-# define always_inline		__always_inline
-#endif
-
 #ifndef noinline
 # define noinline		__attribute__((noinline))
 #endif
