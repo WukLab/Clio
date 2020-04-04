@@ -21,14 +21,16 @@
  * | pkt_type | seqnum | ses_id |
  * |0	     7|8     39|40    63|
  */
-#define PKT_TYPE_WIDTH		(8)
+#define PKT_TYPE_SIZE_BYTE	(1)
+#define PKT_TYPE_WIDTH		(PKT_TYPE_SIZE_BYTE * 8)
 #define SEQ_SIZE_BYTE		(4)
-#define SEQ_WIDTH		(32)
+#define SEQ_WIDTH		(SEQ_SIZE_BYTE * 8)
 #define SES_ID_SIZE_BYTE	(7 - SEQ_SIZE_BYTE)
-#define SES_ID_WIDTH		(24)
+#define SES_ID_WIDTH		(SES_ID_SIZE_BYTE * 8)
 
+#define PKT_TYPE_OFFSET		(0)
 #define SEQ_OFFSET		(PKT_TYPE_WIDTH)
-#define SES_ID_OFFSET		(PKT_TYPE_WIDTH + SEQ_WIDTH)
+#define SES_ID_OFFSET		(SEQ_OFFSET + SEQ_WIDTH)
 
 /*
  * session id format:

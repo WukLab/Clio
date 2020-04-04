@@ -187,14 +187,17 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			 * 	break;
 			 * } 
 			 */
-			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				GBN_PKT_DATA) {
+			if (gbn_query_req.gbn_header(
+				    PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+				    PKT_TYPE_OFFSET) == GBN_PKT_DATA) {
 				expt_seqnum = expected_seqnum_array[rx_slot_id];
 				handle_rx_state = TAB_STATE_HANDLE_DATA;
-			} else if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-					GBN_PKT_ACK ||
-				gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-					GBN_PKT_NACK) {
+			} else if (gbn_query_req.gbn_header(
+					   PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+					   PKT_TYPE_OFFSET) == GBN_PKT_ACK ||
+				   gbn_query_req.gbn_header(
+					   PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+					   PKT_TYPE_OFFSET) == GBN_PKT_NACK) {
 				rx_last_ackd_seqnum =
 					last_ackd_seqnum_array[rx_slot_id];
 				rx_last_sent_seqnum =
@@ -211,8 +214,9 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			 * management. Do not process it and directly pass it to
 			 * CoreMem. The packet will be send to SoC by CoreMem.
 			 */
-			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-			    GBN_PKT_DATA)
+			if (gbn_query_req.gbn_header(
+				    PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+				    PKT_TYPE_OFFSET) == GBN_PKT_DATA)
 				state_query_rsp->write(true);
 			else
 				state_query_rsp->write(false);
@@ -227,11 +231,11 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				expt_seqnum + 1;
 			ack_enable_bitmap[rx_slot_id] = 1;
 			/* generate response packet */
-			rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
-				GBN_PKT_ACK;
-			rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
-					SEQ_OFFSET) = expt_seqnum;
-			
+			rsp_pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+				     PKT_TYPE_OFFSET) = GBN_PKT_ACK;
+			rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET) =
+				expt_seqnum;
+
 			state_query_rsp->write(true);
 			/* deliever udp header */
 			rsp_header->write(rsp_udp_info);
@@ -242,11 +246,11 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				ack_enable_bitmap[rx_slot_id] = 0;
 				
 				/* generate response packet */
-				rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
-					GBN_PKT_NACK;
+				rsp_pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+					     PKT_TYPE_OFFSET) = GBN_PKT_NACK;
 				rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 					     SEQ_OFFSET) = expt_seqnum - 1;
-				
+
 				state_query_rsp->write(false);
 				/* deliever udp header */
 				rsp_header->write(rsp_udp_info);
@@ -254,10 +258,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			} else if (recv_seqnum < expt_seqnum) {
 				
 				/* generate response packet */
-				rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
-					GBN_PKT_ACK;
+				rsp_pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+					     PKT_TYPE_OFFSET) = GBN_PKT_ACK;
 				rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
-						SEQ_OFFSET) = expt_seqnum - 1;
+					     SEQ_OFFSET) = expt_seqnum - 1;
 				state_query_rsp->write(false);
 				/* deliever udp header */
 				rsp_header->write(rsp_udp_info);
@@ -292,8 +296,9 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				break;
 			}
 
-			if (gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-			    GBN_PKT_ACK) {
+			if (gbn_query_req.gbn_header(
+				    PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+				    PKT_TYPE_OFFSET) == GBN_PKT_ACK) {
 				/* set net timeout for this flow and enable timeout */
 				rst_timer_req.slotid = gbn_query_req.gbn_header(
 					DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
@@ -315,8 +320,9 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				gbn_retrans_req->write(gbn_rt_req);
 			}
 		} else if (recv_seqnum == rx_last_ackd_seqnum &&
-			   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
-				   GBN_PKT_NACK) {
+			   gbn_query_req.gbn_header(
+				   PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
+				   PKT_TYPE_OFFSET) == GBN_PKT_NACK) {
 			gbn_rt_req.slotid = gbn_query_req.gbn_header(
 				DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				DEST_SLOT_OFFSET);

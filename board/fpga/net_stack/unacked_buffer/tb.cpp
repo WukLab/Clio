@@ -59,7 +59,7 @@ void test_util::run_one_cycle(stream<struct net_axis_64> *tx_buff_payload,
 		recv_data = rt_payload.read();
 		printf("[cycle %2d] send data to net %llx, ", cycle,
 		    recv_data.data.to_uint64());
-		ap_uint<8> type = recv_data.data(PKT_TYPE_WIDTH - 1, 0);
+		ap_uint<8> type = recv_data.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> src_slot = recv_data.data(
@@ -114,7 +114,7 @@ void test_util::run_one_cycle(stream<struct net_axis_64> *tx_buff_payload,
 		struct net_axis_64 wr_data = dm_wr_data.read();
 		printf("[cycle %2d] datamover receive write data %llx, ", cycle,
 		    wr_data.data.to_uint64());
-		ap_uint<8> type = wr_data.data(PKT_TYPE_WIDTH - 1, 0);
+		ap_uint<8> type = wr_data.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    wr_data.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> src_slot = wr_data.data(
@@ -143,7 +143,7 @@ struct net_axis_64 build_gbn_header(ap_uint<SES_ID_WIDTH> ses_id,
 				    ap_uint<SEQ_WIDTH> seqnum, ap_uint<1> last)
 {
 	struct net_axis_64 pkt;
-	pkt.data(PKT_TYPE_WIDTH - 1, 0) = type;
+	pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET) = type;
 	pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET) = seqnum;
 	pkt.data(SES_ID_OFFSET + SES_ID_WIDTH - 1, SES_ID_OFFSET) = ses_id;
 	pkt.keep = 0xff;

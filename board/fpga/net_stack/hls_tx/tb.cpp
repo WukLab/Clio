@@ -67,7 +67,7 @@ void test_util::run_one_cycle(stream<struct udp_info> *usr_tx_header,
 		recv_data = tx_payload.read();
 		dph("[cycle %2d] send data to net %llx, ", cycle,
 		    recv_data.data.to_uint64());
-		ap_uint<8> type = recv_data.data(PKT_TYPE_WIDTH - 1, 0);
+		ap_uint<8> type = recv_data.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> src_slot = recv_data.data(
@@ -89,7 +89,7 @@ void test_util::run_one_cycle(stream<struct udp_info> *usr_tx_header,
 	}
 	if (!tx_buff_payload.empty()) {
 		recv_data = tx_buff_payload.read();
-		ap_uint<8> type = recv_data.data(PKT_TYPE_WIDTH - 1, 0);
+		ap_uint<8> type = recv_data.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> src_slot = recv_data.data(

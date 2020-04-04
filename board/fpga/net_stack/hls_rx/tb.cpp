@@ -44,7 +44,7 @@ void test_util::run_one_cycle(stream<struct udp_info> *rx_header,
 
 	if (!state_query_req.empty()) {
 		struct query_req gbn_query = state_query_req.read();
-		ap_uint<8> type = gbn_query.gbn_header(PKT_TYPE_WIDTH - 1, 0);
+		ap_uint<8> type = gbn_query.gbn_header(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    gbn_query.gbn_header(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> src_slot = gbn_query.gbn_header(
@@ -87,7 +87,7 @@ struct net_axis_64 build_gbn_header(ap_uint<SES_ID_WIDTH> ses_id,
 				    ap_uint<SEQ_WIDTH> seqnum, ap_uint<1> last)
 {
 	struct net_axis_64 pkt;
-	pkt.data(PKT_TYPE_WIDTH - 1, 0) = type;
+	pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET) = type;
 	pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET) = seqnum;
 	pkt.data(SES_ID_OFFSET + SES_ID_WIDTH - 1, SES_ID_OFFSET) = ses_id;
 	pkt.keep = 0xff;
