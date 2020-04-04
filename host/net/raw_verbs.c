@@ -49,6 +49,13 @@
 
 int ib_port = 1;
 
+/*
+ * TODO
+ * What's the best inline size? any past eval?
+ * Check the atc16 paper.
+ */
+#define DEFAULT_MAX_INLINE_SIZE (128)
+
 struct session_raw_verbs {
 	struct ibv_pd *pd;
 	struct ibv_qp *qp;
@@ -124,7 +131,8 @@ static int raw_verbs_send(struct session_net *ses_net,
 	wr.sg_list = &sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
-	wr.send_flags = IBV_SEND_INLINE;
+	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
+		wr.send_flags |= IBV_SEND_INLINE;
 
 	/* TODO We could do batch signalling */
 	wr.send_flags |= IBV_SEND_SIGNALED;
@@ -474,7 +482,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 			.max_recv_wr = NR_BUFFER_DEPTH,
 			.max_send_sge = 1,
 			.max_recv_sge = 1, 
-			.max_inline_data = 512,
+			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
 		},
 
 		/*
