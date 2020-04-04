@@ -730,12 +730,12 @@ int main(int argc, char **argv)
 	 * Run predefined testing if there is any.
 	 */
 	if (run_test) {
-		ret = test_raw_net();
-
 		if (board_addr_set)
 			ret = test_legomem_board(board_addr);
-		ret = test_legomem_session();
-		ret = test_legomem_migration();
+
+		//ret = test_raw_net();
+		//ret = test_legomem_session();
+		//ret = test_legomem_migration();
 	}
 
 	pthread_join(mgmt_session->thread, NULL);
