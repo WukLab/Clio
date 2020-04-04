@@ -46,7 +46,8 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 		 stream<struct udp_info>	*usr_rx_hdr,
 		 stream<struct conn_mgmt_req>	*conn_setup_req,
 		 stream<struct net_axis_64>	*usr_tx_payload,
-		 stream<struct udp_info>	*usr_tx_hdr)
+		 stream<struct udp_info>	*usr_tx_hdr,
+		 unsigned int			*recv_cnt)
 {
 #pragma HLS INTERFACE axis both port=usr_rx_payload
 #pragma HLS INTERFACE axis both port=usr_rx_hdr
@@ -68,6 +69,7 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 	struct conn_mgmt_req setup_req;
 	ap_uint<SLOT_ID_WIDTH> session_id;
 	static short op_code;
+	static unsigned int cnt = 0;
 
 	switch (state) {
 	case RECV_UDP:
@@ -96,6 +98,8 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 			usr_tx_hdr->write(resp_hdr);
 			usr_tx_payload->write(recv_pkt);
 		} else {
+			cnt++;
+			*recv_cnt = cnt;
 			if (recv_pkt.last == 1)
 				state = RECV_UDP;
 			else

@@ -93,8 +93,6 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 
 	struct retrans_req gbn_rt_req;
 	struct timer_req rst_timer_req;
-	bool deliver_data;
-	static bool retrans_data = false;
 
 	/*
 	 * seqnum info
@@ -228,45 +226,44 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			expected_seqnum_array[rx_slot_id] =
 				expt_seqnum + 1;
 			ack_enable_bitmap[rx_slot_id] = 1;
-			deliver_data = true;
-			/* deliever udp header */
-			rsp_header->write(rsp_udp_info);
 			/* generate response packet */
 			rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
 				GBN_PKT_ACK;
 			rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 					SEQ_OFFSET) = expt_seqnum;
-
+			
+			state_query_rsp->write(true);
+			/* deliever udp header */
+			rsp_header->write(rsp_udp_info);
 			rsp_payload->write(rsp_pkt);
 		} else if (ack_enable_bitmap[rx_slot_id] == 1) {
 			if (recv_seqnum > expt_seqnum) {
-				deliver_data = false;
 				/* disable ack */
 				ack_enable_bitmap[rx_slot_id] = 0;
-				/* deliever udp header */
-				rsp_header->write(rsp_udp_info);
+				
 				/* generate response packet */
 				rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
 					GBN_PKT_NACK;
 				rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 					     SEQ_OFFSET) = expt_seqnum - 1;
-
-				rsp_payload->write(rsp_pkt);
-			} else {
-				/* received seqnum < expected seqnum */
-				deliver_data = false;
+				
+				state_query_rsp->write(false);
 				/* deliever udp header */
 				rsp_header->write(rsp_udp_info);
+				rsp_payload->write(rsp_pkt);
+			} else if (recv_seqnum < expt_seqnum) {
+				
 				/* generate response packet */
 				rsp_pkt.data(PKT_TYPE_WIDTH - 1, 0) =
 					GBN_PKT_ACK;
 				rsp_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1,
 						SEQ_OFFSET) = expt_seqnum - 1;
-
+				state_query_rsp->write(false);
+				/* deliever udp header */
+				rsp_header->write(rsp_udp_info);
 				rsp_payload->write(rsp_pkt);
 			}
 		}
-		state_query_rsp->write(deliver_data);
 		handle_rx_state = TAB_STATE_RECV_RX_REQ;
 		break;
 	case TAB_STATE_HANDLE_ACK:
@@ -309,15 +306,17 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				* timer after finishing retransmission
 				* retrans (recv_seqnum, last_sent_seqnum] for flow[i]
 				*/
-				retrans_data = true;
+				gbn_rt_req.slotid = gbn_query_req.gbn_header(
+					DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
+					DEST_SLOT_OFFSET);
+				/* set retrans range */
+				gbn_rt_req.seq_start = recv_seqnum + 1;
+				gbn_rt_req.seq_end = rx_last_sent_seqnum;
+				gbn_retrans_req->write(gbn_rt_req);
 			}
 		} else if (recv_seqnum == rx_last_ackd_seqnum &&
 			   gbn_query_req.gbn_header(PKT_TYPE_WIDTH - 1, 0) ==
 				   GBN_PKT_NACK) {
-			retrans_data = true;
-		}
-
-		if (retrans_data) {
 			gbn_rt_req.slotid = gbn_query_req.gbn_header(
 				DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				DEST_SLOT_OFFSET);
@@ -325,7 +324,6 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			gbn_rt_req.seq_start = recv_seqnum + 1;
 			gbn_rt_req.seq_end = rx_last_sent_seqnum;
 			gbn_retrans_req->write(gbn_rt_req);
-			retrans_data = false;
 		}
 
 		handle_rx_state = TAB_STATE_RECV_RX_REQ;
