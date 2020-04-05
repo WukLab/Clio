@@ -56,6 +56,12 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_MEMBERSHIP_NEW_NODE,
 	OP_REQ_MEMBERSHIP_NEW_NODE_RESP,
 
+	/*
+	 * Query stats
+	 */
+	OP_REQ_QUERY_STAT,
+	OP_REQ_QUERY_STAT_RESP,
+
 	OP_RESET_ALL,
 
 	OP_REQ_SOC_DEBUG,
@@ -105,17 +111,18 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
 	S(OP_REQ_MIGRATION_M2B_RECV_RESP);
 	S(OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP);
-	case OP_REQ_MIGRATION_M2B_SEND:		return "op_migration_m2b_send";
-	case OP_REQ_MIGRATION_M2B_SEND_RESP:	return "op_migration_m2b_send_resp";
-	case OP_OPEN_SESSION:			return "op_open_session";
-	case OP_OPEN_SESSION_RESP:		return "op_open_session_resp";
-	case OP_CLOSE_SESSION:			return "op_close_session";
-	case OP_CLOSE_SESSION_RESP:		return "op_close_session_resp";
-	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER:	return "op_join_cluster";
-	case OP_REQ_MEMBERSHIP_JOIN_CLUSTER_RESP:
-						return "op_join_cluster_resp";
-	case OP_REQ_MEMBERSHIP_NEW_NODE:	return "op_new_node";
-	case OP_REQ_MEMBERSHIP_NEW_NODE_RESP:	return "op_new_node_resp";
+	S(OP_REQ_MIGRATION_M2B_SEND);
+	S(OP_REQ_MIGRATION_M2B_SEND_RESP);
+	S(OP_OPEN_SESSION);
+	S(OP_OPEN_SESSION_RESP);
+	S(OP_CLOSE_SESSION);
+	S(OP_CLOSE_SESSION_RESP);
+	S(OP_REQ_MEMBERSHIP_JOIN_CLUSTER);
+	S(OP_REQ_MEMBERSHIP_JOIN_CLUSTER_RESP);
+	S(OP_REQ_MEMBERSHIP_NEW_NODE);
+	S(OP_REQ_MEMBERSHIP_NEW_NODE_RESP);
+	S(OP_REQ_QUERY_STAT);
+	S(OP_REQ_QUERY_STAT_RESP);
 	S(OP_REQ_PINGPONG);
 	S(OP_REQ_FPGA_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG);
@@ -247,19 +254,19 @@ struct legomem_common_headers {
 struct legomem_create_context_req {
 	struct legomem_common_headers comm_headers;
 	struct op_create_proc op;
-};
+} __packed;
 struct legomem_create_context_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_create_proc_resp op;
-};
+} __packed;
 
 struct legomem_close_context_req {
 	struct legomem_common_headers comm_headers;
-};
+} __packed;
 struct legomem_close_context_resp {
 	struct legomem_common_headers comm_headers;
 	int ret;
-};
+} __packed;
 
 /*
  * Read and Write
@@ -267,11 +274,11 @@ struct legomem_close_context_resp {
 struct legomem_read_write_req {
 	struct legomem_common_headers comm_headers;
 	struct op_read_write op;
-};
+} __packed;
 struct legomem_read_write_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_read_write_ret ret;
-};
+} __packed;
 
 /*
  * Alloc and Free
@@ -279,11 +286,11 @@ struct legomem_read_write_resp {
 struct legomem_alloc_free_req {
 	struct legomem_common_headers comm_headers;
 	struct op_alloc_free op;
-};
+} __packed;
 struct legomem_alloc_free_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_alloc_free_ret op;
-};
+} __packed;
 
 /*
  * Open and close a network session
@@ -303,22 +310,22 @@ struct legomem_open_close_session_resp {
 struct legomem_membership_join_cluster_req {
 	struct legomem_common_headers comm_headers;
 	struct op_membership_join_cluster op;
-};
+} __packed;
 
 struct legomem_membership_join_cluster_resp {
 	struct legomem_common_headers comm_headers;
 	int ret;
-};
+} __packed;
 
 struct legomem_membership_new_node_req {
 	struct legomem_common_headers comm_headers;
 	struct op_membership_new_node op;
-};
+} __packed;
 
 struct legomem_membership_new_node_resp {
 	struct legomem_common_headers comm_headers;
 	int ret;
-};
+} __packed;
 
 /*
  * Migration
@@ -326,21 +333,31 @@ struct legomem_membership_new_node_resp {
 struct legomem_migration_req {
 	struct legomem_common_headers comm_headers;
 	struct op_migration op;
-};
+} __packed;
 struct legomem_migration_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_migration_ret op;
-};
+} __packed;
 
 /*
  * Debug and Measurement
  */
 struct legomem_pingpong_req {
 	struct legomem_common_headers comm_headers;
-};
+} __packed;
 
 struct legomem_pingpong_resp {
 	struct legomem_common_headers comm_headers;
-};
+} __packed;
+
+struct legomem_query_stat_req {
+	struct legomem_common_headers comm_headers;
+} __packed;
+
+struct legomem_query_stat_resp {
+	struct legomem_common_headers comm_headers;
+	unsigned int nr_items;
+	unsigned long *stat;
+} __packed;
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

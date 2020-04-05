@@ -315,6 +315,25 @@ int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
 	return manually_add_new_node(ip, port, node_type);
 }
 
+static void handle_query_stat(struct thpool_buffer *tb)
+{
+	struct legomem_query_stat_resp *resp;
+	size_t size;
+	unsigned long *local_stat;
+
+	/*
+	 * calculate the size of resp msg
+	 * minus 1 because of the original pointer
+	 */
+	resp = (struct legomem_query_stat_resp *)tb->tx;
+	size = sizeof(*resp) + (NR_STAT_TYPES - 1) * sizeof(unsigned long);
+	set_tb_tx_size(tb, size);
+
+	local_stat = default_local_bi->stat;
+	memcpy(resp->stat, local_stat, NR_STAT_TYPES * sizeof(unsigned long));
+	resp->nr_items = NR_STAT_TYPES;
+}
+
 static void handle_pingpong(struct thpool_buffer *tb)
 {
 	struct legomem_pingpong_resp *resp;
@@ -346,6 +365,9 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		break;
 	case OP_REQ_PINGPONG:
 		handle_pingpong(tb);
+		break;
+	case OP_REQ_QUERY_STAT:
+		handle_query_stat(tb);
 		break;
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
@@ -683,6 +705,9 @@ int main(int argc, char **argv)
 	/* Add the special localhost board_info */
 	add_localhost_bi(&default_local_ei);
  
+	inc_stat(STAT_NET_NR_RX);
+	dump_stats();
+
 	/* Open the local mgmt session */
 	ret = init_local_management_session();
 	if (ret) {

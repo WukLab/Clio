@@ -198,6 +198,7 @@ extern pthread_spinlock_t board_lock;
 extern struct endpoint_info default_local_ei;
 extern struct board_info *default_local_bi;
 int add_localhost_bi(struct endpoint_info *ei);
+#include "stat.h"
 
 /* Debugging info, useful for dev */
 #define dprintf_DEBUG(fmt, ...) \

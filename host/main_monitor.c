@@ -775,6 +775,25 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	resp->ret = 0;
 }
 
+static void handle_query_stat(struct thpool_buffer *tb)
+{
+	struct legomem_query_stat_resp *resp;
+	size_t size;
+	unsigned long *local_stat;
+
+	/*
+	 * calculate the size of resp msg
+	 * minus 1 because of the original pointer
+	 */
+	resp = (struct legomem_query_stat_resp *)tb->tx;
+	size = sizeof(*resp) + (NR_STAT_TYPES - 1) * sizeof(unsigned long);
+	set_tb_tx_size(tb, size);
+
+	local_stat = default_local_bi->stat;
+	memcpy(resp->stat, local_stat, NR_STAT_TYPES * sizeof(unsigned long));
+	resp->nr_items = NR_STAT_TYPES;
+}
+
 static void handle_pingpong(struct thpool_buffer *tb)
 {
 	struct legomem_pingpong_resp *resp;
@@ -839,6 +858,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 		break;
 	case OP_REQ_PINGPONG:
 		handle_pingpong(tb);
+		break;
+	case OP_REQ_QUERY_STAT:
+		handle_query_stat(tb);
 		break;
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
