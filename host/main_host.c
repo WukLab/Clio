@@ -326,7 +326,7 @@ static void handle_query_stat(struct thpool_buffer *tb)
 	 * minus 1 because of the original pointer
 	 */
 	resp = (struct legomem_query_stat_resp *)tb->tx;
-	size = sizeof(*resp) + (NR_STAT_TYPES - 1) * sizeof(unsigned long);
+	size = legomem_query_stat_resp_size();
 	set_tb_tx_size(tb, size);
 
 	local_stat = default_local_bi->stat;

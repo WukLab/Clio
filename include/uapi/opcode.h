@@ -8,6 +8,7 @@
 #ifndef _LEGOFPGA_OPCODE_H_
 #define _LEGOFPGA_OPCODE_H_
 
+#include <uapi/stat.h>
 #include <uapi/compiler.h>
 #include <uapi/net_header.h>
 
@@ -359,5 +360,11 @@ struct legomem_query_stat_resp {
 	unsigned int nr_items;
 	unsigned long *stat;
 } __packed;
+
+static inline size_t legomem_query_stat_resp_size(void)
+{
+	return sizeof(struct legomem_query_stat_resp) +
+	       (NR_STAT_TYPES - 1) * sizeof(unsigned long);
+}
 
 #endif /* _LEGOFPGA_OPCODE_H_ */
