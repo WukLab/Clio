@@ -77,8 +77,7 @@ static pthread_spinlock_t raw_verbs_lock;
  * TODO
  * 1) Instead of reg/dereg mr every time, we could use
  *    a preallocated/register hugepage ring buffer.
- * 2) We could do batch signaling.
- * 3) Add timeout to poll_cq
+ * 2) Add timeout to poll_cq
  */
 static int raw_verbs_send(struct session_net *ses_net,
 			  void *buf, size_t buf_size, void *_route)
@@ -134,7 +133,18 @@ static int raw_verbs_send(struct session_net *ses_net,
 	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
 		wr.send_flags |= IBV_SEND_INLINE;
 
-	/* TODO We could do batch signalling */
+	/*
+	 * TODO
+	 * We could do batch signaling.
+	 * There are probably two ways to implement that
+	 * 1. have SIGNALED every N requests
+	 * 2. have SIGNALED for every request, but poll every N requests
+	 *
+	 * We should aware that each CQE is a DMA-write from RNIC to DRAM.
+	 * I know LegoOS's LITE is doing the second way, but I don't think
+	 * that's the best way. Investigate more and come back optimize.
+	 * eRPC's code is using the second way.
+	 */
 	wr.send_flags |= IBV_SEND_SIGNALED;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
@@ -164,6 +174,15 @@ out:
 	return ret;
 }
 
+/*
+ * TODO
+ *
+ * This function can be optimized. Now we are doing individual post,
+ * which is a single CPU-initiated MMIO write. If we chain all recv_wr
+ * together, the driver will go for doorbell way, thus only one DMA read
+ * from RNIC. Consider this function is sitting in data path, we should
+ * optimize it. Reference: atc16, eRPC, and so on.
+ */
 static inline void post_recvs(struct session_raw_verbs *ses)
 {
 	struct ibv_sge sge;
