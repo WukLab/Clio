@@ -285,6 +285,11 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 		return -EINVAL;
 	}
 
+	tb.rx = malloc(THPOOL_BUFFER_SIZE);
+	tb.tx = malloc(THPOOL_BUFFER_SIZE);
+	if (!tb.rx || !tb.rx)
+		return -ENOMEM;
+
 	req = (struct legomem_membership_new_node_req *)tb.rx;
 
 	/*
@@ -301,7 +306,11 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 	req->op.mem_size_bytes = 0;
 	memcpy(req->op.name, new_name, BOARD_NAME_LEN);
 
+	/* Invoke handler locally */
 	handle_new_node(&tb);
+
+	free(tb.rx);
+	free(tb.tx);
 	return 0;
 }
 
