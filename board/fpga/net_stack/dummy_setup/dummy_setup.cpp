@@ -3,37 +3,9 @@
 #include <uapi/gbn.h>
 #include <fpga/axis_internal.h>
 #include <hls_stream.h>
+#include <uapi/opcode_types.h>
 
 using hls::stream;
-
-enum LEGOFPGA_OPCODE_REQ {
-	OP_REQ_TEST = 0,
-
-	OP_REQ_ALLOC = 1,
-	OP_REQ_FREE,
-
-	OP_REQ_READ,
-	OP_REQ_WRITE,
-
-	OP_CREATE_PROC,
-	OP_FREE_PROC,
-
-	OP_OPEN_SESSION,
-	OP_CLOSE_SESSION,
-
-	OP_REQ_MIGRATION,
-
-	/* Host to Monitor */
-	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
-
-	OP_REQ_MEMBERSHIP_NEW_NODE,
-
-	OP_RESET_ALL,
-
-	OP_REQ_SOC_DEBUG,
-	OP_REQ_FPGA_PINGPOING,	/* For measurement */
-	OP_REQ_SOC_PINGPONG,	/* For measurement */
-};
 
 enum status {
 	RECV_UDP,
