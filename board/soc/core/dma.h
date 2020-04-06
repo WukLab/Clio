@@ -51,6 +51,14 @@ static inline int dma_send(void *buf, size_t len)
 	return axidma_oneway_transfer(dev, DATA_SEND_CHANNEL, buf, len, true);
 }
 
+static inline int dma_ctrl_send(void *buf, size_t len)
+{
+	axidma_dev_t dev;
+	
+	dev = legomem_dma_info.dev;
+	return axidma_oneway_transfer(dev, CTRL_SEND_CHANNEL, buf, len, true);
+}
+
 int init_dma(void);
 int dma_thpool_alloc_cb(struct thpool_buffer *tb);
 

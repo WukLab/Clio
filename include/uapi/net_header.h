@@ -128,6 +128,24 @@ static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
 	return NULL;
 }
 
+/*
+ * conn_set_req layout:
+ * | slot_id | type |
+ * |0       9|10  15|
+ */
+#define GBN_CONN_SET_SLOT_ID_MSK	((1 << SLOT_ID_WIDTH) - 1)
+#define GBN_CONN_SET_TYPE_MSK		((1 << (16 - SLOT_ID_WIDTH)) - 1)
+#define GBN_CONN_SET_TYPE_SHIFT		(SLOT_ID_WIDTH)
+
+static inline void
+set_gbn_conn_req(unsigned int *conn_set_req, unsigned int slot_id, enum conn_set_type type)
+{
+	*conn_set_req = 0;
+	*conn_set_req = slot_id & GBN_CONN_SET_SLOT_ID_MSK;
+	*conn_set_req |= (type & GBN_CONN_SET_TYPE_MSK)
+			 << GBN_CONN_SET_TYPE_SHIFT;
+}
+
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)

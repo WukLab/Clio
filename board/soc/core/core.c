@@ -11,6 +11,8 @@
 #include <uapi/sched.h>
 #include <uapi/net_header.h>
 #include <uapi/thpool.h>
+#include <uapi/lego_mem.h>
+#include <fpga/lego_mem_ctrl.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -245,6 +247,7 @@ static void handle_open_session(struct thpool_buffer *tb)
 {
 	struct legomem_open_close_session_req *req;
 	struct legomem_open_close_session_resp *resp;
+	struct lego_mem_ctrl gbn_open_req;
 	unsigned int session_id, src_sesid;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
@@ -269,12 +272,17 @@ static void handle_open_session(struct thpool_buffer *tb)
 	 * TODO
 	 * Use which API to notify the GBN setup_manager?
 	 */
+	set_gbn_conn_req(&gbn_open_req.param32, session_id, set_type_open);
+	gbn_open_req.epid = LEGOMEM_CONT_NET;
+	gbn_open_req.cmd = 0;
+	dma_ctrl_send(&gbn_open_req, sizeof(gbn_open_req));
 }
 
 static void handle_close_session(struct thpool_buffer *tb)
 {
 	struct legomem_open_close_session_req *req;
 	struct legomem_open_close_session_resp *resp;
+	struct lego_mem_ctrl gbn_close_req;
 	unsigned int session_id;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
@@ -291,6 +299,10 @@ static void handle_close_session(struct thpool_buffer *tb)
 	 * TODO
 	 * Use which API to notify the GBN setup_manager?
 	 */
+	set_gbn_conn_req(&gbn_close_req.param32, session_id, set_type_close);
+	gbn_close_req.epid = LEGOMEM_CONT_NET;
+	gbn_close_req.cmd = 0;
+	dma_ctrl_send(&gbn_close_req, sizeof(gbn_close_req));
 }
 
 /*

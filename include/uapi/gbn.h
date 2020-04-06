@@ -65,4 +65,9 @@ enum gbn_pkt_type {
 	GBN_PKT_DATA = 3,
 };
 
+enum conn_set_type {
+	set_type_open = 1,
+	set_type_close
+};
+
 #endif
