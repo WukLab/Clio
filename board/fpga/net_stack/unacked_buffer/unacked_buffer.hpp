@@ -24,7 +24,7 @@ struct dm_cmd {
 	ap_uint<6>	dsa;
 	ap_uint<1>	eof;
 	ap_uint<1>	drr;
-	ap_uint<32>	start_address;
+	ap_uint<40>	start_address;
 	ap_uint<4>	tag;
 	ap_uint<4>	rsvd;
 };

@@ -8,7 +8,7 @@
 #include <uapi/compiler.h>
 
 // fix segment size: 9kb
-#define MAX_PACKET_SIZE		(9216)
+#define MAX_PACKET_SIZE		(1536)
 #define WINDOW_SIZE_WIDTH	(7)
 #define WINDOW_SIZE		(1 << (WINDOW_SIZE_WIDTH))
 #define WINDOW_IDX_MSK		(WINDOW_SIZE - 1)
