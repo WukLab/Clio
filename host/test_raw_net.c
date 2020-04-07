@@ -39,8 +39,7 @@ static void test_pingpong(struct board_info *bi, struct session_net *ses)
 
 	gbn_header = to_gbn_header(&req);
 	gbn_header->type = GBN_PKT_DATA;
-	set_gbn_src_session(gbn_header, get_local_session_id(ses));
-	set_gbn_dst_session(gbn_header, 0);
+	set_gbn_src_dst_session(gbn_header, get_local_session_id(ses), 0);
 
 	nr_tests = 1000;
 	clock_gettime(CLOCK_MONOTONIC, &s);

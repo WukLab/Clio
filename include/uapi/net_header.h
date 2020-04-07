@@ -69,7 +69,8 @@ struct lego_header {
 	 * fill this part.
 	 */
 	uint16_t cont;
-	uint16_t dest_port;
+	uint8_t src_sesid;
+	uint8_t dst_sesid;
 	uint32_t dest_ip;
 } __packed;
 
