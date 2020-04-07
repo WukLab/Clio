@@ -34,7 +34,7 @@ void setup_manager(stream<struct conn_mgmt_req>		*init_req,
 
 	if (!conn_set_req->empty()) {
 		conn_req = conn_set_req->read();
-		if (conn_req.set_type == GBN_SOC2FPGA_SET_TYPE_OPEN||
+		if (conn_req.set_type == GBN_SOC2FPGA_SET_TYPE_OPEN ||
 		    conn_req.set_type == GBN_SOC2FPGA_SET_TYPE_CLOSE) {
 			/* forward the request to state table */
 			init_req->write(conn_req);
