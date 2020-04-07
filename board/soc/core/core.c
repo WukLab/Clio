@@ -268,11 +268,8 @@ static void handle_open_session(struct thpool_buffer *tb)
 	printf("%s(): src_sesid: %u dst_sesid: %u\n",
 		__func__, src_sesid, session_id);
 
-	/*
-	 * TODO
-	 * Use which API to notify the GBN setup_manager?
-	 */
-	set_gbn_conn_req(&gbn_open_req.param32, session_id, set_type_open);
+	/* Notify GBN setup_manager */
+	set_gbn_conn_req(&gbn_open_req.param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
 	gbn_open_req.epid = LEGOMEM_CONT_NET;
 	gbn_open_req.cmd = 0;
 	dma_ctrl_send(&gbn_open_req, sizeof(gbn_open_req));
@@ -295,11 +292,8 @@ static void handle_close_session(struct thpool_buffer *tb)
 	/* Success */
 	resp->op.session_id = 0;
 
-	/*
-	 * TODO
-	 * Use which API to notify the GBN setup_manager?
-	 */
-	set_gbn_conn_req(&gbn_close_req.param32, session_id, set_type_close);
+	/* Notify GBN setup_manager */
+	set_gbn_conn_req(&gbn_close_req.param32, session_id, GBN_SOC2FPGA_SET_TYPE_CLOSE);
 	gbn_close_req.epid = LEGOMEM_CONT_NET;
 	gbn_close_req.cmd = 0;
 	dma_ctrl_send(&gbn_close_req, sizeof(gbn_close_req));

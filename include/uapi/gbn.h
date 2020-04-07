@@ -65,9 +65,13 @@ enum gbn_pkt_type {
 	GBN_PKT_DATA = 3,
 };
 
-enum conn_set_type {
-	set_type_open = 1,
-	set_type_close
+/*
+ * From SoC to FPGA GBN stack
+ * FPGA side setup_manager
+ */
+enum gbn_conn_set_type {
+	GBN_SOC2FPGA_SET_TYPE_OPEN = 1,
+	GBN_SOC2FPGA_SET_TYPE_CLOSE
 };
 
 #endif

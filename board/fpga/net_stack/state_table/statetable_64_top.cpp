@@ -403,7 +403,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		set_state_req = init_req->read();
 		set_state_slot_id = set_state_req.slotid;
 		PR("initialize slot %d\n", set_state_slot_id.to_uint());
-		if (set_state_req.set_type == set_type_open) {
+		if (set_state_req.set_type == GBN_SOC2FPGA_SET_TYPE_OPEN) {
 			ack_enable_bitmap[set_state_slot_id] = 1;
 			last_ackd_seqnum_array[set_state_slot_id] = 0;
 			last_sent_seqnum_array[set_state_slot_id] = 0;

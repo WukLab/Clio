@@ -87,11 +87,11 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 
 		session_id = recv_pkt.data(SLOT_ID_WIDTH - 1, 0);
 		if (op_code == OP_OPEN_SESSION) {
-			setup_req.set_type = set_type_open;
+			setup_req.set_type = GBN_SOC2FPGA_SET_TYPE_OPEN;
 			setup_req.slotid = session_id;
 			conn_setup_req->write(setup_req);
 		} else if (op_code == OP_CLOSE_SESSION) {
-			setup_req.set_type = set_type_close;
+			setup_req.set_type = GBN_SOC2FPGA_SET_TYPE_CLOSE;
 			setup_req.slotid = session_id;
 			conn_setup_req->write(setup_req);
 			resp_pkt.data(SLOT_ID_WIDTH - 1, 0) = 0;

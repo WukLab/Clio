@@ -138,7 +138,7 @@ static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
 #define GBN_CONN_SET_TYPE_SHIFT		(SLOT_ID_WIDTH)
 
 static inline void
-set_gbn_conn_req(unsigned int *conn_set_req, unsigned int slot_id, enum conn_set_type type)
+set_gbn_conn_req(unsigned int *conn_set_req, unsigned int slot_id, enum gbn_conn_set_type type)
 {
 	*conn_set_req = 0;
 	*conn_set_req = slot_id & GBN_CONN_SET_SLOT_ID_MSK;
