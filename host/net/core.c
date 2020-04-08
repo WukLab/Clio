@@ -151,6 +151,9 @@ int init_net(struct endpoint_info *local_ei)
 
 	pthread_spin_init(&dump_lock, PTHREAD_PROCESS_PRIVATE);
 
+	sysctl_link_mtu = get_device_mtu(global_net_dev);
+	dprintf_INFO("%s MTU: %d\n", global_net_dev, sysctl_link_mtu);
+
 	dprintf_INFO("Raw Net Layer: using %s\n", raw_net_ops->name);
 	dprintf_INFO("Transport Layer: using %s\n", transport_net_ops->name);
 

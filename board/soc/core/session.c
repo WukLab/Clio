@@ -63,7 +63,7 @@ void free_session_id(unsigned int session_id)
 	BUG_ON(session_id == LEGOMEM_MGMT_SESSION_ID);
 
 	pthread_spin_lock(&session_id_lock);
-	if (!test_and_clear_bit(session_id, session_id_map)) {
+	if (!__test_and_clear_bit(session_id, session_id_map)) {
 		printf("%s(): WARN Session ID %d was free\n",
 			__func__, session_id);
 	}

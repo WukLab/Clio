@@ -168,6 +168,35 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 }
 
 /*
+ * Return 0 on failure, otherwise a positive MTU value.
+ */
+unsigned int get_device_mtu(const char *dev)
+{
+	int fd, ret;
+	struct ifreq ifr;
+
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0)
+		return 0;
+
+	ret = ioctl(fd, SIOCGIFMTU, &ifr);
+	if (ret) {
+		perror("ioctl mtu");
+		ret = 0;
+		goto out;
+	}
+
+	ret = ifr.ifr_mtu;
+
+out:
+	close(fd);
+	return ret;
+}
+
+/*
  * Caller only provides @dev,
  * we will fill @mac, @ip_str, and @ip.
  *

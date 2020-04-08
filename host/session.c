@@ -157,7 +157,7 @@ int alloc_session_id(void)
 	/*
 	 * note that find_next_zero_bit is not atomic,
 	 * and we need to have lock here. Even though
-	 * its possible to use test_and_set_bit without lock,
+	 * its possible to use __test_and_set_bit without lock,
 	 * use lock will do harm here.
 	 *
 	 * We skip session 0, since it is reserved as the mgmt session.
@@ -184,7 +184,7 @@ void free_session_id(unsigned int session_id)
 	BUG_ON(session_id == LEGOMEM_MGMT_SESSION_ID);
 
 	pthread_spin_lock(&session_id_lock);
-	if (!test_and_clear_bit(session_id, session_id_map)) {
+	if (!__test_and_clear_bit(session_id, session_id_map)) {
 		printf("%s(): WARN Session ID %d was free\n",
 			__func__, session_id);
 	}
