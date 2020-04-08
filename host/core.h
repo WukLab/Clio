@@ -178,6 +178,8 @@ int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size);
 int get_ip_str(unsigned int ip, char *ip_str);
 int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 			 unsigned char *mac);
+
+unsigned int get_device_mtu(const char *dev);
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 			     char *ip_str, int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
