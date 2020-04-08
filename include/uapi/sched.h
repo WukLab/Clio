@@ -282,12 +282,16 @@ struct vm_area_struct {
 	unsigned long vm_flags;
 };
 
+static inline unsigned long __remote
+vregion_index_to_va(unsigned int idx)
+{
+	return idx << VREGION_SIZE_SHIFT;
+}
+
 static inline unsigned int
 va_to_vregion_index(unsigned long __remote va)
 {
-	unsigned long idx;
-	idx = va >> VREGION_SIZE_SHIFT;
-	return idx;
+	return va >> VREGION_SIZE_SHIFT;
 }
 
 static inline struct vregion_info *
