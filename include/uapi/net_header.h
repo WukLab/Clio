@@ -286,6 +286,7 @@ swap_routing_info(struct routing_info *ri)
  * iph: ipv4 header
  * ihl: length of header / 4
  */
+#ifdef CONFIG_ARCH_X86
 static inline uint16_t ip_csum(const void *iph, unsigned int ihl)
 {
         unsigned int sum;
@@ -315,5 +316,11 @@ static inline uint16_t ip_csum(const void *iph, unsigned int ihl)
             : "memory");
         return (uint16_t)sum;
 }
+#else
+static inline uint16_t ip_csum(const void *iph, unsigned int ihl)
+{
+	return 0;
+}
+#endif
 
 #endif /* _UAPI_NET_HEADER_H_ */
