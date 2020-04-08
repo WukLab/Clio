@@ -36,11 +36,6 @@ struct timer_req {
 	ap_uint<16 - SLOT_ID_WIDTH>	rst_type;
 };
 
-enum conn_set_type {
-	set_type_open = 1,
-	set_type_close
-};
-
 struct conn_mgmt_req {
 	ap_uint<SLOT_ID_WIDTH>		slotid;
 	ap_uint<16 - SLOT_ID_WIDTH>	set_type;

@@ -24,6 +24,7 @@
 #include <uapi/bitops.h>
 #include <uapi/compiler.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
@@ -62,10 +63,10 @@ struct thpool_buffer {
 	unsigned int		flags;
 
 	unsigned int		rx_size;
-	char			rx[THPOOL_BUFFER_SIZE];
+	char			*rx;
 
 	unsigned int		tx_size;
-	char			tx[THPOOL_BUFFER_SIZE];
+	char			*tx;
 };
 
 static inline void
@@ -147,12 +148,45 @@ static inline int init_thpool(unsigned int NR_THPOOL_WORKERS,
 	return 0;
 }
 
-static inline int init_thpool_buffer(unsigned int NR_THPOOL_BUFFER,
-				     struct thpool_buffer **buffer_map)
+/*
+ * The default alloc callback that uses malloc.
+ * No special attachment or properties are assocaited with the buffer
+ */
+static inline int default_thpool_buffer_alloc_cb(struct thpool_buffer *tb)
 {
-	int i;
+	BUG_ON(!tb);
+
+	tb->rx = malloc(THPOOL_BUFFER_SIZE);
+	if (!tb->rx)
+		return -ENOMEM;
+
+	tb->tx = malloc(THPOOL_BUFFER_SIZE);
+	if (!tb->tx)
+		return -ENOMEM;
+	return 0;
+}
+
+/*
+ * @alloc_cb is a user-provided callback to alloc the RX and TX buffers
+ * associated with this thpool_buffer struct. The reason behind this special
+ * callback, instead of using a standard malloc, is that some callers may
+ * wish to use buffers wish special properties, e.g., DMA-able memory,
+ * or non-cachable memory.
+ */
+static inline int init_thpool_buffer(unsigned int NR_THPOOL_BUFFER,
+				     struct thpool_buffer **buffer_map,
+				     int (*alloc_cb)(struct thpool_buffer *tb))
+{
+	int i, ret;
 	size_t buf_sz;
 	struct thpool_buffer *map;
+
+	if (!alloc_cb) {
+		printf("%s(): Please provide an buffer allocation callback. "
+		       "If you are not sure what is this, use the default one.\n",
+		       __func__);
+		return -EINVAL;
+	}
 
 	buf_sz = sizeof(struct thpool_buffer) * NR_THPOOL_BUFFER;
 	map = malloc(buf_sz);
@@ -166,8 +200,20 @@ static inline int init_thpool_buffer(unsigned int NR_THPOOL_BUFFER,
 		tb->flags = 0;
 		tb->rx_size = 0;
 		tb->tx_size = 0;
-		memset(&tb->tx, 0, THPOOL_BUFFER_SIZE);
-		memset(&tb->rx, 0, THPOOL_BUFFER_SIZE);
+
+		/*
+		 * Use user-provided callback to init rx and tx buffers
+		 * We are not freeing memory if something go wrong.. it's fine now,
+		 * mostly the caller will just PANIC.
+		 */
+		tb->rx = NULL;
+		tb->tx = NULL;
+		ret = alloc_cb(tb);
+		if (ret)
+			return ret;
+
+		/* Post-check */
+		BUG_ON(!tb->rx || !tb->tx);
 	}
 	*buffer_map = map;
 	return 0;

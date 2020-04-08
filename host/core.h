@@ -174,6 +174,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
 extern char global_net_dev[32];
 extern struct board_info *mgmt_dummy_board;
 extern struct session_net *mgmt_session;
+int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size);
 int get_ip_str(unsigned int ip, char *ip_str);
 int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 			 unsigned char *mac);
@@ -181,7 +182,7 @@ int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 			     char *ip_str, int *ip);
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
-int init_local_management_session(bool);
+int init_local_management_session(void);
 
 /* Host-side only */
 extern unsigned int monitor_ip_h;
@@ -197,6 +198,7 @@ extern pthread_spinlock_t board_lock;
 extern struct endpoint_info default_local_ei;
 extern struct board_info *default_local_bi;
 int add_localhost_bi(struct endpoint_info *ei);
+#include "stat.h"
 
 /* Debugging info, useful for dev */
 #define dprintf_DEBUG(fmt, ...) \
@@ -216,6 +218,7 @@ int add_localhost_bi(struct endpoint_info *ei);
 int test_legomem_session(void);
 int test_legomem_migration(void);
 int test_legomem_board(char *);
+int test_raw_net(void);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

@@ -8,37 +8,28 @@
 #include <arpa/inet.h>
 #include <uapi/gbn.h>
 #include <uapi/net_header.h>
+#include <uapi/opcode.h>
 
 #define FPGA_PORT 1234
 #define PACKET_SIZE 16
-#define SRC_SESSION_ID 0
-#define DEST_SESSION_ID 0
+#define SRC_SESSION_ID 3
+#define DEST_SESSION_ID 3
 
 extern char *optarg;
-
-void make_sesid(char session_id[3], unsigned src, unsigned dest)
-{
-	unsigned tmp_sesid = 0;
-	unsigned msk = (1 << SLOT_ID_WIDTH) - 1;
-	tmp_sesid = src & msk;
-	tmp_sesid |= (dest & msk) << SLOT_ID_WIDTH;
-	memcpy(session_id, &tmp_sesid, 3);
-}
 
 int gbn_connect(int sockfd, struct sockaddr *addr, unsigned src_sesid)
 {
 	int ret;
-	unsigned long buff[2];
-	struct gbn_header_board *syn_header = (struct gbn_header_board *)buff;
-	syn_header->type = GBN_PKT_DATA;
-	syn_header->seqnum = 0;
-	make_sesid(syn_header->session_id, SRC_SESSION_ID, 0);
+	struct legomem_open_close_session_req open_req;
+	open_req.comm_headers.gbn.seqnum = 0;
+	set_gbn_src_dst_session(&open_req.comm_headers.gbn, 2, 0);
+	open_req.comm_headers.gbn.type = GBN_PKT_DATA;
+	open_req.comm_headers.lego.opcode = OP_OPEN_SESSION;
+	open_req.comm_headers.lego.pid = 0;
+	open_req.op.session_id = src_sesid;
 
-	buff[1] = 0x0101010101010101;
-	for (int i = 0; i < 2; i++) {
-		printf("buf[%d]: %016lx\n", i, buff[i]);
-	}
-	ret = sendto(sockfd, buff, sizeof(buff), 0, addr,
+	ret = sendto(sockfd, &open_req.comm_headers.gbn,
+		     sizeof(open_req) - GBN_HEADER_OFFSET, 0, addr,
 		     sizeof(struct sockaddr));
 	return ret;
 }
@@ -46,17 +37,15 @@ int gbn_connect(int sockfd, struct sockaddr *addr, unsigned src_sesid)
 int gbn_close(int sockfd, struct sockaddr *addr, unsigned dest_sesid)
 {
 	int ret;
-	unsigned long buff[2];
-	struct gbn_header_board *fin_header = (struct gbn_header_board *)buff;
-	fin_header->type = GBN_PKT_DATA;
-	fin_header->seqnum = 0;
-	make_sesid(fin_header->session_id, 0, DEST_SESSION_ID);
-
-	buff[1] = 0x0f0f0f0f0f0f0f0f;
-	for (int i = 0; i < 2; i++) {
-		printf("buf[%d]: %016lx\n", i, buff[i]);
-	}
-	ret = sendto(sockfd, buff, sizeof(buff), 0, addr,
+	struct legomem_open_close_session_req close_req;
+	close_req.comm_headers.gbn.seqnum = 0;
+	set_gbn_src_dst_session(&close_req.comm_headers.gbn, 2, 0);
+	close_req.comm_headers.gbn.type = GBN_PKT_DATA;
+	close_req.comm_headers.lego.opcode = OP_CLOSE_SESSION;
+	close_req.comm_headers.lego.pid = 0;
+	close_req.op.session_id = dest_sesid;
+	ret = sendto(sockfd, &close_req.comm_headers.gbn,
+		     sizeof(close_req) - GBN_HEADER_OFFSET, 0, addr,
 		     sizeof(struct sockaddr));
 	return ret;
 }
@@ -71,7 +60,7 @@ int main(int argc, char *argv[])
 	int send_size;
 	int operation_switch;
 
-	struct gbn_header_board *header;
+	struct gbn_header *header;
 
 	/*
 	 * usage:
@@ -110,7 +99,7 @@ int main(int argc, char *argv[])
 	switch (operation_switch) {
 	case 1:
 		if (gbn_connect(socketfd, (struct sockaddr *)&host_addr,
-				SRC_SESSION_ID) < 0) {
+				DEST_SESSION_ID) < 0) {
 			perror("gbn connect");
 			exit(EXIT_FAILURE);
 		}
@@ -123,10 +112,10 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case 3:
-		header = (struct gbn_header_board *)buf;
+		header = (struct gbn_header *)buf;
 		header->type = GBN_PKT_DATA;
 		header->seqnum = seqnum;
-		make_sesid(header->session_id, SRC_SESSION_ID, DEST_SESSION_ID);
+		set_gbn_src_dst_session(header, SRC_SESSION_ID, DEST_SESSION_ID);
 
 		for (int i = 1; i < PACKET_SIZE; i++)
 			buf[i] = i;

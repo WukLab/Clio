@@ -16,6 +16,85 @@
 
 #include "core.h"
 
+struct dummy_payload {
+	unsigned long mark;
+};
+
+#define NR_MSG_PER_THREAD	(10)
+#define NR_SESSIONS		(3)
+#define NR_SEND_BUF_SLOTS	(256)
+
+void *test_net(void *arg)
+{
+	void *recv_buf, *send_buf;
+	int buf_size, i, ret;
+	struct dummy_payload *payload;
+	struct dummy_payload *send_buf_ring[NR_SEND_BUF_SLOTS];
+	struct gbn_header *hdr;
+	struct session_net *ses;
+
+	ses = (struct session_net *)arg;
+	buf_size = 256;
+
+	recv_buf = malloc(buf_size);
+	if (!recv_buf)
+		return NULL;
+	memset(recv_buf, 0, buf_size);
+
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++) {
+		if (!(send_buf_ring[i] = malloc(buf_size)))
+			return NULL;
+		memset(send_buf_ring[i], 0, buf_size);
+	}
+
+	i = 0;
+
+	/*
+	 * Please tune this during testing.
+	 * One side is server, another is client.
+	 */
+		/* Server, recv msg */
+	while (1) {
+		send_buf = send_buf_ring[i % NR_SEND_BUF_SLOTS];
+		payload = send_buf + LEGO_HEADER_OFFSET;
+		payload->mark = i;
+
+		printf("send %d\n", i);
+		ret = net_send(ses, send_buf, buf_size);
+		if (ret <= 0) {
+			printf("send error\n");
+			return NULL;
+		}
+
+		ret = net_receive(ses, recv_buf, buf_size);
+		if (ret <= 0) {
+			printf("receive error\n");
+			return NULL;
+		}
+
+		hdr = recv_buf + GBN_HEADER_OFFSET;
+		payload = recv_buf + LEGO_HEADER_OFFSET;
+		printf("Msg %d Payload mark: %lu\n", i, payload->mark);
+		/* seqnum starts from 1 */
+		if (hdr->seqnum != i + 1) {
+			printf("Receive out of order. Expected seq#: %d, Received seq#: %d\n",
+			       i + 1, hdr->seqnum);
+		}
+		
+		i++;
+		if (i >= NR_MSG_PER_THREAD)
+			break;
+	}
+
+	sleep(3);
+
+	free(recv_buf);
+	for (i = 0; i < NR_SEND_BUF_SLOTS; i++)
+		free(send_buf_ring[i]);
+
+	return NULL;
+}
+
 int test_legomem_board(char *board_ip_port_str)
 {
 	struct board_info *remote_board;
@@ -23,6 +102,7 @@ int test_legomem_board(char *board_ip_port_str)
 	struct session_net *remote_mgmt_session;
 	unsigned int ip, port;
 	unsigned int ip1, ip2, ip3, ip4;
+	pthread_t session_thread[NR_SESSIONS];
 	int i;
 
 	printf("%s(): test board %s\n", __func__, board_ip_port_str);
@@ -67,9 +147,8 @@ int test_legomem_board(char *board_ip_port_str)
 
 	/*
 	 * Step III.2
-	 * Start test: open a lot sessions and then close
+	 * Start test: open a lot sessions
 	 */
-#define NR_SESSIONS 10
 	ses_net = malloc(NR_SESSIONS * sizeof(*ses_net));
 	if (!ses_net)
 		return -1;
@@ -82,6 +161,24 @@ int test_legomem_board(char *board_ip_port_str)
 			return -1;
 		}
 	}
+
+	/*
+	 * Step III.3
+	 * Send messages to board
+	 */
+	for (i = 0; i < NR_SESSIONS; i++)
+		pthread_create(&session_thread[i], NULL, test_net, ses_net[i]);
+
+	for (i = 0; i < NR_SESSIONS; i++)
+		pthread_join(session_thread[i], NULL);
+
+	/*
+	 * Step III.4
+	 * End test: close sessions
+	 */
+	for (i = 0; i < NR_SESSIONS; i++)
+		if (ses_net[i])
+			legomem_close_session(NULL, ses_net[i]);
 
 	return 0;
 }

@@ -775,6 +775,33 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	resp->ret = 0;
 }
 
+static void handle_query_stat(struct thpool_buffer *tb)
+{
+	struct legomem_query_stat_resp *resp;
+	size_t size;
+	unsigned long *local_stat;
+
+	/*
+	 * calculate the size of resp msg
+	 * minus 1 because of the original pointer
+	 */
+	resp = (struct legomem_query_stat_resp *)tb->tx;
+	size = sizeof(*resp) + (NR_STAT_TYPES - 1) * sizeof(unsigned long);
+	set_tb_tx_size(tb, size);
+
+	local_stat = default_local_bi->stat;
+	memcpy(resp->stat, local_stat, NR_STAT_TYPES * sizeof(unsigned long));
+	resp->nr_items = NR_STAT_TYPES;
+}
+
+static void handle_pingpong(struct thpool_buffer *tb)
+{
+	struct legomem_pingpong_resp *resp;
+
+	resp = (struct legomem_pingpong_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+}
+
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -829,6 +856,12 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_join_cluster(tb);
 		pthread_spin_unlock(&join_cluster_lock);
 		break;
+	case OP_REQ_PINGPONG:
+		handle_pingpong(tb);
+		break;
+	case OP_REQ_QUERY_STAT:
+		handle_query_stat(tb);
+		break;
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
 			opcode, legomem_opcode_str(opcode));
@@ -864,7 +897,7 @@ free:
  * Since mgmt session does not have any remote end's information,
  * we must rely on each packet's routing info to send it back.
  */
-static void dispatcher(void)
+static void *dispatcher(void *_unused)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
@@ -885,6 +918,79 @@ static void dispatcher(void)
 		 */
 		worker_handle_request(tw, tb);
 	}
+	return NULL;
+}
+
+/* Gather stats from all online nodes. */
+static void monitor_gather_stats(void)
+{
+	struct legomem_query_stat_req *req;
+	struct legomem_query_stat_resp *resp;
+	struct board_info *bi;
+	struct lego_header *lego_header;
+	struct session_net *ses;
+	int ret, i;
+
+	req = malloc(sizeof(*req));
+	resp = malloc(legomem_query_stat_resp_size());
+	if (!req || !resp)
+		return;
+
+	lego_header = to_lego_header(req);
+	lego_header->opcode = OP_REQ_QUERY_STAT;
+
+	pthread_spin_lock(&board_lock);
+	hash_for_each(board_list, i, bi, link) {
+		if (special_board_info_type(bi->flags))
+			continue;
+
+		/* Send to remote party's mgmt session */
+		ses = get_board_mgmt_session(bi);
+		ret = net_send_and_receive(ses, req, sizeof(*req), resp,
+					   legomem_query_stat_resp_size());
+		if (ret <= 0) {
+			dprintf_ERROR("net error: %d\n", ret);
+			break;
+		}
+
+		/* Copy to per-node stat list */
+		memcpy(bi->stat, resp->stat, NR_STAT_TYPES * sizeof(unsigned long));
+	}
+	pthread_spin_unlock(&board_lock);
+
+	free(req);
+	free(resp);
+}
+
+/*
+ * This is monitor's backround daemon thread.
+ * It will monitor cluster status, query stats from other machines,
+ * make migration decisions and so on. It runs in conjunction with
+ * the handler thread.
+ */
+static void *daemon_thread_func(void *_unused)
+{
+	while (1) {
+		sleep(5);
+		monitor_gather_stats();
+	}
+	return NULL;
+}
+
+/*
+ * Creat a background daemon thread that will monitor
+ * cluster status and so on.
+ */
+static void create_daemon_thread(void)
+{
+	pthread_t t;
+	int ret;
+
+	ret = pthread_create(&t, NULL, daemon_thread_func, NULL);
+	if (ret) {
+		dprintf_ERROR("Fail to create daemon thread%d\n", errno);
+		exit(-1);
+	}
 }
 
 static void print_usage(void)
@@ -892,18 +998,30 @@ static void print_usage(void)
 	printf("Usage ./host.o [Options]\n"
 	       "\n"
 	       "Options:\n"
-	       "  --dev=<name>                Specify the local network device\n"
-	       "  --port=<port>               Specify the local UDP port we listen to\n"
+	       "  --dev=<name>                Specify local network device (Required)\n"
+	       "  --port=<port>               Specify local UDP port we listen to (Required)\n"
+	       "  --net_raw_ops=[options]     Select raw network layer implementation (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. raw_verbs (default if nothing is specified)\n"
+	       "                                2. raw_udp\n"
+	       "                                3. raw_socket\n"
+	       "  --net_trans_ops=[options]   Select transport layer implementations (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
+	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
 	       "\n"
 	       "Examples:\n"
 	       "  ./monitor.o --port 8888 --dev=\"lo\" \n"
 	       "  ./monitor.o -p 8888 -d ens4\n");
 }
 
+#define OPT_NET_TRANS_OPS		(10000)
 static struct option long_options[] = {
-	{ "port",	required_argument,	NULL,	'p'},
-	{ "dev",	required_argument,	NULL,	'd'},
-	{ 0,		0,			0,	0  }
+	{ "port",		required_argument,	NULL,	'p'},
+	{ "dev",		required_argument,	NULL,	'd'},
+	{ "net_raw_ops",	required_argument,	NULL,	'n'},
+	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
+	{ 0,			0,			0,	0  }
 };
 
 int main(int argc, char **argv)
@@ -929,6 +1047,35 @@ int main(int argc, char **argv)
 			strncpy(ndev, optarg, sizeof(ndev));
 			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
+			break;
+		case 'n':
+			if (!strncmp(optarg, "raw_verbs", 16))
+				raw_net_ops = &raw_verbs_ops;
+			else if (!strncmp(optarg, "raw_udp", 16))
+				raw_net_ops = &raw_udp_socket_ops;
+			else if (!strncmp(optarg, "raw_socket", 16))
+				raw_net_ops = &raw_socket_ops;
+			else {
+				printf("Invalid net_raw_ops: %s\n"
+				       "Available Options are:\n"
+				       "  1. raw_verbs (default if nothing is specified)\n"
+				       "  2. raw_udp\n"
+				       "  3. raw_socket\n", optarg);
+				exit(-1);
+			}
+			break;
+		case OPT_NET_TRANS_OPS:
+			if (!strncmp(optarg, "gbn", 8))
+				transport_net_ops = &transport_gbn_ops;
+			else if (!strncmp(optarg, "bypass", 8))
+				transport_net_ops = &transport_bypass_ops;
+			else {
+				printf("Invalid net_trans_ops: %s\n"
+				       "Available Options are:\n"
+				       "1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
+				       "2. bypass (simple bypass transport layer, unreliable)\n", optarg);
+				exit(-1);
+			}
 			break;
 		default:
 			print_usage();
@@ -961,8 +1108,12 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+	atomic_init(&nr_hosts, 0);
+	atomic_init(&nr_boards, 0);
+
+	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* Same as host side init */
 	init_board_subsys();
@@ -974,19 +1125,26 @@ int main(int argc, char **argv)
 	 */
 	add_localhost_bi(&default_local_ei);
 
-	atomic_init(&nr_hosts, 0);
-	atomic_init(&nr_boards, 0);
-
-	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
-	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
-
-	ret = init_local_management_session(false);
+	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
 
-	dump_net_sessions();
-	dispatcher();
+	create_daemon_thread();
+
+	/*
+	 * Now init the thpool stuff and create a new thread
+	 * to handle the mgmt session traffic. 
+	 */
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
+			   default_thpool_buffer_alloc_cb);
+
+	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
+	if (ret) {
+		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
+		exit(-1);
+	}
+	pthread_join(mgmt_session->thread, NULL);
 }

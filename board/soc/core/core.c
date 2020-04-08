@@ -11,6 +11,8 @@
 #include <uapi/sched.h>
 #include <uapi/net_header.h>
 #include <uapi/thpool.h>
+#include <uapi/lego_mem.h>
+#include <fpga/lego_mem_ctrl.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,6 +21,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
+#include "dma.h"
 #include "core.h"
 
 #define NR_THPOOL_WORKERS	(1)
@@ -90,49 +93,56 @@ free_thpool_buffer(struct thpool_buffer *tb)
 }
 
 /*
- * Handle alloc/free requests from host.
+ * Handle alloc/free requests from _host_.
  *
  * Note that
  * 1) This might be the first the host contacting with us,
- * thus there might be no context created. We will create on if that's the case.
+ *    thus there might be no context created. We will create on if that's the case.
  * 2) Upon alloc, remote will tell us the vRegion index, which, was chosen by monitor.
  * 3) We only perform allocation withi one vRegion.
  *    But we could perform free spanning multiple vRegions.
  */
-static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
-			      struct thpool_buffer *tb, bool is_alloc)
+static void handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 {
-	struct proc_info *pi;
-	unsigned int pid, node, host_ip;
+	struct legomem_alloc_free_req *req;
 	struct op_alloc_free *ops;
-	struct op_alloc_free_ret *reply;
+	struct legomem_alloc_free_resp *resp;
+	struct lego_header *lego_header;
+	struct proc_info *pi;
+	pid_t pid;
 
-	/* Setup the reply buffer */
-	reply = (struct op_alloc_free_ret *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*reply));
+	resp = (struct legomem_alloc_free_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
 
-	ops = get_op_struct(rx_buf);
+	req = (struct legomem_alloc_free_req *)tb->rx;
+	ops = &req->op;
+	lego_header = to_lego_header(req);
 
-	// TODO the packet format is unknown for now.
-	pid = 0;
-	node = 0;
-	host_ip = 0;
-
-	pi = get_proc_by_pid(pid, node);
+	pid = lego_header->pid;
+	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		/*
-		 * This could happen.
-		 * Because we might be a new board assigned to the
-		 * host by monitor upon allocation.
+		 * This is correct and follows our current design flow:
+		 * Neither monitor nor board will contact us when the context
+		 * was first created. Monitor choose this board without checking
+		 * whether this board has created the context or not.
+		 *
+		 * This makes the flow simple but we could not do authentication
+		 * check at this point, we could only allocate the vRegion
+		 * This kind of design is fine for a proof-of-concept system,
+		 * but not okay for a production one.
+		 *
+		 * The simpliest fix is to let monitor contact the board when
+		 * the monitor was chosing vRegion.
 		 */
-		pi = alloc_proc(pid, node, NULL, host_ip);
+		pi = alloc_proc(pid, NULL, 0);
 		if (!pi) {
-			reply->ret = -ENOMEM;
+			resp->op.ret = -ENOMEM;
 			return;
 		}
 
 		/* We will drop in the end */
-		get_proc_by_pid(pid, node);
+		get_proc_by_pid(pid);
 	}
 
 	if (is_alloc) {
@@ -148,10 +158,10 @@ static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 
 		addr = alloc_va_vregion(pi, vi, len, vm_flags);
 		if (unlikely(IS_ERR_VALUE(addr)))
-			reply->ret = -ENOMEM;
+			resp->op.ret = -ENOMEM;
 		else {
-			reply->ret = 0;
-			reply->addr = addr;
+			resp->op.ret = 0;
+			resp->op.addr = addr;
 		}
 	} else {
 		/* OP_REQ_FREE */
@@ -159,99 +169,134 @@ static void handle_alloc_free(void *rx_buf, size_t rx_buf_size,
 
 		start = ops->addr;
 		len = ops->len;
-		reply->ret = free_va(pi, start, len);
+		resp->op.ret = free_va(pi, start, len);
 	}
 
 	put_proc_info(pi);
 }
 
+/*
+ * Note that in the current implementation flow, neither host nor monitor
+ * will explicitly contact the board for new proc creation. That will be
+ * postponed until vRegion allocation time. This design choice simplies
+ * the flow with some cost of lost security (check comment on vRegion handler).
+ *
+ * Thus this handler is actually not used. But keep it here and assume
+ * the sender can either by host or monitor. Further, we assume the PID
+ * has been allocated alreay.
+ */
 static void handle_create_proc(struct thpool_buffer *tb)
 {
+	struct legomem_create_context_req *req;
+	struct legomem_create_context_resp *resp;
+	struct lego_header *lego_header;
 	struct proc_info *pi;
-	int *reply;
-	unsigned int pid, node;
-	void *rx_buf;
+	pid_t pid;
 
-	reply = (int *)tb->tx;
-	set_tb_tx_size(tb, sizeof(int));
+	resp = (struct legomem_create_context_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
 
-	/* TODO: Get PID and NODE from request buffer */
-	rx_buf = tb->rx;
-	pid = 1;
-	node = 0;
+	req = (struct legomem_create_context_req *)tb->rx;
+	lego_header = to_lego_header(req);
 
-	pi = alloc_proc(pid, node, NULL, 0);
+	/*
+	 * @pid was allocated by monitor
+	 * and it is globally unique
+	 */
+	pid = lego_header->pid;
+	pi = alloc_proc(pid, NULL, 0);
 	if (!pi) {
-		*reply = -ENOMEM;
-	} else
-		*reply = 0;
+		resp->op.ret = -ENOMEM;
+		return;
+	} 
+
+	/* Success */
+	resp->op.ret = 0;
+	resp->op.pid = pid;
 }
 
 static void handle_free_proc(struct thpool_buffer *tb)
 {
+	struct legomem_close_context_req *req;
+	struct legomem_close_context_resp *resp;
+	struct lego_header *lego_header;
 	struct proc_info *pi;
-	int *reply;
-	unsigned int pid, node;
-	void *rx_buf;
+	pid_t pid;
 
-	reply = (int *)tb->tx;
-	set_tb_tx_size(tb, sizeof(int));
+	resp = (struct legomem_close_context_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
 
-	/* TODO: Get PID and NODE from request buffer */
-	rx_buf = tb->rx;
-	pid = 1;
-	node = 0;
+	req = (struct legomem_close_context_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
 
-	pi = get_proc_by_pid(pid, node);
+	pi = get_proc_by_pid(pid);
 	if (!pi) {
-		*reply = -EINVAL;
+		resp->ret = -ESRCH;
 		return;
 	}
 
 	/* We grabbed one ref above, thus put twice */
 	put_proc_info(pi);
 	put_proc_info(pi);
+
+	resp->ret = 0;
 }
 
-/*
- * TODO:
- *
- * 1) Notify FPGA stack to handle this session.
- * 2) Notify FPGA to free session. 
- *
- * Couple ways to implement this:
- * 1) In the fpga stack, check for close/open msgs,
- *    and act on its own.
- * 2) soc explicitly notify fpga to do sth.
- */
 static void handle_open_session(struct thpool_buffer *tb)
 {
-	struct op_open_close_session_ret *resp;
-	unsigned int session_id;
+	struct legomem_open_close_session_req *req;
+	struct legomem_open_close_session_resp *resp;
+	struct lego_mem_ctrl gbn_open_req;
+	unsigned int session_id, src_sesid;
 
-	resp = (struct op_open_close_session_ret *)resp;
+	req = (struct legomem_open_close_session_req *)tb->rx;
+	resp = (struct legomem_open_close_session_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
+
+	src_sesid = req->op.session_id;
 
 	session_id = alloc_session_id();
 	if (session_id < 0) {
-		resp->session_id = 0;
+		resp->op.session_id = 0;
 		return;
 	}
 
-	resp->session_id = session_id;
+	/* Success */
+	resp->op.session_id = session_id;
+
+	printf("%s(): src_sesid: %u dst_sesid: %u\n",
+		__func__, src_sesid, session_id);
+
+	/* Notify GBN setup_manager */
+	set_gbn_conn_req(&gbn_open_req.param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
+	gbn_open_req.epid = LEGOMEM_CONT_NET;
+	gbn_open_req.cmd = 0;
+	dma_ctrl_send(&gbn_open_req, sizeof(gbn_open_req));
 }
 
 static void handle_close_session(struct thpool_buffer *tb)
 {
-	struct op_open_close_session *req;
-	struct op_open_close_session_ret *resp;
+	struct legomem_open_close_session_req *req;
+	struct legomem_open_close_session_resp *resp;
+	struct lego_mem_ctrl gbn_close_req;
 	unsigned int session_id;
 
-	resp = (struct op_open_close_session_ret *)resp;
+	req = (struct legomem_open_close_session_req *)tb->rx;
+	resp = (struct legomem_open_close_session_resp *)tb->rx;
 	set_tb_tx_size(tb, sizeof(*resp));
 
-	session_id = req->session_id;
+	session_id = req->op.session_id;
 	free_session_id(session_id);
+
+	/* Success */
+	resp->op.session_id = 0;
+
+	/* Notify GBN setup_manager */
+	set_gbn_conn_req(&gbn_close_req.param32, session_id, GBN_SOC2FPGA_SET_TYPE_CLOSE);
+	gbn_close_req.epid = LEGOMEM_CONT_NET;
+	gbn_close_req.cmd = 0;
+	dma_ctrl_send(&gbn_close_req, sizeof(gbn_close_req));
 }
 
 /*
@@ -260,11 +305,6 @@ static void handle_close_session(struct thpool_buffer *tb)
  */
 static int handle_soc_pingpong(struct thpool_buffer *tb)
 {
-	int *reply;
-
-	reply = (int *)tb->tx;
-	*reply = 0;
-	set_tb_tx_size(tb, sizeof(int));
 	return 0;
 }
 
@@ -317,47 +357,22 @@ static int handle_soc_debug(struct thpool_buffer *tb)
 	return 0;
 }
 
-/*
- * This is the AXI DMA interface.
- * Each direction has its own channel.
- * Nonetheless, the interface is simple enough.
- */
-#if 0
-int axidma_oneway_transfer(axidma_dev_t dev, int channel, void *buf,
-        size_t len, bool wait);
-#endif
-
-static inline size_t axidma_soc_to_fpga(void *buf, size_t buf_size)
-{
-	return -ENOSYS;
-}
-
-static inline size_t axidma_fpga_to_soc(void *buf, size_t buf_size)
-{
-	return -ENOSYS;
-}
-
-static void worker_handle_request(struct thpool_worker *tw,
-				  struct thpool_buffer *tb)
+static void worker_handle_request_inline(struct thpool_worker *tw,
+					 struct thpool_buffer *tb)
 {
 	struct lego_header *lego_hdr;
 	uint16_t opcode;
-	void *rx_buf;
-	size_t rx_buf_size;
 
-	rx_buf = tb->rx;
-	rx_buf_size = tb->rx_size;
-
-	lego_hdr = (struct lego_header *)(rx_buf + LEGO_HEADER_OFFSET);
+	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
 	switch (opcode) {
 	/* VM */
 	case OP_REQ_ALLOC:
-		handle_alloc_free(rx_buf, rx_buf_size, tb, true);
+		handle_alloc_free(tb, true);
 		break;
 	case OP_REQ_FREE:
-		handle_alloc_free(rx_buf, rx_buf_size, tb, false);
+		handle_alloc_free(tb, false);
 		break;
 
 	/* Proc */
@@ -400,16 +415,10 @@ static void worker_handle_request(struct thpool_worker *tw,
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb)))
-		axidma_fpga_to_soc(tb->tx, tb->tx_size);
+		dma_send(tb->tx, tb->tx_size);
 	free_thpool_buffer(tb);
 }
 
-/*
- * General rules:
- * The dispatcher will allocate the whole thpool_buffer,
- * which will be passed to each worker handler, and its
- * the worker's responsibility to free the thpool buffer.
- */
 static void dispatcher(void)
 {
 	struct thpool_buffer *tb;
@@ -417,17 +426,39 @@ static void dispatcher(void)
 	size_t ret;
 
 	while (1) {
+		struct lego_header *lego_header;
+		int payload_size;
+		void *payload_ptr;
+
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
-		ret = axidma_fpga_to_soc(tb->rx, tb->rx_size);
+		/*
+		 * FPGA does not deliver the L2-L4 and GBN headers to us.
+		 * But to keep the handlers consistent, we skip the first portion
+		 * of the receive buffer and reserve the space.
+		 *
+		 * We will first use a recv to get the headers, which has a field
+		 * indicating the whole length of the packet. We then use that length
+		 * to read the payload. Thus the whole process has two recv.
+		 */
+		lego_header = to_lego_header(tb->rx);
+		ret = dma_recv_blocking(lego_header, LEGO_HEADER_SIZE);
 		if (ret < 0) {
-			printf("axi dma fpga to soc failed\n");
-			return;
+			printf("%s(): fail to recv lego_header\n", __func__);
+			continue;
 		}
 
-		/* Inline handling for now */
-		worker_handle_request(tw, tb);
+		payload_size = lego_header->size - LEGO_HEADER_SIZE;
+		payload_ptr = (void *)(lego_header + 1);
+		ret = dma_recv_blocking(payload_ptr, payload_size);
+		if (ret < 0) {
+			printf("%s(): fail to recv payload\n", __func__);
+			continue;
+		}
+
+		/* Inline handling */
+		worker_handle_request_inline(tw, tb);
 	}
 }
 
@@ -435,8 +466,23 @@ int main(int argc, char **argv)
 {
 	int ret;
 
-	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
+	ret = init_dma();
+	if (ret) {
+		printf("Fail to init dma\n");
+		return 0;
+	}
+
+	ret = init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	if (ret) {
+		printf("Fail to init thpool\n");
+		return 0;
+	}
+
+	ret = init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map, dma_thpool_alloc_cb);
+	if (ret) {
+		printf("Fail to init thpool buffer\n");
+		return 0;
+	}
 
 	init_session_subsys();
 
@@ -446,7 +492,6 @@ int main(int argc, char **argv)
 		return ret;
 	}
 
-	test_vm();
-
+	dispatcher();
 	return 0;
 }

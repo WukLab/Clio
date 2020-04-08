@@ -64,7 +64,7 @@ void test_util::run_one_cycle(stream<struct query_req>		*state_query_req,
 	}
 	if (!rsp_payload.empty()) {
 		recv_data = rsp_payload.read();
-		ap_uint<8> type = recv_data.data(PKT_TYPE_WIDTH - 1, 0);
+		ap_uint<8> type = recv_data.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> src_slot = recv_data.data(
@@ -118,7 +118,7 @@ struct net_axis_64 build_gbn_header(ap_uint<SES_ID_WIDTH> ses_id,
 				    ap_uint<SEQ_WIDTH> seqnum, ap_uint<1> last)
 {
 	struct net_axis_64 pkt;
-	pkt.data(PKT_TYPE_WIDTH - 1, 0) = type;
+	pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET) = type;
 	pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET) = seqnum;
 	pkt.data(SES_ID_OFFSET + SES_ID_WIDTH - 1, SES_ID_OFFSET) = ses_id;
 	pkt.keep = 0xff;

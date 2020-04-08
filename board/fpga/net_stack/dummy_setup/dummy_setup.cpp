@@ -3,37 +3,9 @@
 #include <uapi/gbn.h>
 #include <fpga/axis_internal.h>
 #include <hls_stream.h>
+#include <uapi/opcode_types.h>
 
 using hls::stream;
-
-enum LEGOFPGA_OPCODE_REQ {
-	OP_REQ_TEST = 0,
-
-	OP_REQ_ALLOC = 1,
-	OP_REQ_FREE,
-
-	OP_REQ_READ,
-	OP_REQ_WRITE,
-
-	OP_CREATE_PROC,
-	OP_FREE_PROC,
-
-	OP_OPEN_SESSION,
-	OP_CLOSE_SESSION,
-
-	OP_REQ_MIGRATION,
-
-	/* Host to Monitor */
-	OP_REQ_MEMBERSHIP_JOIN_CLUSTER,
-
-	OP_REQ_MEMBERSHIP_NEW_NODE,
-
-	OP_RESET_ALL,
-
-	OP_REQ_SOC_DEBUG,
-	OP_REQ_FPGA_PINGPOING,	/* For measurement */
-	OP_REQ_SOC_PINGPONG,	/* For measurement */
-};
 
 enum status {
 	RECV_UDP,
@@ -46,7 +18,8 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 		 stream<struct udp_info>	*usr_rx_hdr,
 		 stream<struct conn_mgmt_req>	*conn_setup_req,
 		 stream<struct net_axis_64>	*usr_tx_payload,
-		 stream<struct udp_info>	*usr_tx_hdr)
+		 stream<struct udp_info>	*usr_tx_hdr,
+		 unsigned int			*recv_cnt)
 {
 #pragma HLS INTERFACE axis both port=usr_rx_payload
 #pragma HLS INTERFACE axis both port=usr_rx_hdr
@@ -68,6 +41,7 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 	struct conn_mgmt_req setup_req;
 	ap_uint<SLOT_ID_WIDTH> session_id;
 	static short op_code;
+	static unsigned int cnt = 0;
 
 	switch (state) {
 	case RECV_UDP:
@@ -96,6 +70,8 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 			usr_tx_hdr->write(resp_hdr);
 			usr_tx_payload->write(recv_pkt);
 		} else {
+			cnt++;
+			*recv_cnt = cnt;
 			if (recv_pkt.last == 1)
 				state = RECV_UDP;
 			else
@@ -111,11 +87,11 @@ void dummy_setup(stream<struct net_axis_64>	*usr_rx_payload,
 
 		session_id = recv_pkt.data(SLOT_ID_WIDTH - 1, 0);
 		if (op_code == OP_OPEN_SESSION) {
-			setup_req.set_type = set_type_open;
+			setup_req.set_type = GBN_SOC2FPGA_SET_TYPE_OPEN;
 			setup_req.slotid = session_id;
 			conn_setup_req->write(setup_req);
 		} else if (op_code == OP_CLOSE_SESSION) {
-			setup_req.set_type = set_type_close;
+			setup_req.set_type = GBN_SOC2FPGA_SET_TYPE_CLOSE;
 			setup_req.slotid = session_id;
 			conn_setup_req->write(setup_req);
 			resp_pkt.data(SLOT_ID_WIDTH - 1, 0) = 0;

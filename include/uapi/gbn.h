@@ -8,7 +8,7 @@
 #include <uapi/compiler.h>
 
 // fix segment size: 9kb
-#define MAX_PACKET_SIZE		(9216)
+#define MAX_PACKET_SIZE		(1536)
 #define WINDOW_SIZE_WIDTH	(7)
 #define WINDOW_SIZE		(1 << (WINDOW_SIZE_WIDTH))
 #define WINDOW_IDX_MSK		(WINDOW_SIZE - 1)
@@ -21,14 +21,16 @@
  * | pkt_type | seqnum | ses_id |
  * |0	     7|8     39|40    63|
  */
-#define PKT_TYPE_WIDTH		(8)
+#define PKT_TYPE_SIZE_BYTE	(1)
+#define PKT_TYPE_WIDTH		(PKT_TYPE_SIZE_BYTE * 8)
 #define SEQ_SIZE_BYTE		(4)
-#define SEQ_WIDTH		(32)
-#define SES_ID_SIZE_BYTE	(3)
-#define SES_ID_WIDTH		(24)
+#define SEQ_WIDTH		(SEQ_SIZE_BYTE * 8)
+#define SES_ID_SIZE_BYTE	(7 - SEQ_SIZE_BYTE)
+#define SES_ID_WIDTH		(SES_ID_SIZE_BYTE * 8)
 
+#define PKT_TYPE_OFFSET		(0)
 #define SEQ_OFFSET		(PKT_TYPE_WIDTH)
-#define SES_ID_OFFSET		(PKT_TYPE_WIDTH + SEQ_WIDTH)
+#define SES_ID_OFFSET		(SEQ_OFFSET + SEQ_WIDTH)
 
 /*
  * session id format:
@@ -61,6 +63,15 @@ enum gbn_pkt_type {
 	GBN_PKT_ACK = 1,
 	GBN_PKT_NACK = 2,
 	GBN_PKT_DATA = 3,
+};
+
+/*
+ * From SoC to FPGA GBN stack
+ * FPGA side setup_manager
+ */
+enum gbn_conn_set_type {
+	GBN_SOC2FPGA_SET_TYPE_OPEN = 1,
+	GBN_SOC2FPGA_SET_TYPE_CLOSE
 };
 
 #endif

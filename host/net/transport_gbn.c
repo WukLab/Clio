@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <signal.h>
+#include <time.h>
 #include <stdatomic.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
@@ -18,7 +20,9 @@
 #include "net.h"
 #include "../core.h"
 
-//#define CONFIG_DEBUG_GBN
+#if 1
+#define CONFIG_DEBUG_GBN
+#endif
 
 #ifdef CONFIG_DEBUG_GBN
 #define gbn_debug(fmt, ...) \
@@ -35,7 +39,7 @@
  * Organized as a ring.
  */
 #define NR_BUFFER_INFO_SLOTS		(256)
-#define GBN_RETRANS_TIMEOUT_US		(2000)
+#define GBN_RETRANS_TIMEOUT_US		(4000)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
 
 static int polling_thread_created = 0;
@@ -92,7 +96,9 @@ struct session_gbn {
 	struct buffer_info		unack_buffer_info_ring[NR_BUFFER_INFO_SLOTS];
 	atomic_int			seqnum_cur;
 	atomic_int			seqnum_last;
-	struct timespec			next_timeout;
+	
+	/* Timer */
+	timer_t				rt_timer;
 
 	/*
 	 * For the incoming data, we do it differently with the above approach.
@@ -141,30 +147,28 @@ index_to_data_buffer_info(struct session_gbn *ses, unsigned int index)
 static __always_inline void
 disable_timeout(struct session_gbn *ses)
 {
-	/* set next timeout to infinity */
-	ses->next_timeout.tv_sec = LONG_MAX;
-	ses->next_timeout.tv_nsec = LONG_MAX;
-}
+	struct itimerspec timeout;
 
-/*
- * return if time t1 is greater then t2
- */
-static __always_inline bool
-time_greater_than(struct timespec *t1, struct timespec *t2)
-{
-	if (t1->tv_sec == t2->tv_sec)
-		return t1->tv_nsec > t2->tv_nsec;
-	else
-		return t1->tv_sec > t2->tv_sec;
+	timeout.it_interval.tv_nsec = 0;
+	timeout.it_interval.tv_sec = 0;
+	timeout.it_value.tv_nsec = 0;
+	timeout.it_value.tv_sec = 0;
+
+	timer_settime(ses->rt_timer, 0, &timeout, NULL);
 }
 
 static __always_inline void
-set_next_timeout(struct timespec *t)
+set_next_timeout(struct session_gbn *ses)
 {
-	long ns;
-	ns = t->tv_nsec + GBN_RETRANS_TIMEOUT_US * 1000;
-	t->tv_nsec = ns % 1000000000;
-	t->tv_sec += ns / 1000000000;
+	struct itimerspec timeout;
+
+	timeout.it_interval.tv_nsec = 0;
+	timeout.it_interval.tv_sec = 0;
+	timeout.it_value.tv_nsec = GBN_RETRANS_TIMEOUT_US * 1000;
+	timeout.it_value.tv_sec = 0;
+
+	// Set flag to 0, timeout is relative time to current time
+	timer_settime(ses->rt_timer, 0, &timeout, NULL);
 }
 
 /*
@@ -360,7 +364,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		if (!nr_unack_buffer(ses_gbn))
 			disable_timeout(ses_gbn);
 		else if (hdr->type == GBN_PKT_ACK)
-			set_next_timeout(&ses_gbn->next_timeout);
+			set_next_timeout(ses_gbn);
 
 		return true;
 	} else if (seq == seqnum_last) {
@@ -391,6 +395,8 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 
 	retrans_start = atomic_load(&ses_gbn->seqnum_last);
 	retrans_end = atomic_load(&ses_gbn->seqnum_cur);
+	gbn_debug("retrans %d to %d, session %d\n", retrans_start, retrans_end,
+		  ses_net->session_id);
 	for (i = retrans_start; i < retrans_end; i++) {
 		/*
 		 * retrans seq#: (seqnum_last, seqnum_cur]
@@ -411,7 +417,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 	 * This case should always happen
 	 */
 	if (likely(retrans_end - retrans_start > 0))
-		set_next_timeout(&ses_gbn->next_timeout);
+		set_next_timeout(ses_gbn);
 }
 
 static void handle_ack_packet(struct session_net *ses_net, void *packet)
@@ -499,6 +505,10 @@ static void handle_data_packet(struct session_net *ses_net,
 
 	hdr = to_gbn_header(packet);
 	seq = hdr->seqnum;
+	/* ACK packet has swapped session id as DATA packet */
+	set_gbn_src_dst_session(&ack.ack_header,
+				get_gbn_dst_session(hdr),
+				get_gbn_src_session(hdr));
 
 	if (likely(seq == atomic_load(&ses_gbn->seqnum_expect))) {
 		/*
@@ -587,7 +597,6 @@ static void *gbn_poll_func(void *_unused)
 	void *recv_buf;
 	size_t buf_size, max_buf_size;
 	int ret;
-	char packet_dump_str[256];
 
 	/*
 	 * If there is no zerocopy,
@@ -640,16 +649,21 @@ static void *gbn_poll_func(void *_unused)
 			in_addr.s_addr = ipv4_hdr->src_ip;
 			inet_ntop(AF_INET, &in_addr, str, sizeof(str));
 
-			gbn_debug("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
+			dprintf_ERROR("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
 				str, get_gbn_src_session(gbn_hdr), dst_sesid);
 			continue;
 		}
 
-		dump_packet_headers(recv_buf, packet_dump_str);
-		gbn_debug("new pkt: %s ses: %u->%u type: %s\n",
-			packet_dump_str,
-			get_gbn_src_session(gbn_hdr), dst_sesid,
-			gbn_pkt_type_str(gbn_hdr->type));
+#ifdef CONFIG_DEBUG_GBN
+		{
+			char packet_dump_str[256];
+			dump_packet_headers(recv_buf, packet_dump_str);
+			gbn_debug("new pkt: %s ses: %u->%u type: %s\n",
+				packet_dump_str,
+				get_gbn_src_session(gbn_hdr), dst_sesid,
+				gbn_pkt_type_str(gbn_hdr->type));
+		}
+#endif
 
 		switch (gbn_hdr->type) {
 		case GBN_PKT_ACK:
@@ -662,7 +676,7 @@ static void *gbn_poll_func(void *_unused)
 			handle_data_packet(ses_net, recv_buf, buf_size);
 			break;
 		default:
-			gbn_info("WARN: Unknown GBN packet type: %d\n",
+			dprintf_ERROR("Unknown GBN packet type: %d\n",
 				gbn_hdr->type);
 			break;
 		};
@@ -684,8 +698,7 @@ prepare_gbn_headers(struct gbn_header *hdr, struct session_net *net)
 	src_sesid = get_local_session_id(net);
 	dst_sesid = get_remote_session_id(net);
 
-	set_gbn_src_session(hdr, src_sesid);
-	set_gbn_dst_session(hdr, dst_sesid);
+	set_gbn_src_dst_session(hdr, src_sesid, dst_sesid);
 }
 
 /*
@@ -698,7 +711,6 @@ static inline int gbn_send_one(struct session_net *net,
 {
 	struct buffer_info *info;
 	struct session_gbn *ses;
-	struct timespec e;
 	int seqnum;
 	bool unacked_buffer_empty;
 	struct gbn_header *hdr;
@@ -747,9 +759,7 @@ static inline int gbn_send_one(struct session_net *net,
 	 * Timeout is only (re)set when the unack buffer is originally empty
 	 */
 	if (unacked_buffer_empty) {
-		clock_gettime(CLOCK_MONOTONIC, &e);
-		set_next_timeout(&e);
-		ses->next_timeout = e;
+		set_next_timeout(ses);
 	}
 
 send:
@@ -827,23 +837,49 @@ static inline int gbn_receive_one_nb(struct session_net *net,
 	return -ENOSYS;
 }
 
-static int init_session_gbn(struct session_gbn *ses)
+static void gbn_timeout_handler(union sigval val)
+{
+	struct session_net *ses_net;
+	struct session_gbn *ses_gbn;
+
+	ses_net = (struct session_net *)val.sival_ptr;
+	ses_gbn = (struct session_gbn *)ses_net->transport_private;
+
+	gbn_debug("Session %d timeout\n", ses_net->session_id);
+	retrans_unack_buffer_info(ses_net, ses_gbn);
+}
+
+static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 {
 	int i;
 	struct buffer_info *info;
+	struct sigevent timeout_event;
 	int ret;
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_unack_buffer_info(ses, i);
+		info = index_to_unack_buffer_info(gbn, i);
 		memset(info, 0, sizeof(*info));
 		INIT_LIST_HEAD(&info->list);
 	}
-	atomic_init(&ses->seqnum_cur, 0);
-	atomic_init(&ses->seqnum_last, 0);
-	disable_timeout(ses);
+	atomic_init(&gbn->seqnum_cur, 0);
+	atomic_init(&gbn->seqnum_last, 0);
+
+	/*
+	 * Create timer for this gbn session
+	 * Store net session in the sigevent struct
+	 */
+	timeout_event.sigev_notify = SIGEV_THREAD;
+	timeout_event.sigev_value.sival_ptr = (void *)net;
+	timeout_event.sigev_notify_function = gbn_timeout_handler;
+	ret = timer_create(CLOCK_MONOTONIC, &timeout_event, &gbn->rt_timer);
+	if (ret < 0) {
+		ret = -errno;
+		printf("gbn: Failed to create timer\n");
+		goto out;
+	}
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_data_buffer_info(ses, i);
+		info = index_to_data_buffer_info(gbn, i);
 		memset(info, 0, sizeof(*info));
 		INIT_LIST_HEAD(&info->list);
 
@@ -861,12 +897,12 @@ static int init_session_gbn(struct session_gbn *ses)
 			}
 		}
 	}
-	atomic_init(&ses->data_buffer_info_HEAD, 0);
-	atomic_init(&ses->seqnum_expect, 1);
+	atomic_init(&gbn->data_buffer_info_HEAD, 0);
+	atomic_init(&gbn->seqnum_expect, 1);
 
-	INIT_LIST_HEAD(&ses->data_list);
-	pthread_spin_init(&ses->data_lock, PTHREAD_PROCESS_PRIVATE);
-	ses->nr_data = 0;
+	INIT_LIST_HEAD(&gbn->data_list);
+	pthread_spin_init(&gbn->data_lock, PTHREAD_PROCESS_PRIVATE);
+	gbn->nr_data = 0;
 
 	ret = 0;
 out:
@@ -885,7 +921,7 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 		return -ENOMEM;
 	ses_net->transport_private = ses_gbn;
 
-	ret = init_session_gbn(ses_gbn);
+	ret = init_session_gbn(ses_net, ses_gbn);
 	if (ret) {
 		free(ses_gbn);
 		ses_net->transport_private = NULL;
@@ -900,8 +936,13 @@ static int gbn_close_session(struct session_net *ses_net)
 	struct session_gbn *ses_gbn;
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
-	if (ses_gbn)
+	if (ses_gbn) {
+		gbn_debug("session %d, ack %ld, nack %ld\n",
+			  ses_net->session_id, ses_gbn->nr_rx_ack,
+			  ses_gbn->nr_rx_nack);
+		timer_delete(ses_gbn->rt_timer);
 		free(ses_gbn);
+	}
 	return 0;
 }
 

@@ -10,9 +10,11 @@
 #include <uapi/hashtable.h>
 #include <uapi/net_session.h>
 #include <uapi/opcode.h>
+#include <uapi/stat.h>
 #include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdlib.h>
 
 /*
  * The maximum number of processes from a host node
@@ -74,6 +76,8 @@ struct board_info {
 
 	unsigned long		mem_total;
 	unsigned long		mem_avail;
+
+	unsigned long		*stat;
 };
 
 /*
@@ -116,7 +120,7 @@ set_board_mgmt_session(struct board_info *bi, struct session_net *ses)
 	bi->mgmt_session = ses;
 }
 
-static inline void init_board_info(struct board_info *bi)
+static inline int init_board_info(struct board_info *bi)
 {
 	BUG_ON(!bi);
 
@@ -125,6 +129,12 @@ static inline void init_board_info(struct board_info *bi)
 
 	hash_init(bi->ht_sessions);
 	pthread_spin_init(&bi->lock, PTHREAD_PROCESS_PRIVATE);
+
+	bi->stat = malloc(NR_STAT_TYPES * sizeof(unsigned long));
+	if (!bi->stat)
+		return -ENOMEM;
+	memset(bi->stat, 0, NR_STAT_TYPES * sizeof(unsigned long));
+	return 0;
 }
 
 static inline int

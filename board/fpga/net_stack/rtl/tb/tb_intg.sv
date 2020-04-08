@@ -348,7 +348,7 @@ initial begin
 	assert(wr_set_trans.randomize());
 
 	// set connection state in master side: slot 20
-	set_req = '{8'd20, 8'd4};  // {10'd20(slot id), 6'd1(type set_type_open)}
+	set_req = '{8'd20, 8'd4};  // {10'd20(slot id), 6'd1(type GBN_SOC2FPGA_SET_TYPE_OPEN)}
 
 	wr_set_trans.set_data(set_req);
 	tx_set_agent.driver.send(wr_set_trans);

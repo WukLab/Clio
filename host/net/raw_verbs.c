@@ -17,10 +17,15 @@
 #include <infiniband/verbs.h>
 
 #include "net.h"
+#include "../core.h"
 
 /*
- * TODO
- * We need to inspect if multithread is supported properly.
+ * There is only one global QP and paired CQs for one running instance.
+ * It works even if there are multiple instances on the same machine
+ * (each using different udp ports of course).
+ *
+ * Parameters can be tuned:
+ * 1. qp_init_attr, esp max_send_wr and max_recv_wr.
  */
 
 /*
@@ -44,6 +49,13 @@
 
 int ib_port = 1;
 
+/*
+ * TODO
+ * What's the best inline size? any past eval?
+ * Check the atc16 paper.
+ */
+#define DEFAULT_MAX_INLINE_SIZE (128)
+
 struct session_raw_verbs {
 	struct ibv_pd *pd;
 	struct ibv_qp *qp;
@@ -65,8 +77,7 @@ static pthread_spinlock_t raw_verbs_lock;
  * TODO
  * 1) Instead of reg/dereg mr every time, we could use
  *    a preallocated/register hugepage ring buffer.
- * 2) We could do batch signaling.
- * 3) Add timeout to poll_cq
+ * 2) Add timeout to poll_cq
  */
 static int raw_verbs_send(struct session_net *ses_net,
 			  void *buf, size_t buf_size, void *_route)
@@ -119,9 +130,21 @@ static int raw_verbs_send(struct session_net *ses_net,
 	wr.sg_list = &sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
-	wr.send_flags = IBV_SEND_INLINE;
+	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
+		wr.send_flags |= IBV_SEND_INLINE;
 
-	/* TODO We could do batch signalling */
+	/*
+	 * TODO
+	 * We could do batch signaling.
+	 * There are probably two ways to implement that
+	 * 1. have SIGNALED every N requests
+	 * 2. have SIGNALED for every request, but poll every N requests
+	 *
+	 * We should aware that each CQE is a DMA-write from RNIC to DRAM.
+	 * I know LegoOS's LITE is doing the second way, but I don't think
+	 * that's the best way. Investigate more and come back optimize.
+	 * eRPC's code is using the second way.
+	 */
 	wr.send_flags |= IBV_SEND_SIGNALED;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
@@ -151,6 +174,15 @@ out:
 	return ret;
 }
 
+/*
+ * TODO
+ *
+ * This function can be optimized. Now we are doing individual post,
+ * which is a single CPU-initiated MMIO write. If we chain all recv_wr
+ * together, the driver will go for doorbell way, thus only one DMA read
+ * from RNIC. Consider this function is sitting in data path, we should
+ * optimize it. Reference: atc16, eRPC, and so on.
+ */
 static inline void post_recvs(struct session_raw_verbs *ses)
 {
 	struct ibv_sge sge;
@@ -173,6 +205,10 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 	}
 }
 
+/*
+ * Our current caller is gbn_poll_func, and it is single thread.
+ * Thus this function basically is single-threaded.
+ */
 static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
@@ -317,10 +353,10 @@ static int raw_verbs_close_session(struct session_net *ses_net)
 
 /*
  * This function install the flow control rules for @qp.
+ * Once NIC can install multiple flows at the same time.
  *
- * XXX
- * need to take a closer look at this function
- * make sure we are doing the right thing!
+ * It is a requirement to install this flow for Mellanox NIC.
+ * The flow is more like a filter rather than a flow control method.
  */
 static struct ibv_flow *
 qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
@@ -339,12 +375,14 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	struct ibv_flow_spec_ipv4	*spec_ipv4;
 	struct ibv_flow_spec_tcp_udp	*spec_tcp_udp;
 
+	/* Shift to get all pointers */
 	memset(&flow_attr, 0, sizeof(flow_attr));
 	attr = &flow_attr.attr;
 	spec_eth = &flow_attr.spec_eth;
 	spec_ipv4 = &flow_attr.spec_ipv4;
 	spec_tcp_udp = &flow_attr.spec_tcp_udp;
 
+	/* Fill ibv_flow_attr */
 	attr->comp_mask = 0;
 	attr->type = IBV_FLOW_ATTR_NORMAL;
 	attr->size = sizeof(flow_attr);
@@ -353,23 +391,17 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	attr->port = qp_ib_port;
 	attr->flags = 0;
 
+	/* Fill ibv_flow_spec_eth */
 	spec_eth->type = IBV_FLOW_SPEC_ETH;
 	spec_eth->size = sizeof(struct ibv_flow_spec_eth);
 	memcpy(&spec_eth->val.dst_mac, local->mac, 6);
 	memset(&spec_eth->mask.dst_mac, 0xFF, 6);
 
-	/*
-	 * XXX Not sure if we need to have this
-	 * Enable it will lead to segfault
-	 */
-#if 0
-	memcpy(&spec_eth->val.src_mac, remote->mac, 6);
-	memset(&spec_eth->mask.src_mac, 0xFF, 6);
-#endif
-
+	/* IPv4 widecard */
 	spec_ipv4->type = IBV_FLOW_SPEC_IPV4,
 	spec_ipv4->size = sizeof(struct ibv_flow_spec_ipv4);
 
+	/* Steer packets for this UDP port */
 	spec_tcp_udp->type = IBV_FLOW_SPEC_UDP;
 	spec_tcp_udp->size = sizeof(struct ibv_flow_spec_tcp_udp);
 	spec_tcp_udp->val.dst_port = htons(local->udp_port);
@@ -398,6 +430,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 	struct ibv_qp_attr qp_attr;
 	int qp_flags;
 	int ret;
+	char ndev[32];
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
@@ -411,8 +444,22 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		return -ENODEV;
 	}
 
-	printf("%s(): IB Device: %s\n", __func__, ibv_get_device_name(ib_dev));
-	printf("%s(): Netdev Device: %s\n", __func__, ibv_get_device_name(ib_dev));
+	ret = ibdev2netdev(ibv_get_device_name(ib_dev), ndev, sizeof(ndev));
+	if (ret) {
+		dprintf_ERROR("fail to do ibdev2netdev %d\n", 0);
+		return ret;
+	}
+
+	if (strncmp(ndev, global_net_dev, sizeof(ndev))) {
+		dprintf_ERROR("We are using ibdev [%s], which maps to network "
+			      "device [%s]. But user passed device is [%s]. "
+			      "If you wish to continue using raw_verbs, "
+			      "please restart and use \"--dev=%s\"\n",
+		ibv_get_device_name(ib_dev), ndev, global_net_dev, ndev);
+		return -EIO;
+	}
+	dprintf_INFO("Using IB Device: %s (ndev: %s)\n",
+		ibv_get_device_name(ib_dev), ndev);
 
 	context = ibv_open_device(ib_dev);
 	if (!context) {
@@ -454,7 +501,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 			.max_recv_wr = NR_BUFFER_DEPTH,
 			.max_send_sge = 1,
 			.max_recv_sge = 1, 
-			.max_inline_data = 512,
+			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
 		},
 
 		/*

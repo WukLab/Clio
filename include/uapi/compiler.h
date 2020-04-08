@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
+#include <uapi/stringify.h>
+
 /*
  * ZCU106 Cortex-A53 is running at 64bit mode.
  * x86-64 as well.
@@ -72,10 +74,6 @@ static inline void print_backtrace(void)
 
 #define likely(x)		__builtin_expect(!!(x), 1)
 #define unlikely(x)		__builtin_expect(!!(x), 0)
-
-#ifndef always_inline
-# define always_inline		__always_inline
-#endif
 
 #ifndef noinline
 # define noinline		__attribute__((noinline))

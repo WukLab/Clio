@@ -34,8 +34,8 @@ void setup_manager(stream<struct conn_mgmt_req>		*init_req,
 
 	if (!conn_set_req->empty()) {
 		conn_req = conn_set_req->read();
-		if (conn_req.set_type == set_type_open ||
-		    conn_req.set_type == set_type_close) {
+		if (conn_req.set_type == GBN_SOC2FPGA_SET_TYPE_OPEN ||
+		    conn_req.set_type == GBN_SOC2FPGA_SET_TYPE_CLOSE) {
 			/* forward the request to state table */
 			init_req->write(conn_req);
 			/* at both open and close session, deactive timeout */

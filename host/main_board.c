@@ -153,7 +153,7 @@ static void worker_handle_request(struct thpool_worker *tw,
  * Since mgmt session does not have any remote end's information,
  * we must rely on each packet's routing info to send it back.
  */
-static void dispatcher(void)
+static void *dispatcher(void *_unused)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
@@ -174,6 +174,7 @@ static void dispatcher(void)
 		 */
 		worker_handle_request(tw, tb);
 	}
+	return NULL;
 }
 
 static void print_usage(void)
@@ -181,8 +182,13 @@ static void print_usage(void)
 	printf("Usage ./board_emulator.o [Options]\n"
 	       "\n"
 	       "Options:\n"
-	       "  --dev=<name>                Specify the local network device\n"
-	       "  --port=<port>               Specify the local UDP port we listen to\n"
+	       "  --dev=<name>                Specify the local network device (Required)\n"
+	       "  --port=<port>               Specify the local UDP port we listen to (Required)\n"
+	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
+	       "                              Available Options are:\n"
+	       "                                1. raw_verbs (default if nothing is specified)\n"
+	       "                                2. raw_udp\n"
+	       "                                3. raw_socket\n"
 	       "\n"
 	       "Examples:\n"
 	       "  ./board_emulator.o --port 8888 --dev=\"lo\" \n"
@@ -192,6 +198,7 @@ static void print_usage(void)
 static struct option long_options[] = {
 	{ "port",	required_argument,	NULL,	'p'},
 	{ "dev",	required_argument,	NULL,	'd'},
+	{ "net_raw_ops", required_argument,	NULL,	'n'},
 	{ 0,		0,			0,	0  }
 };
 
@@ -218,6 +225,22 @@ int main(int argc, char **argv)
 			strncpy(ndev, optarg, sizeof(ndev));
 			strncpy(global_net_dev, optarg, sizeof(global_net_dev));
 			ndev_set = true;
+			break;
+		case 'n':
+			if (!strncmp(optarg, "raw_verbs", 16))
+				raw_net_ops = &raw_verbs_ops;
+			else if (!strncmp(optarg, "raw_udp", 16))
+				raw_net_ops = &raw_udp_socket_ops;
+			else if (!strncmp(optarg, "raw_socket", 16))
+				raw_net_ops = &raw_socket_ops;
+			else {
+				printf("Invalid net_raw_ops: %s\n"
+				       "Available Options are:\n"
+				       "  1. raw_verbs (default if nothing is specified)\n"
+				       "  2. raw_udp\n"
+				       "  3. raw_socket\n", optarg);
+				exit(-1);
+			}
 			break;
 		default:
 			print_usage();
@@ -250,9 +273,6 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
-	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map);
-
 	/* Same as host side init */
 	init_board_subsys();
 	init_context_subsys();
@@ -263,12 +283,25 @@ int main(int argc, char **argv)
 	 */
 	add_localhost_bi(&default_local_ei);
 
-	ret = init_local_management_session(false);
+	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
 
-	dump_net_sessions();
-	dispatcher();
+	/*
+	 * Now init the thpool stuff and create a new thread
+	 * to handle the mgmt session traffic. 
+	 */
+	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
+	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
+			   default_thpool_buffer_alloc_cb);
+
+	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
+	if (ret) {
+		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
+		exit(-1);
+	}
+	pthread_join(mgmt_session->thread, NULL);
+	return 0;
 }

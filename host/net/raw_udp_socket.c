@@ -49,7 +49,7 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 
 	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
 		return -EINVAL;
-	
+
 	ses_socket = (struct session_udp_socket *)ses_net->raw_net_private;
 	sockfd = ses_socket->sockfd;
 
@@ -216,7 +216,7 @@ static void udp_exit(void)
 		close(udp_sockfd);
 }
 
-struct raw_net_ops udp_socket_ops = {
+struct raw_net_ops raw_udp_socket_ops = {
 	.name			= "udp_socket",
 
 	.init_once		= udp_init_once,

@@ -51,48 +51,62 @@ struct udp_hdr {
  * See uapi/opcode.h for opcode definitions.
  */
 struct lego_header {
-	pid_t	pid;
-	uint16_t opcode;
-} __attribute__((packed));
+	uint16_t	pid;
+	uint8_t		tag;
+	uint8_t		opcode;
+
+	uint8_t		req_status : 4;
+	uint8_t		flag_route : 1;
+	uint8_t		flag_repl : 1;
+	uint8_t		reserved : 2;
+
+	uint8_t		seqId;
+	uint16_t	size;
+
+	/*
+	 * Runtime infomation for on board end points
+	 * For normal across-network packets, we do not need to
+	 * fill this part.
+	 */
+	uint16_t cont;
+	uint8_t src_sesid;
+	uint8_t dst_sesid;
+	uint32_t dest_ip;
+} __packed;
 
 struct gbn_header {
 	char		type;
-	char		src_sesid;
-	char		dst_sesid;
 	unsigned int	seqnum;
-	char		session_id[7-SEQ_SIZE_BYTE];
+	char		session_id[SES_ID_SIZE_BYTE];
 } __attribute__((packed));
 
-/*
- * This is the current gbn header definition on board
- * Will unify the definition later
- */
-struct gbn_header_board {
-	char		type;
-	unsigned int	seqnum;
-	char		session_id[7-SEQ_SIZE_BYTE];
-} __attribute__((packed));
+#define GBN_HEADER_SLOT_ID_MSK	((1 << SLOT_ID_WIDTH) - 1)
+#define GBN_HEADER_SRC_ID_SHIFT	(0)
+#define GBN_HEADER_DST_ID_SHIFT	(SLOT_ID_WIDTH)
+#define GBN_HEADER_SRC_ID_MSK	(GBN_HEADER_SLOT_ID_MSK << GBN_HEADER_SRC_ID_SHIFT)
+#define GBN_HEADER_DST_ID_MSK	(GBN_HEADER_SLOT_ID_MSK << GBN_HEADER_DST_ID_SHIFT)
 
 static inline void
-set_gbn_src_session(struct gbn_header *hdr, unsigned int id)
+set_gbn_src_dst_session(struct gbn_header *hdr, unsigned int src_id, unsigned int dst_id)
 {
-	hdr->src_sesid = id;
-}
-
-static inline void
-set_gbn_dst_session(struct gbn_header *hdr, unsigned int id)
-{
-	hdr->dst_sesid = id;
+	unsigned int tmp_sesid = 0;
+	tmp_sesid = (src_id & GBN_HEADER_SLOT_ID_MSK)
+		    << GBN_HEADER_SRC_ID_SHIFT;
+	tmp_sesid |= (dst_id & GBN_HEADER_SLOT_ID_MSK)
+		     << GBN_HEADER_DST_ID_SHIFT;
+	memcpy(hdr->session_id, &tmp_sesid, SES_ID_SIZE_BYTE);
 }
 
 static inline unsigned int get_gbn_src_session(struct gbn_header *hdr)
 {
-	return hdr->src_sesid;
+	return (*((unsigned int *)hdr->session_id) & GBN_HEADER_SRC_ID_MSK) >>
+	       GBN_HEADER_SRC_ID_SHIFT;
 }
 
 static inline unsigned int get_gbn_dst_session(struct gbn_header *hdr)
 {
-	return hdr->dst_sesid;
+	return (*((unsigned int *)hdr->session_id) & GBN_HEADER_DST_ID_MSK) >>
+	       GBN_HEADER_DST_ID_SHIFT;
 }
 
 static __always_inline void
@@ -101,8 +115,7 @@ swap_gbn_session(struct gbn_header *hdr)
 	int tmp1, tmp2;
 	tmp1 = get_gbn_src_session(hdr);
 	tmp2 = get_gbn_dst_session(hdr);
-	set_gbn_src_session(hdr, tmp2);
-	set_gbn_dst_session(hdr, tmp1);
+	set_gbn_src_dst_session(hdr, tmp2, tmp1);
 }
 
 static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
@@ -114,6 +127,24 @@ static inline char *gbn_pkt_type_str(enum gbn_pkt_type t)
 	default:			return "unknown";
 	}
 	return NULL;
+}
+
+/*
+ * conn_set_req layout:
+ * | slot_id | type |
+ * |0       9|10  15|
+ */
+#define GBN_CONN_SET_SLOT_ID_MSK	((1 << SLOT_ID_WIDTH) - 1)
+#define GBN_CONN_SET_TYPE_MSK		((1 << (16 - SLOT_ID_WIDTH)) - 1)
+#define GBN_CONN_SET_TYPE_SHIFT		(SLOT_ID_WIDTH)
+
+static inline void
+set_gbn_conn_req(unsigned int *conn_set_req, unsigned int slot_id, enum gbn_conn_set_type type)
+{
+	*conn_set_req = 0;
+	*conn_set_req = slot_id & GBN_CONN_SET_SLOT_ID_MSK;
+	*conn_set_req |= (type & GBN_CONN_SET_TYPE_MSK)
+			 << GBN_CONN_SET_TYPE_SHIFT;
 }
 
 #define ETHERNET_HEADER_SIZE	(14)

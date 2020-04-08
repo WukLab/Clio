@@ -233,25 +233,25 @@ if {[string equal [get_filesets -quiet sim_1] ""]} {
 # Set 'sim_1' fileset object
 set obj [get_filesets sim_1]
 set files [list \
+ [file normalize "${origin_dir}/rtl/tb/tb_rt.sv"] \
  [file normalize "${origin_dir}/rtl/tb/tb_intg.sv"] \
  [file normalize "${origin_dir}/rtl/tb/host_stack.v"] \
  [file normalize "${origin_dir}/rtl/tb/tb_rx.sv"] \
- [file normalize "${origin_dir}/rtl/tb/tb_rt.sv"] \
 ]
 add_files -norecurse -fileset $obj $files
 
 # Set 'sim_1' fileset file properties for remote files
+set file "$origin_dir/rtl/tb/tb_rt.sv"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
+set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
+
 set file "$origin_dir/rtl/tb/tb_intg.sv"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
 set file "$origin_dir/rtl/tb/tb_rx.sv"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
-set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
-
-set file "$origin_dir/rtl/tb/tb_rt.sv"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
@@ -386,6 +386,7 @@ proc create_hier_cell_unacked_buffer_controller { parentCell nameHier } {
   # Create instance: axi_datamover_0, and set properties
   set axi_datamover_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_datamover:5.1 axi_datamover_0 ]
   set_property -dict [ list \
+   CONFIG.c_addr_width {40} \
    CONFIG.c_dummy {1} \
    CONFIG.c_m_axi_mm2s_data_width {64} \
    CONFIG.c_m_axi_s2mm_data_width {64} \
@@ -711,7 +712,7 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   connect_bd_net -net ap_rst_n_1 [get_bd_ports ap_rst_n] [get_bd_pins arbiter_64_0/ap_rst_n] [get_bd_pins axis_data_fifo_0/s_axis_aresetn] [get_bd_pins rx_64_0/ap_rst_n] [get_bd_pins state_table/ap_rst_n] [get_bd_pins tx_64_0/ap_rst_n] [get_bd_pins unacked_buffer_controller/ap_rst_n]
 
   # Create address segments
-  create_bd_addr_seg -range 0x000100000000 -offset 0x00000000 [get_bd_addr_spaces unacked_buffer_controller/axi_datamover_0/Data] [get_bd_addr_segs M_AXI/Reg] SEG_M_AXI_Reg
+  create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces unacked_buffer_controller/axi_datamover_0/Data] [get_bd_addr_segs M_AXI/Reg] SEG_M_AXI_Reg
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -1108,7 +1109,6 @@ set_property -name "options.warn_on_violation" -value "1" -objects $obj
 
 }
 set obj [get_runs impl_1]
-set_property -name "needs_refresh" -value "1" -objects $obj
 set_property -name "strategy" -value "Vivado Implementation Defaults" -objects $obj
 set_property -name "steps.write_bitstream.args.mask_file" -value "1" -objects $obj
 set_property -name "steps.write_bitstream.args.readback_file" -value "0" -objects $obj

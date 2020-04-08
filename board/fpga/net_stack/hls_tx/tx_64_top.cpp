@@ -80,7 +80,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
 		gbn_header.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET) =
 			send_udp_info.dest_port(SLOT_ID_WIDTH - 1, 0);
-		gbn_header.data(PKT_TYPE_WIDTH - 1, 0) = GBN_PKT_DATA;
+		gbn_header.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET) = GBN_PKT_DATA;
 
 		send_udp_info.length += 8;  // add the length of gbn header
 

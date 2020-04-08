@@ -65,7 +65,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		   recv_udp_info.dest_port.to_uint());
 
 		PR("receive gbn header: [type %d, seq %lld, src slot %d, dest slot %d]\n",
-		   recv_pkt.data(PKT_TYPE_WIDTH - 1, 0).to_uint(),
+		   recv_pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET).to_uint(),
 		   recv_pkt.data(SEQ_OFFSET + SEQ_WIDTH - 1, SEQ_OFFSET).to_uint64(),
 		   recv_pkt.data(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				 SRC_SLOT_OFFSET).to_uint(),

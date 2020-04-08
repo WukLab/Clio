@@ -6,6 +6,7 @@
 #define _LEGOPGA_BOARD_SOC_CORE_H_
 
 #include <uapi/sched.h>
+#include <uapi/thpool.h>
 
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
@@ -29,10 +30,10 @@ void test_vm(void);
  * whenever you are using the proc_info. Never use free_proc directly.
  */
 int init_proc_subsystem(void);
-struct proc_info *alloc_proc(unsigned int pid, unsigned int node,
+struct proc_info *alloc_proc(unsigned int pid,
 			     char *proc_name, unsigned int host_ip);
 void free_proc(struct proc_info *pi);
-struct proc_info *get_proc_by_pid(unsigned int pid, unsigned int node);
+struct proc_info *get_proc_by_pid(unsigned int pid);
 void dump_proc(struct proc_info *pi);
 void dump_procs(void);
 
