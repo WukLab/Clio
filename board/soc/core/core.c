@@ -382,7 +382,8 @@ static void handle_migration_send(struct thpool_buffer *tb)
 
 	migreq.op.va = vregion_index_to_va(op->vregion_index);
 	migreq.op.size = VREGION_SIZE;
-	dma_ctrl_send(&migreq, sizeof(migreq));
+
+	dma_send(&migreq, sizeof(migreq));
 
 	/* Done, success */
 	resp->op.ret = 0;
