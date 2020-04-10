@@ -24,6 +24,7 @@ struct dummy_payload {
 #define NR_SESSIONS		(3)
 #define NR_SEND_BUF_SLOTS	(256)
 
+#if 0
 void *test_net(void *arg)
 {
 	void *recv_buf, *send_buf;
@@ -94,15 +95,14 @@ void *test_net(void *arg)
 
 	return NULL;
 }
+#endif
 
 int test_legomem_board(char *board_ip_port_str)
 {
 	struct board_info *remote_board;
-	struct session_net **ses_net;
 	struct session_net *remote_mgmt_session;
 	unsigned int ip, port;
 	unsigned int ip1, ip2, ip3, ip4;
-	pthread_t session_thread[NR_SESSIONS];
 	int i;
 
 	printf("%s(): test board %s\n", __func__, board_ip_port_str);
@@ -110,10 +110,6 @@ int test_legomem_board(char *board_ip_port_str)
 	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
 
-	/*
-	 * Step II
-	 * Find the testing board
-	 */
 	remote_board = find_board(ip, port);
 	if (!remote_board) {
 		dprintf_ERROR("Couldn't find the board_info for %s\n",
@@ -127,58 +123,35 @@ int test_legomem_board(char *board_ip_port_str)
 	remote_mgmt_session = get_board_mgmt_session(remote_board);
 	BUG_ON(!remote_mgmt_session);
 
-	/*
-	 * Step III.1
-	 * Talk with remote board's mgmt session
-	 */
+	struct msg {
+		struct legomem_read_write_req header;
+		char data[60];
+	} *req, *resp;
 
-#if 0
-	 struct msg {
-	 	struct legomem_common_headers comm_headers;
-		int cnt;
-	 } req, resp;
+	req = malloc(sizeof(*req));
+	resp = malloc(sizeof(*resp));
 
-	 /*
-	  * Send msg to remote mgmt session
-	  */
-	 net_send_and_receive(remote_mgmt_session, &req, sizeof(req),
-			 &resp, sizeof(rsp));
-#endif
+	struct lego_header *lego_header;
+	lego_header = to_lego_header(req);
+	lego_header->opcode = OP_REQ_PINGPONG;
 
-	/*
-	 * Step III.2
-	 * Start test: open a lot sessions
-	 */
-	ses_net = malloc(NR_SESSIONS * sizeof(*ses_net));
-	if (!ses_net)
-		return -1;
-	memset(ses_net, 0, NR_SESSIONS * sizeof(*ses_net));
+	/* Register this buffer with NIC */
+	net_reg_send_buf(remote_mgmt_session, req, sizeof(*req));
 
-	for (i = 0; i < NR_SESSIONS; i++) {
-		ses_net[i] = legomem_open_session(NULL, remote_board);
-		if (!ses_net[i]) {
-			dprintf_ERROR("Fail to created the %dth session\n", i);
-			return -1;
-		}
+	struct timespec ts, te;
+	int nr_tests;
+
+	nr_tests = 5;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	for (i = 0; i < nr_tests; i++) {
+		net_send_and_receive(remote_mgmt_session, req, sizeof(*req),
+				     resp, sizeof(*resp));
 	}
+	clock_gettime(CLOCK_MONOTONIC, &te);
 
-	/*
-	 * Step III.3
-	 * Send messages to board
-	 */
-	for (i = 0; i < NR_SESSIONS; i++)
-		pthread_create(&session_thread[i], NULL, test_net, ses_net[i]);
-
-	for (i = 0; i < NR_SESSIONS; i++)
-		pthread_join(session_thread[i], NULL);
-
-	/*
-	 * Step III.4
-	 * End test: close sessions
-	 */
-	for (i = 0; i < NR_SESSIONS; i++)
-		if (ses_net[i])
-			legomem_close_session(NULL, ses_net[i]);
+	printf("RTT avg %f nano seconds\n",
+		(((double)te.tv_sec*1.0e9 + te.tv_nsec) - 
+		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / nr_tests);
 
 	return 0;
 }

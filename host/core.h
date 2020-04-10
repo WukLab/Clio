@@ -1,9 +1,15 @@
 #ifndef _HOST_CORE_H_
 #define _HOST_CORE_H_
 
+#include <uapi/vregion.h>
+#include <uapi/compiler.h>
 #include <uapi/sched.h>
+#include <uapi/opcode.h>
+#include <uapi/list.h>
+#include <uapi/err.h>
 #include "net/net.h"
 #include <limits.h>
+#include <time.h>
 
 struct legomem_vregion {
 	int board_id;

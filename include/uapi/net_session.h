@@ -92,6 +92,8 @@ struct transport_net_ops {
 
 	int (*open_session)(struct session_net *, struct endpoint_info *, struct endpoint_info *);
 	int (*close_session)(struct session_net *);
+
+	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
 };
 
 /*
@@ -133,6 +135,7 @@ struct raw_net_ops {
 	int (*open_session)(struct session_net *, struct endpoint_info *, struct endpoint_info *);
 	int (*close_session)(struct session_net *);
 
+	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
 };
 
 extern struct raw_net_ops raw_verbs_ops;
@@ -143,6 +146,14 @@ extern struct transport_net_ops transport_gbn_ops;
 
 extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;
+
+static inline int
+raw_net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	if (raw_net_ops->reg_send_buf)
+		return raw_net_ops->reg_send_buf(ses, buf, buf_size);
+	return 0;
+}
 
 /*
  * From raw network layer's pespective, this no such concept
@@ -176,6 +187,25 @@ raw_net_receive_nb(void *buf, size_t buf_size)
 	if (likely(raw_net_ops->receive_one_nb))
 		return raw_net_ops->receive_one_nb(buf, buf_size);
 	return -ENOSYS;
+}
+
+static inline int
+default_transport_reg_send_buf(struct session_net *net, void *buf, size_t buf_size)
+{
+	return raw_net_reg_send_buf(net, buf, buf_size);
+}
+
+/*
+ * Register a per-session send_buf
+ * This is necessary for verbs-based users.
+ *
+ * 1. Each session can only have one registered send_buf.
+ * 2. Do not use a stack, use malloc'ed region.
+ */
+static inline int
+net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return transport_net_ops->reg_send_buf(ses, buf, buf_size);
 }
 
 static inline int

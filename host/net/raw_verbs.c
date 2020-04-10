@@ -65,6 +65,20 @@ struct session_raw_verbs {
 	struct ibv_mr *recv_mr;
 	void *recv_buf;
 
+	/*
+	 * Registered via net_reg_send_buf
+	 * Each session would only have one registerd send buffer.
+	 * A session is used by one thread, if it is extended to
+	 * use coroutine, it would be per-coroutine.
+	 *
+	 * This is per session local.
+	 * Others are shared, check open_session code.
+	 * We reused the cached_session_raw_verbs
+	 */
+	struct ibv_mr *send_mr;
+	void *send_buf;
+	size_t send_buf_size;
+
 	struct ibv_flow *eth_flow;
 
 	pthread_spinlock_t *lock;
@@ -73,40 +87,93 @@ struct session_raw_verbs {
 static struct session_raw_verbs cached_session_raw_verbs;
 static pthread_spinlock_t raw_verbs_lock;
 
-/*
- * TODO
- * 1) Instead of reg/dereg mr every time, we could use
- *    a preallocated/register hugepage ring buffer.
- * 2) Add timeout to poll_cq
- */
+static int raw_verbs_reg_send_buf(struct session_net *ses_net,
+				  void *buf, size_t buf_size)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_mr *mr;
+	struct ibv_pd *pd;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	pd = ses_verbs->pd;
+
+	if (unlikely(ses_verbs->send_mr)) {
+		dprintf_ERROR("Send buf already registered for this session. "
+				"addr = %lx size = %zu\n",
+				(unsigned long)ses_verbs->send_buf,
+				ses_verbs->send_buf_size);
+		return -EEXIST;
+	}
+
+	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
+	if (!mr) {
+		perror("reg mr:");
+		return errno;
+	}
+
+	ses_verbs->send_mr = mr;
+	ses_verbs->send_buf = buf;
+	ses_verbs->send_buf_size = buf_size;
+	return 0;
+}
+
 static int raw_verbs_send(struct session_net *ses_net,
 			  void *buf, size_t buf_size, void *_route)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_sge sge;
 	struct ibv_send_wr wr, *bad_wr;
-	struct ibv_mr *mr;
-	struct ibv_pd *pd;
 	struct ibv_qp *qp;
 	struct ibv_cq *send_cq;
+	struct ibv_mr *send_mr;
+	bool new_mr;
 	int ret;
 	struct routing_info *route;
 
-	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
-		return -EINVAL;
-
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
-	pd = ses_verbs->pd;
 	qp = ses_verbs->qp;
 	send_cq = ses_verbs->send_cq;
 
-	if (unlikely(!ses_verbs || !pd || !qp || !send_cq))
-		return -EINVAL;
+	/*
+	 * There are 3 cases
+	 * 1. Buffer not registered.
+	 * 2. Buffer registered, but caller is NOT using that.
+	 * 3. Buffer registered, and caller is using that.
+	 *
+	 * Case 3 is the normal case.
+	 */
+	if (unlikely(!ses_verbs->send_mr)) {
+		/* Case 1: Buffer not registered */
+		send_mr = ibv_reg_mr(ses_verbs->pd, buf, buf_size,
+				     IBV_ACCESS_LOCAL_WRITE);
+		if (!send_mr) {
+			perror("reg mr");
+			return errno;
+		}
+		new_mr = true;
+	} else {
+		send_mr = ses_verbs->send_mr;
+		new_mr = false;
 
-	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
-	if (!mr) {
-		perror("reg mr:");
-		return errno;
+		/* Sanity check */
+		if (unlikely(ses_verbs->send_buf_size < buf_size)) {
+			dprintf_ERROR("Buffer too small. reg buf size: %zu, "
+				      "new msg size: %zu\n",
+				      ses_verbs->send_buf_size, buf_size);
+			return -EINVAL;
+		}
+
+		/*
+		 * Case 2: Caller used a different buffer
+		 * and we do not need to anything for case 3
+		 */
+		if (unlikely(buf != ses_verbs->send_buf)) {
+			memcpy(ses_verbs->send_buf, buf, buf_size);
+			buf = ses_verbs->send_buf;
+			dprintf_INFO("You have registered buffer but now "
+				     "are using a different one. "
+				     "There are perf penalties. %d\n", 0);
+		}
 	}
 
 	/*
@@ -122,10 +189,8 @@ static int raw_verbs_send(struct session_net *ses_net,
 
 	sge.addr = (uint64_t)buf;
 	sge.length = buf_size;
-	sge.lkey = mr->lkey;
+	sge.lkey = send_mr->lkey;
 
-	memset(&wr, 0, sizeof(wr));
-	wr.wr_id = 0;
 	wr.num_sge = 1;
 	wr.sg_list = &sge;
 	wr.next = NULL;
@@ -148,7 +213,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	wr.send_flags |= IBV_SEND_SIGNALED;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (ret < 0) {
+	if (unlikely(ret < 0)) {
 		perror("Post Send:");
 		goto out;
 	}
@@ -157,20 +222,19 @@ static int raw_verbs_send(struct session_net *ses_net,
 		struct ibv_wc wc;
 
 		ret = ibv_poll_cq(send_cq, 1, &wc);
-		if (!ret)
+		if (unlikely(!ret))
 			continue;
-		else if (ret < 0) {
+		else if (unlikely(ret < 0)) {
 			perror("poll cq:");
 			goto out;
 		}
-
-		/* Finished */
 		break;
 	}
 
 	ret = buf_size;
 out:
-	ibv_dereg_mr(mr);
+	if (unlikely(new_mr))
+		ibv_dereg_mr(send_mr);
 	return ret;
 }
 
@@ -339,6 +403,14 @@ raw_verbs_open_session(struct session_net *ses_net,
 
 	/* Copy the whole thing */
 	*ses_verbs = cached_session_raw_verbs;
+
+	/*
+	 * Make sure the per-session local variables
+	 * are initiated right
+	 */
+	ses_verbs->send_mr = NULL;
+	ses_verbs->send_buf = NULL;
+	ses_verbs->send_buf_size = 0;
 	return 0;
 }
 
@@ -596,4 +668,6 @@ struct raw_net_ops raw_verbs_ops = {
 	.receive_one		= raw_verbs_receive,
 	.receive_one_zerocopy	= raw_verbs_receive_zerocopy,
 	.receive_one_nb		= NULL,
+
+	.reg_send_buf		= raw_verbs_reg_send_buf,
 };

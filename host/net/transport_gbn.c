@@ -1049,4 +1049,6 @@ struct transport_net_ops transport_gbn_ops = {
 	.send_one		= gbn_send_one,
 	.receive_one		= gbn_receive_one,
 	.receive_one_nb		= gbn_receive_one_nb,
+
+	.reg_send_buf		= default_transport_reg_send_buf,
 };

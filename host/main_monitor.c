@@ -39,57 +39,8 @@ static atomic_int nr_boards;
  *
  * The thpool buffer is using a simple ring-based design.
  */
-static int TW_HEAD = 0;
-static int TB_HEAD = 0;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
-
-/*
- * Select a worker to handle the next request
- * in a round-robin fashion.
- */
-static __always_inline struct thpool_worker *
-select_thpool_worker_rr(void)
-{
-	struct thpool_worker *tw;
-	int idx;
-
-	idx = TW_HEAD % NR_THPOOL_WORKERS;
-	tw = thpool_worker_map + idx;
-	TW_HEAD++;
-	return tw;
-}
-
-static __always_inline struct thpool_buffer *
-alloc_thpool_buffer(void)
-{
-	struct thpool_buffer *tb;
-	int idx;
-
-	idx = TB_HEAD % NR_THPOOL_BUFFER;
-	tb = thpool_buffer_map + idx;
-	TB_HEAD++;
-
-	/*
-	 * If this happens during runtime, it means:
-	 * - ring buffer is not large enough
-	 * - some previous handlers are too slow
-	 */
-	while (unlikely(ThpoolBufferUsed(tb))) {
-		;
-	}
-
-	SetThpoolBufferUsed(tb);
-	barrier();
-	return tb;
-}
-
-static __always_inline void
-free_thpool_buffer(struct thpool_buffer *tb)
-{
-	tb->flags = 0;
-	barrier();
-}
 
 static DECLARE_BITMAP(pid_map, NR_MAX_PID);
 static pthread_spinlock_t(pid_lock);
@@ -865,7 +816,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
 			opcode, legomem_opcode_str(opcode));
-		goto free;
+		return;
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
@@ -888,8 +839,6 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	}
-free:
-	free_thpool_buffer(tb);
 }
 
 /*
@@ -903,10 +852,16 @@ static void *dispatcher(void *_unused)
 	struct thpool_worker *tw;
 	int ret;
 
-	while (1) {
-		tb = alloc_thpool_buffer();
-		tw = select_thpool_worker_rr();
+	tb = thpool_buffer_map;
+	tw = thpool_worker_map;
 
+	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
+	if (ret) {
+		dprintf_ERROR("Fail to register TX buffer %d\n", ret);
+		return NULL;
+	}
+
+	while (1) {
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
@@ -970,10 +925,12 @@ static void monitor_gather_stats(void)
  */
 static void *daemon_thread_func(void *_unused)
 {
+#if 0
 	while (1) {
 		sleep(5);
 		monitor_gather_stats();
 	}
+#endif
 	return NULL;
 }
 

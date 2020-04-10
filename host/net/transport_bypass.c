@@ -70,4 +70,6 @@ struct transport_net_ops transport_bypass_ops = {
 	.send_one		= bypass_send_one,
 	.receive_one		= bypass_receive_one,
 	.receive_one_nb		= bypass_receive_one_nb,
+
+	.reg_send_buf		= default_transport_reg_send_buf,
 };

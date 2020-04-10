@@ -24,53 +24,8 @@
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	1
 
-static int TW_HEAD = 0;
-static int TB_HEAD = 0;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
-
-static __always_inline struct thpool_worker *
-select_thpool_worker_rr(void)
-{
-	struct thpool_worker *tw;
-	int idx;
-
-	idx = TW_HEAD % NR_THPOOL_WORKERS;
-	tw = thpool_worker_map + idx;
-	TW_HEAD++;
-	return tw;
-}
-
-static __always_inline struct thpool_buffer *
-alloc_thpool_buffer(void)
-{
-	struct thpool_buffer *tb;
-	int idx;
-
-	idx = TB_HEAD % NR_THPOOL_BUFFER;
-	tb = thpool_buffer_map + idx;
-	TB_HEAD++;
-
-	/*
-	 * If this happens during runtime, it means:
-	 * - ring buffer is not large enough
-	 * - some previous handlers are too slow
-	 */
-	while (unlikely(ThpoolBufferUsed(tb))) {
-		;
-	}
-
-	SetThpoolBufferUsed(tb);
-	barrier();
-	return tb;
-}
-
-static __always_inline void
-free_thpool_buffer(struct thpool_buffer *tb)
-{
-	tb->flags = 0;
-	barrier();
-}
 
 static void handle_close_session(struct thpool_buffer *tb)
 {
@@ -381,7 +336,7 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 	default:
 		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
 			opcode, legomem_opcode_str(opcode));
-		goto free;
+		return;
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
@@ -404,9 +359,6 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	}
-
-free:
-	free_thpool_buffer(tb);
 }
 
 static void *dispatcher(void *_unused)
@@ -415,10 +367,16 @@ static void *dispatcher(void *_unused)
 	struct thpool_worker *tw;
 	int ret;
 
-	while (1) {
-		tb = alloc_thpool_buffer();
-		tw = select_thpool_worker_rr();
+	tb = thpool_buffer_map;
+	tw = thpool_worker_map;
 
+	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
+	if (ret) {
+		dprintf_ERROR("Fail to register TX buffer %d\n", ret);
+		return NULL;
+	}
+
+	while (1) {
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
