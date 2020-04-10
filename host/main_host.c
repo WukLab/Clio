@@ -317,6 +317,11 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
+	if (0) {
+		dprintf_INFO("received opcode: %u (%s)\n",
+			opcode, legomem_opcode_str(opcode));
+	}
+
 	switch (opcode) {
 	case OP_REQ_MEMBERSHIP_NEW_NODE:
 		handle_new_node(tb);
@@ -377,6 +382,7 @@ static void *dispatcher(void *_unused)
 	}
 
 	while (1) {
+#if 1
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
@@ -384,6 +390,7 @@ static void *dispatcher(void *_unused)
 
 		/* We only have one thread, thus inline handling */
 		worker_handle_request_inline(tw, tb);
+#endif
 	}
 	return NULL;
 }
@@ -722,10 +729,11 @@ int main(int argc, char **argv)
 	 * Run predefined testing if there is any.
 	 */
 	if (run_test) {
-		if (board_addr_set)
+		if (board_addr_set) {
 			ret = test_legomem_board(board_addr);
+			//ret = test_raw_net(board_addr);
+		}
 
-		//ret = test_raw_net();
 		//ret = test_legomem_session();
 		//ret = test_legomem_migration();
 	}

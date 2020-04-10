@@ -17,13 +17,6 @@
 
 #include "core.h"
 
-#define MSEC_PER_SEC	1000L
-#define USEC_PER_MSEC	1000L
-#define NSEC_PER_USEC	1000L
-#define NSEC_PER_MSEC	1000000L
-#define USEC_PER_SEC	1000000L
-#define NSEC_PER_SEC	1000000000L
-
 static void test_pingpong(struct board_info *bi, struct session_net *ses)
 {
 	struct legomem_pingpong_req req;
@@ -34,6 +27,8 @@ static void test_pingpong(struct board_info *bi, struct session_net *ses)
 	int i, nr_tests;
 	struct timespec s, e;
 
+	net_reg_send_buf(ses, &req, sizeof(req));
+
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_PINGPONG;
 
@@ -41,7 +36,13 @@ static void test_pingpong(struct board_info *bi, struct session_net *ses)
 	gbn_header->type = GBN_PKT_DATA;
 	set_gbn_src_dst_session(gbn_header, get_local_session_id(ses), 0);
 
-	nr_tests = 1000;
+	/* warmup */
+	for (i = 0; i < 1; i++) {
+		raw_net_send(ses, &req, sizeof(req), NULL);
+		raw_net_receive(&resp, sizeof(resp));
+	}
+
+	nr_tests = 5;
 	clock_gettime(CLOCK_MONOTONIC, &s);
 	for (i = 0; i < nr_tests; i++) {
 		raw_net_send(ses, &req, sizeof(req), NULL);
@@ -56,27 +57,46 @@ static void test_pingpong(struct board_info *bi, struct session_net *ses)
 		__func__, nr_tests, lat_ns / nr_tests);
 }
 
-int test_raw_net(void)
+/*
+ * Special note:
+ *
+ * To use this, we have to use transport bypass, otherwise
+ * the packets will just be grabbed by GBN's background thread.
+ *
+ * However, this is not enough. Becuase host still has its mgmt background
+ * thread. Once GBN is disabled, the `net_receive` within that thread
+ * will be able receive anything. Thus, we need to diable that thread as well!
+ */
+int test_raw_net(char *board_ip_port_str)
 {
 	struct board_info *remote_board;
 	struct session_net *remote_mgmt_session;
+	unsigned int ip, port;
+	unsigned int ip1, ip2, ip3, ip4;
 
 	if (transport_net_ops != &transport_bypass_ops) {
-		printf("%s(): Raw network testing needs to bypass transport layer.\n"
-		       "Please restart the test and pass \"--net_trans_ops=bypass\"\n",
-		      	__func__);
+		dprintf_ERROR("Raw network testing needs to bypass transport layer.\n"
+		       "Please restart the test and pass \"--net_trans_ops=bypass\" %d\n", 0);
 		return -1;
 	}
 
-	/* Use monitor session */
-	remote_board = monitor_bi;
+	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+	remote_board = find_board(ip, port);
+	if (!remote_board) {
+		dprintf_ERROR("Couldn't find the board_info for %s\n",
+			board_ip_port_str);
+		dump_boards();
+		return -1;
+	}
+	printf("%s(): Using board %s\n", __func__, remote_board->name);
+
+	/* Get our local endpoint for remote board's mgmt session */
 	remote_mgmt_session = get_board_mgmt_session(remote_board);
 	BUG_ON(!remote_mgmt_session);
 
-	printf("%s(): Using board %s\n", __func__, remote_board->name);
-
 	test_pingpong(remote_board, remote_mgmt_session);
 
-	exit(1);
 	return 0;
 }

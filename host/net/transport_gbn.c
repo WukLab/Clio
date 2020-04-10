@@ -167,7 +167,7 @@ set_next_timeout(struct session_gbn *ses)
 	timeout.it_value.tv_nsec = GBN_RETRANS_TIMEOUT_US * 1000;
 	timeout.it_value.tv_sec = 0;
 
-	// Set flag to 0, timeout is relative time to current time
+	/* Set flag to 0, timeout is relative time to current time */
 	timer_settime(ses->rt_timer, 0, &timeout, NULL);
 }
 

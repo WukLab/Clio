@@ -32,11 +32,6 @@
 /* The one and the only open UDP port :) */
 static int udp_sockfd;
 
-struct session_udp_socket {
-	int sockfd;
-	struct sockaddr_in remote_addr;
-};
-
 static int udp_socket_send(struct session_net *ses_net, void *buf,
 			   size_t buf_size, void *_route)
 {

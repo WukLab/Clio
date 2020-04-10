@@ -877,7 +877,7 @@ static void *dispatcher(void *_unused)
 }
 
 /* Gather stats from all online nodes. */
-static void monitor_gather_stats(void)
+__used static void monitor_gather_stats(void)
 {
 	struct legomem_query_stat_req *req;
 	struct legomem_query_stat_resp *resp;

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 #include <uapi/list.h>
 #include <uapi/err.h>
@@ -55,34 +56,6 @@ int ib_port = 1;
  * Check the atc16 paper.
  */
 #define DEFAULT_MAX_INLINE_SIZE (128)
-
-struct session_raw_verbs {
-	struct ibv_pd *pd;
-	struct ibv_qp *qp;
-	struct ibv_cq *send_cq;
-
-	struct ibv_cq *recv_cq;
-	struct ibv_mr *recv_mr;
-	void *recv_buf;
-
-	/*
-	 * Registered via net_reg_send_buf
-	 * Each session would only have one registerd send buffer.
-	 * A session is used by one thread, if it is extended to
-	 * use coroutine, it would be per-coroutine.
-	 *
-	 * This is per session local.
-	 * Others are shared, check open_session code.
-	 * We reused the cached_session_raw_verbs
-	 */
-	struct ibv_mr *send_mr;
-	void *send_buf;
-	size_t send_buf_size;
-
-	struct ibv_flow *eth_flow;
-
-	pthread_spinlock_t *lock;
-};
 
 static struct session_raw_verbs cached_session_raw_verbs;
 static pthread_spinlock_t raw_verbs_lock;
@@ -140,7 +113,6 @@ static int raw_verbs_send(struct session_net *ses_net,
 	 * 1. Buffer not registered.
 	 * 2. Buffer registered, but caller is NOT using that.
 	 * 3. Buffer registered, and caller is using that.
-	 *
 	 * Case 3 is the normal case.
 	 */
 	if (unlikely(!ses_verbs->send_mr)) {
@@ -169,11 +141,13 @@ static int raw_verbs_send(struct session_net *ses_net,
 		 * and we do not need to anything for case 3
 		 */
 		if (unlikely(buf != ses_verbs->send_buf)) {
-			memcpy(ses_verbs->send_buf, buf, buf_size);
-			buf = ses_verbs->send_buf;
 			dprintf_INFO("You have registered buffer but now "
 				     "are using a different one. "
-				     "There are perf penalties. %d\n", 0);
+				     "There are perf penalties. (o %lx n %lx)\n",
+				     (unsigned long)ses_verbs->send_buf,
+				     (unsigned long)buf);
+			memcpy(ses_verbs->send_buf, buf, buf_size);
+			buf = ses_verbs->send_buf;
 		}
 	}
 
@@ -186,6 +160,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 		route = (struct routing_info *)_route;
 	else
 		route = &ses_net->route;
+
 	prepare_headers(route, buf, buf_size);
 
 	sge.addr = (uint64_t)buf;
@@ -212,8 +187,11 @@ static int raw_verbs_send(struct session_net *ses_net,
 	 * that's the best way. Investigate more and come back optimize.
 	 * eRPC's code is using the second way.
 	 */
-	wr.send_flags |= IBV_SEND_SIGNALED;
-	signaled = true;
+	if (1) {
+		wr.send_flags |= IBV_SEND_SIGNALED;
+		signaled = true;
+	} else
+		signaled = false;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
 	if (unlikely(ret < 0)) {
@@ -346,7 +324,7 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
 
 		if (unlikely(wc.byte_len > buf_size)) {
-			printf("%s(): buf too small (%u %zu)\n",
+			printf("%s(): buf too small (received_size: %u user_buf_size: %zu)\n",
 				__func__, wc.byte_len, buf_size);
 			return -EIO;
 		}

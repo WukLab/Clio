@@ -43,6 +43,18 @@
 #define BITS_PER_LONG		(64)
 #define BITS_PER_LONG_SHIFT	(6)
 
+#ifndef MSEC_PER_SEC
+# define MSEC_PER_SEC	1000L
+#endif
+
+#ifndef USEC_PER_SEC
+# define USEC_PER_SEC	1000000L
+#endif
+
+#ifndef NSEC_PER_SEC
+# define NSEC_PER_SEC	1000000000L
+#endif
+
 static inline void print_backtrace(void)
 {
 #define BT_BUFFER_SIZE	128

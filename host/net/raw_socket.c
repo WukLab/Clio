@@ -32,13 +32,6 @@ static struct ifreq raw_if_idx;
 static struct ifreq raw_if_mac;
 static struct sockaddr_ll raw_saddr;
 
-struct session_raw_socket {
-	int sockfd;
-	struct ifreq if_idx;
-	struct ifreq if_mac;
-	struct sockaddr_ll saddr;
-};
-
 /*
  * Return number of bytes sent out
  * Return -1 if error 
