@@ -127,6 +127,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	struct ibv_cq *send_cq;
 	struct ibv_mr *send_mr;
 	bool new_mr;
+	bool signaled;
 	int ret;
 	struct routing_info *route;
 
@@ -195,6 +196,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	wr.sg_list = &sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
+
 	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
 		wr.send_flags |= IBV_SEND_INLINE;
 
@@ -211,6 +213,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	 * eRPC's code is using the second way.
 	 */
 	wr.send_flags |= IBV_SEND_SIGNALED;
+	signaled = true;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
 	if (unlikely(ret < 0)) {
@@ -218,17 +221,19 @@ static int raw_verbs_send(struct session_net *ses_net,
 		goto out;
 	}
 
-	while (1) {
-		struct ibv_wc wc;
+	if (signaled) {
+		while (1) {
+			struct ibv_wc wc;
 
-		ret = ibv_poll_cq(send_cq, 1, &wc);
-		if (unlikely(!ret))
-			continue;
-		else if (unlikely(ret < 0)) {
-			perror("poll cq:");
-			goto out;
+			ret = ibv_poll_cq(send_cq, 1, &wc);
+			if (unlikely(!ret))
+				continue;
+			else if (unlikely(ret < 0)) {
+				perror("poll cq:");
+				goto out;
+			}
+			break;
 		}
-		break;
 	}
 
 	ret = buf_size;
