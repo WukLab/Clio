@@ -853,7 +853,7 @@ static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 {
 	int i;
 	struct buffer_info *info;
-	struct sigevent timeout_event;
+	struct sigevent timeout_event = { 0 };
 	int ret;
 
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
