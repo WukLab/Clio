@@ -123,29 +123,48 @@ int test_legomem_board(char *board_ip_port_str)
 	remote_mgmt_session = get_board_mgmt_session(remote_board);
 	BUG_ON(!remote_mgmt_session);
 
+#define DATA_SIZE 20
+	struct lego_header *lego_header;
+	struct op_read_write *access;
 	struct msg {
 		struct legomem_read_write_req header;
-		char data[60];
+		char data[DATA_SIZE];
 	} *req, *resp;
 
 	req = malloc(sizeof(*req));
 	resp = malloc(sizeof(*resp));
 
-	struct lego_header *lego_header;
-	lego_header = to_lego_header(req);
-	lego_header->opcode = OP_REQ_PINGPONG;
-
-	/* Register this buffer with NIC */
+	/*
+	 * Register this buffer with NIC, you only need to do it once.
+	 * No need for resp buffer. There is another pre-registered buffer,
+	 * and we do memcpy to this resp buffer.
+	 */
 	net_reg_send_buf(remote_mgmt_session, req, sizeof(*req));
+
+	/* Cook the headers */
+	lego_header = to_lego_header(req);
+	lego_header->pid = 0xdead;
+	lego_header->tag = 0xac;
+	//lego_header->opcode = OP_REQ_PINGPONG;
+	lego_header->opcode = OP_REQ_WRITE;
+	lego_header->seqId = 0;
+	lego_header->size = sizeof(*req);
+
+	access = &req->header.op;
+	access->size = DATA_SIZE;
+	access->va = 0;
 
 	struct timespec ts, te;
 	int nr_tests;
 
-	/* warmup */
+#if 1
+	/* should have some warmup */
 	net_send_and_receive(remote_mgmt_session, req, sizeof(*req),
 			     resp, sizeof(*resp));
+#endif
+
 #if 1
-	nr_tests = 1;
+	nr_tests = 2;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < nr_tests; i++) {
 		net_send_and_receive(remote_mgmt_session, req, sizeof(*req),

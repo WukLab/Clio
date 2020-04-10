@@ -1029,6 +1029,8 @@ static int gbn_init_once(struct endpoint_info *local_ei)
 	else
 		use_zerocopy = false;
 
+	dprintf_INFO("Use zerocopy: %s\n", use_zerocopy ? "YES" : "NO");
+
 	return 0;
 }
 
