@@ -20,7 +20,7 @@
 #include "net.h"
 #include "../core.h"
 
-#if 1
+#if 0
 #define CONFIG_DEBUG_GBN
 #endif
 

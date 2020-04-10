@@ -145,7 +145,7 @@ int test_legomem_board(char *board_ip_port_str)
 	net_send_and_receive(remote_mgmt_session, req, sizeof(*req),
 			     resp, sizeof(*resp));
 #if 1
-	nr_tests = 5;
+	nr_tests = 1;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < nr_tests; i++) {
 		net_send_and_receive(remote_mgmt_session, req, sizeof(*req),

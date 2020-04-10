@@ -19,6 +19,25 @@
 # The following two lines show a possible setup:
 # - At 02, run monitor.
 # - At 05, run host.
+#
+#
+# This test will use test_raw_net.c
+# And it will report the RTT
 
-./monitor.o --dev p4p1 --port=8888 --net_trans_ops=bypass --net_raw_ops=raw_verbs
-./host.o -m 192.168.1.2:8888 -p 8880 -d ens4 --skip_join --net_trans_ops=bypass --net_raw_ops=raw_verbs --run_test 
+usage() {
+	echo "Usage:"
+	echo "   $ ./test_raw_net.sh 1   (Run monitor image)"
+	echo "   $ ./test_raw_net.sh 2   (Run host image)"
+	echo "Please change the IPs in the command"
+}
+
+set -x
+set -e
+
+if [ "$1" == "1" ]; then
+	./monitor.o --dev p4p1 --port=8888 --net_trans_ops=bypass --net_raw_ops=raw_verbs
+elif [ "$1" == "2" ]; then
+	./host.o -m 127.0.0.1:8888 -p 8880 -d ens4 --skip_join --net_trans_ops=bypass --net_raw_ops=raw_verbs --run_test --add_board=192.168.1.2:8888
+else
+	usage
+fi

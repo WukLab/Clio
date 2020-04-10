@@ -20,4 +20,7 @@ set -e
 # - legomem_open/close_context
 # - legomem_alloc/free
 
-./host.o --monitor=127.0.0.1:8888 --skip_join --port=1234 --dev=p4p1 --run_test --add_board="192.168.1.128:1234"
+./host.o --monitor=127.0.0.1:8888 --skip_join \
+	 --port=1234 --dev=p4p1 \
+	 --net_trans_ops=gbn \
+	 --run_test --add_board="192.168.1.128:1234"
