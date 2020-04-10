@@ -20,10 +20,12 @@ SRCS := $(C_SRCS) $(TEST_SRCS)
 INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread
 
-EXTRA_CFLAGS := -Wall -DCONFIG_ARCH_X86
+EXTRA_CFLAGS := -O2 -Wall -DCONFIG_ARCH_X86
+CFLAG_DISABLE_WARN := -Wno-stringop-truncation
+EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g
-DEBUG := -g
+DEBUG :=
 
 all: $(SRCS) 
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(CLIBS)

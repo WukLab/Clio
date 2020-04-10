@@ -595,7 +595,7 @@ static void *gbn_poll_func(void *_unused)
 	struct ipv4_hdr *ipv4_hdr;
 	unsigned int udp_port, remote_ip, dst_sesid;
 	void *recv_buf;
-	size_t buf_size, max_buf_size;
+	size_t buf_size, max_buf_size = 0;
 	int ret;
 
 	/*
