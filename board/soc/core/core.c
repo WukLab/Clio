@@ -215,8 +215,12 @@ static void handle_close_session(struct thpool_buffer *tb)
 	unsigned int session_id;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
+<<<<<<< HEAD
 	resp = (struct legomem_open_close_session_resp *)tb->rx;
 	gbn_close_req = (struct lego_mem_ctrl *)tb->ctrl;
+=======
+	resp = (struct legomem_open_close_session_resp *)tb->tx;
+>>>>>>> soc: fix pointer cast issues in soc handlers
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	session_id = req->op.session_id;
@@ -224,7 +228,10 @@ static void handle_close_session(struct thpool_buffer *tb)
 
 	/* Success */
 	resp->op.session_id = 0;
+<<<<<<< HEAD
 	resp->comm_headers.lego.opcode = OP_CLOSE_SESSION_RESP;
+=======
+>>>>>>> soc: fix pointer cast issues in soc handlers
 	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
 						 LEGOMEM_CONT_NONE,
 						 LEGOMEM_CONT_NONE,
@@ -278,8 +285,11 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	rx_lego_hdr = to_lego_header(tb->rx);
 	tx_lego_hdr = to_lego_header(tb->tx);
 	opcode = rx_lego_hdr->opcode;
+<<<<<<< HEAD
 
 	soc_debug("%s\n", legomem_opcode_str(opcode));
+=======
+>>>>>>> soc: fix pointer cast issues in soc handlers
 
 	switch (opcode) {
 	/* VM */
@@ -335,6 +345,7 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	 * To keep the handlers consistent, we skip the L2-L4 and GBN header
 	 * and only send the portion after GBN header
 	 */
+<<<<<<< HEAD
 	if (likely(!ThpoolBufferNoreply(tb) && tb->tx_size > LEGO_HEADER_OFFSET)) {
 		/*
 		 * set the size field in lego header and
@@ -343,6 +354,11 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		tx_lego_hdr->size = tb->tx_size - LEGO_HEADER_OFFSET;
 		memmove(tb->tx, tx_lego_hdr, tx_lego_hdr->size);
 		dma_send(tb->tx, tb->tx_size - LEGO_HEADER_OFFSET);
+=======
+	if (likely(!ThpoolBufferNoreply(tb))) {
+		tx_lego_hdr->size = tb->tx_size - LEGO_HEADER_OFFSET;
+		dma_send(tx_lego_hdr, tx_lego_hdr->size);
+>>>>>>> soc: fix pointer cast issues in soc handlers
 	}
 	free_thpool_buffer(tb);
 }
@@ -357,6 +373,11 @@ static void dispatcher(void)
 
 	while (1) {
 		struct lego_header *rx_lego_header, *tx_lego_header;
+<<<<<<< HEAD
+=======
+		int payload_size;
+		void *payload_ptr;
+>>>>>>> soc: fix pointer cast issues in soc handlers
 
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
@@ -378,9 +399,21 @@ static void dispatcher(void)
 		 * imcomplete message.
 		 */
 		rx_lego_header = to_lego_header(tb->rx);
+<<<<<<< HEAD
 		rx_lego_header->opcode = 0;
 
 		ret = dma_recv_blocking(tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
+=======
+		ret = dma_recv_blocking(rx_lego_header, LEGO_HEADER_SIZE);
+		if (ret < 0) {
+			printf("%s(): fail to recv lego_header\n", __func__);
+			continue;
+		}
+
+		payload_size = rx_lego_header->size - LEGO_HEADER_SIZE;
+		payload_ptr = (void *)(rx_lego_header + 1);
+		ret = dma_recv_blocking(payload_ptr, payload_size);
+>>>>>>> soc: fix pointer cast issues in soc handlers
 		if (ret < 0) {
 			/* if timeout or fail, skip processing the packet */
 			free_thpool_buffer(tb);
@@ -396,6 +429,12 @@ static void dispatcher(void)
 		soc_debug("req from src_sesid: %u to dst_sesid: %u\n",
 			  rx_lego_header->src_sesid,
 			  rx_lego_header->dst_sesid);
+
+		/* Swap session info */
+		tx_lego_header = to_lego_header(tb->tx);
+		tx_lego_header->dest_ip = rx_lego_header->dest_ip;
+		tx_lego_header->src_sesid = rx_lego_header->dst_sesid;
+		tx_lego_header->dst_sesid = rx_lego_header->src_sesid;
 
 		/* Inline handling */
 		worker_handle_request_inline(tw, tb);
