@@ -70,6 +70,8 @@ static inline char *legomem_opcode_str(unsigned int opcode)
  * | ETH |  IP   | UDP |  GBN    | LegoMem | OP_XXX   | data  |
  */
 
+#define MAX_LEGOMEM_OP_SIZE	512
+
 struct op_membership_join_cluster {
 	/*
 	 * We reuse the BOARD_INFO_FLAGS_XXX to indicate

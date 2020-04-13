@@ -233,6 +233,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_OPEN_SESSION;
+		lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
 
 		if (ctx) {
 			lego_header->pid = ctx->pid;
@@ -339,6 +340,8 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 
 		lego_header = to_lego_header(&req);
 		lego_header->opcode = OP_CLOSE_SESSION;
+		lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
+
 		if (ctx)
 			lego_header->pid = ctx->pid;
 		else {
@@ -403,6 +406,7 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_ALLOC;
 	lego_header->pid = ctx->pid;
+	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
 
 	req.op.len = size;
 	req.op.vm_flags = 0;
@@ -610,6 +614,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_ALLOC;
 	lego_header->pid = ctx->pid;
+	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
 
 	req.op.len = size;
 	req.op.vregion_idx = vregion_idx;
@@ -669,6 +674,7 @@ int legomem_free(struct legomem_context *ctx,
 	lego_header = to_lego_header((void *)&req);
 	lego_header->opcode = OP_REQ_FREE;
 	lego_header->pid = ctx->pid;
+	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
 
 	req.op.addr = addr;
 	req.op.len = size;
@@ -707,6 +713,7 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 	lego_header = to_lego_header((void *)&req);
 	lego_header->opcode = OP_REQ_READ;
 	lego_header->pid = ctx->pid;
+	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
 
 	req.op.va = addr;
 	req.op.size = size;
@@ -901,6 +908,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	lego_header = to_lego_header(&req);
 	lego_header->opcode = OP_REQ_MIGRATION_H2M;
 	lego_header->pid = ctx->pid;
+	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
 
 	/* Prepare migration req header */
 	op = &req.op;

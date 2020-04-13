@@ -26,6 +26,7 @@ int gbn_connect(int sockfd, struct sockaddr *addr, unsigned src_sesid)
 	open_req.comm_headers.gbn.type = GBN_PKT_DATA;
 	open_req.comm_headers.lego.opcode = OP_OPEN_SESSION;
 	open_req.comm_headers.lego.pid = 0;
+	open_req.comm_headers.lego.size = sizeof(open_req) - LEGO_HEADER_OFFSET;
 	open_req.op.session_id = src_sesid;
 
 	ret = sendto(sockfd, &open_req.comm_headers.gbn,
@@ -43,6 +44,8 @@ int gbn_close(int sockfd, struct sockaddr *addr, unsigned dest_sesid)
 	close_req.comm_headers.gbn.type = GBN_PKT_DATA;
 	close_req.comm_headers.lego.opcode = OP_CLOSE_SESSION;
 	close_req.comm_headers.lego.pid = 0;
+	close_req.comm_headers.lego.size =
+		sizeof(close_req) - LEGO_HEADER_OFFSET;
 	close_req.op.session_id = dest_sesid;
 	ret = sendto(sockfd, &close_req.comm_headers.gbn,
 		     sizeof(close_req) - GBN_HEADER_OFFSET, 0, addr,
@@ -94,7 +97,7 @@ int main(int argc, char *argv[])
 
 	host_addr.sin_family = AF_INET;
 	host_addr.sin_port = htons(FPGA_PORT);
-	host_addr.sin_addr.s_addr = inet_addr("192.168.1.128");
+	host_addr.sin_addr.s_addr = inet_addr("192.168.1.133");
 
 	switch (operation_switch) {
 	case 1:
