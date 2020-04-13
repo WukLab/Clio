@@ -138,18 +138,10 @@ int generic_handle_close_session(struct legomem_context *ctx,
 				 struct board_info *bi,
 				 struct session_net *ses)
 {
-	int local_sesid;
-
-	local_sesid = get_local_session_id(ses);
-	BUG_ON(local_sesid == LEGOMEM_MGMT_SESSION_ID);
-
-	free_session_id(local_sesid);
-
 	/*
 	 * Clear bookkeeping we've done when the session was open:
 	 * Check __legomem_open_session and generic_handle_open_session.
 	 */
-	remove_net_session(ses);
 	board_remove_session(bi, ses);
 	if (ctx)
 		context_remove_session(ctx, ses);
@@ -167,7 +159,6 @@ struct session_net *
 generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
 {
 	struct session_net *ses;
-	unsigned int src_sesid;
 
 	ses = net_open_session(&bi->local_ei, &bi->remote_ei);
 	if (!ses)
@@ -176,20 +167,10 @@ generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
 	ses->udp_port = bi->udp_port;
 	ses->board_info = bi;
 
-	src_sesid = alloc_session_id();
-	if (src_sesid <= 0)
-		goto close_ses;
-
-	set_local_session_id(ses, src_sesid);
 	set_remote_session_id(ses, dst_sesid);
 
-	add_net_session(ses);
 	board_add_session(bi, ses);
 	return ses;
-
-close_ses:
-	net_close_session(ses);
-	return NULL;
 }
 
 /*
@@ -201,7 +182,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		       pid_t tid, bool is_local_mgmt, bool is_remote_mgmt)
 {
 	struct session_net *ses;
-	unsigned int src_sesid, dst_sesid;
+	unsigned int dst_sesid = 0;
 
 	if (!bi)
 		return NULL;
@@ -223,19 +204,8 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	ses->board_info = bi;
 	ses->tid = tid;
 
-	/* Setup local session id */
-	if (is_local_mgmt) {
-		src_sesid = LEGOMEM_MGMT_SESSION_ID;
-		set_local_session_id(ses, src_sesid);
+	if (is_local_mgmt)
 		goto bookkeeping;
-	} else {
-		src_sesid = alloc_session_id();
-		if (src_sesid <= 0) {
-			printf("%s(): fail to alloc new ses id\n", __func__);
-			goto close_ses;
-		}
-		set_local_session_id(ses, src_sesid);
-	}
 
 	/*
 	 * Setup remote session id
@@ -270,7 +240,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 			lego_header->pid = 0;
 		}
 
-		req.op.session_id = src_sesid;
+		req.op.session_id = get_local_session_id(ses);
 
 		remote_mgmt_ses = get_board_mgmt_session(bi);
 		if (!remote_mgmt_ses) {
@@ -285,37 +255,29 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		if (ret <= 0) {
 			dprintf_ERROR("Fail to contact remote party %s\n",
 				bi->name);
-			goto free_id;
+			goto close_ses;
 		}
 
 		if (unlikely(resp.op.session_id == 0)) {
 			dprintf_DEBUG("remote fail to open session %s\n",
 				bi->name);
-			goto free_id;
+			goto close_ses;
 		}
 
 		dst_sesid = resp.op.session_id;
 		set_remote_session_id(ses, dst_sesid);
 	}
 
-	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
-		bi->name, src_sesid, dst_sesid);
-
 bookkeeping:
-	/*
-	 * Bookkeeping, add to:
-	 * - per-node session list
-	 * - per-board session list
-	 * - per-context session list
-	 */
-	add_net_session(ses);
 	board_add_session(bi, ses);
 	if (ctx)
 		context_add_session(ctx, ses);
+
+	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
+		bi->name, get_local_session_id(ses), dst_sesid);
+
 	return ses;
 
-free_id:
-	free_session_id(src_sesid);
 close_ses:
 	net_close_session(ses);
 	return NULL;

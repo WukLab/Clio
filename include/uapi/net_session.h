@@ -6,6 +6,8 @@
 #include <uapi/net_header.h>
 #include <uapi/hashtable.h>
 
+#define SESSION_NET_FLAGS_ALLOCATED	(0x1)
+
 /*
  * This structure describes a specific network connection
  * between an application and the LegoMem board.

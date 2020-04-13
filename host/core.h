@@ -151,13 +151,9 @@ void dump_boards(void);
 /* Per-node session list */
 int init_net_session_subsys(void);
 void dump_net_sessions(void);
-int add_net_session(struct session_net *ses);
-int remove_net_session(struct session_net *ses);
-struct session_net *
-find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id);
-
-int alloc_session_id(void);
-void free_session_id(unsigned int session_id);
+struct session_net *alloc_session(void);
+void free_session(struct session_net *ses);
+struct session_net *find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id);
 
 /*
  * LegoMem Public APIs

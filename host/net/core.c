@@ -30,10 +30,9 @@ struct session_net *net_open_session(struct endpoint_info *local_ei,
 	struct session_net *ses;
 	int ret;
 
-	ses = malloc(sizeof(struct session_net));
+	ses = alloc_session();
 	if (!ses)
 		return NULL;
-	memset(ses, 0, sizeof(*ses));
 
 	ret = transport_net_ops->open_session(ses, local_ei, remote_ei);
 	if (ret)
@@ -53,21 +52,21 @@ struct session_net *net_open_session(struct endpoint_info *local_ei,
 close_transport:
 	transport_net_ops->close_session(ses);
 free:
-	free(ses);
+	free_session(ses);
 	return NULL;
 }
 
 /*
  * Close a network session, free all associated memory.
+ * This is an internal function call, thus @ses should not never be NULL.
  */
 int net_close_session(struct session_net *ses)
 {
-	if (!ses)
-		return -EINVAL;
+	BUG_ON(!ses);
 
 	transport_net_ops->close_session(ses);
 	raw_net_ops->close_session(ses);
-	free(ses);
+	free_session(ses);
 
 	return 0;
 }
