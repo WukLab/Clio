@@ -59,10 +59,11 @@ struct session_net *alloc_session(void)
 	ses = session_net_map + bit;
 
 	/* generic session init */
-	set_local_session_id(ses, bit);
 	memset(ses, 0, sizeof(*ses));
+	set_local_session_id(ses, bit);
 	ses->flags |= SESSION_NET_FLAGS_ALLOCATED;
 
+	dprintf_DEBUG("sessiond_net id %d\n", bit);
 unlock:
 	pthread_spin_unlock(&session_lock);
 	return ses;

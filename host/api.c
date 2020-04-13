@@ -204,6 +204,10 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 	ses->board_info = bi;
 	ses->tid = tid;
 
+	/*
+	 * Local special sessions do not need
+	 * any information about remote parties
+	 */
 	if (is_local_mgmt)
 		goto bookkeeping;
 

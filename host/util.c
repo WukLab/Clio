@@ -321,5 +321,15 @@ int init_local_management_session(void)
 
 	/* This is our LOCAL mgmt session */
 	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
+
+	/*
+	 * If this is happening.. adjust your code, put
+	 * this function before all other functions that might create sessions.
+	 */
+	if (get_local_session_id(mgmt_session) !=  LEGOMEM_MGMT_SESSION_ID) {
+		dprintf_ERROR("mgmt_session id is %d, not 0.\n",
+			get_local_session_id(mgmt_session));
+		return -EINVAL;
+	}
 	return 0;
 }

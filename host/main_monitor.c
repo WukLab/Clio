@@ -1077,16 +1077,17 @@ int main(int argc, char **argv)
 	init_context_subsys();
 	init_net_session_subsys();
 
-	/*
-	 * add the special localhost board_info
-	 */
-	add_localhost_bi(&default_local_ei);
-
 	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
+
+	/*
+	 * Add a special localhost board_info
+	 * and a special localhost session_net
+	 */
+	add_localhost_bi(&default_local_ei);
 
 	create_daemon_thread();
 
