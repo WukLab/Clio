@@ -187,7 +187,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	 * that's the best way. Investigate more and come back optimize.
 	 * eRPC's code is using the second way.
 	 */
-	if (1) {
+	if (0) {
 		wr.send_flags |= IBV_SEND_SIGNALED;
 		signaled = true;
 	} else
