@@ -8,6 +8,7 @@ C_SRCS := board.c \
 	api.c \
 	context.c \
 	session.c \
+	pp.c \
 	net/core.c \
 	net/raw_verbs.c \
 	net/raw_socket.c \
@@ -20,7 +21,7 @@ SRCS := $(C_SRCS) $(TEST_SRCS)
 INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread
 
-EXTRA_CFLAGS := -O2 -Wall -DCONFIG_ARCH_X86
+EXTRA_CFLAGS := -O2 -Wall -DCONFIG_ARCH_X86 -DCONFIG_PROFILING_POINTS
 CFLAG_DISABLE_WARN := -Wno-stringop-truncation
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
@@ -30,7 +31,7 @@ DEBUG :=
 all: $(SRCS) 
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(CLIBS)
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
-	gcc $(DEBUG) $(EXTRA_CFLAGS )-o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(CLIBS)
 
 clean:
 	rm *.o

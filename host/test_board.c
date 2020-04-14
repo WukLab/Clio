@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <uapi/profile_point.h>
 #include "core.h"
 
 struct dummy_payload {
@@ -97,6 +98,8 @@ void *test_net(void *arg)
 }
 #endif
 
+DEFINE_PROFILE_POINT(test_board_rtt)
+
 int test_legomem_board(char *board_ip_port_str)
 {
 	struct board_info *remote_board;
@@ -154,7 +157,6 @@ int test_legomem_board(char *board_ip_port_str)
 	access->size = DATA_SIZE;
 	access->va = 0;
 
-	struct timespec ts, te;
 	int nr_tests;
 
 #if 1
@@ -163,8 +165,9 @@ int test_legomem_board(char *board_ip_port_str)
 			     resp, sizeof(*resp));
 #endif
 
+	nr_tests = 10;
 #if 1
-	nr_tests = 1;
+	struct timespec ts, te;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < nr_tests; i++) {
 		net_send_and_receive(remote_mgmt_session, req, sizeof(*req),
@@ -175,20 +178,16 @@ int test_legomem_board(char *board_ip_port_str)
 	printf("RTT avg %f nano seconds (#%d tests)\n",
 		(((double)te.tv_sec*1.0e9 + te.tv_nsec) - 
 		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / nr_tests, nr_tests);
-#endif
+#else
 
-#if 0
-	nr_tests = 1;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	PROFILE_POINT_TIME_STACK(test_board_rtt)
 	for (i = 0; i < nr_tests; i++) {
-		net_send(remote_mgmt_session, req, sizeof(*req));
+		PROFILE_START(test_board_rtt);
+		net_send_and_receive(remote_mgmt_session, req, sizeof(*req),
+				     resp, sizeof(*resp));
+		PROFILE_LEAVE(test_board_rtt);
 	}
-	clock_gettime(CLOCK_MONOTONIC, &te);
-
-	printf("Send avg %f nano seconds\n",
-		(((double)te.tv_sec*1.0e9 + te.tv_nsec) - 
-		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / nr_tests);
+	print_profile_points();
 #endif
-
 	return 0;
 }
