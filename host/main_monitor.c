@@ -125,6 +125,7 @@ alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 	init_proc_info(new);
 	new->pid = pid;
 	new->host_ip = host_ip;
+	get_ip_str(host_ip, new->host_ip_str);
 
 	if (proc_name)
 		strncpy(new->proc_name, proc_name, PROC_NAME_LEN);
@@ -141,7 +142,7 @@ alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
  * The refcount is incremented by 1 if found.
  * The caller must call put_proc() afterwards.
  */
-struct proc_info *get_proc_by_pid(unsigned int pid)
+static struct proc_info *get_proc_by_pid(unsigned int pid)
 {
 	struct proc_info *pi;
 	unsigned int key;
@@ -149,7 +150,6 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	key = pid;
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, pi, link, key) {
-		dprintf_INFO("pid %d\n", pi->pid);
 		if (likely(pi->pid == pid)) {
 			get_proc_info(pi);
 			pthread_spin_unlock(&proc_lock);
@@ -158,6 +158,20 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	}
 	pthread_spin_unlock(&proc_lock);
 	return NULL;
+}
+
+static void dump_procs(void)
+{
+	struct proc_info *pi;
+	int bkt = 0;
+
+	printf("  bucket      pid              host_ip\n");
+	printf("-------- -------- --------------------\n");
+	pthread_spin_lock(&proc_lock);
+	hash_for_each(proc_hash_array, bkt, pi, link) {
+		printf("%8d %8d %20s\n", bkt, pi->pid, pi->host_ip_str);
+	}
+	pthread_spin_unlock(&proc_lock);
 }
 
 /*
@@ -233,7 +247,7 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	resp->op.ret = 0;
 	resp->op.pid = pid;
 
-	if (1) {
+	if (0) {
 		char ip_str[INET_ADDRSTRLEN];
 		get_ip_str(src_ip, ip_str);
 		dprintf_DEBUG("new context pid %u for host %s\n",
@@ -268,7 +282,10 @@ static void handle_free_proc(struct thpool_buffer *tb)
 
 	resp->ret = 0;
 
-	dprintf_DEBUG("free context pid: %u\n", pid);
+	if (0) {
+		dprintf_DEBUG("free context pid %u\n", pid);
+		dump_procs();
+	}
 }
 
 static inline struct vregion_info *
@@ -631,6 +648,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	new_bi = add_board(new_name, req->op.mem_size_bytes,
 		       ei, &default_local_ei, false);
 	if (!new_bi) {
+		dprintf_ERROR("Fail to add new board/node for %s\n", new_name);
 		resp->ret = -ENOMEM;
 		return;
 	}
@@ -639,18 +657,11 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	    req->op.type == BOARD_INFO_FLAGS_BOARD) {
 		new_bi->flags |= req->op.type;
 	} else {
-		printf("%s(): unknown remote type: %lu",
-			__func__, req->op.type);
+		dprintf_ERROR("unknown remote type: %lu", req->op.type);
 		remove_board(new_bi);
 		resp->ret = -EINVAL;
 		return;
 	}
-
-	/* Debugging info */
-	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
-		ip_str, ei->udp_port, new_name, board_info_type_str(new_bi->flags));
-	dump_boards();
-	dump_net_sessions();
 
 	/*
 	 * Step 2:
@@ -724,6 +735,12 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 
 	/* success */
 	resp->ret = 0;
+
+	/* Debugging info */
+	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
+		ip_str, ei->udp_port, new_name, board_info_type_str(new_bi->flags));
+	dump_boards();
+	dump_net_sessions();
 }
 
 static void handle_query_stat(struct thpool_buffer *tb)

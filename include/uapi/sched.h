@@ -245,6 +245,7 @@ struct proc_info {
 
 	/* For debugging purpose */
 	unsigned int		host_ip;
+	char			host_ip_str[INET_ADDRSTRLEN];
 	char			proc_name[PROC_NAME_LEN];
 
 	struct vregion_info	vregion[NR_VREGIONS];
