@@ -16,6 +16,7 @@
 #include <uapi/net_header.h>
 
 #include "net.h"
+#include "../core.h"
 
 static inline int bypass_send_one(struct session_net *net,
 				  void *buf, size_t buf_size, void *route)
@@ -27,6 +28,13 @@ static inline int bypass_receive_one(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
 	return raw_net_receive(buf, buf_size);
+}
+
+static inline int bypass_receive_one_zerocopy(struct session_net *net,
+				  void **buf, size_t *buf_size)
+{
+	dprintf_ERROR("Zerocopy is not supported. %d\n", 0);
+	return -EIO;
 }
 
 static inline int bypass_receive_one_nb(struct session_net *net,
@@ -69,6 +77,7 @@ struct transport_net_ops transport_bypass_ops = {
 
 	.send_one		= bypass_send_one,
 	.receive_one		= bypass_receive_one,
+	.receive_one_zerocopy	= bypass_receive_one_zerocopy,
 	.receive_one_nb		= bypass_receive_one_nb,
 
 	.reg_send_buf		= default_transport_reg_send_buf,

@@ -85,6 +85,7 @@ struct transport_net_ops {
 	 * Blocking call, return when there is packet.
 	 */
 	int (*receive_one)(struct session_net *, void *, size_t);
+	int (*receive_one_zerocopy)(struct session_net *, void **, size_t *);
 
 	/*
 	 * Receive one packet
@@ -220,6 +221,12 @@ static inline int
 net_send(struct session_net *net, void *buf, size_t buf_size)
 {
 	return transport_net_ops->send_one(net, buf, buf_size, NULL);
+}
+
+static inline int
+net_receive_zerocopy(struct session_net *net, void **buf, size_t *buf_size)
+{
+	return transport_net_ops->receive_one_zerocopy(net, buf, buf_size);
 }
 
 static inline int

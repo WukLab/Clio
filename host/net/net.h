@@ -21,6 +21,7 @@ extern int sysctl_link_mtu;
 
 int init_net(struct endpoint_info *local_ei);
 void dump_packet_headers(void *packet, char *str_buf);
+void __dump_packet_headers(void *packet, char *str_buf);
 
 struct session_net *net_open_session(struct endpoint_info *local_ei,
 				     struct endpoint_info *remote_ei);
@@ -65,5 +66,7 @@ struct session_raw_verbs {
 
 	pthread_spinlock_t *lock;
 };
+
+void dump_gbn_session(struct session_net *net, bool dump_rx_ring);
 
 #endif /* _HOST_NET_NET_H_ */

@@ -73,7 +73,7 @@ int net_close_session(struct session_net *ses)
 
 static pthread_spinlock_t dump_lock;
 
-static void __dump_packet_headers(void *packet, char *str_buf)
+void __dump_packet_headers(void *packet, char *str_buf)
 {
 	struct eth_hdr *eth;
 	struct ipv4_hdr *ipv4;
@@ -124,7 +124,7 @@ static void __dump_packet_headers(void *packet, char *str_buf)
 	inet_ntop(AF_INET, &src_addr, src_ip, sizeof(src_ip));
 	inet_ntop(AF_INET, &dst_addr, dst_ip, sizeof(dst_ip));
 
-	DUMP_PR("ip:port:gbn %s:%u:%u->%s:%u:%u (%s)\n",
+	DUMP_PR("ip:port:gbn %s:%u:%u->%s:%u:%u (%s) ",
 		src_ip, ntohs(udp->src_port), get_gbn_src_session(gbn),
 		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),
 		gbn_pkt_type_str(gbn->type));

@@ -62,12 +62,12 @@ struct tb_padding {
 struct thpool_buffer {
 	unsigned int		flags;
 
-	unsigned int		rx_size;
-	char			*rx;
+	size_t rx_size;
+	void *rx;
 
-	unsigned int		tx_size;
-	char			*tx;
-};
+	size_t tx_size;
+	void *tx;
+} __aligned(64);
 
 static inline void
 set_tb_rx_size(struct thpool_buffer *tb, unsigned int rx_size)

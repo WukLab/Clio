@@ -879,6 +879,9 @@ static void handle_open_session(struct thpool_buffer *tb)
 error:
 	resp->op.session_id = 0;
 }
+
+extern int nr_recv_pkt;
+
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -891,8 +894,8 @@ static void worker_handle_request(struct thpool_worker *tw,
 	opcode = lego_hdr->opcode;
 
 	if (0) {
-		dprintf_INFO("received opcode: %u (%s)\n",
-			opcode, legomem_opcode_str(opcode));
+		dprintf_INFO("received opcode: %u (%s) pkt_size: %zu B\n",
+			opcode, legomem_opcode_str(opcode), tb->rx_size);
 	}
 
 	switch (opcode) {
@@ -951,7 +954,9 @@ static void worker_handle_request(struct thpool_worker *tw,
 			char err_msg[128];
 			dump_packet_headers(tb->rx, err_msg);
 			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s) packet dump: \n"
-				      "%s\n", opcode, legomem_opcode_str(opcode), err_msg);
+				      "%s pkt_size: %zu B nr_recv_pkt: %d\n", opcode, legomem_opcode_str(opcode), err_msg,
+				      tb->rx_size, nr_recv_pkt- 1);
+			dump_gbn_session(mgmt_session, true);
 		}
 		return;
 	};
@@ -999,10 +1004,9 @@ static void *dispatcher(void *_unused)
 	}
 
 	while (1) {
-		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
+		ret = net_receive_zerocopy(mgmt_session, &tb->rx, &tb->rx_size);
 		if (ret <= 0)
 			continue;
-		tb->rx_size = ret;
 
 		/*
 		 * Inline handling for now

@@ -301,6 +301,45 @@ free_unack_buffer_info(struct buffer_info *info)
 	barrier();
 }
 
+void dump_gbn_session(struct session_net *net, bool dump_rx_ring)
+{
+	struct session_gbn *ses;
+
+	ses = (struct session_gbn *)net->transport_private;
+	printf("Dump gbn session: \n"
+	       "  [RX]\n"
+	       "    ring_HEAD: %u\n"
+	       "    ring_TAIL: %u\n"
+	       "    nr_queued: %u\n"
+	       "  [STAT]\n"
+	       "    nr_rx_data: %lu\n"
+	       "    nr_rx_ack: %lu\n"
+	       "    nr_rx_nack: %lu\n",
+		ses->data_buffer_info_HEAD,
+		ses->data_buffer_info_TAIL,
+		nr_data_buffer_info(ses),
+		ses->nr_rx_data,
+		ses->nr_rx_ack,
+		ses->nr_rx_nack);
+
+	if (dump_rx_ring) {
+		int i;
+		struct buffer_info *info;
+		char msg[256];
+
+		printf("  [RX Pkts]\n");
+		for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
+			info = index_to_data_buffer_info(ses, i);
+			if (info->buf) {
+				__dump_packet_headers(info->buf, msg);
+				printf("    [%d] %#lx size %u flags %#x %s\n",
+					i, (unsigned long)info->buf,
+					info->buf_size, info->flags, msg);
+			}
+		}
+	}
+}
+
 static bool
 handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		        bool is_ack)
@@ -587,6 +626,8 @@ static void handle_data_packet(struct session_net *ses_net,
 	}
 }
 
+int nr_recv_pkt = 0;
+
 /*
  * This is Go-Back-N transport layer's polling thread.
  * It invokes lower level raw network interface to receive new packets.
@@ -662,13 +703,12 @@ static void *gbn_poll_func(void *_unused)
 
 #ifdef CONFIG_DEBUG_GBN
 		{
-			static int __nr_recv_pkt = 0;
 			char packet_dump_str[256];
 
 			dump_packet_headers(recv_buf, packet_dump_str);
-			gbn_debug("new pkt: %s nr_recv_pkt: %d\n",
-				packet_dump_str,
-				++__nr_recv_pkt);
+			gbn_debug("new pkt: %s  buf_size: %zu nr_recv_pkt: %d\n",
+				packet_dump_str, buf_size,
+				nr_recv_pkt++);
 		}
 #endif
 
@@ -790,13 +830,14 @@ wait_data_buffer_usable(struct buffer_info *info)
  * to use this particular session. The behavior is undefined if multiple
  * threads call this function upon one session.
  */
-static inline int gbn_receive_one(struct session_net *net,
-				  void *buf, size_t buf_size)
+static int
+__gbn_receive_one(struct session_net *net,
+		  void *buf, size_t buf_size,
+		  void **z_buf, size_t *z_buf_size, bool zerocopy)
 {
 	struct session_gbn *ses;
 	struct buffer_info *info;
 	int index;
-	size_t ret;
 
 	ses = (struct session_gbn *)net->transport_private;
 
@@ -821,7 +862,7 @@ static inline int gbn_receive_one(struct session_net *net,
 	info = index_to_data_buffer_info(ses, index);
 
 	/* Put the data back to the head if too small */
-	if (unlikely(info->buf_size > buf_size)) {
+	if (unlikely(!zerocopy && (info->buf_size > buf_size))) {
 		dprintf_INFO("User recv buf is too small. "
 			     "(pkt: %u recv_buf: %zu)\n",
 			info->buf_size, buf_size);
@@ -831,16 +872,27 @@ static inline int gbn_receive_one(struct session_net *net,
 
 	wait_data_buffer_usable(info);
 
-	/*
-	 * Whether zerocopy is enabled or not, we need to do this copy.
-	 * Of course, this copy can be reduced if users are willing to
-	 * give up this interface and use a RPC-like way.
-	 */
-	memcpy(buf, info->buf, info->buf_size);
-	ret = info->buf_size;
+	if (zerocopy) {
+		*z_buf = info->buf;
+		*z_buf_size = info->buf_size;
+	} else {
+		memcpy(buf, info->buf, info->buf_size);
+	}
 
 	free_data_buffer_info(info);
-	return ret;
+	return info->buf_size;
+}
+
+static inline int gbn_receive_one(struct session_net *net,
+				  void *buf, size_t buf_size)
+{
+	return __gbn_receive_one(net, buf, buf_size, NULL, NULL, false);
+}
+
+static inline int gbn_receive_one_zerocopy(struct session_net *net,
+				  void **buf, size_t *buf_size)
+{
+	return __gbn_receive_one(net, NULL, 0, buf, buf_size, true);
 }
 
 /*
@@ -1019,6 +1071,7 @@ struct transport_net_ops transport_gbn_ops = {
 
 	.send_one		= gbn_send_one,
 	.receive_one		= gbn_receive_one,
+	.receive_one_zerocopy	= gbn_receive_one_zerocopy,
 	.receive_one_nb		= gbn_receive_one_nb,
 
 	.reg_send_buf		= default_transport_reg_send_buf,
