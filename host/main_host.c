@@ -339,8 +339,12 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		handle_query_stat(tb);
 		break;
 	default:
-		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
-			opcode, legomem_opcode_str(opcode));
+		if (1) {
+			char err_msg[128];
+			dump_packet_headers(tb->rx, err_msg);
+			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s) packet dump: \n"
+				      "%s\n", opcode, legomem_opcode_str(opcode), err_msg);
+		}
 		return;
 	};
 

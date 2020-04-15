@@ -78,6 +78,8 @@ static void __dump_packet_headers(void *packet, char *str_buf)
 	struct eth_hdr *eth;
 	struct ipv4_hdr *ipv4;
 	struct udp_hdr *udp;
+	struct gbn_header *gbn;
+	struct lego_header *lego;
 	int i;
 	char src_ip[INET_ADDRSTRLEN];
 	char dst_ip[INET_ADDRSTRLEN];
@@ -96,6 +98,8 @@ static void __dump_packet_headers(void *packet, char *str_buf)
 	eth = packet;
 	ipv4 = packet + sizeof(*eth);
 	udp = packet + sizeof(*eth) + sizeof(*ipv4);
+	gbn = to_gbn_header(packet);
+	lego = to_lego_header(packet);
 
 	for (i = 0; i < 6; i++) {
 		if (i < 5)
@@ -120,8 +124,15 @@ static void __dump_packet_headers(void *packet, char *str_buf)
 	inet_ntop(AF_INET, &src_addr, src_ip, sizeof(src_ip));
 	inet_ntop(AF_INET, &dst_addr, dst_ip, sizeof(dst_ip));
 
-	DUMP_PR("ip:port %s:%u->%s:%u",
-		src_ip, ntohs(udp->src_port), dst_ip, ntohs(udp->dst_port));
+	DUMP_PR("ip:port:gbn %s:%u:%u->%s:%u:%u (%s)\n",
+		src_ip, ntohs(udp->src_port), get_gbn_src_session(gbn),
+		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),
+		gbn_pkt_type_str(gbn->type));
+
+	DUMP_PR("lego pid=%u tag=%#x opcode=%u (%s)",
+		lego->pid, lego->tag, lego->opcode,
+		legomem_opcode_str(lego->opcode));
+
 	if (!str_buf)
 		printf("\n");
 }

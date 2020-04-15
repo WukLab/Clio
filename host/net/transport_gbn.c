@@ -666,10 +666,9 @@ static void *gbn_poll_func(void *_unused)
 			char packet_dump_str[256];
 
 			dump_packet_headers(recv_buf, packet_dump_str);
-			gbn_debug("new pkt: %s ses: %u->%u type: %s nr_recv_pkt: %d\n",
+			gbn_debug("new pkt: %s nr_recv_pkt: %d\n",
 				packet_dump_str,
-				get_gbn_src_session(gbn_hdr), dst_sesid,
-				gbn_pkt_type_str(gbn_hdr->type), ++__nr_recv_pkt);
+				++__nr_recv_pkt);
 		}
 #endif
 
