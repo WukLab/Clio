@@ -172,6 +172,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
 
+	wr.send_flags = 0;
 	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
 		wr.send_flags |= IBV_SEND_INLINE;
 

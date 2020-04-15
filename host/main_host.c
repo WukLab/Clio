@@ -387,10 +387,9 @@ static void *dispatcher(void *_unused)
 
 	while (1) {
 #if 1
-		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
+		ret = net_receive_zerocopy(mgmt_session, &tb->rx, &tb->rx_size);
 		if (ret <= 0)
 			continue;
-		tb->rx_size = ret;
 
 		/* We only have one thread, thus inline handling */
 		worker_handle_request_inline(tw, tb);
@@ -741,8 +740,8 @@ int main(int argc, char **argv)
 			//ret = test_raw_net(board_addr);
 		}
 
-		//ret = test_legomem_context();
-		ret = test_legomem_session();
+		ret = test_legomem_context();
+		//ret = test_legomem_session();
 		//ret = test_legomem_migration();
 	}
 
