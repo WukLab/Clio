@@ -46,7 +46,8 @@ struct __attribute__((__packed__)) lego_mem_header {
 	uint8_t     		req_status : 4;
 	uint8_t     		flag_route : 1;
 	uint8_t     		flag_repl : 1;
-	uint8_t     		reserved : 2;
+	uint8_t     		access_cnt : 1; // used by pointer dereference
+	uint8_t     		reserved : 1;
 	uint8_t     		seqId;
 	uint16_t    		size;
 	

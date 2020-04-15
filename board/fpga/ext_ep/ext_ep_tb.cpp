@@ -5,7 +5,7 @@
 #include <iostream>
 #include "ext_ep.h"
 
-#define SUBMODULE_TEST	1
+#define SUBMODULE_TEST	0
 
 using namespace std;
 using namespace hls;
@@ -122,12 +122,12 @@ int test_waitqueue()
 void test_ext_ep()
 {
 	const int run_cycles = 100;
-	static int delay = 10;
+	static int delay = 5;
 	stream<ap_uint<DATAWIDTH> > ext_in;
 	stream<ap_uint<DATAWIDTH> > ext_out;
-	ap_uint<DATAWIDTH> in, out;
+	ap_uint<DATAWIDTH> in = 0, out = 0;
 
-	cout << "\nTesting whole whole extapi endpoint" << endl;
+	cout << "\nTesting whole extapi endpoint" << endl;
 
 	// indirect read request
 	in.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_IREAD;
@@ -157,6 +157,7 @@ void test_ext_ep()
 		    out.range(hdr_req_type_up, hdr_req_type_lo) == LEGOMEM_REQ_WRITE) {
 			in = 0;
 			in.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_READ_RESP;
+			in[hdr_access_cnt_bit] = out[hdr_access_cnt_bit];
 			in.range(hdr_seqId_up, hdr_seqId_lo) = 0x0A;
 			in.range(hdr_size_up, hdr_size_lo) = sizeof(struct lego_mem_header) + out.range(mem_size_up, mem_size_lo);
 			in.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_EXTAPI;
@@ -167,7 +168,7 @@ void test_ext_ep()
 
 			ext_in.write(in);
 		}
-		delay = 10;
+		delay = 5;
 	}
 }
 

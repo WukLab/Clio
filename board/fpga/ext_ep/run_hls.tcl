@@ -10,7 +10,6 @@ set board "[lindex $argv 2]"
 open_project	-reset generated_hls_project 
 
 add_files	ext_ep.cpp		-cflags -I../../../include/
-add_files	waitqueue.cpp		-cflags -I../../../include/
 add_files -tb	ext_ep_tb.cpp		-cflags -I../../../include/
 
 # Specify the top-level function for synthesis
@@ -49,7 +48,7 @@ set_clock_uncertainty 0.25
 # UG902: Resets all registers and memories in the design.
 # Any static or global variable variables initialized in the C
 # code is reset to its initialized value.
-config_rtl -reset all -reset_async
+config_rtl -reset all -reset_level low
 
 # Simulate the C code 
 #csim_design

@@ -13,20 +13,12 @@
 //#include <uapi/opcode.h>
 //#include <uapi/lego_mem.h>
 
-
 /**
  * interface and configurations
  */
-/** wait queue version
- * 1. using array based ring buffer
- * 2. using two hls stream
- */
-#define WAITQUEUEVER		2
-#define WAITQUEUESIZE		64
 // module will not work if data width is less than header size
 #define DATAWIDTH		512
 void ext_ep(hls::stream<ap_uint<DATAWIDTH> > &data_in, hls::stream<ap_uint<DATAWIDTH> > &data_out);
-
 
 /**
  * below are internal used structure
@@ -102,6 +94,7 @@ struct coremem_ret {
 #define hdr_up			(BYTETOBIT(sizeof(struct lego_mem_header)) - 1)
 #define hdr_req_status_lo	32
 #define hdr_req_status_up	(hdr_req_status_lo + 3)
+#define hdr_access_cnt_bit	38
 
 // coremem field
 #define mem_va_lo		lowbound2(legomem_read_write_req, op, op_read_write, va)
@@ -139,86 +132,31 @@ struct coremem_ret {
 
 
 /* internal interface */
-struct queue_release {
-	ap_uint<4>  			status;
-	ap_uint<64>  			addr;
+struct data_if {
+	ap_uint<DATAWIDTH>	pkt;
+	ap_uint<1> 		last;
 };
 
-struct queue_entry {
-	ap_uint<DATAWIDTH>		pkt;
-	ap_uint<1> 			last;
+struct release_if {
+	ap_uint<4>  		status;
+	ap_uint<64>  		addr;
 };
 
-
-/**
- * wait queue class
- * hls stream don't support front() operation
- * inherit from hls stream with public class works on simulation but cannot pass synthesis
- * stl queue/deque cannot pass synthesis
- * also we don't need variable length queue
- */
-#if WAITQUEUEVER == 1
-class WaitQueue {
-
-private:
-	uint8_t data[WAITQUEUESIZE];
-	const unsigned int size;
-	unsigned int front_idx, count;
-	void idxadd();
-	unsigned int back_idx();
-
-public:
-	WaitQueue();
-	bool empty();
-	bool full();
-
-	// for simpler implementation
-	// don't check empty here
-	// user should check empty before call this
-	uint8_t front();
-	uint8_t pop();
-	// 0 if success
-	// -1 if failed, queue is full
-	int push(uint8_t input);
+struct data_delay {
+	struct data_if		data;
+	ap_uint<1>		vld;
 };
 
-#elif WAITQUEUEVER == 2
-class WaitQueue {
-
-protected:
-	hls::stream<uint8_t> top;
-	hls::stream<uint8_t> rest;
-
-public:
-	bool empty() {
-		return top.empty();
-	}
-
-	uint8_t front() {
-		uint8_t seqId;
-		if (top.empty())
-			return 0;
-
-		seqId = top.read();
-		top.write(seqId);
-		return seqId;
-	}
-
-	// assume user check empty before pop
-	uint8_t pop() {
-		uint8_t seqId = top.read();
-		if (!rest.empty())
-			top.write(rest.read());
-		return seqId;
-	}
-
-	void push(uint8_t input) {
-		if (empty())
-			top.write(input);
-		else
-			rest.write(input);
-	}
+struct release_delay {
+	struct release_if	data;
+	ap_uint<1>		vld;
 };
-#endif 
+
+#define delay_pkt(pipe, input)	\
+do {				\
+	pipe.data = input;	\
+	pipe.vld = 1;		\
+} while(0)
+
 
 #endif /* _LEGO_MEM_EXT_EP_H_ */
