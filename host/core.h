@@ -202,8 +202,12 @@ int add_localhost_bi(struct endpoint_info *ei);
 #include "stat.h"
 
 /* Debugging info, useful for dev */
+#if 1
 #define dprintf_DEBUG(fmt, ...) \
 	printf("\033[34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+#else
+#define dprintf_DEBUG(fmt, ...)  do { } while (0)
+#endif
 
 /* General info, always on */
 #define dprintf_INFO(fmt, ...) \
