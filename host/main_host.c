@@ -741,8 +741,8 @@ int main(int argc, char **argv)
 			//ret = test_raw_net(board_addr);
 		}
 
-		ret = test_legomem_context();
-		//ret = test_legomem_session();
+		//ret = test_legomem_context();
+		ret = test_legomem_session();
 		//ret = test_legomem_migration();
 	}
 

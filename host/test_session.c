@@ -18,7 +18,7 @@
 
 #include "core.h"
 
-#define NR_SESSIONS	(1)
+#define NR_SESSION	(128)
 
 int test_legomem_session(void)
 {
@@ -26,7 +26,7 @@ int test_legomem_session(void)
 	struct board_info *remote_board;
 	struct session_net **ses_net;
 	int i;
-	int ret;
+	struct timespec ts, te;
 
 	printf("%s(): Running session test\n", __func__);
 	/*
@@ -57,31 +57,36 @@ int test_legomem_session(void)
 	 * Step III
 	 * Start test
 	 */
-	ses_net = malloc(NR_SESSIONS * sizeof(*ses_net));
+	ses_net = malloc(NR_SESSION * sizeof(*ses_net));
 	if (!ses_net)
 		return -1;
-	memset(ses_net, 0, NR_SESSIONS * sizeof(*ses_net));
+	memset(ses_net, 0, NR_SESSION * sizeof(*ses_net));
 
-	for (i = 0; i < NR_SESSIONS; i++) {
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	for (i = 0; i < NR_SESSION; i++) {
 		ses_net[i] = legomem_open_session(ctx, remote_board);
 		if (!ses_net[i]) {
 			dprintf_ERROR("Fail to created the %dth session\n", i);
-			ret = -1;
-			goto cleanup;
+			exit(1);
 		}
 	}
+	clock_gettime(CLOCK_MONOTONIC, &te);
 
-	/*
-	 * We are good
-	 * Success
-	 */
-	ret = 0;
+	printf("open_session avg %f ns (#%d tests)\n",
+		(((double)te.tv_sec*1.0e9 + te.tv_nsec) -
+		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / NR_SESSION, NR_SESSION);
 
-cleanup:
-	for (i = 0; i < NR_SESSIONS; i++) {
-		if (ses_net[i])
-			legomem_close_session(ctx, ses_net[i]);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	for (i = 0; i < NR_SESSION; i++) {
+		legomem_close_session(ctx, ses_net[i]);
 	}
+	clock_gettime(CLOCK_MONOTONIC, &te);
+
+	printf("close_session avg %f ns (#%d tests)\n",
+		(((double)te.tv_sec*1.0e9 + te.tv_nsec) -
+		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / NR_SESSION, NR_SESSION);
+
 	legomem_close_context(ctx);
-	return ret;
+	return 0;
 }
