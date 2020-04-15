@@ -23,10 +23,19 @@ struct endpoint_info monitor_ei;
 struct session_net *monitor_session;
 struct board_info *monitor_bi;
 
-static struct legomem_context *
-__legomem_open_context(bool is_mgmt)
+/*
+ * Allocate a new process-local legomem context.
+ * Monitor will be contacted. On success, the context is returned.
+ *
+ * Note that we will not contact boards at this point.
+ * We leave that to legomem_alloc time, and totally handled by board.
+ */
+struct legomem_context *legomem_open_context(void)
 {
 	struct legomem_context *p;
+	struct legomem_create_context_req req;
+	struct legomem_create_context_resp resp;
+	struct lego_header *lego_header;
 	int ret;
 
 	p = malloc(sizeof(*p));
@@ -34,37 +43,24 @@ __legomem_open_context(bool is_mgmt)
 		return NULL;
 	init_legomem_context(p);
 
-	if (is_mgmt) {
-		p->flags |= LEGOMEM_CONTEXT_FLAGS_MGMT;
-		p->pid = 0;
-	} else {
-		/*
-		 * Normal context creation
-		 * Contact monitor
-		 */
-		struct legomem_create_context_req req;
-		struct legomem_create_context_resp resp;
-		struct lego_header *lego_header;
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_CREATE_PROC;
+	memset(req.op.proc_name, 'a', PROC_NAME_LEN);
 
-		lego_header = to_lego_header(&req);
-		lego_header->opcode = OP_CREATE_PROC;
-		memset(req.op.proc_name, 'a', PROC_NAME_LEN);
-
-		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-					   &resp, sizeof(resp));
-		if (ret <= 0) {
-			dprintf_DEBUG("net error: %d\n", ret);
-			goto err;
-		}
-
-		if (resp.op.ret) {
-			dprintf_DEBUG("monitor fail to create context: %d\n",
-				resp.op.ret);
-			goto err;
-		}
-
-		p->pid = resp.op.pid;
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d\n", ret);
+		goto err;
 	}
+
+	if (resp.op.ret) {
+		dprintf_DEBUG("monitor fail to create context: %d\n",
+			resp.op.ret);
+		goto err;
+	}
+
+	p->pid = resp.op.pid;
 
 	/* Add to per-node context list */
 	ret = add_legomem_context(p);
@@ -78,55 +74,34 @@ err:
 }
 
 /*
- * Allocate a new process-local legomem context.
- * Monitor will be contacted. On success, the context is returned.
- *
- * Note that we will not contact boards at this point.
- * We leave that to legomem_alloc time, and totally handled by board.
- */
-struct legomem_context *legomem_open_context(void)
-{
-	return __legomem_open_context(false);
-}
-
-struct legomem_context *legomem_open_context_mgmt(void)
-{
-	return __legomem_open_context(true);
-}
-
-/*
  * Close a given legomem context. Monitor will be contacted.
  * All resource associated with this context will be freed.
  */
 int legomem_close_context(struct legomem_context *ctx)
 {
+	struct legomem_close_context_req req;
+	struct legomem_close_context_resp resp;
+	struct lego_header *lego_header;
 	int ret;
 
 	if (!ctx)
 		return -EINVAL;
 
-	/* Non-mgmt context need to contact monitor */
-	if (likely(!(ctx->flags & LEGOMEM_CONTEXT_FLAGS_MGMT))) {
-		struct legomem_close_context_req req;
-		struct legomem_close_context_resp resp;
-		struct lego_header *lego_header;
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_FREE_PROC;
+	lego_header->pid = ctx->pid;
 
-		lego_header = to_lego_header(&req);
-		lego_header->opcode = OP_FREE_PROC;
-		lego_header->pid = ctx->pid;
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_DEBUG("net error: %d\n", ret);
+		return -EIO;
+	}
 
-		ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-					   &resp, sizeof(resp));
-		if (ret <= 0) {
-			dprintf_DEBUG("net error: %d\n", ret);
-			return -EIO;
-		}
-		
-		if (resp.ret) {
-			dprintf_DEBUG("monitor fail to close context (pid %u) ret %d\n",
-				ctx->pid, resp.ret);
-			return -EFAULT;
-		}
+	if (resp.ret) {
+		dprintf_DEBUG("monitor fail to close context (pid %u) ret %d\n",
+			ctx->pid, resp.ret);
+		return -EFAULT;
 	}
 
 	remove_legomem_context(ctx);

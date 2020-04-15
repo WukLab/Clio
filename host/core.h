@@ -29,8 +29,6 @@ get_vregion_session(struct legomem_vregion *v)
 	return v->ses_net;
 }
 
-#define LEGOMEM_CONTEXT_FLAGS_MGMT	0x1
-
 struct legomem_context {
 	unsigned long flags;
 	unsigned int pid;
@@ -159,7 +157,6 @@ struct session_net *find_net_session(unsigned int board_ip, unsigned int udp_por
  * LegoMem Public APIs
  */
 struct legomem_context *legomem_open_context(void);
-struct legomem_context *legomem_open_context_mgmt(void);
 int legomem_close_context(struct legomem_context *ctx);
 struct session_net *legomem_open_session(struct legomem_context *ctx, struct board_info *bi);
 struct session_net *generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid);
@@ -223,6 +220,7 @@ int test_legomem_session(void);
 int test_legomem_migration(void);
 int test_legomem_board(char *);
 int test_raw_net(char *);
+int test_legomem_context(void);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

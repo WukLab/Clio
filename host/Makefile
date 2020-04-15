@@ -1,4 +1,5 @@
 TEST_SRCS := test_session.c \
+	     test_context.c \
 	     test_migration.c \
 	     test_raw_net.c \
 	     test_board.c
