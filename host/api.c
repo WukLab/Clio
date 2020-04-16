@@ -389,7 +389,8 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 	}
 
 	if (resp.op.ret) {
-		dprintf_ERROR("Monitor fail to pick a new vRegion %d", resp.op.ret);
+		dprintf_ERROR("Monitor fail to pick a new vRegion %d\n",
+			resp.op.ret);
 		return resp.op.ret;
 	}
 
@@ -591,8 +592,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 
 	addr = resp.op.addr;
 
-	dprintf_DEBUG("addr [%#lx %#lx) size %#lx remote: %s\n",
-			addr, addr + size, size, bi->name);
+	dprintf_DEBUG("addr [%#lx %#lx) size %#lx\n",
+			addr, addr + size, size);
 	return addr;
 }
 

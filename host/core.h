@@ -80,6 +80,26 @@ find_vregion_session(struct legomem_vregion *v, pid_t tid)
 	return NULL;
 }
 
+int get_ip_str(unsigned int ip, char *ip_str);
+static inline void dump_legomem_vregion(struct legomem_vregion *v)
+{
+	int i;
+	char ip_str[INET_ADDRSTRLEN];
+	struct session_net *ses;
+
+	get_ip_str(v->board_ip, ip_str);
+	printf("vRegion (board %s:%u) avail_space: %u B flags: %#x\n",
+		ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
+
+	printf("     bkt       ses_local       tid\n");
+	printf("-------- ---------------  --------\n");
+	pthread_rwlock_rdlock(&v->rwlock);
+	hash_for_each(v->ht_sessions, i, ses, ht_link_vregion) {
+		printf("%8d %15d %8d\n", i, get_local_session_id(ses), ses->tid);
+	}
+	pthread_rwlock_unlock(&v->rwlock);
+}
+
 static inline void init_legomem_vregion(struct legomem_vregion *v)
 {
 	atomic_store(&v->avail_space, VREGION_SIZE);
@@ -261,7 +281,7 @@ int add_localhost_bi(struct endpoint_info *ei);
 #include "stat.h"
 
 /* Debugging info, useful for dev */
-#if 0
+#if 1
 #define dprintf_DEBUG(fmt, ...) \
 	printf("\033[34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
 #else
