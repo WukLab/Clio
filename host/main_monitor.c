@@ -49,37 +49,6 @@ static pthread_spinlock_t(pid_lock);
 static DEFINE_HASHTABLE(proc_hash_array, PID_ARRAY_HASH_BITS);
 static pthread_spinlock_t proc_lock;
 
-static void init_vregion(struct vregion_info *v)
-{
-	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
-	v->mmap = NULL;
-	v->mm_rb = RB_ROOT;
-	v->nr_vmas = 0;
-	v->highest_vm_end = 0;
-	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
-}
-
-static void init_proc_info(struct proc_info *pi)
-{
-	int j;
-	struct vregion_info *v;
-
-	pi->flags = 0;
-
-	INIT_HLIST_NODE(&pi->link);
-	pi->pid = 0;
-	pi->node = 0;
-
-	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
-	atomic_init(&pi->refcount, 1);
-
-	pi->nr_vmas = 0;
-	for (j = 0; j < NR_VREGIONS; j++) {
-		v = pi->vregion + j;
-		init_vregion(v);
-	}
-}
-
 int alloc_pid(void)
 {
 	int bit;
@@ -247,7 +216,7 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	resp->op.ret = 0;
 	resp->op.pid = pid;
 
-	if (0) {
+	if (1) {
 		char ip_str[INET_ADDRSTRLEN];
 		get_ip_str(src_ip, ip_str);
 		dprintf_DEBUG("new context pid %u for host %s\n",
@@ -327,6 +296,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 {
 	struct legomem_alloc_free_req *req;
 	struct legomem_alloc_free_resp *resp;
+	struct lego_header *lego_header;
 	unsigned int pid;
 	struct proc_info *pi;
 	unsigned long len;
@@ -337,9 +307,11 @@ static void handle_alloc(struct thpool_buffer *tb)
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	req = (struct legomem_alloc_free_req *)tb->rx;
-	pid = 0;
+	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
 	pi = get_proc_by_pid(pid);
 	if (!pi) {
+		dprintf_ERROR("fail to find pid %d\n", pid);
 		resp->op.ret = -ESRCH;
 		return;
 	}
@@ -353,6 +325,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 
 	vi = alloc_vregion(pi);
 	if (!vi) {
+		dprintf_ERROR("fail to allocate a new vRegion for pid %d\n", pid);
 		resp->op.ret = -ENOMEM;
 		goto out;
 	}
@@ -366,9 +339,8 @@ static void handle_alloc(struct thpool_buffer *tb)
 	if (!bi) {
 		free_vregion(pi, vi);
 
-		resp->op.ret = -EPERM;
-		printf("%s(): WARN. No board available. Requester: %d\n",
-			__func__, pid);
+		resp->op.ret = -ENODEV;
+		dprintf_ERROR("No board available. pid %d\n", pid);
 		goto out;
 	}
 

@@ -201,7 +201,8 @@ board_find_session(struct board_info *p, int session_id)
  *   will succeed, futher it may tweak the tree in a way
  *   that no allocation will be possible further more.
  */
-#define VREGION_INFO_FLAG_ALLOCATED	(0x1)
+#define VREGION_INFO_FLAG_ALLOCATED		(0x1)
+#define VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN	(0x2)
 struct vregion_info {
 	unsigned int		flags;
 	int			board_ip;
@@ -253,10 +254,42 @@ struct proc_info {
 	int			nr_vmas;
 };
 
-#define PROC_INFO_FLAGS_ALLOCATED	0x1
+static inline void init_vregion(struct vregion_info *v)
+{
+	v->flags = VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN;
+	v->mmap = NULL;
+	v->mm_rb = RB_ROOT;
+	v->nr_vmas = 0;
+	v->highest_vm_end = 0;
+	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline void init_proc_info(struct proc_info *pi)
+{
+	int j;
+	struct vregion_info *v;
+
+	pi->flags = 0;
+
+	INIT_HLIST_NODE(&pi->link);
+	pi->pid = 0;
+	pi->node = 0;
+
+	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
+	atomic_init(&pi->refcount, 1);
+
+	pi->nr_vmas = 0;
+	for (j = 0; j < NR_VREGIONS; j++) {
+		v = pi->vregion + j;
+		init_vregion(v);
+	}
+}
 
 struct vm_unmapped_area_info {
-#define VM_UNMAPPED_AREA_TOPDOWN 1
+	/*
+	 * Use VREGION_INFO flags
+	 * VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN
+	 */
 	unsigned long flags;
 	unsigned long length;
 	unsigned long low_limit;

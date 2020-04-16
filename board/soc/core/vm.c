@@ -1145,7 +1145,7 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 	info.low_limit = low_limit;
 	info.high_limit = high_limit;
 
-	if (vi->flags == VM_UNMAPPED_AREA_TOPDOWN)
+	if (vi->flags & VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN)
 		addr = __find_va_range_topdown(proc, vi, &info);
 	else
 		addr = __find_va_range_bottomup(proc, vi, &info);

@@ -52,37 +52,6 @@ void dump_procs(void)
 	pthread_spin_unlock(&proc_lock);
 }
 
-static void init_vregion(struct vregion_info *v)
-{
-	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
-	v->mmap = NULL;
-	v->mm_rb = RB_ROOT;
-	v->nr_vmas = 0;
-	v->highest_vm_end = 0;
-	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
-}
-
-static void init_proc_info(struct proc_info *pi)
-{
-	int j;
-	struct vregion_info *v;
-
-	pi->flags = 0;
-
-	INIT_HLIST_NODE(&pi->link);
-	pi->pid = 0;
-	pi->node = 0;
-
-	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
-	atomic_init(&pi->refcount, 1);
-
-	pi->nr_vmas = 0;
-	for (j = 0; j < NR_VREGIONS; j++) {
-		v = pi->vregion + j;
-		init_vregion(v);
-	}
-}
-
 /*
  * This is a public API to allocate a new process address space.
  * proc_name and host_ip are optional.
