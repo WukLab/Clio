@@ -38,9 +38,21 @@ struct session_net {
 	/* The Ethernet/IP/UDP header info, 44 bytes */
 	struct routing_info	route;
 
-	struct hlist_node	ht_link_host;
+	/*
+	 * We have various hlist_nodes for various hashtables.
+	 * Each board_info wants to maintain a list of open sessions
+	 * Each user context wants to maintain a list of open sessions
+	 * Each vRegion as well
+	 */
+
+	/* for board_info, used in sched.h */
 	struct hlist_node	ht_link_board;
+
+	/* for legomem_context, used in context.c */
 	struct hlist_node	ht_link_context;
+
+	/* for legomem_vregion */
+	struct hlist_node	ht_link_vregion;
 
 	/* Private data used by transport layer */
 	void			*transport_private;

@@ -1,5 +1,6 @@
 TEST_SRCS := test_session.c \
 	     test_context.c \
+	     test_alloc.c \
 	     test_migration.c \
 	     test_raw_net.c \
 	     test_board.c
@@ -17,7 +18,7 @@ C_SRCS := board.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c
 
-SRCS := $(C_SRCS) $(TEST_SRCS)
+SRCS := $(C_SRCS)
 
 INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread
@@ -30,7 +31,7 @@ EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 DEBUG :=
 
 all: $(SRCS) 
-	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(TEST_SRCS) $(CLIBS)
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(CLIBS)
 

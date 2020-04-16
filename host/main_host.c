@@ -562,6 +562,8 @@ int main(int argc, char **argv)
 	char board_addr[32];
 	char board_addr_set = false;
 
+	printf("%zu %zu\n", sizeof(struct legomem_vregion), sizeof(pthread_rwlock_t));
+
 	/* Parse arguments */
 	while (1) {
 		c = getopt_long(argc, argv, "m:p:d:b:t",
@@ -740,8 +742,9 @@ int main(int argc, char **argv)
 			//ret = test_raw_net(board_addr);
 		}
 
-		ret = test_legomem_context();
-		//ret = test_legomem_session();
+		ret = test_legomem_alloc_free();
+		//ret = test_legomem_context();
+		ret = test_legomem_session();
 		//ret = test_legomem_migration();
 	}
 

@@ -29,6 +29,8 @@
  */
 extern struct profile_point *__start_profile_point, *__stop_profile_point;
 
+DEFINE_PROFILE_POINT(unused);
+
 /*
  * TODO
  */

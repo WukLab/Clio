@@ -10,23 +10,80 @@
 #include "net/net.h"
 #include <limits.h>
 #include <time.h>
+#include <pthread.h>
 
+#define LEGOMEM_VREGION_ALLOCATED (0x1u)
+
+/*
+ * pthread_rwlock_t is a big structure, around 50-60B.
+ * Thus it's impossible to tame whole structure with one cacheline.
+ * With hash entries being 6, we almost fully occupy two full lines.
+ */
 struct legomem_vregion {
-	int board_id;
-	int avail_space;
-	struct session_net *ses_net;
-};
+	int board_ip;
+	unsigned int udp_port;
+	unsigned int flags;
+	atomic_int avail_space;
 
-static inline void
-set_vregion_session(struct legomem_vregion *v, struct session_net *ses)
+#define LEGOMEM_VREGION_HT_ENTRIES	(6)
+	struct hlist_head ht_sessions[LEGOMEM_VREGION_HT_ENTRIES];
+	pthread_rwlock_t rwlock;
+} __aligned(64);
+
+static __always_inline int
+add_vregion_session(struct legomem_vregion *v, struct session_net *ses)
 {
-	v->ses_net = ses;
+	int key;
+
+	key = ses->tid;
+
+	pthread_rwlock_wrlock(&v->rwlock);
+	hash_add(v->ht_sessions, &ses->ht_link_vregion, key);
+	pthread_rwlock_unlock(&v->rwlock);
+
+	return 0;
 }
 
-static inline struct session_net *
-get_vregion_session(struct legomem_vregion *v)
+static __always_inline int
+remove_vregion_session(struct legomem_vregion *v, pid_t tid) 
 {
-	return v->ses_net;
+	struct session_net *ses;
+	int key = tid;
+
+	pthread_rwlock_wrlock(&v->rwlock);
+	hash_for_each_possible(v->ht_sessions, ses, ht_link_vregion, key) {
+		if (likely(tid == ses->tid)) {
+			hash_del(&ses->ht_link_vregion);
+			pthread_rwlock_unlock(&v->rwlock);
+			return 0;
+		}
+	}
+	pthread_rwlock_unlock(&v->rwlock);
+	return -1;
+}
+
+/* Frequently used, sitting on datapath */
+static __always_inline struct session_net *
+find_vregion_session(struct legomem_vregion *v, pid_t tid)
+{
+	struct session_net *ses;
+	int key = tid;
+
+	pthread_rwlock_rdlock(&v->rwlock);
+	hash_for_each_possible(v->ht_sessions, ses, ht_link_vregion, key) {
+		if (likely(tid == ses->tid)) {
+			pthread_rwlock_unlock(&v->rwlock);
+			return ses;
+		}
+	}
+	pthread_rwlock_unlock(&v->rwlock);
+	return NULL;
+}
+
+static inline void init_legomem_vregion(struct legomem_vregion *v)
+{
+	atomic_store(&v->avail_space, VREGION_SIZE);
+	pthread_rwlock_init(&v->rwlock, NULL);
 }
 
 struct legomem_context {
@@ -40,13 +97,14 @@ struct legomem_context {
 	 * List of all open sessions of this context.
 	 * Served as a cache for future vRegion additions.
 	 */
-	struct hlist_head ht_sessions[4];
+#define LEGOMEM_CONTEXT_HT_ENTREIS (16)
+	struct hlist_head ht_sessions[LEGOMEM_CONTEXT_HT_ENTREIS];
 	pthread_spinlock_t lock;
 
 	struct legomem_vregion vregion[NR_VREGIONS];
 	struct legomem_vregion *cached_vregion;
 	struct list_head open_vregion;
-};
+} __aligned(64);
 
 static inline void init_legomem_context(struct legomem_context *p)
 {
@@ -58,13 +116,10 @@ static inline void init_legomem_context(struct legomem_context *p)
 	INIT_HLIST_NODE(&p->link);
 	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
 
-	/* init all vregions */
 	for (i = 0; i < NR_VREGIONS; i++) {
 		struct legomem_vregion *v;
-
 		v = p->vregion + i;
-		v->avail_space = VREGION_SIZE;
-		v->ses_net = NULL;
+		init_legomem_vregion(v);
 	}
 }
 
@@ -128,9 +183,9 @@ struct legomem_context *find_legomem_context(unsigned int pid);
 void dump_legomem_context(void);
 int context_add_session(struct legomem_context *p, struct session_net *ses);
 int context_remove_session(struct legomem_context *p, struct session_net *ses);
-struct session_net *context_find_session_by_ip(struct legomem_context *p,
-					       pid_t tid,
-					       unsigned int board_ip);
+struct session_net *
+context_find_session(struct legomem_context *p, pid_t tid,
+		     int board_ip, unsigned udp_port);
 struct session_net *context_find_session_by_board(struct legomem_context *p,
 						  pid_t tid,
 						  struct board_info *bi);
@@ -168,6 +223,10 @@ legomem_open_session_remote_mgmt(struct board_info *bi);
 struct session_net *
 legomem_open_session_local_mgmt(struct board_info *bi);
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
+unsigned long __remote
+legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags);
+int legomem_free(struct legomem_context *ctx,
+		 unsigned long __remote addr, size_t size);
 
 /* init and utils */
 extern char global_net_dev[32];
@@ -202,7 +261,7 @@ int add_localhost_bi(struct endpoint_info *ei);
 #include "stat.h"
 
 /* Debugging info, useful for dev */
-#if 1
+#if 0
 #define dprintf_DEBUG(fmt, ...) \
 	printf("\033[34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
 #else
@@ -225,6 +284,7 @@ int test_legomem_migration(void);
 int test_legomem_board(char *);
 int test_raw_net(char *);
 int test_legomem_context(void);
+int test_legomem_alloc_free(void);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

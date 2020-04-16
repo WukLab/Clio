@@ -359,6 +359,51 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 }
 
 /*
+ * This function will contact monitor and ask for a new vRegion index
+ * and its newly assigned board. On success, both info will be returned.
+ * Also, the board is not notified at this time.
+ */
+static int
+ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
+			    unsigned long vm_flags,
+			    int *board_ip, unsigned int *board_port,
+			    unsigned int *vregion_idx)
+{
+	struct legomem_alloc_free_req req;
+	struct legomem_alloc_free_resp resp;
+	struct lego_header *lego_header;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_ALLOC;
+	lego_header->pid = ctx->pid;
+
+	req.op.len = size;
+	req.op.vm_flags = 0;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_ERROR("net error %d\n", ret);
+		return -EIO;
+	}
+
+	if (resp.op.ret) {
+		dprintf_ERROR("Monitor fail to pick a new vRegion %d", resp.op.ret);
+		return resp.op.ret;
+	}
+
+	/*
+	 * Success. Monitor picked a new board and a new vRegion index
+	 * board_ip+udp_port uniquely identify a legomem instance
+	 */
+	*board_ip = resp.op.board_ip;
+	*board_port = resp.op.udp_port;
+	*vregion_idx = resp.op.vregion_idx;
+	return 0;
+}
+
+/*
  * This function tries to find an already established vregion that could
  * possibily allocate @size mem for us. Return the vRegion if found one,
  * NULL otherwise and caller needs to contact monitor.
@@ -376,45 +421,20 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 
 	for ( ; i < NR_VREGIONS; i++) {
 		v = p->vregion + i;
-		if (v->avail_space >= size) {
+
+		if (!(v->flags & LEGOMEM_VREGION_ALLOCATED))
+			continue;
+
+		/*
+		 * Note that when vRegion is initiated during startup,
+		 * each vRegion's avail_space is full vRegion size.
+		 */
+		if (atomic_load(&v->avail_space) >= size) {
 			p->cached_vregion = v;
 			return v;
 		}
 	}
 	return NULL;
-}
-
-static int
-ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
-			    unsigned long vm_flags,
-			    unsigned int *board_ip, unsigned int *board_port,
-			    unsigned int *vregion_idx)
-{
-	struct legomem_alloc_free_req req;
-	struct legomem_alloc_free_resp resp;
-	struct lego_header *lego_header;
-	int ret;
-
-	lego_header = to_lego_header(&req);
-	lego_header->opcode = OP_REQ_ALLOC;
-	lego_header->pid = ctx->pid;
-
-	req.op.len = size;
-	req.op.vm_flags = 0;
-
-	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
-	if (ret <= 0)
-		return -EIO;
-
-	if (resp.op.ret)
-		return resp.op.ret;
-
-	/* success */
-	*board_ip = resp.op.board_ip;
-	*board_port = resp.op.udp_port;
-	*vregion_idx = resp.op.vregion_idx;
-	return 0;
 }
 
 /*
@@ -431,76 +451,109 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	struct legomem_alloc_free_resp resp;
 	struct lego_header *lego_header;
 	struct legomem_vregion *v;
-	struct session_net *ses;
-	unsigned int board_ip, board_port, vregion_idx;
+	struct board_info *bi;
+	struct session_net *ses, *ses_vregion;
+	unsigned int udp_port = 0, vregion_idx = 0;
+	int board_ip = 0;
 	int ret;
 	pid_t tid;
 	unsigned long __remote addr;
+	bool new_session;
+
+	tid = gettid();
 
 	/*
-	 * First try to find an existing
-	 * vregion that could possibly fulfill this request:
+	 * Step I:
+	 * Try to find an existing vregion that could possibly fulfill
+	 * this alloc request. We first search local, if not found, we
+	 * will contact monitor.
 	 */
 	v = find_vregion_candidate(ctx, size);
 	if (v) {
-		ses = get_vregion_session(v);
-		BUG_ON(!ses);
-
 		vregion_idx = legomem_vregion_to_index(ctx, v);
-		goto found;
+		board_ip = v->board_ip;
+		udp_port = v->udp_port;
+	} else {
+		/*
+		 * Otherwise we ask monitor to alloc a new vRegion
+		 * and it will tell use the new board and vRegion index
+		 */
+		ret = ask_monitor_for_new_vregion(ctx, size, vm_flags,
+						  &board_ip, &udp_port, &vregion_idx);
+		if (ret) {
+			dprintf_ERROR("fail to get new vRegion from monitor %d\n",ret);
+			return 0;
+		}
+		v = index_to_legomem_vregion(ctx, vregion_idx);
+
+		/* Prepare the new vRegion */
+		init_legomem_vregion(v);
+		v->board_ip = board_ip;
+		v->udp_port = udp_port;
+		v->flags = LEGOMEM_VREGION_ALLOCATED;
 	}
 
 	/*
-	 * Otherwise we ask monitor to alloc a new vRegion
-	 * and it will tell use the new board and vRegion index
-	 */
-	ret = ask_monitor_for_new_vregion(ctx, size, vm_flags,
-					  &board_ip, &board_port, &vregion_idx);
-	if (ret)
-		return 0;
-
-	/*
-	 * Monitor has picked a board and a vRegion for us.
-	 * We do not know if this context has connected with the board.
-	 * Thus, here we check if this context and this thread
-	 * already has an established session with the new board.
+	 * Step II:
+	 * We need to check if this running _thread_ (not process)
+	 * has established a network connection with this particular board.
 	 *
-	 * A context could have multiple threads connecting to the board,
-	 * each with its own session. Thus, we need to use BOARD_IP+THREAD_ID.
+	 * We search the per-context cached session hashtable.
+	 * The key is current thread tid, board_ip+udp_port.
 	 */
-	tid = gettid();
-	ses = context_find_session_by_ip(ctx, tid, board_ip);
+	new_session = false;
+	ses = context_find_session(ctx, tid, board_ip, udp_port);
 	if (!ses) {
-		/*
-		 * Okay, there is no session between this thread
-		 * and this board. Use the public API to open one:
-		 */
-		struct board_info *bi;
-
-		bi = find_board(board_ip, board_port);
-		if (unlikely(bi)) {
+		/* There wasn't, so we create a new one */
+		bi = find_board(board_ip, udp_port);
+		if (!bi) {
 			char ip_str[INET_ADDRSTRLEN];
 			get_ip_str(board_ip, ip_str);
-			dprintf_ERROR("board not found. ip %s port %u\n",
-				ip_str, board_port);
+			dprintf_ERROR("Board not found: ip %s port %u. "
+				      "The board was selected by monitor, "
+				      "check startup join_cluster or --add_board.\n",
+				ip_str, udp_port);
 			return 0;
 		}
 
-		ses = legomem_open_session(ctx, bi);
-		if (unlikely(!ses))
+		ses = __legomem_open_session(ctx, bi, tid, false, false);
+		if (!ses) {
+			dprintf_ERROR("Fail to open a net session with "
+				      "the newly selected board: %s\n", bi->name);
 			return 0;
+		}
+		new_session = true;
 	}
 
 	/*
-	 * At this point we have the new vRegion
-	 * and a new session (or an old one), we simply
-	 * link them together:
+	 * Step III:
+	 *
+	 * Next check if this new session has already been
+	 * inserted into the per-vRegion cached session hashtable.
 	 */
-	v = index_to_legomem_vregion(ctx, vregion_idx);
-	set_vregion_session(v, ses);
+	ses_vregion = find_vregion_session(v, tid);
+	if (ses_vregion) {
+		if (unlikely(ses_vregion != ses)) {
+			dprintf_ERROR("BUG. If a session is found in the per-vRegion "
+				      "list, then it should match the one in the "
+				      "per-context list.\n"
+				      "    per-vRegion: %#lx per-context: %#lx new_session: %d\n",
+					(unsigned long)ses_vregion,
+					(unsigned long)ses,
+					new_session);
+			return 0;
+		}
+	} else {
+		/*
+		 * Otherwise we need to add it to the per-vRegion list.
+		 * This session could be newly created, also can be an old
+		 * one used by other vRegions.
+		 */
+		add_vregion_session(v, ses);
+	}
 
-found:
 	/*
+	 * Step IV:
 	 * All good, once we are here, it means
 	 * we have a valid vRegion and net session.
 	 */
@@ -513,8 +566,8 @@ found:
 	req.op.vm_flags = vm_flags;
 
 	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
-	if (ret <= 0) {
-		printf("%s(): fail to reach board.\n", __func__);
+	if (unlikely(ret <= 0)) {
+		dprintf_ERROR("net error %d\n", ret);
 		return ret;
 	}
 
@@ -534,7 +587,12 @@ found:
 		return 0;
 	}
 
+	atomic_fetch_sub(&v->avail_space, size);
+
 	addr = resp.op.addr;
+
+	dprintf_DEBUG("addr [%#lx %#lx) size %#lx remote: %s\n",
+			addr, addr + size, size, bi->name);
 	return addr;
 }
 
@@ -549,10 +607,11 @@ int legomem_free(struct legomem_context *ctx,
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
-	ses = v->ses_net;
+	ses = find_vregion_session(v, gettid());
 	if (unlikely(!ses)) {
-		printf("%s(): addr %#lx was not allocated.\n",
-			__func__, addr);
+		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
+			      "an associated net session. It should "
+			      "have been created by legomem_alloc.\n", addr);
 		return -EINVAL;
 	}
 
@@ -564,17 +623,14 @@ int legomem_free(struct legomem_context *ctx,
 	req.op.addr = addr;
 	req.op.len = size;
 
-	ret = net_send(ses, &req, sizeof(req));
+	ret = net_send_and_receive(ses, &req, sizeof(req),
+				   &resp, sizeof(resp));
 	if (ret <= 0) {
-		printf("%s(): fail to send req\n", __func__);
+		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
 	}
 
-	ret = net_receive(ses, &resp, sizeof(resp));
-	if (ret <= 0) {
-		printf("%s() fail to recv msg\n", __func__);
-		return -EIO;
-	}
+	atomic_fetch_add(&v->avail_space, size);
 	return 0;
 }
 
@@ -592,10 +648,11 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
-	ses = v->ses_net;
+	ses = find_vregion_session(v, gettid());
 	if (unlikely(!ses)) {
-		printf("%s(): remote addr %#lx has no established session.\n",
-			__func__, addr);
+		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
+			      "an associated net session. It should "
+			      "have been created by legomem_alloc.\n", addr);
 		return -EINVAL;
 	}
 
@@ -644,10 +701,11 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
-	ses = v->ses_net;
+	ses = find_vregion_session(v, gettid());
 	if (unlikely(!ses)) {
-		printf("%s(): remote addr %#lx has no established session.\n",
-			__func__, addr);
+		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
+			      "an associated net session. It should "
+			      "have been created by legomem_alloc.\n", addr);
 		return -EINVAL;
 	}
 
@@ -741,7 +799,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	 * then open a new session with new board.
 	 */
 	v = index_to_legomem_vregion(ctx, vregion_index);
-	ses = get_vregion_session(v);
+	ses = find_vregion_session(v, gettid());
 	legomem_close_session(ctx, ses);
 
 	ses = legomem_open_session(ctx, dst_bi);
@@ -752,7 +810,9 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 			dst_bi->name);
 		return -ENOMEM;
 	}
-	set_vregion_session(v, ses);
+
+	remove_vregion_session(v, gettid());
+	add_vregion_session(v, ses);
 
 	return 0;
 }

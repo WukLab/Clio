@@ -50,7 +50,7 @@ struct vm_area_struct;
 
 struct board_info {
 	char			name[BOARD_NAME_LEN];
-	unsigned int		board_ip;
+	int			board_ip;
 	unsigned int		udp_port;
 	unsigned long		flags;
 
@@ -204,7 +204,7 @@ board_find_session(struct board_info *p, int session_id)
 #define VREGION_INFO_FLAG_ALLOCATED	(0x1)
 struct vregion_info {
 	unsigned int		flags;
-	unsigned int		board_ip;
+	int			board_ip;
 	unsigned int		udp_port;
 
 	/*

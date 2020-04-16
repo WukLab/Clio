@@ -40,18 +40,9 @@ int test_legomem_session(void)
 
 	/*
 	 * Step II
-	 * Find a remote host we wanna talk with
+	 * Use monitor is fine because all hosts are using the same stack.
 	 */
-	remote_board = find_board(ANY_BOARD, ANY_BOARD);
-	if (!remote_board) {
-		legomem_close_context(ctx);
-
-		dprintf_ERROR("Please add more host/board before testing. "
-			      "We cannot find any available boards. %d\n", 0);
-		dump_boards();
-		return -1;
-	}
-	printf("board %s\n", remote_board->name);
+	remote_board = monitor_bi;
 
 	/*
 	 * Step III
