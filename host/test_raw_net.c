@@ -73,8 +73,8 @@ static void test_pingpong(struct board_info *bi, struct session_net *ses)
 		lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		printf("%s(): nr_tests: %d send_size: %u avg: %lf ns\n",
-			__func__, nr_tests, send_size, lat_ns / nr_tests);
+		dprintf_INFO("nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
+			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
 	}
 }
 

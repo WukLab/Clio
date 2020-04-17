@@ -3,6 +3,7 @@ TEST_SRCS := test_session.c \
 	     test_alloc.c \
 	     test_migration.c \
 	     test_raw_net.c \
+	     test_rel_net.c \
 	     test_board.c
 
 C_SRCS := board.c \

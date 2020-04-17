@@ -745,11 +745,13 @@ int main(int argc, char **argv)
 			     "** (on cpu %d node %d)\n"
 			     "**\n", cpu, node);
 		if (board_addr_set) {
-			ret = test_legomem_board(board_addr);
+			//ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);
 		}
 
-		ret = test_legomem_alloc_free();
+		ret = test_rel_net();
+
+		//ret = test_legomem_alloc_free();
 		//ret = test_legomem_context();
 		//ret = test_legomem_session();
 		//ret = test_legomem_migration();
