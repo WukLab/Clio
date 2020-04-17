@@ -18,7 +18,8 @@ int test_legomem_alloc_free(void)
 {
 	struct legomem_context *ctx;
 	struct timespec ts, te;
-	unsigned long __remote addr;
+	unsigned long __remote *addr;
+	unsigned long size;
 	int nr_tests, i;
 
 	ctx = legomem_open_context();
@@ -27,9 +28,18 @@ int test_legomem_alloc_free(void)
 	dump_legomem_contexts();
 
 	nr_tests = 3;
+	size = 1024;
+	addr = malloc(sizeof(*addr) * nr_tests);
+
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < nr_tests; i++) {
-		addr = legomem_alloc(ctx, 128, 0);
+		addr[i] = legomem_alloc(ctx, size, 0);
+	}
+	clock_gettime(CLOCK_MONOTONIC, &te);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	for (i = 0; i < nr_tests; i++) {
+		legomem_free(ctx, addr[i], size);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &te);
 

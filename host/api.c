@@ -643,16 +643,13 @@ int legomem_free(struct legomem_context *ctx,
 	return 0;
 }
 
-/*
- * Ctx+addr -> vregion -> board + connection
- */
 int legomem_read(struct legomem_context *ctx, void *buf,
 		 unsigned long __remote addr, size_t size)
 {
 	struct legomem_vregion *v;
 	struct session_net *ses;
 	struct legomem_read_write_req req;
-	struct legomem_read_write_resp *resp;
+	struct legomem_read_write_resp *tmp_resp;
 	struct lego_header *lego_header;
 	int ret;
 
@@ -672,35 +669,41 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 	req.op.va = addr;
 	req.op.size = size;
 
-	ret = net_send(ses, &req, sizeof(req));
-	if (ret <= 0) {
-		printf("%s(): fail to send req\n", __func__);
-		return -EIO;
-	}
-
 	/*
-	 * TODO
-	 * temporary solution: if user just provide arbitrary buffer
-	 * we cannot use it to recv msg because of extra headers.
-	 * And we need to pay extra malloc/memcpy/free to it.
-	 *
-	 * An ideal case is to make user aware of this. Or provide a 
-	 * msg/buffer alloc API for users.
+	 * XXX
+	 * ugh? This is obviously not good.
+	 * Either caller prepare a larger buffer,
+	 * or we create a sge interface.
 	 */
-	resp = malloc(size + sizeof(*resp));
-	ret = net_receive(ses, resp, size + sizeof(*resp));
-	if (ret <= 0) {
-		printf("%s() fail to recv msg\n", __func__);
+	tmp_resp = malloc(size + sizeof(*tmp_resp));
+
+	ret = net_send_and_receive(ses, &req, sizeof(req),
+				   tmp_resp, size + sizeof(*tmp_resp));
+	if (unlikely(ret <= 0)) {
+		dprintf_ERROR("net errno %d\n", ret);
 		return -EIO;
 	}
 
-	memcpy(buf, resp->ret.data, size);
-	free(resp);
+	if (unlikely(tmp_resp->ret.ret)) {
+		dprintf_ERROR("board fail to read %d\n",
+			tmp_resp->ret.ret);
+		return -EFAULT;
+	}
+
+	memcpy(buf, tmp_resp->ret.data, size);
+	free(tmp_resp);
+
 	return 0;
 }
 
-int legomem_write(struct legomem_context *ctx, void *buf,
-		  unsigned long __remote addr, size_t size)
+enum legomem_write_flag {
+	LEGOMEM_WRITE_SYNC,
+	LEGOMEM_WRITE_ASYNC,
+};
+
+int __legomem_write(struct legomem_context *ctx, void *buf,
+		    unsigned long __remote addr, size_t size,
+		    enum legomem_write_flag flag)
 {
 	struct legomem_vregion *v;
 	struct session_net *ses;
@@ -719,44 +722,63 @@ int legomem_write(struct legomem_context *ctx, void *buf,
 	}
 
 	/*
-	 * TODO
+	 * XXX
 	 * same as legomem_read.
-	 *
-	 * The downside of a "CPU transport" showcase here.
-	 * I.e., we need to explicitly manage the buffers and reserve
-	 * space for headers.
-	 *
-	 * If this is a hardware transport, everything can be attached
-	 * by hardware on the fly.
+	 * malloc/memcpy/free can be saved
 	 */
 	req = malloc(size + sizeof(*req));
+	memcpy(req->op.data, buf, size);
 
 	lego_header = to_lego_header(req);
-	lego_header->opcode = OP_REQ_WRITE;
 	lego_header->pid = ctx->pid;
+	if (flag == LEGOMEM_WRITE_SYNC)
+		lego_header->opcode = OP_REQ_WRITE;
+	else if (flag == LEGOMEM_WRITE_ASYNC)
+		lego_header->opcode = OP_REQ_WRITE_NOREPLY;
 
 	req->op.va = addr;
 	req->op.size = size;
-	memcpy(req->op.data, buf, size);
 
 	ret = net_send(ses, req, size + sizeof(*req));
-	if (ret <= 0) {
-		printf("%s(): fail to send\n", __func__);
+	if (unlikely(ret <= 0)) {
+		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
-	}
-
-	ret = net_receive(ses, &resp, sizeof(resp));
-	if (ret <= 0) {
-		printf("%s(): fail to receive\n", __func__);
-		return -EIO;
-	}
-
-	if (resp.ret.ret != 0) {
-		printf("%s(): fail to perform legomem write\n", __func__);
 	}
 	free(req);
 
+	if (flag == LEGOMEM_WRITE_SYNC) {
+		ret = net_receive(ses, &resp, sizeof(resp));
+		if (unlikely(ret <= 0)) {
+			dprintf_ERROR("net errno %d\n", ret);
+			return -EIO;
+		}
+		if (unlikely(resp.ret.ret)) {
+			dprintf_ERROR("board fail to write %d\n",
+				resp.ret.ret);
+			return -EFAULT;
+		}
+	}
 	return 0;
+}
+
+/*
+ * Perform a legomem write to remote board (s).
+ * This is the synchronous version where we will wait for the ACK from board (s).
+ */
+int legomem_write_sync(struct legomem_context *ctx, void *buf,
+		       unsigned long __remote addr, size_t size)
+{
+	return __legomem_write(ctx, buf, addr, size, LEGOMEM_WRITE_SYNC);
+}
+
+/*
+ * This function will return right after the data is sent out from current host. 
+ * In other words, there is no guarantee that data has persisted when it returns.
+ */
+int legomem_write_async(struct legomem_context *ctx, void *buf,
+			unsigned long __remote addr, size_t size)
+{
+	return __legomem_write(ctx, buf, addr, size, LEGOMEM_WRITE_ASYNC);
 }
 
 /*
