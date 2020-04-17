@@ -17,6 +17,16 @@
 
 #include "core.h"
 
+/*
+ * BIG FAT NOTE: some steps for raw new testing
+ *
+ * 1. Have a host.o and monitor.o ready at two machines.
+ * 2. Use host.o to send packet
+ * 3. comment out the while (1) loop in dispatcher() [host.o]
+ * 4. try to use net_receive instead of net_receive_zeropy in dispather() [monitor.o]
+ * 5. Use scripts/test_raw_net.sh, modify ports, device etc
+ */
+
 static void test_pingpong(struct board_info *bi, struct session_net *ses)
 {
 	struct legomem_pingpong_req *req;
@@ -51,7 +61,7 @@ static void test_pingpong(struct board_info *bi, struct session_net *ses)
 		/* need to include header size */
 		send_size += sizeof(struct legomem_common_headers);
 
-		nr_tests = 100;
+		nr_tests = 1000;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			//printf("i %d j %d\n", i, j);
