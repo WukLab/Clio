@@ -968,9 +968,16 @@ static void *dispatcher(void *_unused)
 	}
 
 	while (1) {
+#if 1
 		ret = net_receive_zerocopy(mgmt_session, &tb->rx, &tb->rx_size);
 		if (ret <= 0)
 			continue;
+#else
+		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
+		if (ret <= 0)
+			continue;
+		tb->rx_size = ret;
+#endif
 
 		/*
 		 * Inline handling for now
