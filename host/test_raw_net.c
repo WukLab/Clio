@@ -96,7 +96,7 @@ int test_raw_net(char *board_ip_port_str)
 	unsigned int ip1, ip2, ip3, ip4;
 
 	if (transport_net_ops != &transport_bypass_ops) {
-		dprintf_ERROR("Raw network testing needs to bypass transport layer.\n"
+		dprintf_ERROR("Raw network testing needs bypass transport layer.\n"
 		       "Please restart the test and pass \"--net_trans_ops=bypass\" %d\n", 0);
 		return -1;
 	}

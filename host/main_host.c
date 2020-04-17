@@ -59,7 +59,7 @@ static void handle_close_session(struct thpool_buffer *tb)
 
 	/* Find if the session exist */
 	dst_sesid = req->op.session_id;
-	ses_net = find_net_session(ip, port, dst_sesid);
+	ses_net = find_net_session(dst_sesid);
 	if (!ses_net) {
 		dprintf_ERROR("session not found %s:%d sesid %u\n",
 			ip_str, port, dst_sesid);
@@ -747,9 +747,11 @@ int main(int argc, char **argv)
 		if (board_addr_set) {
 			//ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);
+
+			ret = test_rel_net_normal(board_addr);
 		}
 
-		ret = test_rel_net();
+		ret = test_rel_net_mgmt();
 
 		//ret = test_legomem_alloc_free();
 		//ret = test_legomem_context();

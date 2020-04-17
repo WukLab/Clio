@@ -233,7 +233,7 @@ int init_net_session_subsys(void);
 void dump_net_sessions(void);
 struct session_net *alloc_session(void);
 void free_session(struct session_net *ses);
-struct session_net *find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id);
+struct session_net *find_net_session(unsigned int session_id);
 
 /*
  * LegoMem Public APIs
@@ -310,7 +310,8 @@ int test_legomem_session(void);
 int test_legomem_migration(void);
 int test_legomem_board(char *);
 int test_raw_net(char *);
-int test_rel_net(void);
+int test_rel_net_mgmt(void);
+int test_rel_net_normal(char *);
 int test_legomem_context(void);
 int test_legomem_alloc_free(void);
 

@@ -25,7 +25,7 @@ int init_net_session_subsys(void)
 }
 
 struct session_net *
-find_net_session(unsigned int board_ip, unsigned int udp_port, unsigned int session_id)
+find_net_session(unsigned int session_id)
 {
 	struct session_net *ses;
 

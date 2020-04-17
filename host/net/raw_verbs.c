@@ -72,7 +72,9 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 
 	if (unlikely(ses_verbs->send_mr)) {
 		dprintf_ERROR("Send buf already registered for this session. "
-				"addr = %lx size = %zu\n",
+		              "addr = %lx size = %zu. "
+			      "It's possible to override but this feature is "
+			      "not implemented for now.\n",
 				(unsigned long)ses_verbs->send_buf,
 				ses_verbs->send_buf_size);
 		return -EEXIST;

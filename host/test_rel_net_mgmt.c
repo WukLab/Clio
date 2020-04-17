@@ -61,13 +61,13 @@ static void test_session_0_pingpong(struct board_info *bi, struct session_net *s
 /*
  * We run test against monitor rel stack.
  */
-int test_rel_net(void)
+int test_rel_net_mgmt(void)
 {
 	struct board_info *remote_board;
 	struct session_net *remote_mgmt_session;
 
 	if (transport_net_ops != &transport_gbn_ops) {
-		dprintf_ERROR("Reliable network testing needs to reliable transport layer.\n"
+		dprintf_ERROR("Reliable network testing needs reliable transport layer.\n"
 		       "Please restart the test and pass \"--net_trans_ops=gbn\" %d\n", 0);
 		return -1;
 	}
