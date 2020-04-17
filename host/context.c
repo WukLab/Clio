@@ -76,7 +76,7 @@ struct legomem_context *find_legomem_context(unsigned int pid)
 	return NULL;
 }
 
-void dump_legomem_context(void)
+void dump_legomem_contexts(void)
 {
 	struct legomem_context *p;
 	int bkt = 0;
@@ -180,4 +180,25 @@ struct session_net *context_find_session_by_board(struct legomem_context *p,
 						  struct board_info *bi)
 {
 	return context_find_session(p, tid, bi->board_ip, bi->udp_port);
+}
+
+/*
+ * Dump the sessions associated
+ */
+void dump_legomem_context_sessions(struct legomem_context *p)
+{
+	struct session_net *ses;
+	int bkt;
+	char ip_str[INET_ADDRSTRLEN];
+
+	printf("Dump sessions with context (pid %d)\n", p->pid);
+	printf("     bkt      tid                   ip     port\n");
+	printf("-------- -------- -------------------- --------\n");
+	pthread_spin_lock(&p->lock);
+	hash_for_each(p->ht_sessions, bkt, ses, ht_link_context) {
+		get_ip_str(ses->board_ip, ip_str);
+		printf("%8d %8u %20s %8u\n",
+			bkt, ses->tid, ip_str, ses->udp_port);
+	}
+	pthread_spin_unlock(&p->lock);
 }

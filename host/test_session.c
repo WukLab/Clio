@@ -36,7 +36,7 @@ int test_legomem_session(void)
 	ctx = legomem_open_context();
 	if (!ctx)
 		return -1;
-	dump_legomem_context();
+	dump_legomem_contexts();
 
 	/*
 	 * Step II

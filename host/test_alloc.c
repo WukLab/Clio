@@ -14,7 +14,6 @@
 
 #include "core.h"
 
-
 int test_legomem_alloc_free(void)
 {
 	struct legomem_context *ctx;
@@ -25,9 +24,9 @@ int test_legomem_alloc_free(void)
 	ctx = legomem_open_context();
 	if (!ctx)
 		return -1;
-	dump_legomem_context();
+	dump_legomem_contexts();
 
-	nr_tests = 1;
+	nr_tests = 3;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < nr_tests; i++) {
 		addr = legomem_alloc(ctx, 128, 0);

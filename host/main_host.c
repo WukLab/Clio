@@ -208,9 +208,19 @@ static void handle_new_node(struct thpool_buffer *tb)
 		return;
 	bi->flags = req->op.type;
 
+#if 0
+	/*
+	 * oOh jesus this printf causes weird bug.
+	 * So this handle_new_node() is called within worker_handle_request_inline(),
+	 * with passed @tb parameter. When this function is enabled, the @tb within
+	 * the caller stack, changed to 0. It seems this printf cause some overflow?
+	 * Or maybe the gcc has some internal bug? Weirdly, if I enabled gdb + watchpoint,
+	 * it succeed.. Either way, I don't get this.
+	 */
 	dprintf_INFO("new node added name: %s, ip:port: %s:%d type: %s\n",
 		req->op.name, new_ei->ip_str, new_ei->udp_port,
 		board_info_type_str(bi->flags));
+#endif
 
 	dump_boards();
 	dump_net_sessions();
@@ -735,6 +745,13 @@ int main(int argc, char **argv)
 	 * Run predefined testing if there is any.
 	 */
 	if (run_test) {
+		int cpu, node;
+
+		getcpu(&cpu, &node);
+		dprintf_INFO("\n**\n"
+			     "** Start running test cases...\n"
+			     "** (on cpu %d node %d)\n"
+			     "**\n", cpu, node);
 		if (board_addr_set) {
 			ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);

@@ -200,7 +200,10 @@ int init_context_subsys(void);
 int add_legomem_context(struct legomem_context *p);
 int remove_legomem_context(struct legomem_context *p);
 struct legomem_context *find_legomem_context(unsigned int pid);
-void dump_legomem_context(void);
+void dump_legomem_contexts(void);
+
+/* Per-context's session list */
+void dump_legomem_context_sessions(struct legomem_context *p);
 int context_add_session(struct legomem_context *p, struct session_net *ses);
 int context_remove_session(struct legomem_context *p, struct session_net *ses);
 struct session_net *
@@ -309,5 +312,11 @@ int test_legomem_alloc_free(void);
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 			  unsigned int node_type);
+
+static inline void getcpu(int *cpu, int *node)
+{
+	syscall(SYS_getcpu, cpu, node, NULL);
+	perror("get_cpu: ");
+}
 
 #endif /* _HOST_CORE_H_ */

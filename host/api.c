@@ -493,6 +493,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		v->udp_port = udp_port;
 		v->flags = LEGOMEM_VREGION_ALLOCATED;
 	}
+	dprintf_DEBUG("select vregion_idx %u, ip %#x port %u\n", vregion_idx, board_ip, udp_port);
 
 	/*
 	 * Step II:
@@ -517,6 +518,11 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 			return 0;
 		}
 
+		/*
+		 * Once the session is open, it will be inserted
+		 * into the per-context session hashtable,
+		 * thus visiable to context_find_session() afterwards.
+		 */
 		ses = __legomem_open_session(ctx, bi, tid, false, false);
 		if (!ses) {
 			dprintf_ERROR("Fail to open a net session with "
@@ -525,6 +531,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		}
 		new_session = true;
 	}
+	dump_legomem_context_sessions(ctx);
 
 	/*
 	 * Step III:
@@ -552,6 +559,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 */
 		add_vregion_session(v, ses);
 	}
+	dump_legomem_vregion(v);
 
 	/*
 	 * Step IV:
