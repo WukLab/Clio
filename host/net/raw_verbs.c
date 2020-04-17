@@ -46,7 +46,7 @@
  * also, we need to take number of connections into account.
  */
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
-#define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
+#define NR_BUFFER_DEPTH	256	/* maximum number of sends waiting for completion */
 
 int ib_port = 1;
 
@@ -188,7 +188,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 	 * that's the best way. Investigate more and come back optimize.
 	 * eRPC's code is using the second way.
 	 */
-	if (0) {
+	if (1) {
 		wr.send_flags |= IBV_SEND_SIGNALED;
 		signaled = true;
 	} else
