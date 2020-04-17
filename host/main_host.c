@@ -308,14 +308,6 @@ static void handle_query_stat(struct thpool_buffer *tb)
 	resp->nr_items = NR_STAT_TYPES;
 }
 
-static void handle_pingpong(struct thpool_buffer *tb)
-{
-	struct legomem_pingpong_resp *resp;
-
-	resp = (struct legomem_pingpong_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-}
-
 static void
 worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 {

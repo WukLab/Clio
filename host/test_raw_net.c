@@ -19,42 +19,53 @@
 
 static void test_pingpong(struct board_info *bi, struct session_net *ses)
 {
-	struct legomem_pingpong_req req;
-	struct legomem_pingpong_req resp;
+	struct legomem_pingpong_req *req;
+	struct legomem_pingpong_req *resp;
 	struct lego_header *lego_header;
 	struct gbn_header *gbn_header;
 	double lat_ns;
-	int i, nr_tests;
+	int i, j, nr_tests;
 	struct timespec s, e;
 
-	net_reg_send_buf(ses, &req, sizeof(req));
+	int max_buf_size = 1024*1024;
 
-	lego_header = to_lego_header(&req);
+	resp = malloc(max_buf_size);
+	req = malloc(max_buf_size);
+	net_reg_send_buf(ses, req, max_buf_size);
+
+	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_PINGPONG;
 
-	gbn_header = to_gbn_header(&req);
+	gbn_header = to_gbn_header(req);
 	gbn_header->type = GBN_PKT_DATA;
 	set_gbn_src_dst_session(gbn_header, get_local_session_id(ses), 0);
 
-	/* warmup */
-	for (i = 0; i < 1; i++) {
-		raw_net_send(ses, &req, sizeof(req), NULL);
-		raw_net_receive(&resp, sizeof(resp));
+	/* This is the payload size */
+	int test_size[] = { 4, 16, 64, 256, 1024 };
+
+	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+		int send_size = test_size[i];
+
+		req->reply_size = 0;
+
+		/* need to include header size */
+		send_size += sizeof(struct legomem_common_headers);
+
+		nr_tests = 100;
+		clock_gettime(CLOCK_MONOTONIC, &s);
+		for (j = 0; j < nr_tests; j++) {
+			//printf("i %d j %d\n", i, j);
+			raw_net_send(ses, req, send_size, NULL);
+			raw_net_receive(resp, max_buf_size);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &e);
+
+		lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+			 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+
+		printf("%s(): nr_tests: %d send_size: %u avg: %lf ns\n",
+			__func__, nr_tests, send_size, lat_ns / nr_tests);
 	}
-
-	nr_tests = 5;
-	clock_gettime(CLOCK_MONOTONIC, &s);
-	for (i = 0; i < nr_tests; i++) {
-		raw_net_send(ses, &req, sizeof(req), NULL);
-		raw_net_receive(&resp, sizeof(resp));
-	}
-	clock_gettime(CLOCK_MONOTONIC, &e);
-
-	lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-		 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
-	printf("%s(): nr_tests: %d avg: %lf ns\n",
-		__func__, nr_tests, lat_ns / nr_tests);
 }
 
 /*

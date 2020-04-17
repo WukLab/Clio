@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ */
 #ifndef _HOST_CORE_H_
 #define _HOST_CORE_H_
 
@@ -7,6 +10,7 @@
 #include <uapi/opcode.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
+#include <uapi/thpool.h>
 #include "net/net.h"
 #include <limits.h>
 #include <time.h>
@@ -318,5 +322,10 @@ static inline void getcpu(int *cpu, int *node)
 	syscall(SYS_getcpu, cpu, node, NULL);
 	perror("get_cpu: ");
 }
+
+/*
+ * Common handlers
+ */
+void handle_pingpong(struct thpool_buffer *tb);
 
 #endif /* _HOST_CORE_H_ */

@@ -274,10 +274,12 @@ struct legomem_migration_resp {
  */
 struct legomem_pingpong_req {
 	struct legomem_common_headers comm_headers;
+	int reply_size;
 } __packed;
 
 struct legomem_pingpong_resp {
 	struct legomem_common_headers comm_headers;
+	char data[0];
 } __packed;
 
 struct legomem_query_stat_req {
