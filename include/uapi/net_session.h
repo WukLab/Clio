@@ -83,6 +83,12 @@ get_remote_session_id(struct session_net *ses)
 	return ses->remote_session_id;
 }
 
+struct msg_buf {
+	void *buf;
+	size_t max_buf_size;
+	void *private;
+} __aligned(64);
+
 struct transport_net_ops {
 	char *name;
 
@@ -150,7 +156,16 @@ struct raw_net_ops {
 	int (*open_session)(struct session_net *, struct endpoint_info *, struct endpoint_info *);
 	int (*close_session)(struct session_net *);
 
+	/*
+	 * TODO
+	 * I should really unify send_buf and msg_buf
+	 * its really ugly to have these interfaces, it makes things complex.
+	 * We should remove reg_send_buf.
+	 */
 	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
+
+	struct msg_buf *(*reg_msg_buf)(struct session_net *, void *buf, size_t buf_size);
+	int (*dereg_msg_buf)(struct session_net *, struct msg_buf *);
 };
 
 extern struct raw_net_ops raw_verbs_ops;
@@ -167,7 +182,19 @@ raw_net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
 {
 	if (raw_net_ops->reg_send_buf)
 		return raw_net_ops->reg_send_buf(ses, buf, buf_size);
-	return 0;
+	return -ENOSYS;
+}
+
+static inline int
+raw_net_dereg_msg_buf(struct session_net *ses, struct msg_buf *mb)
+{
+	return raw_net_ops->dereg_msg_buf(ses, mb);
+}
+
+static inline struct msg_buf *
+raw_net_reg_msg_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return raw_net_ops->reg_msg_buf(ses, buf, buf_size);
 }
 
 /*

@@ -306,6 +306,8 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+#define __read_mostly
+
 /* To mark a remote legomem address */
 #define __remote
 

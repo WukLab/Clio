@@ -92,6 +92,48 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 	return 0;
 }
 
+static struct msg_buf *
+raw_verbs_reg_msg_buf(struct session_net *ses_net, void *buf, size_t buf_size)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct msg_buf *mb;
+	struct ibv_mr *mr;
+	struct ibv_pd *pd;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	pd = ses_verbs->pd;
+
+	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
+	if (!mr) {
+		perror("reg mr:");
+		return NULL;
+	}
+
+	mb = malloc(sizeof(*mb));
+	if (!mb) {
+		ibv_dereg_mr(mr);
+		return NULL;
+	}
+
+	mb->buf = buf;
+	mb->max_buf_size = buf_size;
+	mb->private = mr;
+	return mb;
+}
+
+static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
+{
+	struct ibv_mr *mr;
+
+	if (!mb)
+		return -EINVAL;
+
+	mr = (struct ibv_mr *)mb->private;
+	ibv_dereg_mr(mr);
+	free(mb);
+	return 0;
+}
+
 static int raw_verbs_send(struct session_net *ses_net,
 			  void *buf, size_t buf_size, void *_route)
 {
@@ -656,4 +698,7 @@ struct raw_net_ops raw_verbs_ops = {
 	.receive_one_nb		= NULL,
 
 	.reg_send_buf		= raw_verbs_reg_send_buf,
+
+	.reg_msg_buf		= raw_verbs_reg_msg_buf,
+	.dereg_msg_buf		= raw_verbs_dereg_msg_buf,
 };

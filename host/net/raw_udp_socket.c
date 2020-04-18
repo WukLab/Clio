@@ -176,6 +176,34 @@ static int udp_close_session(struct session_net *ses_net)
 }
 
 /*
+ * We do not need to do anything special regarding the buffer
+ * Just follow the protocol and create the msg_buf structure.
+ */
+static struct msg_buf *
+udp_socket_reg_msg_buf(struct session_net *net, void *buf, size_t buf_size)
+{
+	struct msg_buf *mb;
+
+	mb = malloc(sizeof(*mb));
+	if (!mb)
+		return NULL;
+
+	mb->buf = buf;
+	mb->max_buf_size = buf_size;
+	mb->private = NULL;
+	return mb;
+}
+
+static int udp_socket_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
+{
+	if (mb) {
+		free(mb);
+		return 0;
+	}
+	return -EINVAL;
+}
+
+/*
  * We only open one UDP port at one host (decided by @local_ei)
  * We use this port to accept all traffics targeting this port (INADDR_ANY).
  */
@@ -224,4 +252,7 @@ struct raw_net_ops raw_udp_socket_ops = {
 	.receive_one		= udp_socket_receive,
 	.receive_one_nb		= NULL,
 	.receive_one_zerocopy	= NULL,
+
+	.reg_msg_buf		= udp_socket_reg_msg_buf,
+	.dereg_msg_buf		= udp_socket_dereg_msg_buf,
 }; 

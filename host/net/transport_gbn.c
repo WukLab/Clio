@@ -52,7 +52,7 @@ static pthread_t polling_thread;
  * need to manage buffers, simply saving the pointer given by raw net.
  * Otherwise, we need to create buffer and a lot copies are involved.
  */
-static bool use_zerocopy;
+static bool raw_net_has_zerocopy __read_mostly;
 
 #define BUFFER_INFO_ALLOCATED	(0x1u)
 #define BUFFER_INFO_USABLE	(0x2u)
@@ -523,7 +523,7 @@ static void handle_data_packet(struct session_net *ses_net,
 		 * by the raw net layer.
 		 */
 		info->buf_size = buf_size;
-		if (likely(use_zerocopy))
+		if (likely(raw_net_has_zerocopy))
 			info->buf = packet;
 		else
 			memcpy(info->buf, packet, buf_size);
@@ -570,7 +570,7 @@ static void handle_data_packet(struct session_net *ses_net,
 
 		/* See comments above */
 		info->buf_size = buf_size;
-		if (likely(use_zerocopy))
+		if (likely(raw_net_has_zerocopy))
 			info->buf = packet;
 		else
 			memcpy(info->buf, packet, buf_size);
@@ -587,6 +587,7 @@ static void handle_data_packet(struct session_net *ses_net,
 		/* Construct and send back ACK */
 		ack.ack_header.type = GBN_PKT_ACK;
 		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
+		dprintf_INFO("ack msg %#lx\n", (unsigned long)&ack);
 		ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
 		if (unlikely(ret < 0)) {
 			dprintf_ERROR("net_send error %d\n", ret);
@@ -647,7 +648,7 @@ static void *gbn_poll_func(void *_unused)
 	 * If there is no zerocopy,
 	 * we need to Bring Our Own Buffers.
 	 */
-	if (!use_zerocopy) {
+	if (!raw_net_has_zerocopy) {
 		max_buf_size = sysctl_link_mtu;
 		recv_buf = malloc(max_buf_size);
 		if (!recv_buf) {
@@ -657,7 +658,7 @@ static void *gbn_poll_func(void *_unused)
 	}
 
 	while (1) {
-		if (likely(use_zerocopy)) {
+		if (likely(raw_net_has_zerocopy)) {
 			ret = raw_net_receive_zerocopy(&recv_buf, &buf_size);
 			if (unlikely(ret < 0)) {
 				gbn_info("zerocopy recv error %d\n", ret);
@@ -953,7 +954,7 @@ static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 		 * thread will copy the packet into this buffer
 		 * instead of saving the pointer.
 		 */
-		if (!use_zerocopy) {
+		if (!raw_net_has_zerocopy) {
 			info->buf = malloc(sysctl_link_mtu);
 			if (!info->buf) {
 				ret = -ENOMEM;
@@ -1042,11 +1043,11 @@ static int gbn_init_once(struct endpoint_info *local_ei)
 	 * Do this early on, and we will check at various cases.
 	 */
 	if (raw_net_ops->receive_one_zerocopy)
-		use_zerocopy = true;
+		raw_net_has_zerocopy = true;
 	else
-		use_zerocopy = false;
+		raw_net_has_zerocopy = false;
 
-	dprintf_INFO("Use zerocopy: %s\n", use_zerocopy ? "YES" : "NO");
+	dprintf_INFO("Raw net has zerocopy: %s\n", raw_net_has_zerocopy ? "YES" : "NO");
 
 	return 0;
 }
