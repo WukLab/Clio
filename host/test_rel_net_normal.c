@@ -32,8 +32,14 @@ static void client_run(struct session_net *ses)
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_PINGPONG;
 
+	/* WARMUP Sort of skip the initial sleep period */
+	for (i = 0; i < 10; i++) {
+		net_send_and_receive(ses, req,
+				sizeof(struct legomem_common_headers), resp, max_buf_size);
+	}
+
 	/* This is the payload size */
-	int test_size[] = { 1, 4, 16, 64, 256, 1024 };
+	int test_size[] = { 4, 16, 64, 256, 1024 };
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		int send_size = test_size[i];
@@ -43,7 +49,7 @@ static void client_run(struct session_net *ses)
 		/* need to include header size */
 		send_size += sizeof(struct legomem_common_headers);
 
-		nr_tests = 1;
+		nr_tests = 1000000;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			net_send_and_receive(ses, req, send_size, resp, max_buf_size);
@@ -138,7 +144,8 @@ int test_rel_net_normal(char *board_ip_port_str)
 	 * Client is the sender side of a session.
 	 * Server is the receiver side of a session.
 	 */
-	client = false;
+	client = true;
+	dprintf_INFO("Running as [%s]..\n", client ? "CLIENT" : "SERVER");
 
 	if (client) {
 		ses = legomem_open_session(NULL, remote_board);
