@@ -28,6 +28,13 @@ INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread
 
 EXTRA_CFLAGS := -O2 -Wall -DCONFIG_ARCH_X86 -DCONFIG_PROFILING_POINTS
+
+#
+# Debug Knobs
+# Stat counting has non-trivial overhead
+#
+#EXTRA_CFLAGS += -DCONFIG_DEBUG_STAT -DCONFIG_DEBUG_WATCHDOG
+
 CFLAG_DISABLE_WARN := -Wno-stringop-truncation
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 

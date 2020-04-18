@@ -9,8 +9,6 @@
  * with atomic inc. The overhead is not trivial. Thus we are having
  * an option to disable it.
  */
-#define CONFIG_DEBUG_STAT
-
 #ifdef CONFIG_DEBUG_STAT
 static __always_inline void inc_stat(enum STAT_TYPES item)
 {
@@ -37,7 +35,7 @@ static inline void dump_stats(void)
 #else
 static inline void inc_stat(enum STAT_TYPES item) { }
 static inline void __dump_stats(unsigned long *stat) { }
-static inline void dump_stats(unsigned long *stat) { }
+static inline void dump_stats(void) { }
 #endif
 
 #endif /* _HOST_STAT_H_ */

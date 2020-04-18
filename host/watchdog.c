@@ -29,8 +29,7 @@ __used static void *watchdog_func(void *_unused)
 	return NULL;
 }
 
-#define CONFIG_ENABLE_WATCHDOG
-#ifdef CONFIG_ENABLE_WATCHDOG
+#ifdef CONFIG_DEBUG_WATCHDOG
 int create_watchdog_thread(void)
 {
 	pthread_t t;
