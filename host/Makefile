@@ -14,6 +14,7 @@ C_SRCS := board.c \
 	session.c \
 	pp.c \
 	common.c \
+	watchdog.c \
 	net/core.c \
 	net/raw_verbs.c \
 	net/raw_socket.c \

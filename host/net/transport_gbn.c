@@ -350,7 +350,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 	unsigned int seq, seqnum_last;
 	struct buffer_info *info;
 
-	/* Update stat */
+	/* Update per-session stat */
 	if (hdr->type == GBN_PKT_ACK)
 		ses_gbn->nr_rx_ack++;
 	else if (hdr->type == GBN_PKT_NACK)
@@ -595,6 +595,8 @@ static void handle_data_packet(struct session_net *ses_net,
 		ack_pkt->ack_header.type = GBN_PKT_ACK;
 		ack_pkt->ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
 
+		inc_stat(STAT_NET_GBN_NR_TX_ACK);
+
 		ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
 		if (unlikely(ret < 0)) {
 			dprintf_ERROR("net_send error %d\n", ret);
@@ -611,6 +613,7 @@ static void handle_data_packet(struct session_net *ses_net,
 			ack_pkt->ack_header.type = GBN_PKT_NACK;
 			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
+			inc_stat(STAT_NET_GBN_NR_TX_NACK);
 			ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
 			if (ret < 0) {
 				dprintf_ERROR("net_send error %d\n", ret);
@@ -624,6 +627,8 @@ static void handle_data_packet(struct session_net *ses_net,
 			 */
 			ack_pkt->ack_header.type = GBN_PKT_ACK;
 			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
+
+			inc_stat(STAT_NET_GBN_NR_TX_ACK);
 
 			ret = raw_net_send(ses_net, mb, sizeof(*ack_pkt), NULL);
 			if (ret < 0) {
@@ -680,6 +685,7 @@ static void *gbn_poll_func(void *_unused)
 			} else if (buf_size == 0)
 				continue;
 		}
+		inc_stat(STAT_NET_GBN_NR_RX);
 
 		gbn_hdr = to_gbn_header(recv_buf);
 		dst_sesid = get_gbn_dst_session(gbn_hdr);
@@ -702,6 +708,7 @@ static void *gbn_poll_func(void *_unused)
 
 			dprintf_ERROR("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
 				str, get_gbn_src_session(gbn_hdr), dst_sesid);
+			inc_stat(STAT_NET_GBN_NR_RX_ERROR_NO_SESSION);
 			continue;
 		}
 
@@ -718,17 +725,20 @@ static void *gbn_poll_func(void *_unused)
 
 		switch (gbn_hdr->type) {
 		case GBN_PKT_ACK:
+			inc_stat(STAT_NET_GBN_NR_RX_ACK);
 			handle_ack_packet(ses_net, recv_buf);
 			break;
 		case GBN_PKT_NACK:
+			inc_stat(STAT_NET_GBN_NR_RX_NACK);
 			handle_nack_packet(ses_net, recv_buf);
 			break;
 		case GBN_PKT_DATA:
+			inc_stat(STAT_NET_GBN_NR_RX_DATA);
 			handle_data_packet(ses_net, recv_buf, buf_size);
 			break;
 		default:
-			dprintf_ERROR("Unknown GBN packet type: %d\n",
-				gbn_hdr->type);
+			inc_stat(STAT_NET_GBN_NR_RX_ERROR_UNKNOWN_TYPE);
+			dprintf_ERROR("Unknown GBN type: %d\n", gbn_hdr->type);
 			break;
 		};
 	}
@@ -814,6 +824,7 @@ static inline int gbn_send_one(struct session_net *net,
 	}
 
 send:
+	inc_stat(STAT_NET_GBN_NR_RX_DATA);
 	return raw_net_send(net, buf, buf_size, route);
 }
 

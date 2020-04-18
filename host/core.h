@@ -329,4 +329,6 @@ static inline void getcpu(int *cpu, int *node)
  */
 void handle_pingpong(struct thpool_buffer *tb);
 
+int create_watchdog_thread(void);
+
 #endif /* _HOST_CORE_H_ */

@@ -705,6 +705,8 @@ int main(int argc, char **argv)
 	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
 			   default_thpool_buffer_alloc_cb);
 
+	create_watchdog_thread();
+
 	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
 	if (ret) {
 		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
@@ -751,8 +753,7 @@ int main(int argc, char **argv)
 			ret = test_rel_net_normal(board_addr);
 		}
 
-		ret = test_rel_net_mgmt();
-
+		//ret = test_rel_net_mgmt();
 		//ret = test_legomem_alloc_free();
 		//ret = test_legomem_context();
 		//ret = test_legomem_session();
