@@ -34,13 +34,17 @@ struct session_net *net_open_session(struct endpoint_info *local_ei,
 	if (!ses)
 		return NULL;
 
-	ret = transport_net_ops->open_session(ses, local_ei, remote_ei);
-	if (ret)
-		goto free;	
-
+	/*
+	 * Open raw net layer before open transport layer
+	 * as the latter one might start calling raw net APIs right away
+	 */
 	ret = raw_net_ops->open_session(ses, local_ei, remote_ei);
 	if (ret)
-		goto close_transport;
+		goto free;
+
+	ret = transport_net_ops->open_session(ses, local_ei, remote_ei);
+	if (ret)
+		goto close_raw;	
 
 	/* Prepare the session info */
 	prepare_routing_info(&ses->route, local_ei, remote_ei);
@@ -49,8 +53,8 @@ struct session_net *net_open_session(struct endpoint_info *local_ei,
 
 	return ses;
 
-close_transport:
-	transport_net_ops->close_session(ses);
+close_raw:
+	raw_net_ops->close_session(ses);
 free:
 	free_session(ses);
 	return NULL;

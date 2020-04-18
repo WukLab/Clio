@@ -116,6 +116,8 @@ struct session_gbn {
 
 	timer_t				rt_timer;
 
+	struct msg_buf			*mb_ack_reply;
+
 	/*
 	 * A session is only supposed to be used by one user thread.
 	 * Thus we maintaina a single-producer-single-consumer model.
@@ -421,6 +423,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		 */
 		info = index_to_unack_buffer_info(ses_gbn, i);
 
+		// TODO buf reg
 		ret = raw_net_send(ses_net, info->buf, info->buf_size, NULL);
 		if (ret < 0) {
 			gbn_info("net_send error %d\n", ret);
@@ -486,10 +489,11 @@ static void handle_data_packet(struct session_net *ses_net,
 	unsigned int seq;
 	int ret;
 
+	struct msg_buf *mb;
 	struct eth_ack_packet {
 		char	placeholder[GBN_HEADER_OFFSET];
 		struct	gbn_header ack_header;
-	} __packed ack;
+	} __packed *ack_pkt;
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 	if (unlikely(!ses_gbn)) {
@@ -546,8 +550,11 @@ static void handle_data_packet(struct session_net *ses_net,
 	hdr = to_gbn_header(packet);
 	seq = hdr->seqnum;
 
-	/* ACK packet needs to swap the orginal routing info */
-	set_gbn_src_dst_session(&ack.ack_header,
+	/* Use the pre-registered buffer to send ACK pkt */
+	mb = ses_gbn->mb_ack_reply;
+	ack_pkt = (struct eth_ack_packet *)mb->buf;
+
+	set_gbn_src_dst_session(&ack_pkt->ack_header,
 				get_gbn_dst_session(hdr),
 				get_gbn_src_session(hdr));
 
@@ -585,10 +592,10 @@ static void handle_data_packet(struct session_net *ses_net,
 		ses_gbn->ack_enable = true;
 
 		/* Construct and send back ACK */
-		ack.ack_header.type = GBN_PKT_ACK;
-		ack.ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
-		dprintf_INFO("ack msg %#lx\n", (unsigned long)&ack);
-		ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
+		ack_pkt->ack_header.type = GBN_PKT_ACK;
+		ack_pkt->ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
+
+		ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
 		if (unlikely(ret < 0)) {
 			dprintf_ERROR("net_send error %d\n", ret);
 			return;
@@ -601,10 +608,10 @@ static void handle_data_packet(struct session_net *ses_net,
 			 * send back NACK and disable further response
 			 */
 			ses_gbn->ack_enable = false;
-			ack.ack_header.type = GBN_PKT_NACK;
-			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
+			ack_pkt->ack_header.type = GBN_PKT_NACK;
+			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
-			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
+			ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
 			if (ret < 0) {
 				dprintf_ERROR("net_send error %d\n", ret);
 				return;
@@ -615,10 +622,10 @@ static void handle_data_packet(struct session_net *ses_net,
 			 * seqnum valid, but not as expected.
 			 * if response is enabled, send back ACK
 			 */
-			ack.ack_header.type = GBN_PKT_ACK;
-			ack.ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
+			ack_pkt->ack_header.type = GBN_PKT_ACK;
+			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
-			ret = raw_net_send(ses_net, &ack, sizeof(ack), NULL);
+			ret = raw_net_send(ses_net, mb, sizeof(*ack_pkt), NULL);
 			if (ret < 0) {
 				dprintf_ERROR("net_send error %d\n", ret);
 				return;
@@ -977,6 +984,8 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 {
 	struct session_gbn *ses_gbn;
 	int ret;
+	void *buf;
+	struct msg_buf *mb;
 
 	ses_gbn = malloc(sizeof(struct session_gbn));
 	if (!ses_gbn)
@@ -989,6 +998,28 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 		ses_net->transport_private = NULL;
 		return ret;
 	}
+
+	/*
+	 * Prepare the ACK msg buffer beforehand.
+	 */
+	buf = malloc(sysctl_link_mtu);
+	if (!buf) {
+		timer_delete(ses_gbn->rt_timer);
+		free(ses_gbn);
+		ses_net->transport_private = NULL;
+		return -ENOMEM;
+	}
+
+	mb = raw_net_reg_msg_buf(ses_net, buf, sysctl_link_mtu);
+	if (!mb) {
+		free(buf);
+		timer_delete(ses_gbn->rt_timer);
+		free(ses_gbn);
+		ses_net->transport_private = NULL;
+		return -ENOMEM;
+	}
+
+	ses_gbn->mb_ack_reply = mb;
 	return 0;
 }
 

@@ -87,6 +87,13 @@ static int udp_socket_send(struct session_net *ses_net, void *buf,
 	return ret;
 }
 
+static int
+udp_socket_send_msg_buf(struct session_net *ses_net,
+			struct msg_buf *mb, size_t buf_size, void *route)
+{
+	return udp_socket_send(ses_net, mb->buf, buf_size, route);
+}
+
 static int udp_socket_receive(void *buf, size_t buf_size)
 {
 	int ret;
@@ -249,6 +256,7 @@ struct raw_net_ops raw_udp_socket_ops = {
 	.close_session		= udp_close_session,
 
 	.send_one		= udp_socket_send,
+	.send_one_msg_buf	= udp_socket_send_msg_buf,
 	.receive_one		= udp_socket_receive,
 	.receive_one_nb		= NULL,
 	.receive_one_zerocopy	= NULL,

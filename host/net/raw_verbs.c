@@ -101,6 +101,10 @@ raw_verbs_reg_msg_buf(struct session_net *ses_net, void *buf, size_t buf_size)
 	struct ibv_pd *pd;
 
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	if (!ses_verbs) {
+		dprintf_ERROR("no ses_verbs installed %d\n", 0);
+		return NULL;
+	}
 	pd = ses_verbs->pd;
 
 	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
@@ -134,16 +138,15 @@ static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
 	return 0;
 }
 
-static int raw_verbs_send(struct session_net *ses_net,
-			  void *buf, size_t buf_size, void *_route)
+static int
+__raw_verbs_send(struct session_net *ses_net,
+		 void *buf, size_t buf_size, struct ibv_mr *send_mr, void *_route)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_sge sge;
 	struct ibv_send_wr wr, *bad_wr;
 	struct ibv_qp *qp;
 	struct ibv_cq *send_cq;
-	struct ibv_mr *send_mr;
-	bool new_mr;
 	bool signaled;
 	int ret;
 	struct routing_info *route;
@@ -151,49 +154,6 @@ static int raw_verbs_send(struct session_net *ses_net,
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	qp = ses_verbs->qp;
 	send_cq = ses_verbs->send_cq;
-
-	/*
-	 * There are 3 cases
-	 * 1. Buffer not registered.
-	 * 2. Buffer registered, but caller is NOT using that.
-	 * 3. Buffer registered, and caller is using that.
-	 * Case 3 is the normal case.
-	 */
-	if (unlikely(!ses_verbs->send_mr)) {
-		/* Case 1: Buffer not registered */
-		send_mr = ibv_reg_mr(ses_verbs->pd, buf, buf_size,
-				     IBV_ACCESS_LOCAL_WRITE);
-		if (!send_mr) {
-			perror("reg mr");
-			return errno;
-		}
-		new_mr = true;
-	} else {
-		send_mr = ses_verbs->send_mr;
-		new_mr = false;
-
-		/* Sanity check */
-		if (unlikely(ses_verbs->send_buf_size < buf_size)) {
-			dprintf_ERROR("Buffer too small. reg buf size: %zu, "
-				      "new msg size: %zu\n",
-				      ses_verbs->send_buf_size, buf_size);
-			return -EINVAL;
-		}
-
-		/*
-		 * Case 2: Caller used a different buffer
-		 * and we do not need to anything for case 3
-		 */
-		if (unlikely(buf != ses_verbs->send_buf)) {
-			dprintf_INFO("You have registered buffer but now "
-				     "are using a different one. "
-				     "There are perf penalties. (o %lx n %lx)\n",
-				     (unsigned long)ses_verbs->send_buf,
-				     (unsigned long)buf);
-			memcpy(ses_verbs->send_buf, buf, buf_size);
-			buf = ses_verbs->send_buf;
-		}
-	}
 
 	/*
 	 * Cook the L2-L4 layer headers
@@ -240,7 +200,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
 	if (unlikely(ret < 0)) {
-		perror("Post Send:");
+		dprintf_ERROR("Fail to post send WQE %d\n", errno);
 		goto out;
 	}
 
@@ -252,7 +212,7 @@ static int raw_verbs_send(struct session_net *ses_net,
 			if (unlikely(!ret))
 				continue;
 			else if (unlikely(ret < 0)) {
-				perror("poll cq:");
+				dprintf_ERROR("Fail to poll CQ %d\n", errno);
 				goto out;
 			}
 			break;
@@ -261,6 +221,82 @@ static int raw_verbs_send(struct session_net *ses_net,
 
 	ret = buf_size;
 out:
+	return ret;
+}
+
+static int
+raw_verbs_send_msg_buf(struct session_net *ses_net,
+		       struct msg_buf *mb, size_t buf_size, void *route)
+{
+	struct ibv_mr *send_mr;
+	void *buf;
+
+	send_mr = (struct ibv_mr *)mb->private;
+	buf = mb->buf;
+	return __raw_verbs_send(ses_net, buf, buf_size, send_mr, route);
+}
+
+static int
+raw_verbs_send(struct session_net *ses_net,
+	       void *buf, size_t buf_size, void *route)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_mr *send_mr;
+	bool new_mr;
+	int ret;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+
+	/*
+	 * There are 3 cases
+	 * 1. Buffer not registered.
+	 * 2. Buffer registered, but caller is NOT using that.
+	 * 3. Buffer registered, and caller is using that.
+	 * Case 3 is the normal case.
+	 */
+	if (unlikely(!ses_verbs->send_mr)) {
+		/*
+		 * Case 1:
+		 * Buffer not registered.
+		 * We need to reg/dereg this buffer just of this send event.
+		 * Caller should avoid this behavior on critical datapath.
+		 */
+		send_mr = ibv_reg_mr(ses_verbs->pd, buf, buf_size,
+				     IBV_ACCESS_LOCAL_WRITE);
+		if (!send_mr) {
+			dprintf_ERROR("Fail to register memory. %d\n", errno);
+			return errno;
+		}
+		new_mr = true;
+	} else {
+		new_mr = false;
+		send_mr = ses_verbs->send_mr;
+
+		if (unlikely(ses_verbs->send_buf_size < buf_size)) {
+			dprintf_ERROR("Buffer too small. reg buf size: %zu, "
+				      "new msg size: %zu\n",
+				      ses_verbs->send_buf_size, buf_size);
+			return -EINVAL;
+		}
+
+		/*
+		 * Case 2:
+		 * Caller used a different buffer
+		 * and we do not need to anything for case 3
+		 */
+		if (unlikely(buf != ses_verbs->send_buf)) {
+			dprintf_INFO("You have registered buffer but now "
+				     "are using a different one. "
+				     "There are perf penalties. (o %lx n %lx)\n",
+				     (unsigned long)ses_verbs->send_buf,
+				     (unsigned long)buf);
+			memcpy(ses_verbs->send_buf, buf, buf_size);
+			buf = ses_verbs->send_buf;
+		}
+	}
+
+	ret = __raw_verbs_send(ses_net, buf, buf_size, send_mr, route);
+
 	if (unlikely(new_mr))
 		ibv_dereg_mr(send_mr);
 	return ret;
@@ -693,6 +729,7 @@ struct raw_net_ops raw_verbs_ops = {
 	.close_session		= raw_verbs_close_session,
 
 	.send_one		= raw_verbs_send,
+	.send_one_msg_buf	= raw_verbs_send_msg_buf,
 	.receive_one		= raw_verbs_receive,
 	.receive_one_zerocopy	= raw_verbs_receive_zerocopy,
 	.receive_one_nb		= NULL,

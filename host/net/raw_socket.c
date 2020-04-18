@@ -68,6 +68,13 @@ static int raw_socket_send(struct session_net *ses_net,
 	return ret;
 }
 
+static int
+raw_socket_send_msg_buf(struct session_net *ses_net,
+			struct msg_buf *mb, size_t buf_size, void *route)
+{
+	return raw_socket_send(ses_net, mb->buf, buf_size, route);
+}
+
 static int raw_socket_receive(void *buf, size_t buf_size)
 {
 	int ret;
@@ -228,6 +235,7 @@ struct raw_net_ops raw_socket_ops = {
 	.close_session		= raw_socket_close_session,
 
 	.send_one		= raw_socket_send,
+	.send_one_msg_buf	= raw_socket_send_msg_buf,
 	.receive_one		= raw_socket_receive,
 	.receive_one_nb		= NULL,
 	.receive_one_zerocopy	= NULL,
