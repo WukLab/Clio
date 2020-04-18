@@ -138,7 +138,7 @@ int test_rel_net_normal(char *board_ip_port_str)
 	 * Client is the sender side of a session.
 	 * Server is the receiver side of a session.
 	 */
-	client = true;
+	client = false;
 
 	if (client) {
 		ses = legomem_open_session(NULL, remote_board);
@@ -159,11 +159,25 @@ int test_rel_net_normal(char *board_ip_port_str)
 		 * the user application needs to use TCP/UDP to exchange
 		 * the session ID in order to use our session.
 		 *
-		 * For simplicity, we assume our local session ID is 2.
+		 * For simplicity, we assume our local session ID is 4.
+		 * Usually there are alreay 3 sessions created prior:
+		 *
+		 * ses_local         remote_name
+		 * ---------  ------------------
+		 * 0          special_local_mgmt
+		 * 1           special_localhost
+		 * 2                     monitor
 		 */
-		ses = find_net_session(2);
+		int server_session_id = 4;
+
+		/* Start server first and wait a bit */
+		sleep(5);
+		ses = find_net_session(server_session_id);
 		if (!ses) {
-			dprintf_ERROR("Local session is not allocated yet. %d\n", 0);
+			dprintf_ERROR("Local session (%d) is not allocated yet. "
+				      "maybe the client has not started!\n",
+				      server_session_id);
+			dump_net_sessions();
 			return -1;
 		}
 

@@ -322,7 +322,6 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 static inline void getcpu(int *cpu, int *node)
 {
 	syscall(SYS_getcpu, cpu, node, NULL);
-	perror("get_cpu: ");
 }
 
 /*
