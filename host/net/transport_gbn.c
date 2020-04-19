@@ -824,7 +824,7 @@ static inline int gbn_send_one(struct session_net *net,
 	}
 
 send:
-	inc_stat(STAT_NET_GBN_NR_RX_DATA);
+	inc_stat(STAT_NET_GBN_NR_TX_DATA);
 	return raw_net_send(net, buf, buf_size, route);
 }
 
