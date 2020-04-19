@@ -219,6 +219,7 @@ __raw_verbs_send(struct session_net *ses_net,
 		}
 	}
 
+	inc_stat(STAT_NET_RAW_VERBS_NR_TX);
 	ret = buf_size;
 out:
 	return ret;
@@ -331,6 +332,7 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 			exit(1);
 		}
 	}
+	inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
 }
 
 /*
@@ -362,6 +364,7 @@ static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 			perror("Poll CQ:");
 			return ret;
 		}
+		inc_stat(STAT_NET_RAW_VERBS_NR_RX_ZEROCOPY);
 
 		/* Get its position in the ring buffer */
 		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
@@ -400,13 +403,15 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 			perror("Poll CQ:");
 			return ret;
 		}
+		inc_stat(STAT_NET_RAW_VERBS_NR_RX);
 
 		/* Get its position in the ring buffer */
 		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
 
 		if (unlikely(wc.byte_len > buf_size)) {
-			printf("%s(): buf too small (received_size: %u user_buf_size: %zu)\n",
-				__func__, wc.byte_len, buf_size);
+			dprintf_ERROR("Buf too small (received_size: %u "
+				      "user_buf_size: %zu)\n",
+				      wc.byte_len, buf_size);
 			return -EIO;
 		}
 

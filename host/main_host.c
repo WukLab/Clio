@@ -694,9 +694,6 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	inc_stat(STAT_NET_NR_RX);
-	dump_stats();
-
 	/*
 	 * Now init the thpool stuff and create a new thread
 	 * to handle the mgmt session traffic. 
@@ -743,17 +740,19 @@ int main(int argc, char **argv)
 
 		getcpu(&cpu, &node);
 		dprintf_INFO("\n**\n"
+			     "**\n"
 			     "** Start running test cases...\n"
 			     "** (on cpu %d node %d)\n"
+			     "**\n"
 			     "**\n", cpu, node);
 		if (board_addr_set) {
 			//ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);
 
-			ret = test_rel_net_normal(board_addr);
+			//ret = test_rel_net_normal(board_addr);
 		}
 
-		//ret = test_rel_net_mgmt();
+		ret = test_rel_net_mgmt();
 		//ret = test_legomem_alloc_free();
 		//ret = test_legomem_context();
 		//ret = test_legomem_session();
