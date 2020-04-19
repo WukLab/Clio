@@ -304,13 +304,9 @@ raw_verbs_send(struct session_net *ses_net,
 }
 
 /*
- * TODO
- *
- * This function can be optimized. Now we are doing individual post,
- * which is a single CPU-initiated MMIO write. If we chain all recv_wr
- * together, the driver will go for doorbell way, thus only one DMA read
- * from RNIC. Consider this function is sitting in data path, we should
- * optimize it. Reference: atc16, eRPC, and so on.
+ * This function is not used, there is nothing wrong about
+ * this function itself, but the moment it is called: recv_wr is empty.
+ * Thus some incoming packets will be dropped.
  */
 static inline void post_recvs(struct session_raw_verbs *ses)
 {
@@ -332,7 +328,28 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 			exit(1);
 		}
 	}
-	inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
+}
+
+static __always_inline void
+post_recv(struct session_raw_verbs *ses, unsigned int id)
+{
+	struct ibv_sge sge;
+	struct ibv_recv_wr recv_wr, *bad_recv_wr;
+
+	sge.lkey = ses->recv_mr->lkey;
+	sge.length = BUFFER_SIZE;
+	recv_wr.num_sge = 1;
+	recv_wr.sg_list = &sge;
+	recv_wr.next = NULL;
+
+	sge.addr = (uint64_t)(ses->recv_buf + BUFFER_SIZE * id);
+	recv_wr.wr_id = id;
+	if (unlikely(ibv_post_recv(ses->qp, &recv_wr, &bad_recv_wr) < 0)) {
+		dprintf_ERROR("Fail to post a new recv_wr %d\n", errno);
+		dump_stats();
+		dump_legomem_contexts();
+		dump_net_sessions();
+	}
 }
 
 /*
@@ -372,8 +389,14 @@ static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 		*buf = buf_p;
 		*buf_size = wc.byte_len;
 
-		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1)))
+#if 0
+		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1))) {
+			inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
 			post_recvs(ses_verbs);
+		}
+#else
+		post_recv(ses_verbs, (unsigned int)(wc.wr_id));
+#endif
 		break;
 	}
 
@@ -419,8 +442,14 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 		buf_size = wc.byte_len;
 		memcpy(buf, buf_p, buf_size);
 
-		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1)))
+#if 0
+		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1))) {
+			inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
 			post_recvs(ses_verbs);
+		}
+#else
+		post_recv(ses_verbs, (unsigned int)(wc.wr_id));
+#endif
 		break;
 	}
 
