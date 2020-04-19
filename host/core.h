@@ -319,6 +319,7 @@ int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 			  unsigned int node_type);
 
+int pin_cpu(int cpu_id);
 static inline void getcpu(int *cpu, int *node)
 {
 	syscall(SYS_getcpu, cpu, node, NULL);

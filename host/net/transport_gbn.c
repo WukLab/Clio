@@ -45,6 +45,7 @@
 
 static int polling_thread_created = 0;
 static pthread_t polling_thread;
+int gbn_polling_thread_cpu = 0;
 
 /*
  * This is a global variable controlling the buffer mgmt behavior.
@@ -654,7 +655,7 @@ static void *gbn_poll_func(void *_unused)
 	unsigned int dst_sesid;
 	void *recv_buf;
 	size_t buf_size, max_buf_size = 0;
-	int ret;
+	int ret, node, cpu;
 
 	/*
 	 * If there is no zerocopy,
@@ -668,6 +669,16 @@ static void *gbn_poll_func(void *_unused)
 			return NULL;
 		}
 	}
+
+	ret = pin_cpu(gbn_polling_thread_cpu);
+	if (ret) {
+		dprintf_ERROR("fail to pin thread to CPU %d\n",
+			gbn_polling_thread_cpu);
+		return NULL;
+	}
+
+	getcpu(&cpu, &node);
+	dprintf_INFO("Running on CPU=%d NODE=%d\n", cpu, node);
 
 	while (1) {
 		if (likely(raw_net_has_zerocopy)) {

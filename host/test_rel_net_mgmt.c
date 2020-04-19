@@ -15,16 +15,16 @@
 
 #include "core.h"
 
-#define NR_THREADS 2
 #define NR_RUN_PER_THREAD 1000
 
 struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
-/* This is the payload size */
-#define NR_MAX_TEST_SIZE (16)
+#define NR_MAX_THREADS	(128)
+/* Tuning */
 int test_size[] = { 4, 16, 64, 256, 1024 };
-double latency_ns[NR_THREADS][NR_MAX_TEST_SIZE];
+int test_nr_threads[] = { 1, 2, 4, 8, 16};
+double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
 {
@@ -59,8 +59,12 @@ static void *thread_func(void *_ti)
 		die("fail to open session. thread id %d\n", ti->id);
 	}
 
+	if (pin_cpu(ti->cpu))
+		die("can not pin to cpu %d\n", ti->cpu);
+
 	getcpu(&cpu, &node);
-	dprintf_INFO("thread id %d running on CPU %d, local session id %d remote session id %d\n",
+	printf("%s(): thread id %d running on CPU %d, local session id %d remote session id %d\n",
+		__func__,
 		ti->id, cpu, get_local_session_id(ses), get_remote_session_id(ses));
 
 	resp = malloc(max_buf_size);
@@ -94,10 +98,13 @@ static void *thread_func(void *_ti)
 
 		latency_ns[ti->id][i] = lat_ns;
 
+#if 0
 		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
 			ti->id,
 			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
+#endif
 	}
+	legomem_close_session(NULL, ses);
 	return NULL;
 }
 
@@ -106,12 +113,10 @@ static void *thread_func(void *_ti)
  */
 int test_rel_net_mgmt(void)
 {
-	int i, j, ret;
-	int nr_threads = NR_THREADS;
-	pthread_t tid[NR_THREADS];
+	int k, i, j, ret;
+	int nr_threads;
+	pthread_t *tid;
 	struct thread_info *ti;
-
-	BUG_ON(ARRAY_SIZE(test_size) > NR_MAX_TEST_SIZE);
 
 	if (transport_net_ops != &transport_gbn_ops) {
 		dprintf_ERROR("Reliable network testing needs reliable transport layer.\n"
@@ -120,41 +125,48 @@ int test_rel_net_mgmt(void)
 	}
 
 	remote_board = monitor_bi;
-	printf("%s(): Using board %s nr_threads=%d\n",
-		__func__, remote_board->name, nr_threads);
+	printf("%s(): Using board %s\n", __func__, remote_board->name);
 
-	ti = malloc(sizeof(*ti) * NR_THREADS);
-	if (!ti)
+	ti = malloc(sizeof(*ti) * NR_MAX_THREADS);
+	tid = malloc(sizeof(*tid) * NR_MAX_THREADS);
+	if (!tid || !ti)
 		die("OOM");
 
-	pthread_barrier_init(&thread_barrier, NULL, NR_THREADS);
+	for (k = 0; k < ARRAY_SIZE(test_nr_threads); k++) {
+		nr_threads = test_nr_threads[k];
 
-	for (i = 0; i < nr_threads; i++) {
-		ti[i].id = i;
-		ti[i].cpu = i;
-		ret = pthread_create(&tid[i], NULL, thread_func, &ti[i]);
-		if (ret)
-			die("fail to create test thread");
-	}
+		pthread_barrier_init(&thread_barrier, NULL, nr_threads);
 
-	for (i = 0; i < nr_threads; i++) {
-		pthread_join(tid[i], NULL);
-	}
-
-	/*
-	 * Aggregate all stats
-	 */
-	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
-		int send_size = test_size[i];
-		double sum, avg;
-
-		for (j = 0, sum = 0; j < NR_THREADS; j++) {
-			sum += latency_ns[j][i];
+		for (i = 0; i < nr_threads; i++) {
+			/*
+			 * cpu 0 is used for gbn polling now
+			 * in case
+			 */
+			ti[i].cpu = i + 1;
+			ti[i].id = i;
+			ret = pthread_create(&tid[i], NULL, thread_func, &ti[i]);
+			if (ret)
+				die("fail to create test thread");
 		}
-		avg = sum / NR_THREADS / NR_RUN_PER_THREAD;
-		dprintf_INFO("#nr_threads=%3d #tests_per_thread=%10d #payload_size=%8d avg_RTT=%10lf ns\n",
-				NR_THREADS, NR_RUN_PER_THREAD, send_size, avg);
-	}
 
+		for (i = 0; i < nr_threads; i++) {
+			pthread_join(tid[i], NULL);
+		}
+
+		/*
+		 * Aggregate all stats
+		 */
+		for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+			int send_size = test_size[i];
+			double sum, avg;
+
+			for (j = 0, sum = 0; j < nr_threads; j++) {
+				sum += latency_ns[j][i];
+			}
+			avg = sum / nr_threads / NR_RUN_PER_THREAD;
+			dprintf_INFO("#tests_per_thread=%10d #nr_theads=%3d #payload_size=%8d avg_RTT=%10lf ns\n",
+					NR_RUN_PER_THREAD, nr_threads, send_size, avg);
+		}
+	}
 	return 0;
 }

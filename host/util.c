@@ -2,6 +2,8 @@
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
  */
 
+#define _GNU_SOURCE
+#include <sched.h>
 #include <uapi/vregion.h>
 #include <uapi/compiler.h>
 #include <uapi/sched.h>
@@ -88,7 +90,7 @@ int get_ip_str(unsigned int ip, char *ip_str)
  * otherwire it's a failure.
  */
 int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
-			 unsigned char *mac)
+		unsigned char *mac)
 {
 	FILE *fp;
 	char ping_cmd[128];
@@ -137,11 +139,11 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 		     t_status[8];
 
 		sscanf(line, "%s %s %s %s %x:%x:%x:%x:%x:%x %s\n",
-			t_ip, t_d, t_name, t_a,
-			(unsigned int *)&mac[0], (unsigned int *)&mac[1],
-			(unsigned int *)&mac[2], (unsigned int *)&mac[3],
-			(unsigned int *)&mac[4], (unsigned int *)&mac[5],
-			t_status);
+		       t_ip, t_d, t_name, t_a,
+		       (unsigned int *)&mac[0], (unsigned int *)&mac[1],
+		       (unsigned int *)&mac[2], (unsigned int *)&mac[3],
+		       (unsigned int *)&mac[4], (unsigned int *)&mac[5],
+		       t_status);
 
 		ret = 0;
 		break;
@@ -205,7 +207,7 @@ out:
  * @ip will be host order.
  */
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
-			     char *ip_str, int *ip)
+		char *ip_str, int *ip)
 {
 	int fd, ret;
 	struct ifreq ifr;
@@ -260,7 +262,7 @@ struct board_info *default_local_bi;
  * Mac, IP, port, we will take care of them.
  */
 int init_default_local_ei(const char *dev, unsigned int port,
-			  struct endpoint_info *ei)
+		struct endpoint_info *ei)
 {
 	unsigned char mac[6];
 	char ip_str[INET_ADDRSTRLEN];
@@ -279,7 +281,7 @@ int init_default_local_ei(const char *dev, unsigned int port,
 	ei->udp_port = port;
 
 	printf("\033\[34m[%s:%d]: Local Endpoint dev: %s IP: %s %x Port: %d MAC: ",
-		__func__, __LINE__, dev, ip_str, ip, port);
+			__func__, __LINE__, dev, ip_str, ip, port);
 	for (i = 0; i < 6; i++)
 		printf("%x ", mac[i]);
 	printf("\033[0m\n");
@@ -314,7 +316,7 @@ int init_local_management_session(void)
 	 * thus using a dummy_ei is fine.
 	 */
 	mgmt_dummy_board = add_board("special_local_mgmt", 0,
-				     &dummy_ei, &dummy_ei, true);
+			&dummy_ei, &dummy_ei, true);
 	if (!mgmt_dummy_board)
 		return -ENOMEM;
 	mgmt_dummy_board->flags |= BOARD_INFO_FLAGS_DUMMY;
@@ -328,8 +330,17 @@ int init_local_management_session(void)
 	 */
 	if (get_local_session_id(mgmt_session) !=  LEGOMEM_MGMT_SESSION_ID) {
 		dprintf_ERROR("mgmt_session id is %d, not 0.\n",
-			get_local_session_id(mgmt_session));
+				get_local_session_id(mgmt_session));
 		return -EINVAL;
 	}
 	return 0;
+}
+
+int pin_cpu(int cpu_id)
+{
+	cpu_set_t cpu_set;
+
+	CPU_ZERO(&cpu_set);
+	CPU_SET(cpu_id, &cpu_set);
+	return sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
 }
