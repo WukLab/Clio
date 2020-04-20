@@ -113,22 +113,15 @@ int generic_handle_close_session(struct legomem_context *ctx,
 				 struct board_info *bi,
 				 struct session_net *ses)
 {
-	int ret;
-
 	/*
 	 * If we have created an user session handler thread,
 	 * we need to stop it
 	 */
 	if (ses->flags & SESSION_NET_FLAGS_THREAD_CREATED) {
-		ret = pthread_cancel(ses->thread);
-		if (ret) {
-			dprintf_ERROR("Fail to cancel this thread %d\n", errno);
-			goto clean;
-		}
+		WRITE_ONCE(ses->thread_should_stop, true);
 		pthread_join(ses->thread, NULL);
 	}
 
-clean:
 	/*
 	 * Clear bookkeeping we've done when the session was open:
 	 * Check __legomem_open_session and generic_handle_open_session.

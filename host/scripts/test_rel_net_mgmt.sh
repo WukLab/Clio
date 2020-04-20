@@ -5,9 +5,12 @@ set -e
 
 #
 # The tests run between a host and a monitor,
-# the file is test_rel_net.c
+# the file is test_rel_net_mgmt.c
 #
 # The test commands are nothing special but normal args.
+#
+#
+# REMEMBER to change dev name and ports accordingly
 #
 
 # monitor side

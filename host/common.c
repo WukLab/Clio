@@ -39,9 +39,18 @@ void handle_pingpong(struct thpool_buffer *tb)
 }
 
 /*
- * Server side session handler..
+ * Server side session handler.
  * just for debugging and measurement, i guess
+ *
+ * The reason to have this handler: when a sender wants to open a new session
+ * with a receiver, the receiver side user code does not know when this event
+ * would happen and what's the session id without another layer of msg exchange.
+ *
+ * Thus, we took a different approach at receiver side: whenever a recever
+ * gets a open_session request, it will proactively launch a new thread
+ * running this handler (in generic_handle_close_session()).
  */
+static int tmp_cpu = 1;
 void *user_session_handler(void *_ses)
 {
 	struct thpool_buffer tb = { 0 };
@@ -64,16 +73,20 @@ void *user_session_handler(void *_ses)
 		return NULL;
 	}
 
+	pin_cpu(tmp_cpu++);
 	getcpu(&cpu, &node);
 	dprintf_INFO("CPU=%d Node=%d, for session local_id = %u remote_id = %u\n",
 		cpu, node, get_local_session_id(ses), get_remote_session_id(ses));
 
 	while (1) {
+		if (unlikely(ses_thread_should_stop(ses)))
+			break;
+
 		ret = net_receive_zerocopy(ses, &tb.rx, &tb.rx_size);
 		if (ret <= 0)
 			continue;
 
-		lego_header = to_lego_header(&tb.rx);
+		lego_header = to_lego_header(tb.rx);
 		opcode = lego_header->opcode;
 		switch (opcode) {
 		case OP_REQ_PINGPONG:
@@ -82,6 +95,7 @@ void *user_session_handler(void *_ses)
 		default:
 			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
 				      opcode, legomem_opcode_str(opcode));
+			set_tb_tx_size(&tb, sizeof(struct legomem_common_headers));
 			break;
 		}
 
@@ -89,5 +103,7 @@ void *user_session_handler(void *_ses)
 			net_send(ses, tb.tx, tb.tx_size);
 		tb.flags = 0;
 	}
+
+	free(tb.tx);
 	return NULL;
 }

@@ -23,6 +23,7 @@ struct session_net {
 	unsigned long		flags;
 
 	pthread_t		thread;
+	bool			thread_should_stop;
 
 	/*
 	 * Session is by default a per-thread object.
@@ -61,6 +62,11 @@ struct session_net {
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
 };
+
+static inline bool ses_thread_should_stop(struct session_net *ses)
+{
+	return READ_ONCE(ses->thread_should_stop);
+}
 
 static inline void set_local_session_id(struct session_net *ses, unsigned int id)
 {
