@@ -15,7 +15,7 @@
 
 #include "core.h"
 
-#define NR_RUN_PER_THREAD 1000
+#define NR_RUN_PER_THREAD 1000000
 
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
@@ -24,8 +24,10 @@ static pthread_barrier_t thread_barrier;
 /* Tuning */
 //int test_size[] = { 4, 16, 64, 256, 1024 };
 //int test_nr_threads[] = { 1, 2, 4, 8, 16};
-static int test_size[] = { 4, 8};
-static int test_nr_threads[] = { 1 };
+int test_size[] = { 64 };
+
+/* Has to run config one by one */
+static int test_nr_threads[] = { 24 };
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
@@ -42,6 +44,8 @@ struct thread_info {
 	int cpu;
 };
 
+pthread_spinlock_t _lock;
+
 static void *thread_func(void *_ti)
 {
 	struct legomem_pingpong_req *req;
@@ -56,7 +60,11 @@ static void *thread_func(void *_ti)
 
 	int max_buf_size = 1024*1024;
 
+	/* Mgmt session itself is not locked.. */
+	pthread_spin_lock(&_lock);
 	ses = legomem_open_session(NULL, remote_board);
+	pthread_spin_unlock(&_lock);
+
 	if (!ses) {
 		die("fail to open session. thread id %d\n", ti->id);
 	}
@@ -106,7 +114,12 @@ static void *thread_func(void *_ti)
 			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
 #endif
 	}
-	legomem_close_session(NULL, ses);
+
+	/*
+	 * Close does not work
+	 * because the thread cannot be really cancelled!
+	 */
+	//legomem_close_session(NULL, ses);
 	return NULL;
 }
 
@@ -125,6 +138,8 @@ int test_rel_net_normal(void)
 		       "Please restart the test and pass \"--net_trans_ops=gbn\" %d\n", 0);
 		return -1;
 	}
+
+	pthread_spin_init(&_lock, PTHREAD_PROCESS_PRIVATE);
 
 	remote_board = monitor_bi;
 	printf("%s(): Using board %s\n", __func__, remote_board->name);
