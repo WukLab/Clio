@@ -98,7 +98,8 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			 * is 0. This packet is from session 0. It's used for connection
 			 * management. Do not buffer it and diectly send it out.
 			 */
-
+			gbn_header.data(SEQ_OFFSET + SEQ_WIDTH - 1,
+					SEQ_OFFSET) = 0;
 			gbn_header.keep = 0xff;
 			gbn_header.last = 0;
 

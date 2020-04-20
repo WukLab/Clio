@@ -63,8 +63,8 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 	static struct net_axis_64 buff_packet;
 	static struct route_info buff_route_info;
-	unsigned buff_slot_id;
-	unsigned buff_window_idx;
+	unsigned int buff_slot_id;
+	unsigned int buff_window_idx;
 
 	struct dm_cmd out_cmd;
 	struct dm_cmd in_cmd;
@@ -135,9 +135,9 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 	struct udp_info retrans_udp_info;
 	struct net_axis_64 retrans_pkt, rd_length;
 	struct ap_uint<32> rt_dest_ip;
-	static unsigned rt_slot_id;
-	static unsigned rt_seq;
-	static unsigned slot_base, start_addr;
+	static unsigned int rt_slot_id;
+	static unsigned int rt_seq;
+	static unsigned long slot_base, start_addr;
 
 	switch (retrans_state) {
 	case BUF_STATE_RECV_REQ:

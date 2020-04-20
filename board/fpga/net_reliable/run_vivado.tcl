@@ -539,7 +539,7 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   # Create interface ports
   set M_AXI [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI ]
   set_property -dict [ list \
-   CONFIG.ADDR_WIDTH {32} \
+   CONFIG.ADDR_WIDTH {40} \
    CONFIG.DATA_WIDTH {64} \
    CONFIG.HAS_BURST {0} \
    CONFIG.HAS_LOCK {0} \
@@ -640,6 +640,12 @@ proc create_hier_cell_state_table { parentCell nameHier } {
    CONFIG.FIFO_DEPTH {2048} \
  ] $axis_data_fifo_0
 
+  # Create instance: axis_data_fifo_1, and set properties
+  set axis_data_fifo_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 axis_data_fifo_1 ]
+  set_property -dict [ list \
+   CONFIG.FIFO_DEPTH {32} \
+ ] $axis_data_fifo_1
+
   # Create instance: rx_64_0, and set properties
   set rx_64_0 [ create_bd_cell -type ip -vlnv Wuklab.UCSD:hls:rx_64:1.0 rx_64_0 ]
 
@@ -655,6 +661,7 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   # Create interface connections
   connect_bd_intf_net -intf_net arbiter_64_0_out_header_V [get_bd_intf_ports out_header] [get_bd_intf_pins arbiter_64_0/out_header_V]
   connect_bd_intf_net -intf_net arbiter_64_0_out_payload [get_bd_intf_ports out_payload] [get_bd_intf_pins arbiter_64_0/out_payload]
+  connect_bd_intf_net -intf_net axis_data_fifo_1_M_AXIS [get_bd_intf_pins axis_data_fifo_1/M_AXIS] [get_bd_intf_pins unacked_buffer_controller/tx_buff_route_info_V]
   connect_bd_intf_net -intf_net conn_set_req_V_0_1 [get_bd_intf_ports conn_set_req] [get_bd_intf_pins state_table/conn_set_req]
   connect_bd_intf_net -intf_net rx_64_0_rsp_header_V [get_bd_intf_pins arbiter_64_0/rsp_header_V] [get_bd_intf_pins state_table/rsp_header_V]
   connect_bd_intf_net -intf_net rx_64_0_rsp_payload [get_bd_intf_pins arbiter_64_0/rsp_payload] [get_bd_intf_pins state_table/rsp_payload]
@@ -668,7 +675,7 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   connect_bd_intf_net -intf_net state_table_gbn_retrans_req_V [get_bd_intf_pins state_table/gbn_retrans_req_V] [get_bd_intf_pins unacked_buffer_controller/gbn_retrans_req_V]
   connect_bd_intf_net -intf_net tx_64_0_check_full_req_V_V [get_bd_intf_pins state_table/check_full_req_V_V] [get_bd_intf_pins tx_64_0/check_full_req_V_V]
   connect_bd_intf_net -intf_net tx_64_0_tx_buff_payload [get_bd_intf_pins axis_data_fifo_0/S_AXIS] [get_bd_intf_pins tx_64_0/tx_buff_payload]
-  connect_bd_intf_net -intf_net tx_64_0_tx_buff_route_info_V [get_bd_intf_pins tx_64_0/tx_buff_route_info_V] [get_bd_intf_pins unacked_buffer_controller/tx_buff_route_info_V]
+  connect_bd_intf_net -intf_net tx_64_0_tx_buff_route_info_V [get_bd_intf_pins axis_data_fifo_1/S_AXIS] [get_bd_intf_pins tx_64_0/tx_buff_route_info_V]
   connect_bd_intf_net -intf_net tx_64_0_tx_finish_sig_V [get_bd_intf_pins state_table/tx_finish_sig_V] [get_bd_intf_pins tx_64_0/tx_finish_sig_V]
   connect_bd_intf_net -intf_net tx_64_0_tx_header_V [get_bd_intf_pins arbiter_64_0/tx_header_V] [get_bd_intf_pins tx_64_0/tx_header_V]
   connect_bd_intf_net -intf_net tx_64_0_tx_payload [get_bd_intf_pins arbiter_64_0/tx_payload] [get_bd_intf_pins tx_64_0/tx_payload]
@@ -681,8 +688,8 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   connect_bd_intf_net -intf_net usr_tx_payload_0_1 [get_bd_intf_ports usr_tx_payload] [get_bd_intf_pins tx_64_0/usr_tx_payload]
 
   # Create port connections
-  connect_bd_net -net ap_clk_0_1 [get_bd_ports ap_clk] [get_bd_pins arbiter_64_0/ap_clk] [get_bd_pins axis_data_fifo_0/s_axis_aclk] [get_bd_pins rx_64_0/ap_clk] [get_bd_pins state_table/ap_clk] [get_bd_pins tx_64_0/ap_clk] [get_bd_pins unacked_buffer_controller/ap_clk]
-  connect_bd_net -net ap_rst_n_1 [get_bd_ports ap_rst_n] [get_bd_pins arbiter_64_0/ap_rst_n] [get_bd_pins axis_data_fifo_0/s_axis_aresetn] [get_bd_pins rx_64_0/ap_rst_n] [get_bd_pins state_table/ap_rst_n] [get_bd_pins tx_64_0/ap_rst_n] [get_bd_pins unacked_buffer_controller/ap_rst_n]
+  connect_bd_net -net ap_clk_0_1 [get_bd_ports ap_clk] [get_bd_pins arbiter_64_0/ap_clk] [get_bd_pins axis_data_fifo_0/s_axis_aclk] [get_bd_pins axis_data_fifo_1/s_axis_aclk] [get_bd_pins rx_64_0/ap_clk] [get_bd_pins state_table/ap_clk] [get_bd_pins tx_64_0/ap_clk] [get_bd_pins unacked_buffer_controller/ap_clk]
+  connect_bd_net -net ap_rst_n_1 [get_bd_ports ap_rst_n] [get_bd_pins arbiter_64_0/ap_rst_n] [get_bd_pins axis_data_fifo_0/s_axis_aresetn] [get_bd_pins axis_data_fifo_1/s_axis_aresetn] [get_bd_pins rx_64_0/ap_rst_n] [get_bd_pins state_table/ap_rst_n] [get_bd_pins tx_64_0/ap_rst_n] [get_bd_pins unacked_buffer_controller/ap_rst_n]
 
   # Create address segments
   create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces unacked_buffer_controller/axi_datamover_0/Data] [get_bd_addr_segs M_AXI/Reg] SEG_M_AXI_Reg
