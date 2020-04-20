@@ -54,7 +54,7 @@ void print_profile_point(struct profile_point *pp)
 
 	avg_ns = DIV_ROUND_UP(time_ns, nr);
 
-	printf("%s  %35s  %6ld.%09ld  %16ld  %16ld\n",
+	printf("%-s  %-35s  %-6ld.%09ld  %-16ld  %-16ld\n",
 		pp->enabled? "     on" : "    off",
 		pp->pp_name,
 		(long)ts.tv_sec, (long)ts.tv_nsec,
@@ -69,8 +69,7 @@ void print_profile_points(void)
 
 	printf("\n");
 	printf("LegoMem Profile Points\n");
-	printf(" Status                                 Name     Total(cycles)                NR       Avg(cycles)\n");
-	//printf(" Status                                 Name          Total(s)                NR           Avg(ns)\n");
+	printf("Status   Name                                 Total(cycles)     NR                Avg(cycles)\n");
 	printf("-------  -----------------------------------  ----------------  ----------------  ----------------\n");
 	for (pp = (struct profile_point *)&__start_profile_point;
 	     pp < (struct profile_point *)&__stop_profile_point; pp++) {

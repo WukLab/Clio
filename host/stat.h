@@ -22,7 +22,7 @@ static inline void __dump_stats(unsigned long *stat)
 	int i;
 
 	for (i = 0; i < NR_STAT_TYPES; i++) {
-		printf("%40s    %10lu\n",
+		printf("%-40s    %10lu\n",
 			stat_type_string(i),
 			stat[i]);
 	}

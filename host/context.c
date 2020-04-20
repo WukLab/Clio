@@ -192,12 +192,12 @@ void dump_legomem_context_sessions(struct legomem_context *p)
 	char ip_str[INET_ADDRSTRLEN];
 
 	printf("Dump sessions with context (pid %d)\n", p->pid);
-	printf("     bkt      tid                   ip     port\n");
+	printf("bkt      tid      ip                   port\n");
 	printf("-------- -------- -------------------- --------\n");
 	pthread_spin_lock(&p->lock);
 	hash_for_each(p->ht_sessions, bkt, ses, ht_link_context) {
 		get_ip_str(ses->board_ip, ip_str);
-		printf("%8d %8u %20s %8u\n",
+		printf("%-8d %-8u %-20s %-8u\n",
 			bkt, ses->tid, ip_str, ses->udp_port);
 	}
 	pthread_spin_unlock(&p->lock);
