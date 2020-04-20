@@ -113,6 +113,22 @@ int generic_handle_close_session(struct legomem_context *ctx,
 				 struct board_info *bi,
 				 struct session_net *ses)
 {
+	int ret;
+
+	/*
+	 * If we have created an user session handler thread,
+	 * we need to stop it
+	 */
+	if (ses->flags & SESSION_NET_FLAGS_THREAD_CREATED) {
+		ret = pthread_cancel(ses->thread);
+		if (ret) {
+			dprintf_ERROR("Fail to cancel this thread %d\n", errno);
+			goto clean;
+		}
+		pthread_join(ses->thread, NULL);
+	}
+
+clean:
 	/*
 	 * Clear bookkeeping we've done when the session was open:
 	 * Check __legomem_open_session and generic_handle_open_session.
@@ -134,6 +150,7 @@ struct session_net *
 generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
 {
 	struct session_net *ses;
+	int ret;
 
 	ses = net_open_session(&bi->local_ei, &bi->remote_ei);
 	if (!ses)
@@ -143,8 +160,24 @@ generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
 	ses->board_info = bi;
 
 	set_remote_session_id(ses, dst_sesid);
-
 	board_add_session(bi, ses);
+
+	/*
+	 * Create a server side handling thread
+	 * for this new session, if needed:
+	 */
+#if 1
+	ret = pthread_create(&ses->thread, NULL, user_session_handler, ses);
+	if (ret) {
+		dprintf_ERROR("Fail to create the assocaited handler thread "
+			      "for session (local id %d)\n",
+			      get_local_session_id(ses));
+		board_remove_session(bi, ses);
+		net_close_session(ses);
+		return NULL;
+	}
+	ses->flags |= SESSION_NET_FLAGS_THREAD_CREATED;
+#endif
 	return ses;
 }
 

@@ -399,6 +399,7 @@ static void *dispatcher(void *_unused)
 	}
 	return NULL;
 }
+
 /*
  * Use input @monitor_addr to create a local network session with the monitor.
  * Note we just create local data structures for monitor's management session.
@@ -748,11 +749,10 @@ int main(int argc, char **argv)
 		if (board_addr_set) {
 			//ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);
-
-			//ret = test_rel_net_normal(board_addr);
 		}
 
-		ret = test_rel_net_mgmt();
+		ret = test_rel_net_normal();
+		//ret = test_rel_net_mgmt();
 		//ret = test_legomem_alloc_free();
 		//ret = test_legomem_context();
 		//ret = test_legomem_session();

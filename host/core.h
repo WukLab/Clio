@@ -311,7 +311,7 @@ int test_legomem_migration(void);
 int test_legomem_board(char *);
 int test_raw_net(char *);
 int test_rel_net_mgmt(void);
-int test_rel_net_normal(char *);
+int test_rel_net_normal(void);
 int test_legomem_context(void);
 int test_legomem_alloc_free(void);
 
@@ -331,5 +331,7 @@ static inline void getcpu(int *cpu, int *node)
 void handle_pingpong(struct thpool_buffer *tb);
 
 int create_watchdog_thread(void);
+
+void *user_session_handler(void *_ses);
 
 #endif /* _HOST_CORE_H_ */

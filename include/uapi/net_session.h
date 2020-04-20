@@ -6,7 +6,8 @@
 #include <uapi/net_header.h>
 #include <uapi/hashtable.h>
 
-#define SESSION_NET_FLAGS_ALLOCATED	(0x1)
+#define SESSION_NET_FLAGS_ALLOCATED		(0x1)
+#define SESSION_NET_FLAGS_THREAD_CREATED	(0x2)
 
 /*
  * This structure describes a specific network connection

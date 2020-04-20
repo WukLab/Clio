@@ -11,10 +11,38 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "core.h"
 
-static void client_run(struct session_net *ses)
+#define NR_RUN_PER_THREAD 1000
+
+static struct board_info *remote_board;
+static pthread_barrier_t thread_barrier;
+
+#define NR_MAX_THREADS	(128)
+/* Tuning */
+//int test_size[] = { 4, 16, 64, 256, 1024 };
+//int test_nr_threads[] = { 1, 2, 4, 8, 16};
+static int test_size[] = { 4, 8};
+static int test_nr_threads[] = { 1 };
+static double latency_ns[128][128];
+
+static inline void die(const char * str, ...)
+{
+	va_list args;
+	va_start(args, str);
+	vfprintf(stderr, str, args);
+	fputc('\n', stderr);
+	exit(1);
+}
+
+struct thread_info {
+	int id;
+	int cpu;
+};
+
+static void *thread_func(void *_ti)
 {
 	struct legomem_pingpong_req *req;
 	struct legomem_pingpong_req *resp;
@@ -22,8 +50,24 @@ static void client_run(struct session_net *ses)
 	double lat_ns;
 	int i, j, nr_tests;
 	struct timespec s, e;
+	struct session_net *ses;
+	struct thread_info *ti = (struct thread_info *)_ti;
+	int cpu, node;
 
 	int max_buf_size = 1024*1024;
+
+	ses = legomem_open_session(NULL, remote_board);
+	if (!ses) {
+		die("fail to open session. thread id %d\n", ti->id);
+	}
+
+	if (pin_cpu(ti->cpu))
+		die("can not pin to cpu %d\n", ti->cpu);
+
+	getcpu(&cpu, &node);
+	printf("%s(): thread id %d running on CPU %d, local session id %d remote session id %d\n",
+		__func__,
+		ti->id, cpu, get_local_session_id(ses), get_remote_session_id(ses));
 
 	resp = malloc(max_buf_size);
 	req = malloc(max_buf_size);
@@ -31,15 +75,6 @@ static void client_run(struct session_net *ses)
 
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_PINGPONG;
-
-	/* WARMUP Sort of skip the initial sleep period */
-	for (i = 0; i < 10; i++) {
-		net_send_and_receive(ses, req,
-				sizeof(struct legomem_common_headers), resp, max_buf_size);
-	}
-
-	/* This is the payload size */
-	int test_size[] = { 4, 16, 64, 256, 1024 };
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		int send_size = test_size[i];
@@ -49,7 +84,11 @@ static void client_run(struct session_net *ses)
 		/* need to include header size */
 		send_size += sizeof(struct legomem_common_headers);
 
-		nr_tests = 1000000;
+		/* Sync for every round */
+		pthread_barrier_wait(&thread_barrier);
+
+		/* Do the work */
+		nr_tests = NR_RUN_PER_THREAD;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			net_send_and_receive(ses, req, send_size, resp, max_buf_size);
@@ -59,68 +98,27 @@ static void client_run(struct session_net *ses)
 		lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
+		latency_ns[ti->id][i] = lat_ns;
+
+#if 0
+		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
+			ti->id,
 			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
+#endif
 	}
-}
-
-/*
- * It's similar to dispatcher(), since we are reusing
- * the PINGPONG opcode.
- */
-static void server_run(struct session_net *ses)
-{
-	struct legomem_pingpong_req *req;
-	struct legomem_pingpong_req *resp;
-	struct lego_header *lego_header;
-	int ret, opcode, reply_size;
-
-	int max_buf_size = 1024*1024;
-
-	resp = malloc(max_buf_size);
-	req = malloc(max_buf_size);
-
-	net_reg_send_buf(ses, resp, max_buf_size);
-
-	while (1) {
-		ret = net_receive(ses, req, max_buf_size);
-		if (ret <= 0) {
-			dprintf_ERROR("net error %d\n", ret);
-			return;
-		}
-
-		lego_header = to_lego_header(req);
-		opcode = lego_header->opcode;
-		switch (opcode) {
-		case OP_REQ_PINGPONG:
-			reply_size = req->reply_size + sizeof(struct legomem_pingpong_resp);
-			net_send(ses, resp, reply_size);
-			break;
-		default:
-			if (1) {
-				char err_msg[128];
-				dump_packet_headers(req, err_msg);
-				dprintf_ERROR("received unknown or un-implemented "
-					      "opcode: %u (%s) packet dump: \n"
-					      "%s\n",
-					      opcode, legomem_opcode_str(opcode), err_msg);
-			}
-			return;
-		}
-	}
+	legomem_close_session(NULL, ses);
+	return NULL;
 }
 
 /*
  * We run test against monitor rel stack.
- * We use two [host] instances
  */
-int test_rel_net_normal(char *board_ip_port_str)
+int test_rel_net_normal(void)
 {
-	struct board_info *remote_board;
-	struct session_net *ses;
-	unsigned int ip, port;
-	unsigned int ip1, ip2, ip3, ip4;
-	bool client;
+	int k, i, j, ret;
+	int nr_threads;
+	pthread_t *tid;
+	struct thread_info *ti;
 
 	if (transport_net_ops != &transport_gbn_ops) {
 		dprintf_ERROR("Reliable network testing needs reliable transport layer.\n"
@@ -128,68 +126,49 @@ int test_rel_net_normal(char *board_ip_port_str)
 		return -1;
 	}
 
-	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
-	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+	remote_board = monitor_bi;
+	printf("%s(): Using board %s\n", __func__, remote_board->name);
 
-	remote_board = find_board(ip, port);
-	if (!remote_board) {
-		dprintf_ERROR("Couldn't find the board_info for %s.\n"
-			      "You can restart the test by passing \"--add_port=%s\"\n",
-			board_ip_port_str, board_ip_port_str);
-		dump_boards();
-		return -1;
-	}
+	ti = malloc(sizeof(*ti) * NR_MAX_THREADS);
+	tid = malloc(sizeof(*tid) * NR_MAX_THREADS);
+	if (!tid || !ti)
+		die("OOM");
 
-	/*
-	 * Client is the sender side of a session.
-	 * Server is the receiver side of a session.
-	 */
-	client = true;
-	dprintf_INFO("Running as [%s]..\n", client ? "CLIENT" : "SERVER");
+	for (k = 0; k < ARRAY_SIZE(test_nr_threads); k++) {
+		nr_threads = test_nr_threads[k];
 
-	if (client) {
-		ses = legomem_open_session(NULL, remote_board);
-		if (!ses) {
-			dprintf_ERROR("Fail to open test net session with remote %s\n",
-				board_ip_port_str);
-			return -1;
+		pthread_barrier_init(&thread_barrier, NULL, nr_threads);
+
+		for (i = 0; i < nr_threads; i++) {
+			/*
+			 * cpu 0 is used for gbn polling now
+			 * in case
+			 */
+			ti[i].cpu = i + 1;
+			ti[i].id = i;
+			ret = pthread_create(&tid[i], NULL, thread_func, &ti[i]);
+			if (ret)
+				die("fail to create test thread");
 		}
-		dprintf_INFO("new session local_id: %d remote_id: %d\n",
-			get_local_session_id(ses),
-			get_remote_session_id(ses));
 
-		client_run(ses);
-	} else {
+		for (i = 0; i < nr_threads; i++) {
+			pthread_join(tid[i], NULL);
+		}
+
 		/*
-		 * In reality, the server does not know its local
-		 * session id. The situation is similar to an RC case:
-		 * the user application needs to use TCP/UDP to exchange
-		 * the session ID in order to use our session.
-		 *
-		 * For simplicity, we assume our local session ID is 4.
-		 * Usually there are alreay 3 sessions created prior:
-		 *
-		 * ses_local         remote_name
-		 * ---------  ------------------
-		 * 0          special_local_mgmt
-		 * 1           special_localhost
-		 * 2                     monitor
+		 * Aggregate all stats
 		 */
-		int server_session_id = 4;
+		for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+			int send_size = test_size[i];
+			double sum, avg;
 
-		/* Start server first and wait a bit */
-		sleep(5);
-		ses = find_net_session(server_session_id);
-		if (!ses) {
-			dprintf_ERROR("Local session (%d) is not allocated yet. "
-				      "maybe the client has not started!\n",
-				      server_session_id);
-			dump_net_sessions();
-			return -1;
+			for (j = 0, sum = 0; j < nr_threads; j++) {
+				sum += latency_ns[j][i];
+			}
+			avg = sum / nr_threads / NR_RUN_PER_THREAD;
+			dprintf_INFO("#tests_per_thread=%10d #nr_theads=%3d #payload_size=%8d avg_RTT=%10lf ns\n",
+					NR_RUN_PER_THREAD, nr_threads, send_size, avg);
 		}
-
-		server_run(ses);
 	}
-
 	return 0;
 }

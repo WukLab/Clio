@@ -17,14 +17,14 @@
 
 #define NR_RUN_PER_THREAD 1000
 
-struct board_info *remote_board;
+static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 #define NR_MAX_THREADS	(128)
 /* Tuning */
-int test_size[] = { 4, 16, 64, 256, 1024 };
-int test_nr_threads[] = { 1, 2, 4, 8, 16};
-double latency_ns[128][128];
+static int test_size[] = { 4, 16, 64, 256, 1024 };
+static int test_nr_threads[] = { 1, 2, 4, 8, 16};
+static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
 {
