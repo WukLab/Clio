@@ -33,8 +33,7 @@ static inline int bypass_receive_one(struct session_net *net,
 static inline int bypass_receive_one_zerocopy(struct session_net *net,
 				  void **buf, size_t *buf_size)
 {
-	dprintf_ERROR("Zerocopy is not supported. %d\n", 0);
-	return -EIO;
+	return raw_net_receive_zerocopy(buf, buf_size);
 }
 
 static inline int bypass_receive_one_nb(struct session_net *net,
