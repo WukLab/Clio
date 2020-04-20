@@ -152,9 +152,13 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		 * cook udp header from session ID,
 		 * src ip and dest ip is needed in our application,
 		 * port is not used
+		 * 
+		 * We will encode the src ip at the udp layer, since
+		 * the ip for each board is pre-determined, so we don't
+		 * need to take care of it at GBN layer
 		 */
 		rsp_udp_info.dest_ip = gbn_query_req.src_ip;
-		rsp_udp_info.src_ip = gbn_query_req.dest_ip;
+		rsp_udp_info.src_ip = 0;
 		rsp_udp_info.src_port = LEGOMEM_PORT;
 		rsp_udp_info.dest_port = LEGOMEM_PORT;
 		rsp_udp_info.length = 8;

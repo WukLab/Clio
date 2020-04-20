@@ -53,9 +53,13 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 	static enum buff_recv_status recv_state = BUF_STATE_RECV_INFO;
 	static enum buff_retrans_status retrans_state = BUF_STATE_RECV_REQ;
 
-	static struct route_ip route_info_array[NR_MAX_SESSIONS_PER_NODE];
-#pragma HLS DATA_PACK variable=route_info_array
-#pragma HLS DEPENDENCE variable=route_info_array inter false
+	/*
+	 * We only need to dest ip here since the ip
+	 * for each board is pre-determined, so we don't
+	 * need to take care of it at GBN layer
+	 */
+	static ap_uint<32> dest_ip_array[NR_MAX_SESSIONS_PER_NODE];
+#pragma HLS DEPENDENCE variable=dest_ip_array inter false
 
 	static struct net_axis_64 buff_packet;
 	static struct route_info buff_route_info;
@@ -83,7 +87,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 			PR("slot %d, window index %d\n", buff_slot_id,
 			   buff_window_idx);
 
-			route_info_array[buff_slot_id] = buff_route_info.ip_info;
+			dest_ip_array[buff_slot_id] = buff_route_info.dest_ip;
 
 			struct net_axis_64 length;
 			length.data = buff_route_info.length;
@@ -130,7 +134,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 	struct udp_info retrans_udp_info;
 	struct net_axis_64 retrans_pkt, rd_length;
-	struct route_ip rt_route_info;
+	struct ap_uint<32> rt_dest_ip;
 	static unsigned rt_slot_id;
 	static unsigned rt_seq;
 	static unsigned slot_base, start_addr;
@@ -186,10 +190,10 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		in_cmd.rsvd = 0;
 		in_cmd.start_address = start_addr + 8;
 
-		rt_route_info = route_info_array[rt_slot_id];
+		rt_dest_ip = dest_ip_array[rt_slot_id];
 
-		retrans_udp_info.dest_ip = rt_route_info.dest_ip;
-		retrans_udp_info.src_ip = rt_route_info.src_ip;
+		retrans_udp_info.dest_ip = rt_dest_ip;
+		retrans_udp_info.src_ip = 0;
 		retrans_udp_info.dest_port = LEGOMEM_PORT;
 		retrans_udp_info.src_port = LEGOMEM_PORT;
 		retrans_udp_info.length = rd_length.data(15, 0);

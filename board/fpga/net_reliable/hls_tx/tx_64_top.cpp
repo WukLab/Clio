@@ -128,8 +128,12 @@ void tx_64(stream<struct udp_info>		*tx_header,
 		gbn_header.keep = 0xff;
 		gbn_header.last = 0;
 
-		send_route_info.ip_info.dest_ip = send_udp_info.dest_ip;
-		send_route_info.ip_info.src_ip = send_udp_info.src_ip;
+		/*
+		 * We will encode the src ip at the udp layer, since
+		 * the ip for each board is pre-determined, so we don't
+		 * need to take care of it at GBN layer
+		 */
+		send_route_info.dest_ip = send_udp_info.dest_ip;
 		send_route_info.length = send_udp_info.length;
 
 		/*
