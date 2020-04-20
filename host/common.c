@@ -75,8 +75,8 @@ void *user_session_handler(void *_ses)
 
 	pin_cpu(tmp_cpu++);
 	getcpu(&cpu, &node);
-	dprintf_INFO("CPU=%d Node=%d, for session local_id = %u remote_id = %u\n",
-		cpu, node, get_local_session_id(ses), get_remote_session_id(ses));
+	dprintf_INFO("CPU=%d Node=%d, for session local_id = %u remote_id = %u tb.tx=%#lx\n",
+		cpu, node, get_local_session_id(ses), get_remote_session_id(ses), (unsigned long)tb.tx);
 
 	while (1) {
 		if (unlikely(ses_thread_should_stop(ses)))

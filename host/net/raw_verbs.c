@@ -288,9 +288,12 @@ raw_verbs_send(struct session_net *ses_net,
 		if (unlikely(buf != ses_verbs->send_buf)) {
 			dprintf_INFO("You have registered buffer but now "
 				     "are using a different one. "
-				     "There are perf penalties. (o %lx n %lx)\n",
+				     "There are perf penalties. (o %lx n %lx) "
+				     "Session local_id=%u remote_id=%u\n",
 				     (unsigned long)ses_verbs->send_buf,
-				     (unsigned long)buf);
+				     (unsigned long)buf,
+				     get_local_session_id(ses_net),
+				     get_remote_session_id(ses_net));
 			memcpy(ses_verbs->send_buf, buf, buf_size);
 			buf = ses_verbs->send_buf;
 		}

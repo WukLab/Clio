@@ -425,6 +425,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		info = index_to_unack_buffer_info(ses_gbn, i);
 
 		// TODO buf reg
+		dprintf_INFO("buf %#lx\n", (unsigned long)info->buf);
 		ret = raw_net_send(ses_net, info->buf, info->buf_size, NULL);
 		if (ret < 0) {
 			gbn_info("net_send error %d\n", ret);
@@ -630,8 +631,7 @@ static void handle_data_packet(struct session_net *ses_net,
 			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
 			inc_stat(STAT_NET_GBN_NR_TX_ACK);
-
-			ret = raw_net_send(ses_net, mb, sizeof(*ack_pkt), NULL);
+			ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
 			if (ret < 0) {
 				dprintf_ERROR("net_send error %d\n", ret);
 				return;
