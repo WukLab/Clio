@@ -46,7 +46,9 @@
  * also, we need to take number of connections into account.
  */
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
-#define NR_BUFFER_DEPTH	256	/* maximum number of sends waiting for completion */
+#define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
+
+#define NR_MAX_OUTSTANDING_SEND_WR	(NR_BUFFER_DEPTH / 2)
 
 int ib_port = 1;
 
@@ -138,6 +140,8 @@ static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
 	return 0;
 }
 
+atomic_long nr_post_send;
+
 static int
 __raw_verbs_send(struct session_net *ses_net,
 		 void *buf, size_t buf_size, struct ibv_mr *send_mr, void *_route)
@@ -180,19 +184,7 @@ __raw_verbs_send(struct session_net *ses_net,
 	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
 		wr.send_flags |= IBV_SEND_INLINE;
 
-	/*
-	 * TODO
-	 * We could do batch signaling.
-	 * There are probably two ways to implement that
-	 * 1. have SIGNALED every N requests
-	 * 2. have SIGNALED for every request, but poll every N requests
-	 *
-	 * We should aware that each CQE is a DMA-write from RNIC to DRAM.
-	 * I know LegoOS's LITE is doing the second way, but I don't think
-	 * that's the best way. Investigate more and come back optimize.
-	 * eRPC's code is using the second way.
-	 */
-	if (1) {
+	if (unlikely(!(atomic_fetch_add(&nr_post_send, 1) % NR_MAX_OUTSTANDING_SEND_WR))) {
 		wr.send_flags |= IBV_SEND_SIGNALED;
 		signaled = true;
 	} else
@@ -204,11 +196,11 @@ __raw_verbs_send(struct session_net *ses_net,
 		goto out;
 	}
 
-	if (signaled) {
+	if (unlikely(signaled)) {
 		while (1) {
-			struct ibv_wc wc;
+			struct ibv_wc wc[NR_MAX_OUTSTANDING_SEND_WR];
 
-			ret = ibv_poll_cq(send_cq, 1, &wc);
+			ret = ibv_poll_cq(send_cq, 1, wc);
 			if (unlikely(!ret))
 				continue;
 			else if (unlikely(ret < 0)) {
@@ -682,6 +674,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		 * We are using RAW PACKET QPs.
 		 */
 		.qp_type = IBV_QPT_RAW_PACKET,
+		.sq_sig_all = 0
 	};
 
 	qp = ibv_create_qp(pd, &qp_init_attr);
