@@ -184,6 +184,16 @@ __raw_verbs_send(struct session_net *ses_net,
 	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
 		wr.send_flags |= IBV_SEND_INLINE;
 
+	/*
+	 * RDMAmojo:
+	 * https://www.rdmamojo.com/2014/06/30/working-unsignaled-completions/
+	 * All posted Send Requested, Signaled and Unsignaled,
+	 * are considered outstanding until a Work Completion that they,
+	 * or Send Requests that were posted after them, was polled from
+	 * the Completion Queue associated with the Send Queue. 
+	 *
+	 * We must occasionally post a Send Request that generates Work Completion.
+	 */
 	if (unlikely(!(atomic_fetch_add(&nr_post_send, 1) % NR_MAX_OUTSTANDING_SEND_WR))) {
 		wr.send_flags |= IBV_SEND_SIGNALED;
 		signaled = true;
@@ -198,7 +208,7 @@ __raw_verbs_send(struct session_net *ses_net,
 
 	if (unlikely(signaled)) {
 		while (1) {
-			struct ibv_wc wc[NR_MAX_OUTSTANDING_SEND_WR];
+			struct ibv_wc wc;
 
 			ret = ibv_poll_cq(send_cq, 1, wc);
 			if (unlikely(!ret))
