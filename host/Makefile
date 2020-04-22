@@ -1,6 +1,11 @@
 #
 # Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
 #
+TEST_SRCS := test_session.c \
+	     test_migration.c \
+	     test_raw_net.c \
+	     test_board.c \
+	     test_soc.c
 
 # Test cases used by host only
 TP := test

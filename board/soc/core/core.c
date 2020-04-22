@@ -408,11 +408,10 @@ static void dispatcher(void)
 			  rx_lego_header->src_sesid,
 			  rx_lego_header->dst_sesid);
 
-		/* Swap session info */
 		tx_lego_header = to_lego_header(tb->tx);
 		tx_lego_header->dest_ip = rx_lego_header->dest_ip;
-		tx_lego_header->src_sesid = rx_lego_header->dst_sesid;
-		tx_lego_header->dst_sesid = rx_lego_header->src_sesid;
+		tx_lego_header->src_sesid = rx_lego_header->src_sesid;
+		tx_lego_header->dst_sesid = rx_lego_header->dst_sesid;
 
 		soc_debug("req from src_sesid: %u to dst_sesid: %u\n",
 			  rx_lego_header->src_sesid,
