@@ -31,12 +31,7 @@ THE SOFTWARE.
  */
 module fpga_core #
 (
-    /*
-     * MODE:
-     * 1: integration
-     * 0: loop back
-     */
-    parameter INTEGRATION_MODE = 1
+    parameter LOOPBACK_UDP = 0
 )
 (
     /*
@@ -73,6 +68,7 @@ module fpga_core #
 
     /*
      * Onboard Pipeline: Input
+     * CoreMem -> Network
      */
     input  wire [111:0] s_usr_hdr_data,
     input  wire         s_usr_hdr_valid,
@@ -86,6 +82,7 @@ module fpga_core #
 
     /*
      * Onboard Pipeline: Output
+     * Network -> CoreMem
      */
     output wire [111:0] m_usr_hdr_data,
     output wire         m_usr_hdr_valid,
@@ -591,11 +588,12 @@ assign {
 	tx_udp_ip_source_ip
 } = tx_udp_hdr_info;
 
-if (INTEGRATION_MODE == 1) begin
+if (LOOPBACK_UDP == 0) begin
     relnet
     relnet_inst (
         .ap_clk(clk),
         .ap_rst_n(~rst),
+
         // UDP frame input
         .in_header_tdata(rx_udp_hdr_info),
         .in_header_tready(rx_udp_hdr_ready),
@@ -606,6 +604,7 @@ if (INTEGRATION_MODE == 1) begin
         .in_payload_tready(rx_udp_payload_axis_tready),
         .in_payload_tuser(rx_udp_payload_axis_tuser),
         .in_payload_tvalid(rx_udp_payload_axis_tvalid),
+
         // UDP frame output
         .out_header_tdata(tx_udp_hdr_info),
         .out_header_tready(tx_udp_hdr_ready),
@@ -616,6 +615,7 @@ if (INTEGRATION_MODE == 1) begin
         .out_payload_tready(tx_udp_payload_axis_tready),
         .out_payload_tuser(tx_udp_payload_axis_tuser),
         .out_payload_tvalid(tx_udp_payload_axis_tvalid),
+
         // onboard pipeline output
         .usr_rx_header_tdata(m_usr_hdr_data),
         .usr_rx_header_tready(m_usr_hdr_ready),
@@ -626,6 +626,7 @@ if (INTEGRATION_MODE == 1) begin
         .usr_rx_payload_tready(m_usr_payload_axis_tready),
         .usr_rx_payload_tuser(m_usr_payload_axis_tuser),
         .usr_rx_payload_tvalid(m_usr_payload_axis_tvalid),
+
         // onboard pipeline input
         .usr_tx_header_tdata(s_usr_hdr_data),
         .usr_tx_header_tready(s_usr_hdr_ready),
@@ -636,7 +637,8 @@ if (INTEGRATION_MODE == 1) begin
         .usr_tx_payload_tready(s_usr_payload_axis_tready),
         .usr_tx_payload_tuser(s_usr_payload_axis_tuser),
         .usr_tx_payload_tvalid(s_usr_payload_axis_tvalid),
-        // connection management input
+
+	// connection management input
         .conn_set_req_tdata(s_setconn_axis_tdata),
         .conn_set_req_tready(s_setconn_axis_tready),
         .conn_set_req_tvalid(s_setconn_axis_tvalid)
