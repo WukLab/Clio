@@ -157,7 +157,7 @@ index_to_data_buffer_info(struct session_gbn *ses, unsigned int index)
 static __always_inline void
 disable_timeout(struct session_gbn *ses)
 {
-#if 1
+#if 0
 	struct itimerspec timeout;
 
 	timeout.it_interval.tv_nsec = 0;
@@ -172,7 +172,7 @@ disable_timeout(struct session_gbn *ses)
 static __always_inline void
 set_next_timeout(struct session_gbn *ses)
 {
-#if 1
+#if 0
 	struct itimerspec timeout;
 
 	timeout.it_interval.tv_nsec = 0;
@@ -380,6 +380,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		}
 		atomic_store(&ses_gbn->seqnum_last, seq);
 
+#if 0
 		/*
 		 * If unack buffer is empty after dequeue, then we do not need to take
 		 * care of timeout anymore. If it's ack packet, reset timeout.
@@ -389,6 +390,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 			disable_timeout(ses_gbn);
 		else if (hdr->type == GBN_PKT_ACK)
 			set_next_timeout(ses_gbn);
+#endif
 
 		return true;
 	} else if (seq == seqnum_last) {
@@ -437,6 +439,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		}
 	}
 
+#if 0
 	/*
 	 * if unack buffer is not empty after dequeue,
 	 * reset timeout after retrans.
@@ -444,6 +447,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 	 */
 	if (likely(retrans_end - retrans_start > 0))
 		set_next_timeout(ses_gbn);
+#endif
 }
 
 static void handle_ack_packet(struct session_net *ses_net, void *packet)
@@ -788,7 +792,6 @@ static inline int gbn_send_one(struct session_net *net,
 	struct buffer_info *info;
 	struct session_gbn *ses;
 	int seqnum;
-	bool unacked_buffer_empty;
 	struct gbn_header *hdr;
 
 	hdr = to_gbn_header(buf);
@@ -812,12 +815,14 @@ static inline int gbn_send_one(struct session_net *net,
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
 
+#if 0
 	/*
 	 * We check if unacked buffer is empty before grabbing a slot,
 	 * since grabing a slot will increase seqnum_cur and the 
 	 * buffer can never be empty if the seqnum_cur is increased
 	 */
 	unacked_buffer_empty = !nr_unack_buffer(ses);
+#endif
 
 	/* Try to alloc a new unack buffer and seqnum */
 	info = alloc_unack_buffer_info(ses, &seqnum);
@@ -830,6 +835,7 @@ static inline int gbn_send_one(struct session_net *net,
 	info->buf = buf;
 	info->buf_size = buf_size;
 
+#if 0
 	/*
 	 * We do not reset timeout for every packet sent out.
 	 * Timeout is only (re)set when the unack buffer is originally empty
@@ -837,6 +843,7 @@ static inline int gbn_send_one(struct session_net *net,
 	if (unacked_buffer_empty) {
 		set_next_timeout(ses);
 	}
+#endif
 
 send:
 	inc_stat(STAT_NET_GBN_NR_TX_DATA);
@@ -942,7 +949,7 @@ static void gbn_timeout_handler(union sigval val)
 	ses_net = (struct session_net *)val.sival_ptr;
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
 
-	gbn_debug("Session %d timeout\n", ses_net->session_id);
+	dprintf_ERROR("Session %d timeout\n", ses_net->session_id);
 	retrans_unack_buffer_info(ses_net, ses_gbn);
 }
 
