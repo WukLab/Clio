@@ -210,7 +210,7 @@ __raw_verbs_send(struct session_net *ses_net,
 		while (1) {
 			struct ibv_wc wc;
 
-			ret = ibv_poll_cq(send_cq, 1, wc);
+			ret = ibv_poll_cq(send_cq, 1, &wc);
 			if (unlikely(!ret))
 				continue;
 			else if (unlikely(ret < 0)) {

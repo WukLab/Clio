@@ -157,6 +157,7 @@ index_to_data_buffer_info(struct session_gbn *ses, unsigned int index)
 static __always_inline void
 disable_timeout(struct session_gbn *ses)
 {
+#if 1
 	struct itimerspec timeout;
 
 	timeout.it_interval.tv_nsec = 0;
@@ -165,11 +166,13 @@ disable_timeout(struct session_gbn *ses)
 	timeout.it_value.tv_sec = 0;
 
 	timer_settime(ses->rt_timer, 0, &timeout, NULL);
+#endif
 }
 
 static __always_inline void
 set_next_timeout(struct session_gbn *ses)
 {
+#if 1
 	struct itimerspec timeout;
 
 	timeout.it_interval.tv_nsec = 0;
@@ -179,6 +182,7 @@ set_next_timeout(struct session_gbn *ses)
 
 	/* Set flag to 0, timeout is relative time to current time */
 	timer_settime(ses->rt_timer, 0, &timeout, NULL);
+#endif
 }
 
 /*
