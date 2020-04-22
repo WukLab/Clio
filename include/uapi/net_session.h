@@ -190,7 +190,13 @@ raw_net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
 {
 	if (raw_net_ops->reg_send_buf)
 		return raw_net_ops->reg_send_buf(ses, buf, buf_size);
-	return -ENOSYS;
+
+	/*
+	 * If the underlying raw network layer does not provide this interface,
+	 * we assume it does not require it (e.g., no DMA-able memory requirement),
+	 * thus return 0 to indicate success.
+	 */
+	return 0;
 }
 
 static inline int
