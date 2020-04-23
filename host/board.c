@@ -125,12 +125,16 @@ find_board(unsigned int ip, unsigned int port)
 	key = get_key(ip, port);
 
 	pthread_spin_lock(&board_lock);
-	if (ip == ANY_BOARD) {
+	if (ip == ANY_BOARD || ip == ANY_NODE) {
 		hash_for_each(board_list, bkt, bi, link) {
 			if (special_board_info_type(bi->flags))
 				continue;
 
-			/* Return the first board encountered*/
+			if (ip == ANY_BOARD) {
+				if (!(bi->flags & BOARD_INFO_FLAGS_BOARD))
+					continue;
+			}
+
 			pthread_spin_unlock(&board_lock);
 			return bi;
 		}

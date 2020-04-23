@@ -472,12 +472,12 @@ int main(int argc, char **argv)
 			//ret = test_raw_net(board_addr);
 		}
 
-		ret = test_rel_net_normal();
+		//ret = test_rel_net_normal();
 		//ret = test_rel_net_mgmt();
 		//ret = test_legomem_alloc_free();
 		//ret = test_legomem_context();
 		//ret = test_legomem_session();
-		//ret = test_legomem_migration();
+		ret = test_legomem_migration();
 	}
 
 	pthread_join(mgmt_session->thread, NULL);

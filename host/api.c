@@ -525,7 +525,13 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		v->board_ip = board_ip;
 		v->udp_port = udp_port;
 	}
-	dprintf_DEBUG("select vregion_idx %u, ip %#x port %u\n", vregion_idx, board_ip, udp_port);
+
+	if (1) {
+		char ip_str[INET_ADDRSTRLEN];
+		get_ip_str(board_ip, ip_str);
+		dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s:%u\n",
+			vregion_idx, ip_str, udp_port);
+	}
 
 	/*
 	 * Step II:

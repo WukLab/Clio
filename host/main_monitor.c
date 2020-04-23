@@ -309,6 +309,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 	req = (struct legomem_alloc_free_req *)tb->rx;
 	lego_header = to_lego_header(req);
 	pid = lego_header->pid;
+
 	pi = get_proc_by_pid(pid);
 	if (!pi) {
 		dprintf_ERROR("fail to find pid %d\n", pid);
@@ -323,9 +324,10 @@ static void handle_alloc(struct thpool_buffer *tb)
 		goto out;
 	}
 
+	/* Find an available vregion */
 	vi = alloc_vregion(pi);
 	if (!vi) {
-		dprintf_ERROR("fail to allocate a new vRegion for pid %d\n", pid);
+		dprintf_ERROR("Fail to alloc a new vRegion for pid %d\n", pid);
 		resp->op.ret = -ENOMEM;
 		goto out;
 	}
@@ -340,7 +342,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 		free_vregion(pi, vi);
 
 		resp->op.ret = -ENODEV;
-		dprintf_ERROR("No board available. pid %d\n", pid);
+		dprintf_ERROR("No board available for this alloc req. pid %d\n", pid);
 		goto out;
 	}
 

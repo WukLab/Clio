@@ -19,5 +19,31 @@
 
 int test_legomem_migration(void)
 {
+	struct legomem_context *ctx;
+	struct timespec ts, te;
+	int i;
+	struct board_info *dst_bi;
+	unsigned long __remote addr;
+
+	dprintf_INFO("Running migration test. %d\n", 0);
+
+	ctx = legomem_open_context();
+	dst_bi = monitor_bi;
+
+#if 1
+	addr = legomem_alloc(ctx, VREGION_SIZE, 0);
+	if (!addr) {
+		dprintf_ERROR("alloc failed %d\n", 0);
+		legomem_close_context(ctx);
+		return -1;
+	}
+#else
+	addr = 0;
+#endif
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	legomem_migration(ctx, dst_bi, addr, 128);
+	clock_gettime(CLOCK_MONOTONIC, &te);
+
 	return 0;
 }
