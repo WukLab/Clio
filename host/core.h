@@ -16,8 +16,6 @@
 #include <time.h>
 #include <pthread.h>
 
-#define LEGOMEM_VREGION_ALLOCATED (0x1u)
-
 /*
  * pthread_rwlock_t is a big structure, around 50-60B.
  * Thus it's impossible to tame whole structure with one cacheline.
@@ -26,13 +24,86 @@
 struct legomem_vregion {
 	int board_ip;
 	unsigned int udp_port;
-	unsigned int flags;
+	unsigned long flags;
 	atomic_int avail_space;
 
 #define LEGOMEM_VREGION_HT_ENTRIES	(6)
 	struct hlist_head ht_sessions[LEGOMEM_VREGION_HT_ENTRIES];
 	pthread_rwlock_t rwlock;
 } __aligned(64);
+
+enum legomem_vregion_flags {
+	V_allocated,
+	V_migration,
+};
+
+#define TEST_VREGION_FLAG(uname, lname)				\
+static inline int Vregion##uname(const struct legomem_vregion *p)	\
+{								\
+	return test_bit(V_##lname, &p->flags);			\
+}
+
+#define SET_VREGION_FLAG(uname, lname)				\
+static inline void SetVregion##uname(struct legomem_vregion *p)		\
+{								\
+	set_bit(V_##lname, &p->flags);				\
+}
+
+#define CLEAR_VREGION_FLAG(uname, lname)			\
+static inline void ClearVregion##uname(struct legomem_vregion *p)	\
+{								\
+	clear_bit(V_##lname, &p->flags);			\
+}
+
+#define __SET_VREGION_FLAG(uname, lname)			\
+static inline void __SetVregion##uname(struct legomem_vregion *p)	\
+{								\
+	__set_bit(V_##lname, &p->flags);			\
+}
+
+#define __CLEAR_VREGION_FLAG(uname, lname)			\
+static inline void __ClearVregion##uname(struct legomem_vregion *p)	\
+{								\
+	__clear_bit(V_##lname, &p->flags);			\
+}
+
+#define TEST_SET_FLAG(uname, lname)				\
+static inline int TestSetVregion##uname(struct legomem_vregion *p)	\
+{								\
+	return test_and_set_bit(V_##lname, &p->flags);		\
+}
+
+#define TEST_CLEAR_FLAG(uname, lname)				\
+static inline int TestClearVregion##uname(struct legomem_vregion *p)	\
+{								\
+	return test_and_clear_bit(V_##lname, &p->flags);	\
+}
+
+#define __TEST_SET_FLAG(uname, lname)				\
+static inline int __TestSetVregion##uname(struct legomem_vregion *p)	\
+{								\
+	return __test_and_set_bit(V_##lname, &p->flags);	\
+}
+
+#define __TEST_CLEAR_FLAG(uname, lname)				\
+static inline int __TestClearVregion##uname(struct legomem_vregion *p)	\
+{								\
+	return __test_and_clear_bit(V_##lname, &p->flags);	\
+}
+
+#define VREGION_FLAG(uname, lname)				\
+	TEST_VREGION_FLAG(uname, lname)				\
+	SET_VREGION_FLAG(uname, lname)				\
+	CLEAR_VREGION_FLAG(uname, lname)			\
+	__SET_VREGION_FLAG(uname, lname)			\
+	__CLEAR_VREGION_FLAG(uname, lname)			\
+	TEST_SET_FLAG(uname, lname)				\
+	TEST_CLEAR_FLAG(uname, lname)				\
+	__TEST_SET_FLAG(uname, lname)				\
+	__TEST_CLEAR_FLAG(uname, lname)
+
+VREGION_FLAG(Allocated, allocated)
+VREGION_FLAG(Migration, migration)
 
 static __always_inline int
 add_vregion_session(struct legomem_vregion *v, struct session_net *ses)
@@ -92,7 +163,7 @@ static inline void dump_legomem_vregion(struct legomem_vregion *v)
 	struct session_net *ses;
 
 	get_ip_str(v->board_ip, ip_str);
-	printf("vRegion (board %s:%u) avail_space: %u B flags: %#x\n",
+	printf("vRegion (board %s:%u) avail_space: %u B flags: %#lx\n",
 		ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
 
 	printf("     bkt       ses_local       tid\n");

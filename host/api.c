@@ -449,7 +449,7 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 	for ( ; i < NR_VREGIONS; i++) {
 		v = p->vregion + i;
 
-		if (!(v->flags & LEGOMEM_VREGION_ALLOCATED))
+		if (!VregionAllocated(v))
 			continue;
 
 		/*
@@ -517,7 +517,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		init_legomem_vregion(v);
 		v->board_ip = board_ip;
 		v->udp_port = udp_port;
-		v->flags = LEGOMEM_VREGION_ALLOCATED;
+		SetVregionAllocated(v);
 	}
 	dprintf_DEBUG("select vregion_idx %u, ip %#x port %u\n", vregion_idx, board_ip, udp_port);
 
