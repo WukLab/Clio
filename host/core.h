@@ -349,6 +349,8 @@ int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
 int init_default_local_ei(const char *dev, unsigned int port,
 			  struct endpoint_info *ei);
 int init_local_management_session(void);
+int init_monitor_session(char *ndev, char *monitor_addr,
+			 struct endpoint_info *local_ei);
 
 /* Host-side only */
 extern unsigned int monitor_ip_h;
@@ -408,6 +410,9 @@ static inline void getcpu(int *cpu, int *node)
  * Common handlers
  */
 void handle_pingpong(struct thpool_buffer *tb);
+void handle_new_node(struct thpool_buffer *tb);
+void handle_close_session(struct thpool_buffer *tb);
+void handle_open_session(struct thpool_buffer *tb);
 
 int create_watchdog_thread(void);
 

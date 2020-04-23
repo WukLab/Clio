@@ -1,5 +1,7 @@
 /*
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ * 
+ * Some misc helper functions used by everyone, anywhere they want.
  */
 
 #define _GNU_SOURCE
@@ -26,6 +28,15 @@
  * This is passed by command line during startup
  */
 char global_net_dev[32];
+
+int pin_cpu(int cpu_id)
+{
+	cpu_set_t cpu_set;
+
+	CPU_ZERO(&cpu_set);
+	CPU_SET(cpu_id, &cpu_set);
+	return sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
+}
 
 /*
  * Given the @ibvdev name, we will try to fill the @ndev.
@@ -336,11 +347,62 @@ int init_local_management_session(void)
 	return 0;
 }
 
-int pin_cpu(int cpu_id)
+/*
+ * Use input @monitor_addr to create a local network session with the monitor.
+ * Note we just create local data structures for monitor's management session.
+ * We do not need to contact monitor for this particular creation.
+ */
+int init_monitor_session(char *ndev, char *monitor_addr,
+			 struct endpoint_info *local_ei)
 {
-	cpu_set_t cpu_set;
+	char ip_str[INET_ADDRSTRLEN];
+	int ip, port;
+	int ip1, ip2, ip3, ip4;
+	struct in_addr in_addr;
+	unsigned char mac[6];
+	struct endpoint_info monitor_ei;
+	int ret, i;
 
-	CPU_ZERO(&cpu_set);
-	CPU_SET(cpu_id, &cpu_set);
-	return sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
+	sscanf(monitor_addr, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+	in_addr.s_addr = htonl(ip);
+	inet_ntop(AF_INET, &in_addr, ip_str, sizeof(ip_str));
+
+	ret = get_mac_of_remote_ip(ip, ip_str, ndev, mac);
+	if (ret) {
+		dprintf_ERROR("cannot get mac of ip %s\n", ip_str);
+		return ret;
+	}
+
+	/*
+	 * Now let's save the info
+	 * into the global variables
+	 */
+	memcpy(monitor_ip_str, ip_str, INET_ADDRSTRLEN);
+	monitor_ip_h = ip;
+
+	/* EI needs host order ip */
+	monitor_ei.ip = ip;
+	monitor_ei.udp_port = port;
+	memcpy(monitor_ei.mac, mac, 6);
+
+	/* monitor_bi defined in api.c */
+	monitor_bi = add_board("monitor", 0,
+			       &monitor_ei, local_ei,
+			       false);
+	if (!monitor_bi)
+		return -ENOMEM;
+
+	monitor_bi->flags |= BOARD_INFO_FLAGS_MONITOR;
+
+	monitor_session = get_board_mgmt_session(monitor_bi);
+
+	/* Debugging info */
+	printf("%s(): monitor IP: %s Port: %d MAC: ",
+		__func__, monitor_ip_str, port);
+	for (i = 0; i < 6; i++)
+		printf("%x ", mac[i]);
+	printf("\n");
+	return 0;
 }

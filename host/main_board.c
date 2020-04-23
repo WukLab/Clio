@@ -89,23 +89,6 @@ free_thpool_buffer(struct thpool_buffer *tb)
 	barrier();
 }
 
-static void handle_test(struct thpool_buffer *tb)
-{
-	struct reply {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} *reply, *req;
-	static int nr_rx = 0;
-
-	reply = (struct reply *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*reply));
-
-	nr_rx++;
-
-	req = (struct reply *)tb->rx;
-	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
-}
-
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -117,9 +100,23 @@ static void worker_handle_request(struct thpool_worker *tw,
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
+	if (0) {
+		dprintf_INFO("received opcode: %u (%s)\n",
+			opcode, legomem_opcode_str(opcode));
+	}
+
 	switch (opcode) {
-	case OP_REQ_TEST:
-		handle_test(tb);
+	case OP_REQ_MEMBERSHIP_NEW_NODE:
+		handle_new_node(tb);
+		break;
+	case OP_OPEN_SESSION:
+		handle_open_session(tb);
+		break;
+	case OP_CLOSE_SESSION:
+		handle_close_session(tb);
+		break;
+	case OP_REQ_PINGPONG:
+		handle_pingpong(tb);
 		break;
 	default:
 		break;
@@ -159,14 +156,26 @@ static void *dispatcher(void *_unused)
 	struct thpool_worker *tw;
 	int ret;
 
-	while (1) {
-		tb = alloc_thpool_buffer();
-		tw = select_thpool_worker_rr();
+	tb = thpool_buffer_map;
+	tw = thpool_worker_map;
 
+	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
+	if (ret) {
+		dprintf_ERROR("Fail to register TX buffer %d\n", ret);
+		return NULL;
+	}
+
+	while (1) {
+#if 1
+		ret = net_receive_zerocopy(mgmt_session, &tb->rx, &tb->rx_size);
+		if (ret <= 0)
+			continue;
+#else
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
 		tb->rx_size = ret;
+#endif
 
 		/*
 		 * Inline handling for now
@@ -177,11 +186,42 @@ static void *dispatcher(void *_unused)
 	return NULL;
 }
 
+static int join_cluster(void)
+{
+	struct legomem_membership_join_cluster_req req;
+	struct legomem_membership_join_cluster_resp resp;
+	struct lego_header *lego_header;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MEMBERSHIP_JOIN_CLUSTER;
+
+	req.op.mem_size_bytes = 0;
+	req.op.type = BOARD_INFO_FLAGS_BOARD;
+	req.op.ei = default_local_ei;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_ERROR("net error %d\n", ret);
+		return -1;
+	}
+
+	if (resp.ret == 0)
+		dprintf_INFO("Succefully joined cluster! (monitor: %s)\n",
+			monitor_bi->name);
+	else
+		dprintf_ERROR("Fail to join cluster, monitor error %d\n",
+			resp.ret);
+	return resp.ret;
+}
+
 static void print_usage(void)
 {
 	printf("Usage ./board_emulator.o [Options]\n"
 	       "\n"
 	       "Options:\n"
+	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format (Required)\n"
 	       "  --dev=<name>                Specify the local network device (Required)\n"
 	       "  --port=<port>               Specify the local UDP port we listen to (Required)\n"
 	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
@@ -196,28 +236,35 @@ static void print_usage(void)
 }
 
 static struct option long_options[] = {
-	{ "port",	required_argument,	NULL,	'p'},
-	{ "dev",	required_argument,	NULL,	'd'},
-	{ "net_raw_ops", required_argument,	NULL,	'n'},
-	{ 0,		0,			0,	0  }
+	{ "monitor",		required_argument,	NULL,	'm'},
+	{ "port",		required_argument,	NULL,	'p'},
+	{ "dev",		required_argument,	NULL,	'd'},
+	{ "net_raw_ops",	required_argument,	NULL,	'n'},
+	{ 0,			0,			0,	0  }
 };
 
 int main(int argc, char **argv)
 {
 	int ret;
 	int c, option_index = 0;
+	char monitor_addr[32];
+	bool monitor_addr_set = false;
 	char ndev[32];
 	bool ndev_set = false;
 	int port = 0;
 
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "p:d:",
+		c = getopt_long(argc, argv, "m:p:d:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
+		case 'm':
+			strncpy(monitor_addr, optarg, sizeof(monitor_addr));
+			monitor_addr_set = true;
+			break;
 		case 'p':
 			port = atoi(optarg);
 			break;
@@ -255,6 +302,13 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	if (!monitor_addr_set) {
+		printf("ERROR: Please specify the monitor address\n\n");
+		print_usage();
+		return 0;
+	}
+	printf("monitor: %s ndev: %s port: %d\n", monitor_addr, ndev, port);
+
 	/*
 	 * Init the local endpoint info
 	 * - mac, ip, port
@@ -291,6 +345,16 @@ int main(int argc, char **argv)
 	add_localhost_bi(&default_local_ei);
 
 	/*
+	 * Create a local session for remote monitor's mgmt session
+	 * A special monitor board_info is added as well
+	 */
+	ret = init_monitor_session(ndev, monitor_addr, &default_local_ei);
+	if (ret) {
+		printf("Fail to init monitor session\n");
+		exit(-1);
+	}
+
+	/*
 	 * Now init the thpool stuff and create a new thread
 	 * to handle the mgmt session traffic. 
 	 */
@@ -305,6 +369,8 @@ int main(int argc, char **argv)
 		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
 		exit(-1);
 	}
+
+	join_cluster();
 	pthread_join(mgmt_session->thread, NULL);
 	return 0;
 }
