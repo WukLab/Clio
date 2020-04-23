@@ -105,6 +105,12 @@ static inline int __TestClearVregion##uname(struct legomem_vregion *p)	\
 VREGION_FLAG(Allocated, allocated)
 VREGION_FLAG(Migration, migration)
 
+/*
+ * The following couple functions play with the per-vregion session list.
+ * This session hashtable is keyed by local kernel thread id (pid),
+ * it is used to diffrentiate multiple threads from the same process.
+ * In the hope of better performance, we used a rwlock instead of a spinlock.
+ */
 static __always_inline int
 add_vregion_session(struct legomem_vregion *v, struct session_net *ses)
 {
@@ -325,6 +331,8 @@ unsigned long __remote
 legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags);
 int legomem_free(struct legomem_context *ctx,
 		 unsigned long __remote addr, size_t size);
+int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
+		      unsigned long __remote addr, unsigned long size);
 
 /* init and utils */
 extern char global_net_dev[32];
@@ -361,18 +369,18 @@ int add_localhost_bi(struct endpoint_info *ei);
 /* Debugging info, useful for dev */
 #if 1
 #define dprintf_DEBUG(fmt, ...) \
-	printf("\033[34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+	printf("\033[34m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 #else
 #define dprintf_DEBUG(fmt, ...)  do { } while (0)
 #endif
 
 /* General info, always on */
 #define dprintf_INFO(fmt, ...) \
-	printf("\033[1;34m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+	printf("\033[1;34m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /* ERROR/WARNING info, always on */
 #define dprintf_ERROR(fmt, ...) \
-	printf("\033[1;31m[%s:%d] " fmt "\033[0m", __func__, __LINE__, __VA_ARGS__)
+	printf("\033[1;31m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /*
  * for test

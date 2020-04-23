@@ -511,13 +511,19 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 			dprintf_ERROR("fail to get new vRegion from monitor %d\n",ret);
 			return 0;
 		}
+
 		v = index_to_legomem_vregion(ctx, vregion_idx);
+		if (unlikely(TestSetVregionAllocated(v))) {
+			dprintf_ERROR("vregion was allocated before. "
+				      "Either monitor or us has a bug. vregion_idx=%u\n",
+					vregion_idx);
+			return -ENOMEM;
+		}
 
 		/* Prepare the new vRegion */
 		init_legomem_vregion(v);
 		v->board_ip = board_ip;
 		v->udp_port = udp_port;
-		SetVregionAllocated(v);
 	}
 	dprintf_DEBUG("select vregion_idx %u, ip %#x port %u\n", vregion_idx, board_ip, udp_port);
 
@@ -807,14 +813,8 @@ int legomem_write_async(struct legomem_context *ctx, void *buf,
 	return __legomem_write(ctx, buf, addr, size, LEGOMEM_WRITE_ASYNC);
 }
 
-/*
- * TODO
- * We need to stop all read/write/other activies using this vregion.
- * some sort of lock is needed
- */
 int legomem_migration_vregion(struct legomem_context *ctx,
-			      struct board_info *src_bi, struct board_info *dst_bi,
-			      unsigned int vregion_index)
+			      struct board_info *dst_bi, unsigned int vregion_index)
 {
 	struct legomem_migration_req req;
 	struct legomem_migration_resp resp;
@@ -823,6 +823,23 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	struct session_net *ses;
 	struct legomem_vregion *v;
 	int ret;
+	pid_t tid;
+
+	/*
+	 * Set migration flag,
+	 * stop all accessing of this vRegion
+	 */
+	v = index_to_legomem_vregion(ctx, vregion_index);
+
+	if (unlikely(!VregionAllocated(v))) {
+		dprintf_ERROR("vregion_idx %d is not allocated yet\n", vregion_index);
+		return -EINVAL;
+	}
+
+	if (unlikely(TestSetVregionMigration(v))) {
+		dprintf_DEBUG("vregion_idx %u is being migrated now.\n", vregion_index);
+		return -EBUSY;
+	}
 
 	/* Prepare legomem header */
 	lego_header = to_lego_header(&req);
@@ -831,8 +848,8 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 
 	/* Prepare migration req header */
 	op = &req.op;
-	op->src_board_ip = src_bi->board_ip;
-	op->src_udp_port = src_bi->udp_port;
+	op->src_board_ip = v->board_ip;
+	op->src_udp_port = v->udp_port;
 	op->dst_board_ip = dst_bi->board_ip;
 	op->dst_udp_port = dst_bi->udp_port;
 	op->vregion_index = vregion_index;
@@ -845,6 +862,8 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	}
 
 	if (unlikely(resp.op.ret)) {
+		struct board_info *src_bi;
+		src_bi = find_board(v->board_ip, v->udp_port);
 		dprintf_DEBUG("fail to migrate vregion %u from %s to %s\n",
 			vregion_index, src_bi->name, dst_bi->name);
 		return resp.op.ret;
@@ -855,22 +874,33 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	 * First close the original session with the old board,
 	 * then open a new session with new board.
 	 */
-	v = index_to_legomem_vregion(ctx, vregion_index);
-	ses = find_vregion_session(v, gettid());
+	tid = gettid();
+	ses = find_vregion_session(v, tid);
+	if (!ses) {
+		dprintf_ERROR("Fail to find the original session associated "
+			      "with this thread (tid %d) and vregion (%u). "
+			      "Monitor has already moved the data. We are not "
+			      "moving it back, for now. \n", tid, vregion_index);
+		dump_legomem_vregion(v);
+		return -ENOMEM;
+	}
+	remove_vregion_session(v, tid);
 	legomem_close_session(ctx, ses);
 
 	ses = legomem_open_session(ctx, dst_bi);
 	if (!ses) {
-		dprintf_DEBUG("Fail to open a session with the new board %s. "
-			      "Data was already migrated to it though. "
-			      "We are not moving it back now.\n",
-			dst_bi->name);
+		dprintf_ERROR("Fail to open a session with the new board %s. "
+			      "Data was already migrated by monitor. "
+			      "We are not moving it back, for now.\n", dst_bi->name);
+		dump_net_sessions();
+		dump_boards();
 		return -ENOMEM;
 	}
-
-	remove_vregion_session(v, gettid());
 	add_vregion_session(v, ses);
 
+	ClearVregionMigration(v);
+
+	inc_stat(STAT_NR_MIGRATED_VREGION);
 	return 0;
 }
 
@@ -878,8 +908,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
  * Migrate [address, address+size) from @src_bi to @dst_bi.
  * We will contact monitor first.
  */
-int legomem_migration(struct legomem_context *ctx,
-		      struct board_info *src_bi, struct board_info *dst_bi,
+int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 		      unsigned long __remote addr, unsigned long size)
 {
 	unsigned long end;
@@ -891,7 +920,7 @@ int legomem_migration(struct legomem_context *ctx,
 	end_index = va_to_vregion_index(end);
 
 	while (start_index <= end_index) {
-		ret = legomem_migration_vregion(ctx, src_bi, dst_bi, start_index);
+		ret = legomem_migration_vregion(ctx, dst_bi, start_index);
 		start_index++;
 
 		if (ret)

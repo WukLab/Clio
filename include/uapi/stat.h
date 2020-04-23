@@ -32,6 +32,8 @@ enum STAT_TYPES {
 	 * Host-side specific
 	 */
 
+	STAT_NR_MIGRATED_VREGION,
+
 	/* Reliable go-back-N layer */
 	STAT_NET_GBN_NR_RX,
 	STAT_NET_GBN_NR_RX_ERROR_NO_SESSION,
@@ -72,6 +74,7 @@ static inline char *stat_type_string(enum STAT_TYPES item)
 	S(STAT_LEGOMEM_NR_MIGRATION_RX);
 
 	S(__START_HOST_STATS);
+	S(STAT_NR_MIGRATED_VREGION);
 	S(STAT_NET_GBN_NR_RX);
 	S(STAT_NET_GBN_NR_RX_ERROR_NO_SESSION);
 	S(STAT_NET_GBN_NR_RX_ERROR_UNKNOWN_TYPE);
