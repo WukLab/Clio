@@ -1,12 +1,19 @@
-TEST_SRCS := test_session.c \
-	     test_context.c \
-	     test_alloc.c \
-	     test_migration.c \
-	     test_raw_net.c \
-	     test_rel_net_mgmt.c \
-	     test_rel_net_normal.c \
-	     test_board.c
+#
+# Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+#
 
+# Test cases used by host only
+TP := test
+TEST_SRCS := $(TP)/test_session.c \
+	     $(TP)/test_context.c \
+	     $(TP)/test_alloc.c \
+	     $(TP)/test_migration.c \
+	     $(TP)/test_raw_net.c \
+	     $(TP)/test_rel_net_mgmt.c \
+	     $(TP)/test_rel_net_normal.c \
+	     $(TP)/test_board.c
+
+# Board emulator files linked to soc files
 BP := board_emulator
 BOARD_SRCS := $(BP)/core.h \
 	      $(BP)/handler.c \
@@ -14,6 +21,7 @@ BOARD_SRCS := $(BP)/core.h \
 	      $(BP)/sched.c \
 	      $(BP)/vm.c
 
+# General sources used by everyone
 C_SRCS := board.c \
 	util.c \
 	api.c \

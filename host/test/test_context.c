@@ -12,7 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "core.h"
+#include "../core.h"
 
 #define NR_CONTEXT	128
 

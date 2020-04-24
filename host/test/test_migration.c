@@ -15,7 +15,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "core.h"
+#include "../core.h"
 
 int test_legomem_migration(void)
 {

@@ -1,5 +1,8 @@
 /*
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ *
+ * Testing: raw network layer latency and throughput.
+ * Using raw net layer means we skip any transport layer logic.
  */
 
 #include <uapi/vregion.h>
@@ -13,17 +16,32 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "core.h"
+#include "../core.h"
 
-#define NR_RUN_PER_THREAD 1000
+#define NR_RUN_PER_THREAD 100000
 
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 #define NR_MAX_THREADS	(128)
-/* Tuning */
-static int test_size[] = { 4, 16, 64, 256, 1024 };
-static int test_nr_threads[] = { 1, 2, 4, 8, 16};
+/*
+ * Tuning
+ *
+ * Sometimes I see packet lost issue when go multithreading
+ * stats look like this:
+ * Sender:
+ *        TX: (X+N)
+ *        RX: (X)
+ *
+ * Receiver:
+ *        RX: (X)
+ *
+ * It means some packets from sender never reach receiver.
+ */
+//static int test_size[] = { 4, 16, 64, 256, 1024 };
+//static int test_nr_threads[] = { 1, 2, 4, 8, 16};
+static int test_size[] = { 64};
+static int test_nr_threads[] = { 16 };
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
@@ -40,17 +58,28 @@ struct thread_info {
 	int cpu;
 };
 
+/*
+ * BIG FAT NOTE: some steps for raw new testing
+ *
+ * 1. Have a host.o and monitor.o ready at two machines.
+ * 2. Use host.o to send packet
+ * 3. comment out the while (1) loop in dispatcher() [host.o]
+ * 4. try to use net_receive instead of net_receive_zeropy in dispather() [monitor.o]
+ * 5. Use scripts/test_raw_net.sh, modify ports, device etc
+ */
+
 static void *thread_func(void *_ti)
 {
 	struct legomem_pingpong_req *req;
 	struct legomem_pingpong_req *resp;
 	struct lego_header *lego_header;
-	double lat_ns;
+	struct gbn_header *gbn_header;
 	int i, j, nr_tests;
 	struct timespec s, e;
 	struct session_net *ses;
 	struct thread_info *ti = (struct thread_info *)_ti;
 	int cpu, node;
+	double lat_ns;
 
 	int max_buf_size = 1024*1024;
 
@@ -74,6 +103,10 @@ static void *thread_func(void *_ti)
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_PINGPONG;
 
+	gbn_header = to_gbn_header(req);
+	gbn_header->type = GBN_PKT_DATA;
+	set_gbn_src_dst_session(gbn_header, get_local_session_id(ses), 0);
+
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		int send_size = test_size[i];
 
@@ -85,11 +118,11 @@ static void *thread_func(void *_ti)
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
 
-		/* Do the work */
 		nr_tests = NR_RUN_PER_THREAD;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			net_send_and_receive(ses, req, send_size, resp, max_buf_size);
+			raw_net_send(ses, req, send_size, NULL);
+			raw_net_receive(resp, max_buf_size);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 
@@ -98,9 +131,8 @@ static void *thread_func(void *_ti)
 
 		latency_ns[ti->id][i] = lat_ns;
 
-#if 0
-		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
-			ti->id,
+#if 1
+		dprintf_INFO("nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
 			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
 #endif
 	}
@@ -109,22 +141,40 @@ static void *thread_func(void *_ti)
 }
 
 /*
- * We run test against monitor rel stack.
+ * Special note:
+ *
+ * To use this, we have to use transport bypass, otherwise
+ * the packets will just be grabbed by GBN's background thread.
+ *
+ * However, this is not enough. Becuase host still has its mgmt background
+ * thread. Once GBN is disabled, the `net_receive` within that thread
+ * will be able receive anything. Thus, we need to diable that thread as well!
  */
-int test_rel_net_mgmt(void)
+int test_raw_net(char *board_ip_port_str)
 {
+	unsigned int ip, port;
+	unsigned int ip1, ip2, ip3, ip4;
 	int k, i, j, ret;
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
 
-	if (transport_net_ops != &transport_gbn_ops) {
-		dprintf_ERROR("Reliable network testing needs reliable transport layer.\n"
-		       "Please restart the test and pass \"--net_trans_ops=gbn\" %d\n", 0);
+	if (transport_net_ops != &transport_bypass_ops) {
+		dprintf_ERROR("Raw network testing needs bypass transport layer.\n"
+		       "Please restart the test and pass \"--net_trans_ops=bypass\" %d\n", 0);
 		return -1;
 	}
 
-	remote_board = monitor_bi;
+	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+	remote_board = find_board(ip, port);
+	if (!remote_board) {
+		dprintf_ERROR("Couldn't find the board_info for %s\n",
+			board_ip_port_str);
+		dump_boards();
+		return -1;
+	}
 	printf("%s(): Using board %s\n", __func__, remote_board->name);
 
 	ti = malloc(sizeof(*ti) * NR_MAX_THREADS);

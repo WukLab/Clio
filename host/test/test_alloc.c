@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "core.h"
+#include "../core.h"
 
 #define NR_RUN_PER_THREAD 1
 #define NR_MAX 128

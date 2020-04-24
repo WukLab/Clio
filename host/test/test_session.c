@@ -16,7 +16,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "core.h"
+#include "../core.h"
 
 #define NR_SESSION	(128)
 

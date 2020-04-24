@@ -15,7 +15,7 @@
 #include <stdio.h>
 
 #include <uapi/profile_point.h>
-#include "core.h"
+#include "../core.h"
 
 struct dummy_payload {
 	unsigned long mark;
