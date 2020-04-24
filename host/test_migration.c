@@ -21,7 +21,6 @@ int test_legomem_migration(void)
 {
 	struct legomem_context *ctx;
 	struct timespec ts, te;
-	int i;
 	struct board_info *dst_bi;
 	unsigned long __remote addr;
 
@@ -31,7 +30,7 @@ int test_legomem_migration(void)
 	dst_bi = monitor_bi;
 
 #if 1
-	addr = legomem_alloc(ctx, VREGION_SIZE, 0);
+	addr = legomem_alloc(ctx, VREGION_SIZE-1, 0);
 	if (!addr) {
 		dprintf_ERROR("alloc failed %d\n", 0);
 		legomem_close_context(ctx);

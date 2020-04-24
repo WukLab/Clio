@@ -517,7 +517,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 			dprintf_ERROR("vregion was allocated before. "
 				      "Either monitor or us has a bug. vregion_idx=%u\n",
 					vregion_idx);
-			return -ENOMEM;
+			return 0;
 		}
 
 		/* Prepare the new vRegion */
@@ -526,12 +526,17 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		v->udp_port = udp_port;
 	}
 
-	if (1) {
+	bi = find_board(board_ip, udp_port);
+	if (!bi) {
 		char ip_str[INET_ADDRSTRLEN];
 		get_ip_str(board_ip, ip_str);
-		dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s:%u\n",
-			vregion_idx, ip_str, udp_port);
+		dprintf_ERROR("Board not found: ip %s port %u. "
+			      "The board was selected by monitor.\n",
+			      ip_str, udp_port);
+		return 0;
 	}
+
+	dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s\n", vregion_idx, bi->name);
 
 	/*
 	 * Step II:
@@ -544,19 +549,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	new_session = false;
 	ses = context_find_session(ctx, tid, board_ip, udp_port);
 	if (!ses) {
-		/* There wasn't, so we create a new one */
-		bi = find_board(board_ip, udp_port);
-		if (!bi) {
-			char ip_str[INET_ADDRSTRLEN];
-			get_ip_str(board_ip, ip_str);
-			dprintf_ERROR("Board not found: ip %s port %u. "
-				      "The board was selected by monitor, "
-				      "check startup join_cluster or --add_board.\n",
-				ip_str, udp_port);
-			return 0;
-		}
-
 		/*
+		 * There wasn't, so we create a new one.
 		 * Once the session is open, it will be inserted
 		 * into the per-context session hashtable,
 		 * thus visiable to context_find_session() afterwards.
@@ -612,7 +606,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	req.op.vregion_idx = vregion_idx;
 	req.op.vm_flags = vm_flags;
 
-	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
+	ret = net_send_and_receive(bi->mgmt_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
 	if (unlikely(ret <= 0)) {
 		dprintf_ERROR("net error %d\n", ret);
 		return ret;
@@ -629,8 +624,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 * monitor somehow decided to free the vRegion thus we need
 		 * to ask monitor again etc. Those are valid failures.
 		 */
-		printf("%s(): legomem_alloc failure %d.\n",
-			__func__, resp.op.ret);
+		dprintf_ERROR("remote alloc failure %d\n", resp.op.ret);
 		return 0;
 	}
 
@@ -638,8 +632,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 
 	addr = resp.op.addr;
 
-	dprintf_DEBUG("addr [%#lx %#lx) size %#lx\n",
-			addr, addr + size, size);
+	dprintf_DEBUG("addr [%#lx %#lx) size %#lx\n", addr, addr + size, size);
 	return addr;
 }
 

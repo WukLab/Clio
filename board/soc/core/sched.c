@@ -152,8 +152,10 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	return NULL;
 }
 
-int init_proc_subsystem(void)
+__attribute__((constructor))
+static int init_proc_subsystem(void)
 {
+	printf("%s here\n", __func__);
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	return 0;
 }

@@ -20,7 +20,8 @@
 static DECLARE_BITMAP(session_id_map, NR_MAX_SESSIONS_PER_NODE);
 static pthread_spinlock_t(session_id_lock);
 
-void init_session_subsys(void)
+__attribute__((constructor))
+static void init_session_subsys(void)
 {
 	pthread_spin_init(&session_id_lock, PTHREAD_PROCESS_PRIVATE);
 }

@@ -93,89 +93,6 @@ free_thpool_buffer(struct thpool_buffer *tb)
 }
 
 /*
- * Handle alloc/free requests from _host_.
- *
- * Note that
- * 1) This might be the first the host contacting with us,
- *    thus there might be no context created. We will create on if that's the case.
- * 2) Upon alloc, remote will tell us the vRegion index, which, was chosen by monitor.
- * 3) We only perform allocation withi one vRegion.
- *    But we could perform free spanning multiple vRegions.
- */
-static void handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
-{
-	struct legomem_alloc_free_req *req;
-	struct op_alloc_free *ops;
-	struct legomem_alloc_free_resp *resp;
-	struct lego_header *lego_header;
-	struct proc_info *pi;
-	pid_t pid;
-
-	resp = (struct legomem_alloc_free_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-
-	req = (struct legomem_alloc_free_req *)tb->rx;
-	ops = &req->op;
-	lego_header = to_lego_header(req);
-
-	pid = lego_header->pid;
-	pi = get_proc_by_pid(pid);
-	if (!pi) {
-		/*
-		 * This is correct and follows our current design flow:
-		 * Neither monitor nor board will contact us when the context
-		 * was first created. Monitor choose this board without checking
-		 * whether this board has created the context or not.
-		 *
-		 * This makes the flow simple but we could not do authentication
-		 * check at this point, we could only allocate the vRegion
-		 * This kind of design is fine for a proof-of-concept system,
-		 * but not okay for a production one.
-		 *
-		 * The simpliest fix is to let monitor contact the board when
-		 * the monitor was chosing vRegion.
-		 */
-		pi = alloc_proc(pid, NULL, 0);
-		if (!pi) {
-			resp->op.ret = -ENOMEM;
-			return;
-		}
-
-		/* We will drop in the end */
-		get_proc_by_pid(pid);
-	}
-
-	if (is_alloc) {
-		/* OP_REQ_ALLOC */
-		unsigned long addr, len, vregion_idx, vm_flags;
-		struct vregion_info *vi;
-
-		len = ops->len;
-		vregion_idx = ops->vregion_idx;
-		vm_flags = ops->vm_flags;
-
-		vi = index_to_vregion(pi, vregion_idx);
-
-		addr = alloc_va_vregion(pi, vi, len, vm_flags);
-		if (unlikely(IS_ERR_VALUE(addr)))
-			resp->op.ret = -ENOMEM;
-		else {
-			resp->op.ret = 0;
-			resp->op.addr = addr;
-		}
-	} else {
-		/* OP_REQ_FREE */
-		unsigned long start, len;
-
-		start = ops->addr;
-		len = ops->len;
-		resp->op.ret = free_va(pi, start, len);
-	}
-
-	put_proc_info(pi);
-}
-
-/*
  * Note that in the current implementation flow, neither host nor monitor
  * will explicitly contact the board for new proc creation. That will be
  * postponed until vRegion allocation time. This design choice simplies
@@ -429,10 +346,10 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	switch (opcode) {
 	/* VM */
 	case OP_REQ_ALLOC:
-		handle_alloc_free(tb, true);
+		board_soc_handle_alloc_free(tb, true);
 		break;
 	case OP_REQ_FREE:
-		handle_alloc_free(tb, false);
+		board_soc_handle_alloc_free(tb, false);
 		break;
 
 	/* Proc */
@@ -542,14 +459,6 @@ int main(int argc, char **argv)
 	if (ret) {
 		printf("Fail to init thpool buffer\n");
 		return 0;
-	}
-
-	init_session_subsys();
-
-	ret = init_proc_subsystem();
-	if (ret) {
-		printf("Fail to init proc\n");
-		return ret;
 	}
 
 	dispatcher();

@@ -7,6 +7,13 @@ TEST_SRCS := test_session.c \
 	     test_rel_net_normal.c \
 	     test_board.c
 
+BP := board_emulator
+BOARD_SRCS := $(BP)/core.h \
+	      $(BP)/handler.c \
+	      $(BP)/rbtree.c \
+	      $(BP)/sched.c \
+	      $(BP)/vm.c
+
 C_SRCS := board.c \
 	util.c \
 	api.c \
@@ -44,7 +51,7 @@ DEBUG :=
 all: $(SRCS) 
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(TEST_SRCS) $(CLIBS)
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
-	gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(BOARD_SRCS) $(CLIBS)
 
 clean:
 	rm *.o

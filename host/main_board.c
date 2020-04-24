@@ -20,6 +20,7 @@
 #include <uapi/net_header.h>
 
 #include "core.h"
+#include "board_emulator/core.h"
 
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	32
@@ -115,10 +116,22 @@ static void worker_handle_request(struct thpool_worker *tw,
 	case OP_CLOSE_SESSION:
 		handle_close_session(tb);
 		break;
+
+	/* VM */
+	case OP_REQ_ALLOC:
+		board_soc_handle_alloc_free(tb, true);
+		break;
+	case OP_REQ_FREE:
+		board_soc_handle_alloc_free(tb, false);
+		break;
+
 	case OP_REQ_PINGPONG:
 		handle_pingpong(tb);
 		break;
 	default:
+		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
+			      opcode, legomem_opcode_str(opcode));
+		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
 		break;
 	};
 

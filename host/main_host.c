@@ -148,6 +148,7 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s) packet dump: \n"
 				      "%s\n", opcode, legomem_opcode_str(opcode), err_msg);
 		}
+		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
 		return;
 	};
 

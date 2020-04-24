@@ -814,6 +814,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 				      tb->rx_size, nr_recv_pkt- 1);
 			dump_gbn_session(mgmt_session, true);
 		}
+		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
 		return;
 	};
 
