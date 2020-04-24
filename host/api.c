@@ -820,6 +820,52 @@ int legomem_write_async(struct legomem_context *ctx, void *buf,
 	return __legomem_write(ctx, buf, addr, size, LEGOMEM_WRITE_ASYNC);
 }
 
+/*
+ * Given the remote memory pointer @ptr, we do a indirection read,
+ * return the result into @buf. The pointer @ptr is 8B by default.
+ * The final size of @buf is determined by size. It can be expressed as:
+ *	_tmp = *ptr;
+ *	memcpy(buf, _tmp, size);
+ */
+int legomem_ptr_chasing_read(struct legomem_context *ctx, void *buf,
+			     unsigned long __remote ptr, size_t size)
+{
+	struct legomem_vregion *v;
+	struct session_net *ses;
+
+	v = va_to_legomem_vregion(ctx, ptr);
+	ses = find_vregion_session(v, gettid());
+	if (unlikely(!ses)) {
+		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
+			      "an associated net session.\n", addr);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * Given the remote memory pointer @ptr, we do a indirection write:
+ *	_tmp = *ptr;
+ *	memcpy(_tmp, buf, size)
+ */
+int legomem_ptr_chasing_write(struct legomem_context *ctx, void *buf,
+			      unsigned long __remote ptr, size_t size)
+{
+	struct legomem_vregion *v;
+	struct session_net *ses;
+
+	v = va_to_legomem_vregion(ctx, ptr);
+	ses = find_vregion_session(v, gettid());
+	if (unlikely(!ses)) {
+		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
+			      "an associated net session.\n", addr);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int legomem_migration_vregion(struct legomem_context *ctx,
 			      struct board_info *dst_bi, unsigned int vregion_index)
 {
