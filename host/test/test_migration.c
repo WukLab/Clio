@@ -3,6 +3,12 @@
  *
  * Testing
  * - legomem_migration
+ *
+ * Scripts
+ * - scripts/test_migration.sh
+ *
+ * You need at least a monitor, a host running test case,
+ * and either a real board or board emulator instance.
  */
 
 #include <uapi/vregion.h>
@@ -29,16 +35,12 @@ int test_legomem_migration(void)
 	ctx = legomem_open_context();
 	dst_bi = monitor_bi;
 
-#if 1
-	addr = legomem_alloc(ctx, VREGION_SIZE-1, 0);
+	addr = legomem_alloc(ctx, 128, 0);
 	if (!addr) {
 		dprintf_ERROR("alloc failed %d\n", 0);
 		legomem_close_context(ctx);
 		return -1;
 	}
-#else
-	addr = 0;
-#endif
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	legomem_migration(ctx, dst_bi, addr, 128);

@@ -264,7 +264,11 @@ alloc_vregion(struct proc_info *p)
 	int i;
 
 	pthread_spin_lock(&p->lock);
-	for (i = 0; i < NR_VREGIONS; i++) {
+	/*
+	 * Skip vRegion 0 for now.
+	 * Avoid any possible corner cases in the future.
+	 */
+	for (i = 1; i < NR_VREGIONS; i++) {
 		v = p->vregion + i;
 		if (!(v->flags & VREGION_INFO_FLAG_ALLOCATED)) {
 			v->flags |= VREGION_INFO_FLAG_ALLOCATED;
@@ -477,6 +481,7 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	struct vregion_info *v;
 	unsigned int vregion_index;
 	unsigned int pid, ret;
+	char ip_str[INET_ADDRSTRLEN];
 
 	resp = (struct legomem_migration_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
@@ -487,12 +492,17 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	/* Found those two involved boards */
 	src_bi = find_board(req->op.src_board_ip, req->op.src_udp_port);
 	if (!src_bi) {
-		dprintf_DEBUG("src board %s not found\n", src_bi->name);
+		get_ip_str(req->op.src_board_ip, ip_str);
+		dprintf_DEBUG("src board %s:%d not found\n",
+			ip_str, req->op.src_udp_port);
 		goto error;
 	}
+
 	dst_bi = find_board(req->op.dst_board_ip, req->op.dst_udp_port);
 	if (!dst_bi) {
-		dprintf_DEBUG("dst board %s not found\n", dst_bi->name);
+		get_ip_str(req->op.dst_board_ip, ip_str);
+		dprintf_DEBUG("dst board %s:%d not found\n",
+			ip_str, req->op.dst_udp_port);
 		goto error;
 	}
 

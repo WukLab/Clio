@@ -47,8 +47,8 @@ struct legomem_context *legomem_open_context(void)
 	lego_header->opcode = OP_CREATE_PROC;
 	memset(req.op.proc_name, 'a', PROC_NAME_LEN);
 
-	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
+	ret = net_send_and_receive_lock(monitor_session, &req, sizeof(req),
+					&resp, sizeof(resp));
 	if (ret <= 0) {
 		dprintf_DEBUG("net error: %d\n", ret);
 		goto err;
@@ -91,8 +91,8 @@ int legomem_close_context(struct legomem_context *ctx)
 	lego_header->opcode = OP_FREE_PROC;
 	lego_header->pid = ctx->pid;
 
-	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
+	ret = net_send_and_receive_lock(monitor_session, &req, sizeof(req),
+					&resp, sizeof(resp));
 	if (ret <= 0) {
 		dprintf_DEBUG("net error: %d\n", ret);
 		return -EIO;
@@ -255,8 +255,8 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 			BUG();
 		}
 
-		ret = net_send_and_receive(remote_mgmt_ses, &req, sizeof(req),
-					   &resp, sizeof(resp));
+		ret = net_send_and_receive_lock(remote_mgmt_ses, &req, sizeof(req),
+						&resp, sizeof(resp));
 		if (ret <= 0) {
 			dprintf_ERROR("Fail to contact remote party %s\n",
 				bi->name);
@@ -361,8 +361,8 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 		remote_mgmt_ses = get_board_mgmt_session(bi);
 		BUG_ON(!remote_mgmt_ses);
 
-		ret = net_send_and_receive(remote_mgmt_ses, &req, sizeof(req),
-					   &resp, sizeof(resp));
+		ret = net_send_and_receive_lock(remote_mgmt_ses, &req, sizeof(req),
+						&resp, sizeof(resp));
 		if (ret <= 0) {
 			dprintf_ERROR("Fail to contact remote party %s [%u-%u]\n",
 				bi->name, get_local_session_id(ses),
@@ -407,8 +407,8 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 	req.op.len = size;
 	req.op.vm_flags = 0;
 
-	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
+	ret = net_send_and_receive_lock(monitor_session, &req, sizeof(req),
+					&resp, sizeof(resp));
 	if (ret <= 0) {
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
@@ -443,8 +443,14 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 
 	if (p->cached_vregion)
 		i = p->cached_vregion - p->vregion;
-	else
-		i = 0;
+	else {
+		/*
+		 * We have already taken special care about vregion 0,
+		 * i.e., make its starting address as 0x1000.
+		 * After all, it's still a special case, thus skipping it.
+		 */
+		i = 1;
+	}
 
 	for ( ; i < NR_VREGIONS; i++) {
 		v = p->vregion + i;
@@ -536,8 +542,6 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		return 0;
 	}
 
-	dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s\n", vregion_idx, bi->name);
-
 	/*
 	 * Step II:
 	 * We need to check if this running _thread_ (not process)
@@ -563,6 +567,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		}
 		new_session = true;
 	}
+	dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s new_session: %d\n",
+			vregion_idx, bi->name, new_session);
 	dump_legomem_context_sessions(ctx);
 
 	/*
@@ -606,8 +612,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	req.op.vregion_idx = vregion_idx;
 	req.op.vm_flags = vm_flags;
 
-	ret = net_send_and_receive(bi->mgmt_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
+	ret = net_send_and_receive_lock(bi->mgmt_session, &req, sizeof(req),
+					&resp, sizeof(resp));
 	if (unlikely(ret <= 0)) {
 		dprintf_ERROR("net error %d\n", ret);
 		return ret;
@@ -644,18 +650,19 @@ int legomem_free(struct legomem_context *ctx,
 	struct legomem_alloc_free_req req;
 	struct legomem_alloc_free_resp resp;
 	struct lego_header *lego_header;
+	struct board_info *bi;
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
-	ses = find_vregion_session(v, gettid());
-	if (unlikely(!ses)) {
-		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session. It should "
-			      "have been created by legomem_alloc.\n", addr);
-		return -EINVAL;
+	bi = find_board(v->board_ip, v->udp_port);
+	if (!bi) {
+		char ip_str[INET_ADDRSTRLEN];
+		get_ip_str(v->board_ip, ip_str);
+		dprintf_ERROR("Fail to find associated board: %s:%d\n",
+			ip_str, v->udp_port);
+		return -ENODEV;
 	}
 
-	/* Prepare headers */
 	lego_header = to_lego_header((void *)&req);
 	lego_header->opcode = OP_REQ_FREE;
 	lego_header->pid = ctx->pid;
@@ -663,8 +670,9 @@ int legomem_free(struct legomem_context *ctx,
 	req.op.addr = addr;
 	req.op.len = size;
 
-	ret = net_send_and_receive(ses, &req, sizeof(req),
-				   &resp, sizeof(resp));
+	ses = get_board_mgmt_session(bi);
+	ret = net_send_and_receive_lock(ses, &req, sizeof(req),
+					&resp, sizeof(resp));
 	if (ret <= 0) {
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
@@ -853,8 +861,8 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	op->dst_udp_port = dst_bi->udp_port;
 	op->vregion_index = vregion_index;
 
-	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
+	ret = net_send_and_receive_lock(monitor_session, &req, sizeof(req),
+					&resp, sizeof(resp));
 	if (ret <= 0) {
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;

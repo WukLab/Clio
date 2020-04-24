@@ -1,8 +1,13 @@
+/*
+ * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ */
+
 #ifndef _LEGOMEM_UAPI_NET_SESSION_H_
 #define _LEGOMEM_UAPI_NET_SESSION_H_
 
 #include <errno.h>
 #include <stdio.h>
+#include <pthread.h>
 #include <uapi/net_header.h>
 #include <uapi/hashtable.h>
 
@@ -12,6 +17,8 @@
 /*
  * This structure describes a specific network connection
  * between an application and the LegoMem board.
+ *
+ * HACK: if you add anything, do not forget to update init_net_session().
  */
 struct session_net {
 	unsigned int		board_ip;
@@ -22,8 +29,23 @@ struct session_net {
 
 	unsigned long		flags;
 
+	/*
+	 * This is the client side polling thread, if any.
+	 * Mgmt session's polling thread is created during startup.
+	 * User session's polling thread is created when this node
+	 * receives a open_session request. See handle_open_session() for details.
+	 */
 	pthread_t		thread;
 	bool			thread_should_stop;
+
+	/*
+	 * Used by threads wishing to use the mgmt session of a board.
+	 * We have to do this because all threads share one single mgmt session,
+	 * thus there is only one set of buffers, impossible to do RPC.
+	 *
+	 * You can see this used across api.c
+	 */
+	pthread_spinlock_t	lock;
 
 	/*
 	 * Session is by default a per-thread object.
@@ -61,7 +83,7 @@ struct session_net {
 
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
-};
+} __aligned(64);
 
 static inline bool ses_thread_should_stop(struct session_net *ses)
 {
@@ -264,37 +286,37 @@ default_transport_reg_send_buf(struct session_net *net, void *buf, size_t buf_si
  * 1. Each session can only have one registered send_buf.
  * 2. Do not use a stack, use malloc'ed region.
  */
-static inline int
+static __always_inline int
 net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
 {
 	return transport_net_ops->reg_send_buf(ses, buf, buf_size);
 }
 
-static inline int
+static __always_inline int
 net_send_with_route(struct session_net *net, void *buf, size_t buf_size, void *route)
 {
 	return transport_net_ops->send_one(net, buf, buf_size, route);
 }
 
-static inline int
+static __always_inline int
 net_send(struct session_net *net, void *buf, size_t buf_size)
 {
 	return transport_net_ops->send_one(net, buf, buf_size, NULL);
 }
 
-static inline int
+static __always_inline int
 net_receive_zerocopy(struct session_net *net, void **buf, size_t *buf_size)
 {
 	return transport_net_ops->receive_one_zerocopy(net, buf, buf_size);
 }
 
-static inline int
+static __always_inline int
 net_receive(struct session_net *net, void *buf, size_t buf_size)
 {
 	return transport_net_ops->receive_one(net, buf, buf_size);
 }
 
-static inline int
+static __always_inline int
 net_send_and_receive(struct session_net *net,
 		     void *tx_buf, size_t tx_buf_size,
 		     void *rx_buf, size_t rx_buf_size)
@@ -306,6 +328,28 @@ net_send_and_receive(struct session_net *net,
 		return ret;
 
 	return net_receive(net, rx_buf, rx_buf_size);
+}
+
+/*
+ * This is specifically designed for any APIs wishing to
+ * use remote board's mgmt session.
+ *
+ * Because there is only one single set of buffers for a single mgmt session,
+ * there is no easy way to support RPC among concurrent threads.
+ *
+ * Mgmt session is for control path, thus having a sync lock should be ok.
+ */
+static __always_inline int
+net_send_and_receive_lock(struct session_net *net,
+			  void *tx_buf, size_t tx_buf_size,
+			  void *rx_buf, size_t rx_buf_size)
+{
+	int ret;
+
+	pthread_spin_lock(&net->lock);
+	ret = net_send_and_receive(net, tx_buf, tx_buf_size, rx_buf, rx_buf_size);
+	pthread_spin_unlock(&net->lock);
+	return ret;
 }
 
 /*

@@ -4,15 +4,21 @@
  * Handlers running on SoC, also included by the host side board emulator.
  */
 
-#include <uapi/vregion.h>
-#include <uapi/compiler.h>
-#include <uapi/sched.h>
-#include <uapi/list.h>
 #include <uapi/err.h>
-#include <pthread.h>
+#include <uapi/list.h>
+#include <uapi/vregion.h>
+#include <uapi/sched.h>
+#include <uapi/net_header.h>
+#include <uapi/thpool.h>
+#include <uapi/lego_mem.h>
+#include <fpga/lego_mem_ctrl.h>
+
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <pthread.h>
+#include <stdatomic.h>
 
 #include "core.h"
 
@@ -97,11 +103,104 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 		resp->op.ret = free_va(pi, start, len);
 	}
 
-	dprintf_DEBUG("Op: %s. [%#lx - %#lx). pid=%u\n",
+	dprintf_DEBUG("Op: %s. size: %#lx [%#lx - %#lx] pid=%u vregion_idx=%lu\n",
 		is_alloc ? "alloc" : "free",
+		ops->len,
 		is_alloc ? resp->op.addr : ops->addr,
 		is_alloc ? resp->op.addr + ops->len - 1: ops->addr + ops->len -1,
-		pid);
+		pid, ops->vregion_idx);
 
 	put_proc_info(pi);
+}
+
+/*
+ * Monitor asked us to migrate a certain vregion to a new node.
+ * The new node has already been notified and waiting for us.
+ *
+ * Notes
+ * 1. Monitor has made sure all hosts, boards will stop using
+ *    this vRegion. Thus we do not to stop traffic at this board.
+ * 2. The flow of this function is as follows:
+ *    a) first we will free the local VMA resources
+ *    b) then we will construct a legomem READ request to core-mem pipeline,
+ *       which in turn will read data out and sent to network layer.
+ */
+void board_soc_handle_migration_send(struct thpool_buffer *tb)
+{
+	struct legomem_migration_req *req;
+	struct legomem_migration_resp *resp;
+	struct lego_header *lego_header;
+	struct op_migration *op;
+	struct proc_info *pi;
+	struct vregion_info *vi;
+	pid_t pid;
+	struct {
+		struct lego_header lego_header;
+		struct op_read_write op;
+	} migreq __maybe_unused;
+
+	/* Setup req and resp */
+	req = (struct legomem_migration_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	op = &req->op;
+
+	resp = (struct legomem_migration_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	pid = lego_header->pid;
+	pi = get_proc_by_pid(pid);
+	if (!pid) {
+		printf("%s(): pid %d not valid\n", __func__, pid);
+		resp->op.ret = -ESRCH;
+		return;
+	}
+
+	/* Free vma trees within this vRegion */
+	vi = index_to_vregion(pi, op->vregion_index);
+	free_va_vregion(pi, vi, vregion_index_to_va(op->vregion_index),
+			vregion_index_to_va(op->vregion_index + 1) - 1);
+
+#ifdef CONFIG_ARCH_ARM64
+	/*
+	 * Send commands to coremem pipeline
+	 * XXX: need to revisit these commands setup
+	 * also note that, if we pacthed fpga part into the alloc/free vma code,
+	 * we need to make sure coremem pipeline can still accept this requst.
+	 * If it can, just switch the order.
+	 */
+	memset(&migreq, 0, sizeof(migreq));
+	migreq.lego_header.pid = pid;
+	migreq.lego_header.tag = 0;
+	migreq.lego_header.opcode = OP_REQ_READ;
+	migreq.lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM,
+					    LEGOMEM_CONT_NET,
+					    LEGOMEM_CONT_NONE,
+					    LEGOMEM_CONT_NONE);
+	migreq.lego_header.src_sesid = 0;
+	migreq.lego_header.dst_sesid = 0;
+	migreq.lego_header.dest_ip = 0;
+
+	migreq.op.va = vregion_index_to_va(op->vregion_index);
+	migreq.op.size = VREGION_SIZE;
+
+	dma_send(&migreq, sizeof(migreq));
+#endif
+
+	/* Done, success */
+	resp->op.ret = 0;
+	put_proc_info(pi);
+}
+
+/*
+ * Monitor asked us to prepare for a upcoming migration.
+ * We need to create context, vregion etc, and wait for
+ * the old owner to send the data.
+ */
+void board_soc_handle_migration_recv(struct thpool_buffer *tb)
+{
+}
+
+void board_soc_handle_migration_recv_cancel(struct thpool_buffer *tb)
+{
+
 }

@@ -15,10 +15,13 @@
 
 #include "../core.h"
 
-#define NR_RUN_PER_THREAD 1
 #define NR_MAX 128
-static int test_size[] = { 128, 256 };
-static int test_nr_threads[] = { 1};
+
+/* Knobs */
+#define NR_RUN_PER_THREAD 1000
+static int test_size[] = { 256 };
+static int test_nr_threads[] = { 1, 2, 4 };
+
 static double latency_alloc_ns[NR_MAX][NR_MAX];
 static double latency_free_ns[NR_MAX][NR_MAX];
 
@@ -83,6 +86,7 @@ static void *thread_func(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
+#if 1
 		/* Run bunch free */
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
@@ -90,6 +94,7 @@ static void *thread_func(void *_ti)
 				legomem_free(ctx, addr[j], size);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
+#endif
 
 		latency_free_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -

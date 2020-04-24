@@ -41,6 +41,9 @@ int alloc_session_id(void);
 void free_session_id(unsigned int session_id);
 
 void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc);
+void board_soc_handle_migration_send(struct thpool_buffer *tb);
+void board_soc_handle_migration_recv(struct thpool_buffer *tb);
+void board_soc_handle_migration_recv_cancel(struct thpool_buffer *tb);
 
 /* Debugging info, useful for dev */
 #ifndef dprintf_DEBUG

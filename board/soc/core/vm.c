@@ -1040,12 +1040,16 @@ static unsigned long __find_va_range_topdown(struct proc_info *proc,
 
 	length = info->length;
 	gap_end = info->high_limit;
-	if (gap_end < length)
+	if (gap_end < length) {
+		dprintf_DEBUG("%#lx %#lx\n", gap_end, length);
 		return -ENOMEM;
+	}
 	high_limit = gap_end - length;
 
-	if (info->low_limit > high_limit)
+	if (info->low_limit > high_limit) {
+		dprintf_DEBUG("%#lx %#lx\n", info->low_limit, high_limit);
 		return -ENOMEM;
+	}
 	low_limit = info->low_limit + length;
 
 	/* Check highest gap, which does not precede any rbtree node */
@@ -1054,11 +1058,15 @@ static unsigned long __find_va_range_topdown(struct proc_info *proc,
 		goto found_highest;
 
 	/* Check if rbtree root looks promising */
-	if (RB_EMPTY_ROOT(&vi->mm_rb))
+	if (RB_EMPTY_ROOT(&vi->mm_rb)) {
+		dprintf_DEBUG("empty mm_rb root %d\n", 0);
 		return -ENOMEM;
+	}
 	vma = rb_entry(vi->mm_rb.rb_node, struct vm_area_struct, vm_rb);
-	if (vma->rb_subtree_gap < length)
+	if (vma->rb_subtree_gap < length) {
+		dprintf_DEBUG("%#lx %#lx\n", vma->rb_subtree_gap, length);
 		return -ENOMEM;
+	}
 
 	while (true) {
 		/* Visit right subtree if it looks promising */
@@ -1145,6 +1153,9 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 	info.low_limit = low_limit;
 	info.high_limit = high_limit;
 
+	/*
+	 * Default is topdown, set by init_vregion().
+	 */
 	if (vi->flags & VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN)
 		addr = __find_va_range_topdown(proc, vi, &info);
 	else

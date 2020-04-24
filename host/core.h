@@ -172,11 +172,11 @@ static inline void dump_legomem_vregion(struct legomem_vregion *v)
 	printf("vRegion (board %s:%u) avail_space: %u B flags: %#lx\n",
 		ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
 
-	printf("     bkt       ses_local       tid\n");
-	printf("-------- ---------------  --------\n");
+	printf("bkt      ses_local       tid\n");
+	printf("-------- --------------- --------\n");
 	pthread_rwlock_rdlock(&v->rwlock);
 	hash_for_each(v->ht_sessions, i, ses, ht_link_vregion) {
-		printf("%8d %15d %8d\n", i, get_local_session_id(ses), ses->tid);
+		printf("%-8d %-15d %-8d\n", i, get_local_session_id(ses), ses->tid);
 	}
 	pthread_rwlock_unlock(&v->rwlock);
 }

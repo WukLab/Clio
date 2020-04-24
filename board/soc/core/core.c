@@ -235,92 +235,6 @@ static int handle_reset_all(struct thpool_buffer *tb)
 }
 
 /*
- * Monitor asked us to migrate a certain vregion to a new node.
- * The new node has already been notified and waiting for us.
- *
- * Notes
- * 1. Monitor has made sure all hosts, boards will stop using
- *    this vRegion. Thus we do not to stop traffic at this board.
- * 2. The flow of this function is as follows:
- *    a) first we will free the local VMA resources
- *    b) then we will construct a legomem READ request to core-mem pipeline,
- *       which in turn will read data out and sent to network layer.
- */
-static void handle_migration_send(struct thpool_buffer *tb)
-{
-	struct legomem_migration_req *req;
-	struct legomem_migration_resp *resp;
-	struct lego_header *lego_header;
-	struct op_migration *op;
-	struct proc_info *pi;
-	struct vregion_info *vi;
-	pid_t pid;
-	struct {
-		struct lego_header lego_header;
-		struct op_read_write op;
-	} migreq;
-
-	/* Setup req and resp */
-	req = (struct legomem_migration_req *)tb->rx;
-	lego_header = to_lego_header(req);
-	op = &req->op;
-
-	resp = (struct legomem_migration_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-
-	pid = lego_header->pid;
-	pi = get_proc_by_pid(pid);
-	if (!pid) {
-		printf("%s(): pid %d not valid\n", __func__, pid);
-		resp->op.ret = -ESRCH;
-		return;
-	}
-
-	/* Free vma trees within this vRegion */
-	vi = index_to_vregion(pi, op->vregion_index);
-	free_va_vregion(pi, vi, vregion_index_to_va(op->vregion_index),
-			vregion_index_to_va(op->vregion_index + 1) - 1);
-
-	/*
-	 * Send commands to coremem pipeline
-	 * XXX: need to revisit these commands setup
-	 */
-	memset(&migreq, 0, sizeof(migreq));
-	migreq.lego_header.pid = pid;
-	migreq.lego_header.tag = 0;
-	migreq.lego_header.opcode = OP_REQ_READ;
-	migreq.lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM,
-					    LEGOMEM_CONT_NET,
-					    LEGOMEM_CONT_NONE,
-					    LEGOMEM_CONT_NONE);
-	migreq.lego_header.src_sesid = 0;
-	migreq.lego_header.dst_sesid = 0;
-	migreq.lego_header.dest_ip = 0;
-
-	migreq.op.va = vregion_index_to_va(op->vregion_index);
-	migreq.op.size = VREGION_SIZE;
-
-	dma_send(&migreq, sizeof(migreq));
-
-	/* Done, success */
-	resp->op.ret = 0;
-	put_proc_info(pi);
-}
-
-/*
- * Monitor asked us to prepare for a upcoming migration.
- * We need to create context, vregion etc, and wait for
- * the old owner to send the data.
- */
-static void handle_migration_recv(struct thpool_buffer *tb)
-{
-}
-
-static void handle_migration_recv_cancel(struct thpool_buffer *tb)
-{
-}
-
-/*
  * This handler is a generic debug handler that could
  * handle various debugging requests
  *
@@ -352,6 +266,17 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		board_soc_handle_alloc_free(tb, false);
 		break;
 
+	/* Migration */
+	case OP_REQ_MIGRATION_M2B_SEND:
+		board_soc_handle_migration_send(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV:
+		board_soc_handle_migration_recv(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:
+		board_soc_handle_migration_recv_cancel(tb);
+		break;
+
 	/* Proc */
 	case OP_CREATE_PROC:
 		handle_create_proc(tb);
@@ -360,16 +285,7 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		handle_free_proc(tb);
 		break;
 
-	case OP_REQ_MIGRATION_M2B_SEND:
-		handle_migration_send(tb);
-		break;
-	case OP_REQ_MIGRATION_M2B_RECV:
-		handle_migration_recv(tb);
-		break;
-	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:
-		handle_migration_recv_cancel(tb);
-		break;
-
+	/* Network */
 	case OP_OPEN_SESSION:
 		handle_open_session(tb);
 		break;

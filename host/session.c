@@ -39,6 +39,14 @@ find_net_session(unsigned int session_id)
 	return ses;
 }
 
+static void init_session_net(struct session_net *p)
+{
+	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
+	INIT_HLIST_NODE(&p->ht_link_board);
+	INIT_HLIST_NODE(&p->ht_link_context);
+	INIT_HLIST_NODE(&p->ht_link_vregion);
+}
+
 struct session_net *alloc_session(void)
 {
 	int bit;
@@ -60,10 +68,10 @@ struct session_net *alloc_session(void)
 
 	/* generic session init */
 	memset(ses, 0, sizeof(*ses));
+	init_session_net(ses);
 	set_local_session_id(ses, bit);
 	ses->flags |= SESSION_NET_FLAGS_ALLOCATED;
 
-	dprintf_DEBUG("sessiond_net id %d\n", bit);
 unlock:
 	pthread_spin_unlock(&session_lock);
 	return ses;
