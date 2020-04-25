@@ -275,14 +275,20 @@ void *user_session_handler(void *_ses)
 
 	pin_cpu(tmp_cpu++);
 	getcpu(&cpu, &node);
-	dprintf_DEBUG("CPU=%d Node=%d, for session local_id = %u remote_id = %u tb.tx=%#lx\n",
-		cpu, node, get_local_session_id(ses), get_remote_session_id(ses), (unsigned long)tb.tx);
+	dprintf_DEBUG("CPU=%d Node=%d ses lid=%u rid=%u "
+		      "Session Handler Thread UP and RUNNING ... \n",
+		      cpu, node, get_local_session_id(ses), get_remote_session_id(ses));
 
 	while (1) {
-		if (unlikely(ses_thread_should_stop(ses)))
+		if (unlikely(ses_thread_should_stop(ses))) {
+			getcpu(&cpu, &node);
+			dprintf_DEBUG("CPU=%d Node=%d ses lid=%u rid=%u "
+				      "Session Handler Thread EXIT ... \n",
+				      cpu, node, get_local_session_id(ses), get_remote_session_id(ses));
 			break;
+		}
 
-		ret = net_receive_zerocopy(ses, &tb.rx, &tb.rx_size);
+		ret = net_receive_zerocopy_nb(ses, &tb.rx, &tb.rx_size);
 		if (ret <= 0)
 			continue;
 

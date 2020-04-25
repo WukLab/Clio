@@ -16,6 +16,25 @@
 #include <time.h>
 #include <pthread.h>
 
+#if 0
+# define LEGOMEM_DEBUG
+#endif
+
+#ifdef LEGOMEM_DEBUG
+# define dprintf_DEBUG(fmt, ...) \
+	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+#else
+# define dprintf_DEBUG(fmt, ...)  do { } while (0)
+#endif
+
+/* General info, always on */
+#define dprintf_INFO(fmt, ...) \
+	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
+/* ERROR/WARNING info, always on */
+#define dprintf_ERROR(fmt, ...) \
+	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
 /*
  * pthread_rwlock_t is a big structure, around 50-60B.
  * Thus it's impossible to tame whole structure with one cacheline.
@@ -169,7 +188,7 @@ static inline void dump_legomem_vregion(struct legomem_vregion *v)
 	struct session_net *ses;
 
 	get_ip_str(v->board_ip, ip_str);
-	printf("vRegion (board %s:%u) avail_space: %u B flags: %#lx\n",
+	printf("vRegion (%s:%u) avail=%uB flags=%#lx. List of Sessions:\n",
 		ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
 
 	printf("bkt      ses_local       tid\n");
@@ -365,22 +384,6 @@ extern struct endpoint_info default_local_ei;
 extern struct board_info *default_local_bi;
 int add_localhost_bi(struct endpoint_info *ei);
 #include "stat.h"
-
-/* Debugging info, useful for dev */
-#if 1
-#define dprintf_DEBUG(fmt, ...) \
-	printf("\033[34m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-#else
-#define dprintf_DEBUG(fmt, ...)  do { } while (0)
-#endif
-
-/* General info, always on */
-#define dprintf_INFO(fmt, ...) \
-	printf("\033[1;34m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-
-/* ERROR/WARNING info, always on */
-#define dprintf_ERROR(fmt, ...) \
-	printf("\033[1;31m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /*
  * for test

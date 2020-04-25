@@ -90,7 +90,7 @@ struct proc_info *alloc_proc(unsigned int pid, char *proc_name, unsigned int hos
 	hash_add(proc_hash_array, &new->link, key);
 	pthread_spin_unlock(&proc_lock);
 
-	printf("alloc_proc: new proc pid %u\n", pid);
+	dprintf_DEBUG("alloc proc_info for PID=%d\n", pid);
 	return new;
 }
 

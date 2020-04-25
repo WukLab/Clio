@@ -8,6 +8,31 @@
 #include <uapi/sched.h>
 #include <uapi/thpool.h>
 
+#if 0
+# define LEGOMEM_DEBUG
+#endif
+
+#ifndef dprintf_DEBUG
+# ifdef LEGOMEM_DEBUG
+#  define dprintf_DEBUG(fmt, ...) \
+	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+# else
+#  define dprintf_DEBUG(fmt, ...)  do { } while (0)
+# endif
+#endif
+
+/* General info, always on */
+#ifndef dprintf_INFO
+#define dprintf_INFO(fmt, ...) \
+	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+#endif
+
+/* ERROR/WARNING info, always on */
+#ifndef dprintf_ERROR
+#define dprintf_ERROR(fmt, ...) \
+	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+#endif
+
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 			       unsigned long len, unsigned long vm_flags);
@@ -44,27 +69,5 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc);
 void board_soc_handle_migration_send(struct thpool_buffer *tb);
 void board_soc_handle_migration_recv(struct thpool_buffer *tb);
 void board_soc_handle_migration_recv_cancel(struct thpool_buffer *tb);
-
-/* Debugging info, useful for dev */
-#ifndef dprintf_DEBUG
-#if 1
-#define dprintf_DEBUG(fmt, ...) \
-	printf("\033[34m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-#else
-#define dprintf_DEBUG(fmt, ...)  do { } while (0)
-#endif
-#endif
-
-/* General info, always on */
-#ifndef dprintf_INFO
-#define dprintf_INFO(fmt, ...) \
-	printf("\033[1;34m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-#endif
-
-/* ERROR/WARNING info, always on */
-#ifndef dprintf_ERROR
-#define dprintf_ERROR(fmt, ...) \
-	printf("\033[1;31m[%s:%s():%d] " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-#endif
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

@@ -567,10 +567,9 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		}
 		new_session = true;
 	}
+
 	dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s new_session: %d\n",
 			vregion_idx, bi->name, new_session);
-	dump_legomem_context_sessions(ctx);
-
 	/*
 	 * Step III:
 	 *
@@ -597,7 +596,11 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 */
 		add_vregion_session(v, ses);
 	}
+
+#ifdef LEGOMEM_DEBUG
+	dump_legomem_context_sessions(ctx);
 	dump_legomem_vregion(v);
+#endif
 
 	/*
 	 * Step IV:
@@ -913,11 +916,12 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
 	}
+	dprintf_DEBUG("Monitor replied, data was migrated %d\n", 0);
 
 	if (unlikely(resp.op.ret)) {
 		struct board_info *src_bi;
 		src_bi = find_board(v->board_ip, v->udp_port);
-		dprintf_DEBUG("fail to migrate vregion %u from %s to %s\n",
+		dprintf_ERROR("fail to migrate vregion %u from %s to %s\n",
 			vregion_index, src_bi->name, dst_bi->name);
 		return resp.op.ret;
 	}

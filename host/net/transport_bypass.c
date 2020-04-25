@@ -36,6 +36,12 @@ static inline int bypass_receive_one_zerocopy(struct session_net *net,
 	return raw_net_receive_zerocopy(buf, buf_size);
 }
 
+static inline int bypass_receive_one_zerocopy_nb(struct session_net *net,
+				  void **buf, size_t *buf_size)
+{
+	return raw_net_receive_zerocopy(buf, buf_size);
+}
+
 static inline int bypass_receive_one_nb(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
@@ -76,8 +82,9 @@ struct transport_net_ops transport_bypass_ops = {
 
 	.send_one		= bypass_send_one,
 	.receive_one		= bypass_receive_one,
-	.receive_one_zerocopy	= bypass_receive_one_zerocopy,
 	.receive_one_nb		= bypass_receive_one_nb,
+	.receive_one_zerocopy	= bypass_receive_one_zerocopy,
+	.receive_one_zerocopy_nb= bypass_receive_one_zerocopy_nb,
 
 	.reg_send_buf		= default_transport_reg_send_buf,
 };

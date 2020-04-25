@@ -448,7 +448,7 @@ static int migration_notify_send(struct board_info *src_bi,
 		char ip_src[INET_ADDRSTRLEN], ip_dst[INET_ADDRSTRLEN];		\
 		get_ip_str((op)->src_board_ip, ip_src);				\
 		get_ip_str((op)->dst_board_ip, ip_dst);				\
-		dprintf_INFO("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
+		dprintf_DEBUG("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
 			pid, (op)->vregion_index,				\
 			ip_src, (op)->src_udp_port,				\
 			ip_dst, (op)->dst_udp_port);				\
@@ -871,7 +871,7 @@ static void *dispatcher(void *_unused)
 
 	while (1) {
 #if 1
-		ret = net_receive_zerocopy(mgmt_session, &tb->rx, &tb->rx_size);
+		ret = net_receive_zerocopy_nb(mgmt_session, &tb->rx, &tb->rx_size);
 		if (ret <= 0)
 			continue;
 #else

@@ -135,6 +135,7 @@ struct transport_net_ops {
 	 */
 	int (*receive_one)(struct session_net *, void *, size_t);
 	int (*receive_one_zerocopy)(struct session_net *, void **, size_t *);
+	int (*receive_one_zerocopy_nb)(struct session_net *, void **, size_t *);
 
 	/*
 	 * Receive one packet
@@ -310,6 +311,12 @@ static __always_inline int
 net_receive_zerocopy(struct session_net *net, void **buf, size_t *buf_size)
 {
 	return transport_net_ops->receive_one_zerocopy(net, buf, buf_size);
+}
+
+static __always_inline int
+net_receive_zerocopy_nb(struct session_net *net, void **buf, size_t *buf_size)
+{
+	return transport_net_ops->receive_one_zerocopy_nb(net, buf, buf_size);
 }
 
 static __always_inline int

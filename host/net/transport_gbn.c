@@ -41,7 +41,7 @@
 #define NR_BUFFER_INFO_SLOTS		(256)
 #define GBN_RETRANS_TIMEOUT_US		(4000)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
-#define GBN_RECEIVE_MAX_TIMEOUT_S	(3600)
+#define GBN_RECEIVE_MAX_TIMEOUT_S	(20)
 
 static int polling_thread_created = 0;
 static pthread_t polling_thread;
@@ -861,16 +861,20 @@ wait_data_buffer_usable(struct buffer_info *info)
  * GBN receive a packet, i.e., dequeue a packet from the data buffer array.
  * Pakets in that array have been ack'ed and are ready for grab.
  *
- * This is a blocking call, thus we set the timeout to be super large.
- *
  * Note that for a single session @net, only a single thread is supposed
  * to use this particular session. The behavior is undefined if multiple
  * threads call this function upon one session.
+ *
+ * @zerocopy:		if zerocopy is used. If yes, use @z_buf and @z_buf_size.
+ * 			Otherwise use @buf and @buf_size.
+ * @non_blocking:	if this is a non-blocking receive. If yes, return
+ * 			immediately if there is no packet enqueued.
  */
 static int
 __gbn_receive_one(struct session_net *net,
 		  void *buf, size_t buf_size,
-		  void **z_buf, size_t *z_buf_size, bool zerocopy)
+		  void **z_buf, size_t *z_buf_size,
+		  bool zerocopy, bool non_blocking)
 {
 	struct session_gbn *ses;
 	struct buffer_info *info;
@@ -878,11 +882,14 @@ __gbn_receive_one(struct session_net *net,
 
 	ses = (struct session_gbn *)net->transport_private;
 
-	if (unlikely(nr_data_buffer_info(ses) == 0)) {
+	if (nr_data_buffer_info(ses) == 0) {
 		struct timespec s, e;
 
+		if (likely(non_blocking))
+			return 0;
+
 		clock_gettime(CLOCK_MONOTONIC, &s);
-		while (!nr_data_buffer_info(ses)) {
+		while (unlikely(!nr_data_buffer_info(ses))) {
 			clock_gettime(CLOCK_MONOTONIC, &e);
 			if ((e.tv_sec - s.tv_sec) > GBN_RECEIVE_MAX_TIMEOUT_S) {
 				dprintf_ERROR("Timeout %d s, sesid: %u TAIL %d HEAD %d\n",
@@ -900,7 +907,7 @@ __gbn_receive_one(struct session_net *net,
 
 	/* Put the data back to the head if too small */
 	if (unlikely(!zerocopy && (info->buf_size > buf_size))) {
-		dprintf_INFO("User recv buf is too small. "
+		dprintf_ERROR("User recv buf is too small. "
 			     "(pkt: %u recv_buf: %zu)\n",
 			info->buf_size, buf_size);
 		ses->data_buffer_info_TAIL--;
@@ -923,22 +930,41 @@ __gbn_receive_one(struct session_net *net,
 static inline int gbn_receive_one(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
-	return __gbn_receive_one(net, buf, buf_size, NULL, NULL, false);
+	return __gbn_receive_one(net,
+				 buf, buf_size,
+				 NULL, NULL,
+				 false,		/* zerocopy */
+				 false);	/* non_blocking */
+}
+
+static inline int gbn_receive_one_nb(struct session_net *net,
+				     void *buf, size_t buf_size)
+{
+	return __gbn_receive_one(net,
+				 buf, buf_size,
+				 NULL, NULL,
+				 false,		/* zerocopy */
+				 true);		/* non_blocking */
 }
 
 static inline int gbn_receive_one_zerocopy(struct session_net *net,
 				  void **buf, size_t *buf_size)
 {
-	return __gbn_receive_one(net, NULL, 0, buf, buf_size, true);
+	return __gbn_receive_one(net,
+				 NULL, 0,
+				 buf, buf_size,
+				 true,		/* zerocopy */
+				 false);	/* non_blocking */
 }
 
-/*
- * Non-blocking version, if the list is empty, just return.
- */
-static inline int gbn_receive_one_nb(struct session_net *net,
-				     void *buf, size_t buf_size)
+static inline int
+gbn_receive_one_zerocopy_nb(struct session_net *net, void **buf, size_t *buf_size)
 {
-	return -ENOSYS;
+	return __gbn_receive_one(net,
+				 NULL, 0,
+				 buf, buf_size,
+				 true,		/* zerocopy */
+				 true);		/* non_blocking */
 }
 
 static void gbn_timeout_handler(union sigval val)
@@ -1132,8 +1158,9 @@ struct transport_net_ops transport_gbn_ops = {
 
 	.send_one		= gbn_send_one,
 	.receive_one		= gbn_receive_one,
-	.receive_one_zerocopy	= gbn_receive_one_zerocopy,
 	.receive_one_nb		= gbn_receive_one_nb,
+	.receive_one_zerocopy	= gbn_receive_one_zerocopy,
+	.receive_one_zerocopy_nb= gbn_receive_one_zerocopy_nb,
 
 	.reg_send_buf		= default_transport_reg_send_buf,
 };

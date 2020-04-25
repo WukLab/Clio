@@ -124,7 +124,7 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 		char ip_src[INET_ADDRSTRLEN], ip_dst[INET_ADDRSTRLEN];		\
 		get_ip_str((op)->src_board_ip, ip_src);				\
 		get_ip_str((op)->dst_board_ip, ip_dst);				\
-		dprintf_INFO("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
+		dprintf_DEBUG("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
 			pid, (op)->vregion_index,				\
 			ip_src, (op)->src_udp_port,				\
 			ip_dst, (op)->dst_udp_port);				\
