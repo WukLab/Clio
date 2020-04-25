@@ -638,7 +638,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 
 	addr = resp.op.addr;
 
-	dprintf_DEBUG("addr [%#lx %#lx) size %#lx\n", addr, addr + size, size);
+	dprintf_DEBUG("allocated: addr [%#lx %#lx) size %#lx\n", addr, addr + size, size);
 	return addr;
 }
 
@@ -837,7 +837,7 @@ int legomem_ptr_chasing_read(struct legomem_context *ctx, void *buf,
 	ses = find_vregion_session(v, gettid());
 	if (unlikely(!ses)) {
 		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session.\n", addr);
+			      "an associated net session.\n", ptr);
 		return -EINVAL;
 	}
 
@@ -859,7 +859,7 @@ int legomem_ptr_chasing_write(struct legomem_context *ctx, void *buf,
 	ses = find_vregion_session(v, gettid());
 	if (unlikely(!ses)) {
 		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session.\n", addr);
+			      "an associated net session.\n", ptr);
 		return -EINVAL;
 	}
 
@@ -967,7 +967,7 @@ int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 	unsigned long end;
 	unsigned int ret, start_index, end_index;
 
-	end = addr + size;
+	end = addr + size - 1;
 
 	start_index = va_to_vregion_index(addr);
 	end_index = va_to_vregion_index(end);

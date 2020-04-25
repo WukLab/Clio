@@ -117,6 +117,17 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_close_session(tb);
 		break;
 
+	/* Migration */
+	case OP_REQ_MIGRATION_M2B_SEND:
+		board_soc_handle_migration_send(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV:
+		board_soc_handle_migration_recv(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:
+		board_soc_handle_migration_recv_cancel(tb);
+		break;
+
 	/* VM */
 	case OP_REQ_ALLOC:
 		board_soc_handle_alloc_free(tb, true);

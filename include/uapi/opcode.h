@@ -30,15 +30,15 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	S(OP_REQ_WRITE);
 	S(OP_REQ_WRITE_RESP);
 	S(OP_REQ_WRITE_NOREPLY);
-	case OP_CREATE_PROC:			return "op_create_proc";
-	case OP_CREATE_PROC_RESP:		return "op_create_proc_resp";
-	case OP_FREE_PROC:			return "op_free_proc";
-	case OP_FREE_PROC_RESP:			return "op_free_proc_resp";
-	case OP_REQ_MIGRATION_H2M:		return "op_migration_h2m";
-	case OP_REQ_MIGRATION_H2M_RESP:		return "op_migration_h2m_resp";
-	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
-	case OP_REQ_MIGRATION_B2M_RESP:		return "op_migration_b2m_resp";
-	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
+	S(OP_CREATE_PROC);
+	S(OP_CREATE_PROC_RESP);
+	S(OP_FREE_PROC);
+	S(OP_FREE_PROC_RESP);
+	S(OP_REQ_MIGRATION_H2M);
+	S(OP_REQ_MIGRATION_H2M_RESP);
+	S(OP_REQ_MIGRATION_B2M);
+	S(OP_REQ_MIGRATION_B2M_RESP);
+	S(OP_REQ_MIGRATION_M2B_RECV);
 	S(OP_REQ_MIGRATION_M2B_RECV_RESP);
 	S(OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP);
 	S(OP_REQ_MIGRATION_M2B_SEND);
@@ -146,7 +146,7 @@ struct op_open_close_session {
 	 * For CLOSE, this is the intended session
 	 */
 	unsigned int	session_id;
-};
+} __packed;
 
 struct op_open_close_session_ret {
 	/*
@@ -154,17 +154,17 @@ struct op_open_close_session_ret {
 	 * For CLOSE, this is the status.
 	 */
 	unsigned int	session_id;
-};
+} __packed;
 
 struct op_migration {
 	unsigned int src_board_ip, src_udp_port;
 	unsigned int dst_board_ip, dst_udp_port;
 	unsigned int vregion_index;
-};
+} __packed;
 
 struct op_migration_ret {
 	int ret;
-};
+} __packed;
 
 struct legomem_common_headers {
 	struct eth_hdr		eth;

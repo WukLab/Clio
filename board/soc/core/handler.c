@@ -65,6 +65,7 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 		 * The simpliest fix is to let monitor contact the board when
 		 * the monitor was chosing vRegion.
 		 */
+		dprintf_DEBUG("Create a new context for PID %d\n", pid);
 		pi = alloc_proc(pid, NULL, 0);
 		if (!pi) {
 			resp->op.ret = -ENOMEM;
@@ -114,6 +115,27 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 }
 
 /*
+ * Making it a macro because we want to know the calling function name.
+ * Can we use builtin return ip without having something like kallsyms?
+ */
+#if 1
+#define dump_migration_req(pid, op)						\
+	do {									\
+		char ip_src[INET_ADDRSTRLEN], ip_dst[INET_ADDRSTRLEN];		\
+		get_ip_str((op)->src_board_ip, ip_src);				\
+		get_ip_str((op)->dst_board_ip, ip_dst);				\
+		dprintf_INFO("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
+			pid, (op)->vregion_index,				\
+			ip_src, (op)->src_udp_port,				\
+			ip_dst, (op)->dst_udp_port);				\
+	} while (0)
+#else
+#define dump_migration_req(pid, op)						\
+	do {									\
+	} while (0)
+#endif
+
+/*
  * Monitor asked us to migrate a certain vregion to a new node.
  * The new node has already been notified and waiting for us.
  *
@@ -149,15 +171,17 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 
 	pid = lego_header->pid;
 	pi = get_proc_by_pid(pid);
-	if (!pid) {
-		printf("%s(): pid %d not valid\n", __func__, pid);
+	if (!pi) {
+		dprintf_ERROR("pid %d not found\n", pid);
 		resp->op.ret = -ESRCH;
 		return;
 	}
+	dump_migration_req(pid, op);
 
-	/* Free vma trees within this vRegion */
+	/* Free all VMAs within this vRegion */
 	vi = index_to_vregion(pi, op->vregion_index);
-	free_va_vregion(pi, vi, vregion_index_to_va(op->vregion_index),
+	free_va_vregion(pi, vi,
+			vregion_index_to_va(op->vregion_index),
 			vregion_index_to_va(op->vregion_index + 1) - 1);
 
 #ifdef CONFIG_ARCH_ARM64
@@ -193,14 +217,109 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 
 /*
  * Monitor asked us to prepare for a upcoming migration.
- * We need to create context, vregion etc, and wait for
- * the old owner to send the data.
+ * We will create context, preapre vregion at this point.
+ * After we reply, monitor will notify the original owner to send
+ * the data to us. The data will just go through coremem pipeline.
+ *
+ * For a detailed flow, check monitor side migration manager.
  */
 void board_soc_handle_migration_recv(struct thpool_buffer *tb)
 {
+	struct legomem_migration_req *req;
+	struct legomem_migration_resp *resp;
+	struct lego_header *lego_header;
+	struct op_migration *op;
+	struct proc_info *pi;
+	struct vregion_info *vi;
+	pid_t pid;
+	unsigned long addr;
+
+	req = (struct legomem_migration_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	op = &req->op;
+
+	resp = (struct legomem_migration_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	pid = lego_header->pid;
+	pi = get_proc_by_pid(pid);
+	if (!pi) {
+		/*
+		 * Similar to the comment on board_soc_handle_alloc_free.
+		 * In this particular case, either host or board choose
+		 * us as the destination board. But at this point, we may
+		 * not have the Context. It's legit, just create a new one.
+		 */
+		dprintf_DEBUG("Create a new context for PID %d\n", pid);
+		pi = alloc_proc(pid, NULL, 0);
+		if (!pi) {
+			resp->op.ret = -ENOMEM;
+			return;
+		}
+
+		/* We will drop in the end */
+		get_proc_by_pid(pid);
+	}
+	dump_migration_req(pid, op);
+
+	/*
+	 * XXX
+	 * We do not have the VMA tree info for now.
+	 * For now allocate the whole vRegion,
+	 * make sure coremem pipeline is informed within.
+	 */
+	vi = index_to_vregion(pi, op->vregion_index);
+	addr = alloc_va_vregion(pi, vi, VREGION_SIZE, 0);
+	if (IS_ERR_VALUE(addr)) {
+		dprintf_ERROR("Fail to prepare the vRegion %#lx\n", addr);
+		resp->op.ret = -ENOMEM;
+		goto put;
+	}
+
+	/* Done, success */
+	resp->op.ret = 0;
+
+put:
+	put_proc_info(pi);
 }
 
+/*
+ * Somehow the original owner cannot start the migration.
+ * Thus we need to revert what we have done at the preparation stage.
+ */
 void board_soc_handle_migration_recv_cancel(struct thpool_buffer *tb)
 {
+	struct legomem_migration_req *req;
+	struct legomem_migration_resp *resp;
+	struct lego_header *lego_header;
+	struct op_migration *op;
+	struct vregion_info *vi;
+	struct proc_info *pi;
+	pid_t pid;
 
+	req = (struct legomem_migration_req *)tb->rx;
+	lego_header = to_lego_header(req);
+	op = &req->op;
+
+	resp = (struct legomem_migration_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	pid = lego_header->pid;
+	pi = get_proc_by_pid(pid);
+	if (!pi) {
+		dprintf_ERROR("pid %d not found\n", pid);
+		resp->op.ret = -ESRCH;
+		return;
+	}
+	dump_migration_req(pid, op);
+	
+	/* Revert our actions at handle_migration_recv */
+	vi = index_to_vregion(pi, op->vregion_index);
+	free_va_vregion(pi, vi,
+			vregion_index_to_va(op->vregion_index),
+			vregion_index_to_va(op->vregion_index + 1) - 1);
+
+	/* Done, success */
+	resp->op.ret = 0;
+	put_proc_info(pi);
 }

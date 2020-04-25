@@ -459,6 +459,23 @@ static int migration_notify_send(struct board_info *src_bi,
 	return resp.op.ret;
 }
 
+#if 1
+#define dump_migration_req(pid, op)						\
+	do {									\
+		char ip_src[INET_ADDRSTRLEN], ip_dst[INET_ADDRSTRLEN];		\
+		get_ip_str((op)->src_board_ip, ip_src);				\
+		get_ip_str((op)->dst_board_ip, ip_dst);				\
+		dprintf_INFO("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
+			pid, (op)->vregion_index,				\
+			ip_src, (op)->src_udp_port,				\
+			ip_dst, (op)->dst_udp_port);				\
+	} while (0)
+#else
+#define dump_migration_req(pid, op)						\
+	do {									\
+	} while (0)
+#endif
+
 /*
  * Handle the case where a host application explicitly asking
  * for data migration. The requester has already choosed the new board.
@@ -488,6 +505,7 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 
 	req = (struct legomem_migration_req *)tb->rx;
 	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
 
 	/* Found those two involved boards */
 	src_bi = find_board(req->op.src_board_ip, req->op.src_udp_port);
@@ -505,22 +523,24 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 			ip_str, req->op.dst_udp_port);
 		goto error;
 	}
+	dump_migration_req(pid, &req->op);
 
-	/* First notify the new board to let it prepare */
+	/* Step 1: notify new board to prepare */
 	ret = migration_notify_recv(dst_bi, req);
 	if (ret) {
-		dprintf_DEBUG("dst board %s does not accept migration. Error %d\n",
-			dst_bi->name, ret);
+		dprintf_ERROR("dst board %s does not accept migration. "
+			      "Error %d\n", dst_bi->name, ret);
 		goto error;
 	}
 
-	/* Then notify the old board to start migration */
+	/* Step 2: notify old board to start migration */
 	ret = migration_notify_send(src_bi, req);
 	if (ret) {
-		/* Tell new board to cancel the party */
+		dprintf_ERROR("src board %s cannot start migration. "
+			      "Error %d\n", src_bi->name, ret);
+
+		/* Tell new board to cancel */
 		migration_notify_cancel_recv(dst_bi, req);
-		dprintf_DEBUG("src board %s cannot start migration. Error %d\n",
-			src_bi->name, ret);
 		goto error;
 	}
 
@@ -528,7 +548,6 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	 * Update monitor local vRegion info
 	 * to the latest board
 	 */
-	pid = lego_header->pid;
 	vregion_index = req->op.vregion_index;
 
 	p = get_proc_by_pid(pid);

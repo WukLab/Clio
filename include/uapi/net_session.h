@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 #include <uapi/net_header.h>
 #include <uapi/hashtable.h>
 
@@ -400,6 +402,19 @@ static inline bool test_management_session(struct session_net *ses)
 	if (get_remote_session_id(ses) == LEGOMEM_MGMT_SESSION_ID)
 		return true;
 	return false;
+}
+
+/*
+ * Given the host order @ip, fill in the @ip_str
+ * @ip_str must be INET_ADDRSTRLEN bytes long.
+ */
+static inline int get_ip_str(unsigned int ip, char *ip_str)
+{
+	struct in_addr in_addr;
+
+	in_addr.s_addr = htonl(ip);
+	inet_ntop(AF_INET, &in_addr, ip_str, INET_ADDRSTRLEN);
+	return 0;
 }
 
 #endif /* _LEGOMEM_UAPI_NET_SESSION_H_ */

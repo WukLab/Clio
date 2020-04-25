@@ -76,19 +76,6 @@ int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size)
 }
 
 /*
- * Given the host order @ip, fill in the @ip_str
- * @ip_str must be INET_ADDRSTRLEN bytes long.
- */
-int get_ip_str(unsigned int ip, char *ip_str)
-{
-	struct in_addr in_addr;
-
-	in_addr.s_addr = htonl(ip);
-	inet_ntop(AF_INET, &in_addr, ip_str, INET_ADDRSTRLEN);
-	return 0;
-}
-
-/*
  * Given a network-order @ip, find what's the MAC we should use to reach it.
  * - If it is directly connected, it would be remote NIC's mac
  * - If it is behind switches, it would be the directly attached switch
