@@ -19,12 +19,12 @@
  */
 #define CONTEXT_HASH_ARRAY_BITS	(4)
 static DEFINE_HASHTABLE(context_list, CONTEXT_HASH_ARRAY_BITS);
-static pthread_spinlock_t context_lock;
+static pthread_spinlock_t context_lock ____cacheline_aligned;
 
-int init_context_subsys(void)
+__constructor
+static void init_context_subsys(void)
 {
 	pthread_spin_init(&context_lock, PTHREAD_PROCESS_PRIVATE);
-	return 0;
 }
 
 int add_legomem_context(struct legomem_context *p)

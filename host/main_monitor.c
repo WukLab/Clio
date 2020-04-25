@@ -1086,10 +1086,6 @@ int main(int argc, char **argv)
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
 
-	/* Same as host side init */
-	init_context_subsys();
-	init_net_session_subsys();
-
 	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");

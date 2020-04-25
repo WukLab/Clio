@@ -14,14 +14,14 @@
 #include <stdio.h>
 #include "core.h"
 
-static pthread_spinlock_t(session_lock);
+static pthread_spinlock_t session_lock ____cacheline_aligned;
 static struct session_net session_net_map[NR_MAX_SESSIONS_PER_NODE];
 static DECLARE_BITMAP(session_id_map, NR_MAX_SESSIONS_PER_NODE);
 
-int init_net_session_subsys(void)
+__constructor
+static void init_net_session_subsys(void)
 {
 	pthread_spin_init(&session_lock, PTHREAD_PROCESS_PRIVATE);
-	return 0;
 }
 
 struct session_net *

@@ -277,7 +277,6 @@ static inline int get_session_key(struct session_net *ses)
 }
 
 /* Per-node context list */
-int init_context_subsys(void);
 int add_legomem_context(struct legomem_context *p);
 int remove_legomem_context(struct legomem_context *p);
 struct legomem_context *find_legomem_context(unsigned int pid);
@@ -306,7 +305,6 @@ struct board_info *find_board(unsigned int ip, unsigned int port);
 void dump_boards(void);
 
 /* Per-node session list */
-int init_net_session_subsys(void);
 void dump_net_sessions(void);
 struct session_net *alloc_session(void);
 void free_session(struct session_net *ses);

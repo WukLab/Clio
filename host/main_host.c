@@ -385,14 +385,6 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	/*
-	 * Mainly init spinlocks
-	 * This must take place before any init operations
-	 * invovling boards, session, etc.
-	 */
-	init_context_subsys();
-	init_net_session_subsys();
-
 	/* Open the local mgmt session */
 	ret = init_local_management_session();
 	if (ret) {

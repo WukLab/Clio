@@ -351,10 +351,6 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	/* Same as host side init */
-	init_context_subsys();
-	init_net_session_subsys();
-
 	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
