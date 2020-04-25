@@ -352,7 +352,6 @@ int main(int argc, char **argv)
 	}
 
 	/* Same as host side init */
-	init_board_subsys();
 	init_context_subsys();
 	init_net_session_subsys();
 

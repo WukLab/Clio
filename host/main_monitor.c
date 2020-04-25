@@ -368,23 +368,6 @@ static void handle_free(struct thpool_buffer *tb)
 
 }
 
-static void handle_test(struct thpool_buffer *tb)
-{
-	struct reply {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} *reply, *req;
-	static int nr_rx = 0;
-
-	reply = (struct reply *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*reply));
-
-	nr_rx++;
-
-	req = (struct reply *)tb->rx;
-	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
-}
-
 static int migration_notify_cancel_recv(struct board_info *dst_bi,
 					struct legomem_migration_req *orig_req)
 {
@@ -567,7 +550,7 @@ error:
  */
 static void handle_migration_b2m(struct thpool_buffer *tb)
 {
-
+	dprintf_ERROR("This is not implemented yet! %d\n", 0);
 }
 
 /*
@@ -670,7 +653,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 * Step 2:
 	 * Notify all other online nodes about this new born
 	 */
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
 		struct legomem_membership_new_node_resp new_resp;
@@ -698,7 +681,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		net_send_and_receive(ses, &new_req, sizeof(new_req),
 					  &new_resp, sizeof(new_resp));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 
 	/*
 	 * Step 3:
@@ -706,7 +689,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 * send a bunch of requests to the original sender
 	 * for each existing node in the cluster
 	 */
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
 		struct legomem_membership_new_node_resp new_resp;
@@ -734,7 +717,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		net_send_and_receive(ses, &new_req, sizeof(new_req),
 					  &new_resp, sizeof(new_resp));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 
 	/* success */
 	resp->ret = 0;
@@ -784,9 +767,6 @@ static void worker_handle_request(struct thpool_worker *tw,
 	}
 
 	switch (opcode) {
-	case OP_REQ_TEST:
-		handle_test(tb);
-		break;
 	case OP_REQ_ALLOC:
 		handle_alloc(tb);
 		break;
@@ -928,7 +908,7 @@ __used static void monitor_gather_stats(void)
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_QUERY_STAT;
 
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		if (special_board_info_type(bi->flags))
 			continue;
@@ -945,7 +925,7 @@ __used static void monitor_gather_stats(void)
 		/* Copy to per-node stat list */
 		memcpy(bi->stat, resp->stat, NR_STAT_TYPES * sizeof(unsigned long));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 
 	free(req);
 	free(resp);
@@ -1107,7 +1087,6 @@ int main(int argc, char **argv)
 	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* Same as host side init */
-	init_board_subsys();
 	init_context_subsys();
 	init_net_session_subsys();
 

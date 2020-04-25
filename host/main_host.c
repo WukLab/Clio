@@ -390,7 +390,6 @@ int main(int argc, char **argv)
 	 * This must take place before any init operations
 	 * invovling boards, session, etc.
 	 */
-	init_board_subsys();
 	init_context_subsys();
 	init_net_session_subsys();
 

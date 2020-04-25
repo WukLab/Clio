@@ -92,6 +92,8 @@ static inline void print_backtrace(void)
 
 #define __section(S)		__attribute__ ((__section__(#S)))
 
+#define __constructor		__attribute__((constructor))
+
 #ifndef __always_inline
 # define __always_inline	inline __attribute__((always_inline))
 #endif

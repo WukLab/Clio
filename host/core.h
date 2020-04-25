@@ -297,7 +297,6 @@ struct session_net *context_find_session_by_board(struct legomem_context *p,
 #define ANY_BOARD	(UINT_MAX)	/* return the first real board */
 #define ANY_NODE	(UINT_MAX-1)	/* return anything except special BIs */
 
-int init_board_subsys(void);
 struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,
 			     struct endpoint_info *local_ei,
@@ -362,7 +361,7 @@ extern struct board_info *monitor_bi;
 
 #define BOARD_HASH_ARRAY_BITS (5)
 extern DECLARE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
-extern pthread_spinlock_t board_lock;
+extern pthread_rwlock_t board_lock;
 
 extern struct endpoint_info default_local_ei;
 extern struct board_info *default_local_bi;

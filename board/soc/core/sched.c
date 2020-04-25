@@ -152,7 +152,7 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	return NULL;
 }
 
-__attribute__((constructor))
+__constructor
 static int init_proc_subsystem(void)
 {
 	printf("%s here\n", __func__);
