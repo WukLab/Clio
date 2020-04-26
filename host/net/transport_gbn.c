@@ -794,6 +794,13 @@ static inline int gbn_send_one(struct session_net *net,
 	int seqnum;
 	struct gbn_header *hdr;
 
+	/*
+	 * This is not the best place to run this function.
+	 * But placing here ensures all msgs are properly formatted.
+	 * And could even be used to catch buggy callers.
+	 */
+	prepare_legomem_header(buf, buf_size);
+
 	hdr = to_gbn_header(buf);
 
 	if (route) {

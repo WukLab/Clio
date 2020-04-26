@@ -281,6 +281,22 @@ swap_routing_info(struct routing_info *ri)
 	swap(ri->udp.src_port, ri->udp.dst_port);
 }
 
+/*
+ * This function will patch the legomem header fields,
+ * most of which were filled by the original callers.
+ *
+ * We patch the @size field: it is the size of lego_header
+ * plus the size of legomem payload.
+ */
+static __always_inline void
+prepare_legomem_header(void *packet, size_t packet_size)
+{
+	struct lego_header *p;
+
+	p = to_lego_header(packet);
+	p->size = (uint16_t)(packet_size - LEGO_HEADER_OFFSET);
+}
+
 /**
  * Compute the IPv4 header checksum efficiently.
  * iph: ipv4 header
