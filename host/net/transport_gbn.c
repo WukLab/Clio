@@ -21,14 +21,27 @@
 #include "../core.h"
 
 #if 0
-#define CONFIG_DEBUG_GBN
+#define CONFIG_GBN_DEBUG
 #endif
 
-#ifdef CONFIG_DEBUG_GBN
-#define gbn_debug(fmt, ...) \
+/*
+ * This option controls whether host side GBN stack will maintain
+ * a per-session timer. If enabled, every packet TX/RX will involve
+ * kernel timer operation. We found the overhead is non-trivial.
+ *
+ * We can disable timer thanks to our unique RPC like semantic:
+ * a caller using our API will first send msg to remote, and then
+ * wait for reply. Thus the waiting part can be used as timeout detection.
+ */
+#if 0
+#define CONFIG_GBN_ENABLE_TIMER
+#endif
+
+#ifdef CONFIG_GBN_DEBUG
+# define gbn_debug(fmt, ...) \
 	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
 #else
-#define gbn_debug(fmt, ...)  do { } while (0)
+# define gbn_debug(fmt, ...)  do { } while (0)
 #endif
 
 #define gbn_info(fmt, ...) \
@@ -115,7 +128,9 @@ struct session_gbn {
 	atomic_int			seqnum_expect;
 	bool				ack_enable;
 
+#ifdef CONFIG_GBN_ENABLE_TIMER
 	timer_t				rt_timer;
+#endif
 
 	struct msg_buf			*mb_ack_reply;
 
@@ -154,10 +169,10 @@ index_to_data_buffer_info(struct session_gbn *ses, unsigned int index)
 	return info;
 }
 
+#ifdef CONFIG_GBN_ENABLE_TIMER
 static __always_inline void
 disable_timeout(struct session_gbn *ses)
 {
-#if 0
 	struct itimerspec timeout;
 
 	timeout.it_interval.tv_nsec = 0;
@@ -166,13 +181,11 @@ disable_timeout(struct session_gbn *ses)
 	timeout.it_value.tv_sec = 0;
 
 	timer_settime(ses->rt_timer, 0, &timeout, NULL);
-#endif
 }
 
 static __always_inline void
 set_next_timeout(struct session_gbn *ses)
 {
-#if 0
 	struct itimerspec timeout;
 
 	timeout.it_interval.tv_nsec = 0;
@@ -182,8 +195,11 @@ set_next_timeout(struct session_gbn *ses)
 
 	/* Set flag to 0, timeout is relative time to current time */
 	timer_settime(ses->rt_timer, 0, &timeout, NULL);
-#endif
 }
+#else
+static __always_inline void disable_timeout(struct session_gbn *ses) { }
+static __always_inline void set_next_timeout(struct session_gbn *ses) { }
+#endif /* CONFIG_GBN_ENABLE_TIMER */
 
 /*
  * At x86, simple aligned operations are atomic.
@@ -380,7 +396,7 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		}
 		atomic_store(&ses_gbn->seqnum_last, seq);
 
-#if 0
+#ifdef CONFIG_GBN_ENABLE_TIMER
 		/*
 		 * If unack buffer is empty after dequeue, then we do not need to take
 		 * care of timeout anymore. If it's ack packet, reset timeout.
@@ -439,7 +455,7 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 		}
 	}
 
-#if 0
+#ifdef CONFIG_GBN_ENABLE_TIMER
 	/*
 	 * if unack buffer is not empty after dequeue,
 	 * reset timeout after retrans.
@@ -731,7 +747,7 @@ static void *gbn_poll_func(void *_unused)
 			continue;
 		}
 
-#ifdef CONFIG_DEBUG_GBN
+#ifdef CONFIG_GBN_DEBUG
 		{
 			char packet_dump_str[256];
 
@@ -793,6 +809,7 @@ static inline int gbn_send_one(struct session_net *net,
 	struct session_gbn *ses;
 	int seqnum;
 	struct gbn_header *hdr;
+	bool unacked_buffer_empty __maybe_unused;
 
 	/*
 	 * This is not the best place to run this function.
@@ -822,7 +839,7 @@ static inline int gbn_send_one(struct session_net *net,
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
 
-#if 0
+#ifdef CONFIG_GBN_ENABLE_TIMER
 	/*
 	 * We check if unacked buffer is empty before grabbing a slot,
 	 * since grabing a slot will increase seqnum_cur and the 
@@ -842,7 +859,7 @@ static inline int gbn_send_one(struct session_net *net,
 	info->buf = buf;
 	info->buf_size = buf_size;
 
-#if 0
+#ifdef CONFIG_GBN_ENABLE_TIMER
 	/*
 	 * We do not reset timeout for every packet sent out.
 	 * Timeout is only (re)set when the unack buffer is originally empty
@@ -974,6 +991,7 @@ gbn_receive_one_zerocopy_nb(struct session_net *net, void **buf, size_t *buf_siz
 				 true);		/* non_blocking */
 }
 
+#ifdef CONFIG_GBN_ENABLE_TIMER
 static void gbn_timeout_handler(union sigval val)
 {
 	struct session_net *ses_net;
@@ -985,12 +1003,13 @@ static void gbn_timeout_handler(union sigval val)
 	dprintf_ERROR("Session %d timeout\n", ses_net->session_id);
 	retrans_unack_buffer_info(ses_net, ses_gbn);
 }
+#endif
 
 static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 {
 	int i;
 	struct buffer_info *info;
-	struct sigevent timeout_event = { 0 };
+	struct sigevent timeout_event __maybe_unused = { 0 };
 	int ret;
 
 	/* TX: unack buffer */
@@ -1002,6 +1021,7 @@ static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 	atomic_init(&gbn->seqnum_cur, 0);
 	atomic_init(&gbn->seqnum_last, 0);
 
+#ifdef CONFIG_GBN_ENABLE_TIMER
 	/*
 	 * Create timer for this gbn session
 	 * Store net session in the sigevent struct
@@ -1015,6 +1035,7 @@ static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 		dprintf_ERROR("Failed to create timer %d\n", errno);
 		goto out;
 	}
+#endif
 
 	/* RX: incoming data list */
 	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
@@ -1044,6 +1065,13 @@ out:
 	return ret;
 }
 
+static void gbn_timer_delete(struct session_gbn *ses_gbn)
+{
+#ifdef CONFIG_GBN_ENABLE_TIMER
+	timer_delete(ses_gbn->rt_timer);
+#endif
+}
+
 static int
 gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 		 struct endpoint_info *remote_ei)
@@ -1070,7 +1098,7 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 	 */
 	buf = malloc(sysctl_link_mtu);
 	if (!buf) {
-		timer_delete(ses_gbn->rt_timer);
+		gbn_timer_delete(ses_gbn);
 		free(ses_gbn);
 		ses_net->transport_private = NULL;
 		return -ENOMEM;
@@ -1078,8 +1106,8 @@ gbn_open_session(struct session_net *ses_net, struct endpoint_info *local_ei,
 
 	mb = raw_net_reg_msg_buf(ses_net, buf, sysctl_link_mtu);
 	if (!mb) {
+		gbn_timer_delete(ses_gbn);
 		free(buf);
-		timer_delete(ses_gbn->rt_timer);
 		free(ses_gbn);
 		ses_net->transport_private = NULL;
 		return -ENOMEM;
@@ -1098,7 +1126,7 @@ static int gbn_close_session(struct session_net *ses_net)
 		gbn_debug("session %d, ack %ld, nack %ld\n",
 			  ses_net->session_id, ses_gbn->nr_rx_ack,
 			  ses_gbn->nr_rx_nack);
-		timer_delete(ses_gbn->rt_timer);
+		gbn_timer_delete(ses_gbn);
 		free(ses_gbn);
 	}
 	return 0;
