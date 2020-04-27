@@ -22,14 +22,14 @@
 
 #ifdef LEGOMEM_DEBUG
 # define dprintf_DEBUG(fmt, ...) \
-	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("\033[1;34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 #else
 # define dprintf_DEBUG(fmt, ...)  do { } while (0)
 #endif
 
 /* General info, always on */
 #define dprintf_INFO(fmt, ...) \
-	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("\033[1;34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /* ERROR/WARNING info, always on */
 #define dprintf_ERROR(fmt, ...) \
