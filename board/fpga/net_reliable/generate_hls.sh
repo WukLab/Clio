@@ -22,7 +22,7 @@ GENERATED_HLS_PROJECT="generated_hls_project"
 HLS_DIR="$PWD"
 
 # Customize: relative path
-GENERATED_IP_FOLDER="${HLS_DIR}/../../generated_ip"
+GENERATED_IP_FOLDER="${HLS_DIR}/../generated_ip"
 
 # Customize: new IP folder prefix
 PREFIX=net

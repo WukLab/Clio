@@ -13,12 +13,12 @@ all:
 
 test:
 	$(GCC) test_onboard.c -I../../../include -o test_onboard.out
-	
+
 hls:
 	$(Q)./generate_hls.sh $(HLS_IP_CORES)
 
 g:
-	$(VIVADO) generated_vivado_project/generated_vivado_project.xpr
+	$(VIVADO) generated_vivado_project/generated_vivado_project.xpr &
 
 clean:
 	find ./ -name "generated_hls_project" | xargs rm -rf
@@ -28,4 +28,3 @@ clean:
 	find ./ -name "*.str" | xargs rm -rf
 	find ./ -name ".Xil" | xargs rm -rf
 	find ./ -name "awsver.txt" | xargs rm -rf
-	rm test_onboard.out

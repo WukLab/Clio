@@ -1,5 +1,12 @@
 # Go-Back-N Reliable Network
-Last Updated: MAr 26, 2020
+Last Updated: Mar 26, 2020
+
+Note that we will export a final big IP to the shared `generated_ip/` folder.
+The IP folder name is described by the last line of `run_vivado.tcl`:
+
+```
+ipx::package_project -root_dir ../generated_ip/net_top_relnet_zcu106 -vendor wuklab -library user -taxonomy UserIP -module relnet -import_files
+```
 
 ## Introduction
 This is a Go-Back-N based reliable network built on top of UDP network stack. It consists of several parts. Their functions are described as below.

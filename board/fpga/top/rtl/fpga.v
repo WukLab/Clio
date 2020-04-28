@@ -29,12 +29,7 @@ THE SOFTWARE.
 /*
  * FPGA top-level module
  */
-module fpga #
-(
-	parameter LOOPBACK_UDP = 1,
-	parameter LOOPBACK_RELIABLE = 0
-)
-(
+module fpga (
     /*
      * Clock: 125MHz LVDS
      * Reset: Push button, active high
@@ -64,7 +59,27 @@ module fpga #
     output wire       sfp_2_tx_p,
     output wire       sfp_2_tx_n,
     output wire       sfp_1_tx_disable,
-    output wire       sfp_2_tx_disable
+    output wire       sfp_2_tx_disable,
+
+    // DDR4 interface
+    output            ddr4_sdram_act_n,
+    output [16:0]     ddr4_sdram_adr,
+    output [1:0]      ddr4_sdram_ba,
+    output            ddr4_sdram_bg,
+    output            ddr4_sdram_ck_c,
+    output            ddr4_sdram_ck_t,
+    output            ddr4_sdram_cke,
+    output            ddr4_sdram_cs_n,
+    inout  [7:0]      ddr4_sdram_dm_n,
+    inout  [63:0]     ddr4_sdram_dq,
+    inout  [7:0]      ddr4_sdram_dqs_c,
+    inout  [7:0]      ddr4_sdram_dqs_t,
+    output            ddr4_sdram_odt,
+    output            ddr4_sdram_reset_n,
+
+    // DDR4 clk, si570 data
+    input             user_si570_sysclk_clk_n,
+    input             user_si570_sysclk_clk_p
 );
 
 // Clock and reset
@@ -447,38 +462,31 @@ sfp_2_phy_inst (
     .rx_high_ber()
 );
 
-wire [111:0] rx_usr_hdr_data;
-wire rx_usr_hdr_valid;
-wire rx_usr_hdr_ready;
-wire [63:0] rx_usr_payload_axis_tdata;
-wire rx_usr_payload_axis_tvalid;
-wire rx_usr_payload_axis_tready;
-wire rx_usr_payload_axis_tlast;
-wire [7:0] rx_usr_payload_axis_tkeep;
-wire rx_usr_payload_axis_tuser;
+wire [111:0]    m_udp_hdr_data;
+wire            m_udp_hdr_valid;
+wire            m_udp_hdr_ready;
+wire [63:0]     m_udp_payload_axis_tdata;
+wire            m_udp_payload_axis_tvalid;
+wire            m_udp_payload_axis_tready;
+wire            m_udp_payload_axis_tlast;
+wire [7:0]      m_udp_payload_axis_tkeep;
+wire            m_udp_payload_axis_tuser;
 
-wire [111:0] tx_usr_hdr_data;
-wire tx_usr_hdr_valid;
-wire tx_usr_hdr_ready;
-wire [63:0] tx_usr_payload_axis_tdata;
-wire tx_usr_payload_axis_tvalid;
-wire tx_usr_payload_axis_tready;
-wire tx_usr_payload_axis_tlast;
-wire [7:0] tx_usr_payload_axis_tkeep;
-wire tx_usr_payload_axis_tuser;
-
-wire [15:0] usr_setconn_axis_tdata;
-wire usr_setconn_axis_tvalid;
-wire usr_setconn_axis_tready;
+wire [111:0]    s_udp_hdr_data;
+wire            s_udp_hdr_valid;
+wire            s_udp_hdr_ready;
+wire [63:0]     s_udp_payload_axis_tdata;
+wire            s_udp_payload_axis_tvalid;
+wire            s_udp_payload_axis_tready;
+wire            s_udp_payload_axis_tlast;
+wire [7:0]      s_udp_payload_axis_tkeep;
+wire            s_udp_payload_axis_tuser;
 
 assign led[0] = sfp_1_rx_block_lock;
 assign led[1] = sfp_2_rx_block_lock;
 assign led[7:2] = led_int[5:0];
 
-fpga_core #(
-    .LOOPBACK_UDP(LOOPBACK_UDP)
-)
-core_inst (
+fpga_core core_inst (
     /*
      * Clock: 156.25 MHz
      * Synchronous reset
@@ -509,115 +517,90 @@ core_inst (
     .sfp_2_rxd(sfp_2_rxd_int),
     .sfp_2_rxc(sfp_2_rxc_int),
 
-    /* Network -> CoreMem */
-    .m_usr_hdr_data(rx_usr_hdr_data),
-    .m_usr_hdr_valid(rx_usr_hdr_valid),
-    .m_usr_hdr_ready(rx_usr_hdr_ready),
-    .m_usr_payload_axis_tdata(rx_usr_payload_axis_tdata),
-    .m_usr_payload_axis_tvalid(rx_usr_payload_axis_tvalid),
-    .m_usr_payload_axis_tready(rx_usr_payload_axis_tready),
-    .m_usr_payload_axis_tlast(rx_usr_payload_axis_tlast),
-    .m_usr_payload_axis_tkeep(rx_usr_payload_axis_tkeep),
-    .m_usr_payload_axis_tuser(rx_usr_payload_axis_tuser),
+    .m_udp_hdr_data             (m_udp_hdr_data),
+    .m_udp_hdr_valid            (m_udp_hdr_valid),
+    .m_udp_hdr_ready            (m_udp_hdr_ready),
+    .m_udp_payload_axis_tdata   (m_udp_payload_axis_tdata),
+    .m_udp_payload_axis_tvalid  (m_udp_payload_axis_tvalid),
+    .m_udp_payload_axis_tready  (m_udp_payload_axis_tready),
+    .m_udp_payload_axis_tlast   (m_udp_payload_axis_tlast),
+    .m_udp_payload_axis_tkeep   (m_udp_payload_axis_tkeep),
+    .m_udp_payload_axis_tuser   (m_udp_payload_axis_tuser),
 
-    /* CoreMem -> Network */
-    .s_usr_hdr_data(tx_usr_hdr_data),
-    .s_usr_hdr_valid(tx_usr_hdr_valid),
-    .s_usr_hdr_ready(tx_usr_hdr_ready),
-    .s_usr_payload_axis_tdata(tx_usr_payload_axis_tdata),
-    .s_usr_payload_axis_tvalid(tx_usr_payload_axis_tvalid),
-    .s_usr_payload_axis_tready(tx_usr_payload_axis_tready),
-    .s_usr_payload_axis_tlast(tx_usr_payload_axis_tlast),
-    .s_usr_payload_axis_tkeep(tx_usr_payload_axis_tkeep),
-    .s_usr_payload_axis_tuser(tx_usr_payload_axis_tuser),
+    .s_udp_hdr_data             (s_udp_hdr_data),
+    .s_udp_hdr_valid            (s_udp_hdr_valid),
+    .s_udp_hdr_ready            (s_udp_hdr_ready),
+    .s_udp_payload_axis_tdata   (s_udp_payload_axis_tdata),
+    .s_udp_payload_axis_tvalid  (s_udp_payload_axis_tvalid),
+    .s_udp_payload_axis_tready  (s_udp_payload_axis_tready),
+    .s_udp_payload_axis_tlast   (s_udp_payload_axis_tlast),
+    .s_udp_payload_axis_tkeep   (s_udp_payload_axis_tkeep),
+    .s_udp_payload_axis_tuser   (s_udp_payload_axis_tuser),
 
-    .s_setconn_axis_tdata(usr_setconn_axis_tdata),
-    .s_setconn_axis_tvalid(usr_setconn_axis_tvalid),
-    .s_setconn_axis_tready(usr_setconn_axis_tready),
-
-    .local_ip({8'd192, 8'd168, 8'd1,   8'd128})
+    .local_ip({8'd192, 8'd168, 8'd1,   8'd133})
 );
 
-wire [63:0] tx_fifo_payload_axis_tdata;
-wire tx_fifo_payload_axis_tvalid;
-wire tx_fifo_payload_axis_tready;
-wire tx_fifo_payload_axis_tlast;
-wire [7:0] tx_fifo_payload_axis_tkeep;
-wire tx_fifo_payload_axis_tuser;
+top_legomem legomem_system_i (
 
-/*
- * Loopback reliable network traffic:
- * This can be used if there is no coremem pipeline available
- * or for testing reliable network performance
- */
-if (LOOPBACK_RELIABLE == 1) begin
-dummy_setup_inst
-relnet_setup (
-    .ap_clk(clk_156mhz_int),                                    // input wire ap_clk
-    .ap_rst_n(~rst_156mhz_int),                                // input wire ap_rst_n
+    // network interface
+    .rel_net_clk            (clk_156mhz_int),
+    .rel_net_resetn         (~rst_156mhz_int),
 
-    .usr_rx_payload_TVALID(rx_usr_payload_axis_tvalid),      // input wire usr_rx_payload_TVALID
-    .usr_rx_payload_TREADY(rx_usr_payload_axis_tready),      // output wire usr_rx_payload_TREADY
-    .usr_rx_payload_TDATA(rx_usr_payload_axis_tdata),        // input wire [63 : 0] usr_rx_payload_TDATA
-    .usr_rx_payload_TUSER(rx_usr_payload_axis_tuser),        // input wire [0 : 0] usr_rx_payload_TUSER
-    .usr_rx_payload_TLAST(rx_usr_payload_axis_tlast),        // input wire [0 : 0] usr_rx_payload_TLAST
-    .usr_rx_payload_TKEEP(rx_usr_payload_axis_tkeep),        // input wire [7 : 0] usr_rx_payload_TKEEP
-    .usr_rx_hdr_V_TVALID(rx_usr_hdr_valid),          // input wire usr_rx_hdr_V_TVALID
-    .usr_rx_hdr_V_TREADY(rx_usr_hdr_ready),          // output wire usr_rx_hdr_V_TREADY
-    .usr_rx_hdr_V_TDATA(rx_usr_hdr_data),            // input wire [111 : 0] usr_rx_hdr_V_TDATA
+    .udp_in_header_tdata    (m_udp_hdr_data),
+    .udp_in_header_tready   (m_udp_hdr_ready),
+    .udp_in_header_tvalid   (m_udp_hdr_valid),
+    .udp_in_payload_tdata   (m_udp_payload_axis_tdata),
+    .udp_in_payload_tkeep   (m_udp_payload_axis_tkeep),
+    .udp_in_payload_tlast   (m_udp_payload_axis_tlast),
+    .udp_in_payload_tready  (m_udp_payload_axis_tready),
+    .udp_in_payload_tuser   (m_udp_payload_axis_tuser),
+    .udp_in_payload_tvalid  (m_udp_payload_axis_tvalid),
 
-    .conn_setup_req_V_TVALID(usr_setconn_axis_tvalid),  // output wire conn_setup_req_V_TVALID
-    .conn_setup_req_V_TREADY(usr_setconn_axis_tready),  // input wire conn_setup_req_V_TREADY
-    .conn_setup_req_V_TDATA(usr_setconn_axis_tdata),    // output wire [15 : 0] conn_setup_req_V_TDATA
+    .udp_out_header_tdata   (s_udp_hdr_data),
+    .udp_out_header_tready  (s_udp_hdr_ready),
+    .udp_out_header_tvalid  (s_udp_hdr_valid),
+    .udp_out_payload_tdata  (s_udp_payload_axis_tdata),
+    .udp_out_payload_tkeep  (s_udp_payload_axis_tkeep),
+    .udp_out_payload_tlast  (s_udp_payload_axis_tlast),
+    .udp_out_payload_tready (s_udp_payload_axis_tready),
+    .udp_out_payload_tuser  (s_udp_payload_axis_tuser),
+    .udp_out_payload_tvalid (s_udp_payload_axis_tvalid),
 
-    .usr_tx_payload_TVALID(tx_fifo_payload_axis_tvalid),      // output wire usr_tx_payload_TVALID
-    .usr_tx_payload_TREADY(tx_fifo_payload_axis_tready),      // input wire usr_tx_payload_TREADY
-    .usr_tx_payload_TDATA(tx_fifo_payload_axis_tdata),        // output wire [63 : 0] usr_tx_payload_TDATA
-    .usr_tx_payload_TUSER(tx_fifo_payload_axis_tuser),        // output wire [0 : 0] usr_tx_payload_TUSER
-    .usr_tx_payload_TLAST(tx_fifo_payload_axis_tlast),        // output wire [0 : 0] usr_tx_payload_TLAST
-    .usr_tx_payload_TKEEP(tx_fifo_payload_axis_tkeep),        // output wire [7 : 0] usr_tx_payload_TKEEP
-    .usr_tx_hdr_V_TVALID(tx_usr_hdr_valid),          // output wire usr_tx_hdr_V_TVALID
-    .usr_tx_hdr_V_TREADY(tx_usr_hdr_ready),          // input wire usr_tx_hdr_V_TREADY
-    .usr_tx_hdr_V_TDATA(tx_usr_hdr_data)            // output wire [111 : 0] usr_tx_hdr_V_TDATA
+    // External Interfaces
+    // Board reset button
+    .reset(reset),
+    // DDR Interface
+    // DDR Clock
+    .user_si570_sysclk_clk_n(user_si570_sysclk_clk_n),
+    .user_si570_sysclk_clk_p(user_si570_sysclk_clk_p),
+
+    // DDR Wires
+    .ddr4_sdram_act_n(ddr4_sdram_act_n),
+    .ddr4_sdram_adr(ddr4_sdram_adr),
+    .ddr4_sdram_ba(ddr4_sdram_ba),
+    .ddr4_sdram_bg(ddr4_sdram_bg),
+    .ddr4_sdram_ck_c(ddr4_sdram_ck_c),
+    .ddr4_sdram_ck_t(ddr4_sdram_ck_t),
+    .ddr4_sdram_cke(ddr4_sdram_cke),
+    .ddr4_sdram_cs_n(ddr4_sdram_cs_n),
+    .ddr4_sdram_dm_n(ddr4_sdram_dm_n),
+    .ddr4_sdram_dq(ddr4_sdram_dq),
+    .ddr4_sdram_dqs_c(ddr4_sdram_dqs_c),
+    .ddr4_sdram_dqs_t(ddr4_sdram_dqs_t),
+    .ddr4_sdram_odt(ddr4_sdram_odt),
+    .ddr4_sdram_reset_n(ddr4_sdram_reset_n),
+
+    // debug interface
+    .debugCounter(),
+    .debugTimeStamps_0(),
+    .debugTimeStamps_1(),
+    .debugTimeStamps_2(),
+    .debugTimeStamps_3(),
+    .debugTimeStamps_4(),
+    .debugTimeStamps_5(),
+    .debugTimeStamps_6(),
+    .debugTimeStamps_7()
 );
-end
 
-axis_fifo #(
-    .DEPTH(4096),
-    .DATA_WIDTH(64),
-    .KEEP_ENABLE(1),
-    .KEEP_WIDTH(8),
-    .ID_ENABLE(0),
-    .DEST_ENABLE(0),
-    .USER_ENABLE(1),
-    .USER_WIDTH(1),
-    .FRAME_FIFO(0)
-)
-udp_payload_fifo (
-    .clk(clk_156mhz_int),
-    .rst(rst_156mhz_int),
-    // AXI input
-    .s_axis_tdata(tx_fifo_payload_axis_tdata),
-    .s_axis_tkeep(tx_fifo_payload_axis_tkeep),
-    .s_axis_tvalid(tx_fifo_payload_axis_tvalid),
-    .s_axis_tready(tx_fifo_payload_axis_tready),
-    .s_axis_tlast(tx_fifo_payload_axis_tlast),
-    .s_axis_tid(0),
-    .s_axis_tdest(0),
-    .s_axis_tuser(tx_fifo_payload_axis_tuser),
-    // AXI output
-    .m_axis_tdata(tx_usr_payload_axis_tdata),
-    .m_axis_tkeep(tx_usr_payload_axis_tkeep),
-    .m_axis_tvalid(tx_usr_payload_axis_tvalid),
-    .m_axis_tready(tx_usr_payload_axis_tready),
-    .m_axis_tlast(tx_usr_payload_axis_tlast),
-    .m_axis_tid(),
-    .m_axis_tdest(),
-    .m_axis_tuser(tx_usr_payload_axis_tuser),
-    // Status
-    .status_overflow(),
-    .status_bad_frame(),
-    .status_good_frame()
-);
 
 endmodule
