@@ -198,15 +198,13 @@ static void handle_open_session(struct thpool_buffer *tb)
 						 LEGOMEM_CONT_NONE,
 						 LEGOMEM_CONT_NONE,
 						 LEGOMEM_CONT_NONE);
-
-	printf("%s(): host sesid: %u soc sesid: %u\n",
-		__func__, src_sesid, session_id);
-
 	/* Notify GBN setup_manager */
 	set_gbn_conn_req(&gbn_open_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
 	gbn_open_req->epid = LEGOMEM_CONT_NET;
 	gbn_open_req->cmd = 0;
 	dma_ctrl_send(gbn_open_req, sizeof(*gbn_open_req));
+
+	soc_debug("Host sesid: %u SoC sesid: %u\n", src_sesid, session_id);
 }
 
 static void handle_close_session(struct thpool_buffer *tb)
@@ -237,6 +235,8 @@ static void handle_close_session(struct thpool_buffer *tb)
 	gbn_close_req->epid = LEGOMEM_CONT_NET;
 	gbn_close_req->cmd = 0;
 	dma_ctrl_send(gbn_close_req, sizeof(*gbn_close_req));
+
+	soc_debug("Closed session_id: %d\n", session_id);
 }
 
 /*
@@ -281,7 +281,10 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	tx_lego_hdr = to_lego_header(tb->tx);
 	opcode = rx_lego_hdr->opcode;
 
-	soc_debug("%s\n", legomem_opcode_str(opcode));
+	/* IDs were swapped already */
+	soc_debug("Req src_sesid: %u to dst_sesid: %u Opcode: %s\n",
+		  rx_lego_hdr->dst_sesid, rx_lego_hdr->src_sesid,
+		  legomem_opcode_str(opcode));
 
 	switch (opcode) {
 	/* VM */
@@ -342,7 +345,6 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		 * set the size field in lego header and
 		 * move data to the beginning of tx buffer
 		 */
-
 		tx_lego_hdr->size = tb->tx_size - LEGO_HEADER_OFFSET;
 		memmove(tb->tx, tx_lego_hdr, tx_lego_hdr->size);
 		dma_send(tb->tx, tb->tx_size - LEGO_HEADER_OFFSET);
@@ -391,14 +393,11 @@ static void dispatcher(void)
 		}
 		memmove(rx_lego_header, tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
 
+		/* FPGA has already swapped dst/src session IDs */
 		tx_lego_header = to_lego_header(tb->tx);
 		tx_lego_header->dest_ip = rx_lego_header->dest_ip;
 		tx_lego_header->src_sesid = rx_lego_header->src_sesid;
 		tx_lego_header->dst_sesid = rx_lego_header->dst_sesid;
-
-		soc_debug("req from src_sesid: %u to dst_sesid: %u\n",
-			  rx_lego_header->src_sesid,
-			  rx_lego_header->dst_sesid);
 
 		/* Inline handling */
 		worker_handle_request_inline(tw, tb);
