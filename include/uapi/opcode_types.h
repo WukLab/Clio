@@ -12,12 +12,17 @@
 #define BOARD_NAME_LEN		(64)
 
 enum LEGOFPGA_OPCODE_REQ {
-	/* Zone 0x00 - 0x3F system ops */
+    	// Zone 0x00 - 0x3F system ops
 	OP_REQ_INVALID = 0,
 	OP_REQ_TEST,
+	/*
+	 * For host and monitor, this is a normal pingpong.
+	 * For legomem-board, a PingPong module need to be added for this to work
+	 */
+	OP_REQ_PINGPONG,
 	OP_REQ_BARRIER,
 
-	/* Zone 0x40 - 0x7F, application Ops */
+	// Zone 0x40 - 0x7F, application Ops
 	OP_REQ_READ = 0x40,
 	OP_REQ_READ_RESP,
 
@@ -27,7 +32,7 @@ enum LEGOFPGA_OPCODE_REQ {
 
 	OP_REQ_CAHCE_INVALID = 0x70,
 
-	/* Zone 0x80 + */
+	// Zone 0x80 + 
 	OP_REQ_ALLOC = 0x80, 
 	OP_REQ_ALLOC_RESP,
 	OP_REQ_FREE,
@@ -71,12 +76,6 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_RESET_ALL,
 
 	OP_REQ_SOC_DEBUG,
-
-	/*
-	 * For host and monitor, this is a normal pingpong.
-	 * For legomem-board, a PingPong module need to be added for this to work
-	 */
-	OP_REQ_PINGPONG,
 
 	/*
 	 * For legomem-board, this pingpong msg should
