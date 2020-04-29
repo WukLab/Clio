@@ -157,7 +157,7 @@ void test_write()
 	printf("----------test write-----------\n");
 
 	test_util buff_util;
-	vector<unsigned> test_seq = { 201, 202, 203 };
+	vector<unsigned> test_seq = { 1000201, 1000202, 1000203 };
 
 	struct route_info test_header;
 	struct net_axis_64 test_payload;
@@ -168,8 +168,7 @@ void test_write()
 	stream<struct route_info> buff_route_info("buffer ip route");
 	stream<struct retrans_req> gbn_retrans_req("dummy retrans");
 
-	test_header.ip_info.src_ip = 0xc0a80102;
-	test_header.ip_info.dest_ip = 0xc0a80180;
+	test_header.dest_ip = 0xc0a80180;
 	test_header.length = 4 * 8;
 
 	test_payload.keep = 0xff;
@@ -177,9 +176,8 @@ void test_write()
 
 	for (int i = 0; cycle < MAX_CYCLE; i++) {
 		if (cycle < test_seq.size()) {
-			dph("[cycle %2d] host send %x -> %x, length %d\n", cycle,
-			    test_header.ip_info.src_ip.to_uint(),
-			    test_header.ip_info.dest_ip.to_uint(),
+			dph("[cycle %2d] host send -> %x, length %d\n", cycle,
+			    test_header.dest_ip.to_uint(),
 			    test_header.length.to_uint());
 			buff_route_info.write(test_header);
 

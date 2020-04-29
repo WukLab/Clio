@@ -2,15 +2,21 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
+//#define ENABLE_PROBE
 
 #include <stdio.h>
 #include "rx_64.hpp"
 
 enum udp_recv_status {
 	RX_STATE_UDP_HEADER,
-	RX_STATE_GBN_HEADER,
 	RX_STATE_WAIT_RSP,
 	RX_STATE_DELIVER_DATA
+};
+
+enum probe_status{
+	PROBE_RSP,
+	PROBE_DELIVER,
+	PROBE_NO_DELIVER
 };
 
 /**
@@ -26,19 +32,28 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	   stream<struct query_req>	*state_query_req,
 	   stream<bool>			*state_query_rsp,
 	   stream<struct udp_info>	*usr_rx_header,
-	   stream<struct net_axis_64>	*usr_rx_payload)
+	   stream<struct net_axis_64>	*usr_rx_payload
+#ifdef ENABLE_PROBE
+	   ,enum udp_recv_status	*recv_state,
+	   enum probe_status		*prb_state
+#endif
+)
 {
 #pragma HLS INTERFACE axis both port=rx_header
-#pragma HLS DATA_PACK variable=rx_header
 #pragma HLS INTERFACE axis both port=rx_payload
-
 #pragma HLS INTERFACE axis both port=state_query_req
-#pragma HLS DATA_PACK variable=state_query_req
 #pragma HLS INTERFACE axis both port=state_query_rsp
-
 #pragma HLS INTERFACE axis both port=usr_rx_header
-#pragma HLS DATA_PACK variable=usr_rx_header
 #pragma HLS INTERFACE axis both port=usr_rx_payload
+
+#pragma HLS DATA_PACK variable=rx_header
+#pragma HLS DATA_PACK variable=state_query_req
+#pragma HLS DATA_PACK variable=usr_rx_header
+
+#ifdef ENABLE_PROBE
+#pragma HLS INTERFACE ap_none port=recv_state
+#pragma HLS INTERFACE ap_none port=prb_state
+#endif
 
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS PIPELINE
@@ -93,6 +108,9 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		recv_udp_info.length -= 16;
 
 		state = RX_STATE_WAIT_RSP;
+#ifdef ENABLE_PROBE
+		*prb_state = PROBE_RSP;
+#endif
 		break;
 	case RX_STATE_WAIT_RSP:
 		if (state_query_rsp->empty())
@@ -102,8 +120,14 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		if (recv_pkt.last == 1)
 			state = RX_STATE_UDP_HEADER;
 		else {
-			if (deliver_data)
+			if (deliver_data) {
 				usr_rx_header->write(recv_udp_info);
+#ifdef ENABLE_PROBE
+				*prb_state = PROBE_DELIVER;
+			} else {
+				*prb_state = PROBE_NO_DELIVER;
+#endif
+			}
 			state = RX_STATE_DELIVER_DATA;
 		}
 		break;
@@ -125,4 +149,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	default:
 		break;
 	}
+#ifdef ENABLE_PROBE
+	*recv_state = state;
+#endif
 }

@@ -2,6 +2,7 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
+//#define ENABLE_PROBE
 
 #include <stdio.h>
 #include "statetable_64.hpp"
@@ -57,7 +58,12 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		    stream<bool>			*tx_finish_sig,
 		    stream<ap_uint<SLOT_ID_WIDTH> >	*check_full_req,
 		    stream<ap_uint<SEQ_WIDTH> >		*check_full_rsp,
-		    stream<struct conn_mgmt_req>	*init_req)
+		    stream<struct conn_mgmt_req>	*init_req
+#ifdef ENABLE_PROBE
+		    ,enum table_handle_tx_status	*tx_state,
+		    enum table_handle_rx_status		*rx_state
+#endif
+)
 {
 #pragma HLS INTERFACE axis both port=rsp_header
 #pragma HLS DATA_PACK variable=rsp_header
@@ -74,6 +80,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 #pragma HLS INTERFACE axis both port=check_full_req
 #pragma HLS INTERFACE axis both port=check_full_rsp
 #pragma HLS INTERFACE axis both port=init_req
+#ifdef ENABLE_PROBE
+#pragma HLS INTERFACE ap_none port=tx_state
+#pragma HLS INTERFACE ap_none port=rx_state
+#endif
 
 #pragma HLS DATA_PACK variable=gbn_retrans_req
 #pragma HLS DATA_PACK variable=timer_rst_req
@@ -105,7 +115,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	 */
 	static ap_uint<SEQ_WIDTH> recv_seqnum, expt_seqnum, rx_last_ackd_seqnum,
 		rx_last_sent_seqnum;
-	static ap_uint<SLOT_ID_WIDTH> rx_slot_id, tx_slot_id, rt_slot_id;
+	static ap_uint<SLOT_ID_WIDTH> rx_slot_id, tx_slot_id;
 
 	static enum table_handle_rx_status handle_rx_state =
 		TAB_STATE_RECV_RX_REQ;
@@ -270,7 +280,11 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				/* deliever udp header */
 				rsp_header->write(rsp_udp_info);
 				rsp_payload->write(rsp_pkt);
+			} else {
+				state_query_rsp->write(false);
 			}
+		} else {
+			state_query_rsp->write(false);
 		}
 		handle_rx_state = TAB_STATE_RECV_RX_REQ;
 		break;
@@ -342,6 +356,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		break;
 	}
 
+#ifdef ENABLE_PROBE
+	*rx_state = handle_rx_state;
+#endif
+
 	static ap_uint<SEQ_WIDTH> tx_last_ackd_seqnum, tx_last_sent_seqnum;
 	ap_uint<SEQ_WIDTH> tx_ck_rsp;
 	bool tx_complete;
@@ -386,8 +404,12 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	default:
 		break;
 	}
+#ifdef ENABLE_PROBE
+	*tx_state = handle_tx_state;
+#endif
 
 	ap_uint<SEQ_WIDTH> rt_last_acks_seqnum, rt_last_sent_seqnum;
+	ap_uint<SLOT_ID_WIDTH> rt_slot_id;
 	if (!rt_timeout_sig->empty()) {
 		rt_slot_id = rt_timeout_sig->read();
 		rt_last_acks_seqnum = last_ackd_seqnum_array[rt_slot_id];

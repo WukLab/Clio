@@ -2,6 +2,7 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
+//#define ENBALE_PROBE
 
 #include "tx_64.hpp"
 
@@ -29,7 +30,11 @@ void tx_64(stream<struct udp_info>		*tx_header,
 	   stream<ap_uint<SEQ_WIDTH> >		*check_full_rsp,
 	   stream<bool>				*tx_finish_sig,
 	   stream<struct net_axis_64>		*tx_buff_payload,
-	   stream<struct route_info>		*tx_buff_route_info)
+	   stream<struct route_info>		*tx_buff_route_info
+#ifdef ENABLE_PROBE
+	   ,enum udp_send_status		*send_state
+#endif
+)
 {
 #pragma HLS INTERFACE axis both port=tx_header
 #pragma HLS INTERFACE axis both port=tx_payload
@@ -40,6 +45,9 @@ void tx_64(stream<struct udp_info>		*tx_header,
 #pragma HLS INTERFACE axis both port=tx_finish_sig
 #pragma HLS INTERFACE axis both port=tx_buff_payload
 #pragma HLS INTERFACE axis both port=tx_buff_route_info
+#ifdef ENABLE_PROBE
+#pragma HLS INTERFACE ap_none port=send_state
+#endif
 
 #pragma HLS DATA_PACK variable=tx_header
 #pragma HLS DATA_PACK variable=usr_tx_header
@@ -180,4 +188,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 	default:
 		break;
 	}
+#ifdef ENABLE_PROBE
+	*send_state = state;
+#endif
 }
