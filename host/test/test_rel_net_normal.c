@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdarg.h>
 
 #include "../core.h"
@@ -91,6 +92,7 @@ static void *thread_func(void *_ti)
 
 		/* need to include header size */
 		send_size += sizeof(struct legomem_common_headers);
+		lego_header->size = send_size - LEGO_HEADER_OFFSET;
 
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
@@ -119,19 +121,21 @@ static void *thread_func(void *_ti)
 	 * Close does not work
 	 * because the thread cannot be really cancelled!
 	 */
-	//legomem_close_session(NULL, ses);
+	legomem_close_session(NULL, ses);
 	return NULL;
 }
 
 /*
  * We run test against monitor rel stack.
  */
-int test_rel_net_normal(void)
+int test_rel_net_normal(char *board_ip_port_str)
 {
 	int k, i, j, ret;
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
+	unsigned int ip, port;
+	unsigned int ip1, ip2, ip3, ip4;
 
 	if (transport_net_ops != &transport_gbn_ops) {
 		dprintf_ERROR("Reliable network testing needs reliable transport layer.\n"
@@ -141,7 +145,18 @@ int test_rel_net_normal(void)
 
 	pthread_spin_init(&_lock, PTHREAD_PROCESS_PRIVATE);
 
-	remote_board = monitor_bi;
+	printf("%s(): test board %s\n", __func__, board_ip_port_str);
+
+	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+	remote_board = find_board(ip, port);
+	if (!remote_board) {
+		dprintf_ERROR("Couldn't find the board_info for %s\n",
+			board_ip_port_str);
+		dump_boards();
+		return -1;
+	}
 	printf("%s(): Using board %s\n", __func__, remote_board->name);
 
 	ti = malloc(sizeof(*ti) * NR_MAX_THREADS);

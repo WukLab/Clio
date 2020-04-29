@@ -3,6 +3,7 @@
 #include <uapi/sched.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
+#include <uapi/opcode.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +12,7 @@
 
 #include "core.h"
 
-#define DEFAULT_TEST_SESSION 10
+#define DEFAULT_TEST_SESSION 4
 
 int test_legomem_soc(char *board_ip_port_str)
 {
@@ -56,6 +57,17 @@ int test_legomem_soc(char *board_ip_port_str)
 
 	add_net_session(ses_net);
 	board_add_session(remote_board, ses_net);
+
+	struct msg {
+		struct legomem_common_headers header;
+		long cnt[50];
+		long i;
+	} __packed;
+	struct msg *buf = (struct msg *)malloc(sizeof(struct msg) + 100);
+	while (1) {
+		net_receive(ses_net, buf, sizeof(struct msg) + 100);
+		printf("%lu\n", buf->i);
+	}
 
 	return 0;
 }

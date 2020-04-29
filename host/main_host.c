@@ -462,6 +462,7 @@ int main(int argc, char **argv)
 		if (board_addr_set) {
 			//ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);
+			//ret = test_legomem_soc(board_addr);
 		}
 
 		//ret = test_rel_net_normal();
