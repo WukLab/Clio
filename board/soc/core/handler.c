@@ -22,6 +22,10 @@
 
 #include "core.h"
 
+#ifdef CONFIG_ARCH_ARM64
+#include "dma.h"
+#endif
+
 /*
  * Handle alloc/free requests from _host_.
  *

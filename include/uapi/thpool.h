@@ -62,11 +62,17 @@ struct tb_padding {
 struct thpool_buffer {
 	unsigned int		flags;
 
-	size_t rx_size;
-	void *rx;
+	size_t			rx_size;
+	void			*rx;
 
-	size_t tx_size;
-	void *tx;
+	unsigned int		tx_size;
+	char			*tx;
+
+	/*
+	 * This field is only used by soc to
+	 * send control message to setup_manager
+	 */
+	char			*ctrl;
 } __aligned(64);
 
 static inline void
@@ -208,6 +214,8 @@ static inline int init_thpool_buffer(unsigned int NR_THPOOL_BUFFER,
 		 */
 		tb->rx = NULL;
 		tb->tx = NULL;
+		tb->ctrl = NULL;
+
 		ret = alloc_cb(tb);
 		if (ret)
 			return ret;

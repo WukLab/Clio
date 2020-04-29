@@ -24,6 +24,15 @@
 #include "dma.h"
 #include "core.h"
 
+#define CONFIG_DEBUG_SOC
+
+#ifdef CONFIG_DEBUG_SOC
+#define soc_debug(fmt, ...) \
+	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__);
+#else
+#define soc_debug(fmt, ...) do { } while (0)
+#endif
+
 #define NR_THPOOL_WORKERS	(1)
 #define NR_THPOOL_BUFFER	(32)
 
@@ -164,11 +173,12 @@ static void handle_open_session(struct thpool_buffer *tb)
 {
 	struct legomem_open_close_session_req *req;
 	struct legomem_open_close_session_resp *resp;
-	struct lego_mem_ctrl gbn_open_req;
+	struct lego_mem_ctrl *gbn_open_req;
 	unsigned int session_id, src_sesid;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
 	resp = (struct legomem_open_close_session_resp *)tb->tx;
+	gbn_open_req = (struct lego_mem_ctrl *)tb->ctrl;
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	src_sesid = req->op.session_id;
@@ -181,26 +191,32 @@ static void handle_open_session(struct thpool_buffer *tb)
 
 	/* Success */
 	resp->op.session_id = session_id;
+	resp->comm_headers.lego.opcode = OP_OPEN_SESSION_RESP;
+	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE);
 
 	printf("%s(): src_sesid: %u dst_sesid: %u\n",
 		__func__, src_sesid, session_id);
 
 	/* Notify GBN setup_manager */
-	set_gbn_conn_req(&gbn_open_req.param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
-	gbn_open_req.epid = LEGOMEM_CONT_NET;
-	gbn_open_req.cmd = 0;
-	dma_ctrl_send(&gbn_open_req, sizeof(gbn_open_req));
+	set_gbn_conn_req(&gbn_open_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
+	gbn_open_req->epid = LEGOMEM_CONT_NET;
+	gbn_open_req->cmd = 0;
+	dma_ctrl_send(gbn_open_req, sizeof(*gbn_open_req));
 }
 
 static void handle_close_session(struct thpool_buffer *tb)
 {
 	struct legomem_open_close_session_req *req;
 	struct legomem_open_close_session_resp *resp;
-	struct lego_mem_ctrl gbn_close_req;
+	struct lego_mem_ctrl *gbn_close_req;
 	unsigned int session_id;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
 	resp = (struct legomem_open_close_session_resp *)tb->rx;
+	gbn_close_req = (struct lego_mem_ctrl *)tb->ctrl;
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	session_id = req->op.session_id;
@@ -208,12 +224,17 @@ static void handle_close_session(struct thpool_buffer *tb)
 
 	/* Success */
 	resp->op.session_id = 0;
+	resp->comm_headers.lego.opcode = OP_CLOSE_SESSION_RESP;
+	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE);
 
 	/* Notify GBN setup_manager */
-	set_gbn_conn_req(&gbn_close_req.param32, session_id, GBN_SOC2FPGA_SET_TYPE_CLOSE);
-	gbn_close_req.epid = LEGOMEM_CONT_NET;
-	gbn_close_req.cmd = 0;
-	dma_ctrl_send(&gbn_close_req, sizeof(gbn_close_req));
+	set_gbn_conn_req(&gbn_close_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_CLOSE);
+	gbn_close_req->epid = LEGOMEM_CONT_NET;
+	gbn_close_req->cmd = 0;
+	dma_ctrl_send(gbn_close_req, sizeof(*gbn_close_req));
 }
 
 /*
@@ -251,11 +272,14 @@ static int handle_soc_debug(struct thpool_buffer *tb)
 static void worker_handle_request_inline(struct thpool_worker *tw,
 					 struct thpool_buffer *tb)
 {
-	struct lego_header *lego_hdr;
+	struct lego_header *rx_lego_hdr, *tx_lego_hdr;
 	uint16_t opcode;
 
-	lego_hdr = to_lego_header(tb->rx);
-	opcode = lego_hdr->opcode;
+	rx_lego_hdr = to_lego_header(tb->rx);
+	tx_lego_hdr = to_lego_header(tb->tx);
+	opcode = rx_lego_hdr->opcode;
+
+	soc_debug("%s\n", legomem_opcode_str(opcode));
 
 	switch (opcode) {
 	/* VM */
@@ -307,21 +331,32 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		break;
 	};
 
-	if (likely(!ThpoolBufferNoreply(tb)))
-		dma_send(tb->tx, tb->tx_size);
+	/*
+	 * To keep the handlers consistent, we skip the L2-L4 and GBN header
+	 * and only send the portion after GBN header
+	 */
+	if (likely(!ThpoolBufferNoreply(tb) && tb->tx_size > LEGO_HEADER_OFFSET)) {
+		/*
+		 * set the size field in lego header and
+		 * move data to the beginning of tx buffer
+		 */
+		tx_lego_hdr->size = tb->tx_size - LEGO_HEADER_OFFSET;
+		memmove(tb->tx, tx_lego_hdr, tx_lego_hdr->size);
+		dma_send(tb->tx, tb->tx_size - LEGO_HEADER_OFFSET);
+	}
 	free_thpool_buffer(tb);
 }
+
+#define MAX_LEGOMEM_SOC_MSG_SIZE (512)
 
 static void dispatcher(void)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
-	size_t ret;
+	int ret;
 
 	while (1) {
-		struct lego_header *lego_header;
-		int payload_size;
-		void *payload_ptr;
+		struct lego_header *rx_lego_header, *tx_lego_header;
 
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
@@ -330,25 +365,37 @@ static void dispatcher(void)
 		 * FPGA does not deliver the L2-L4 and GBN headers to us.
 		 * But to keep the handlers consistent, we skip the first portion
 		 * of the receive buffer and reserve the space.
+		 * 
+		 * In theory, we should just use the lego_header ptr to receive data.
+		 * But the AXI DMA IP has a limitation: the soc buffer must be 64B aligned.
+		 * We cannot always guarantee the lego_header is 64B aligned due to all the
+		 * headers before it. Thus we use tb->rx, which we can make sure it is aligned.
+		 * This explains why we use an extra memmove at the end.
 		 *
-		 * We will first use a recv to get the headers, which has a field
-		 * indicating the whole length of the packet. We then use that length
-		 * to read the payload. Thus the whole process has two recv.
+		 * We will receive the whole message in one recv. Thus we need
+		 * to ensure that the receive size is larger than the largest
+		 * possible request so that we won't end up receiving an
+		 * imcomplete message.
 		 */
-		lego_header = to_lego_header(tb->rx);
-		ret = dma_recv_blocking(lego_header, LEGO_HEADER_SIZE);
-		if (ret < 0) {
-			printf("%s(): fail to recv lego_header\n", __func__);
-			continue;
-		}
+		rx_lego_header = to_lego_header(tb->rx);
+		rx_lego_header->opcode = 0;
 
-		payload_size = lego_header->size - LEGO_HEADER_SIZE;
-		payload_ptr = (void *)(lego_header + 1);
-		ret = dma_recv_blocking(payload_ptr, payload_size);
+		ret = dma_recv_blocking(tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
 		if (ret < 0) {
-			printf("%s(): fail to recv payload\n", __func__);
+			/* if timeout or fail, skip processing the packet */
+			free_thpool_buffer(tb);
 			continue;
 		}
+		memmove(rx_lego_header, tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
+
+		tx_lego_header = to_lego_header(tb->tx);
+		tx_lego_header->dest_ip = rx_lego_header->dest_ip;
+		tx_lego_header->src_sesid = rx_lego_header->src_sesid;
+		tx_lego_header->dst_sesid = rx_lego_header->dst_sesid;
+
+		soc_debug("req from src_sesid: %u to dst_sesid: %u\n",
+			  rx_lego_header->src_sesid,
+			  rx_lego_header->dst_sesid);
 
 		/* Inline handling */
 		worker_handle_request_inline(tw, tb);
@@ -358,6 +405,20 @@ static void dispatcher(void)
 int main(int argc, char **argv)
 {
 	int ret;
+	FILE *fp;
+	char line[128];
+
+	/*
+	 * Print the system info
+	 * Just make sure we are running on top of the right system.
+	 */
+	fp = popen("uname -a", "r");
+	if (!fp) {
+		perror("popen uname");
+		return -1;
+	}
+	while (fgets(line, sizeof(line), fp))
+		printf("System Info: %s", line);
 
 	ret = init_dma();
 	if (ret) {

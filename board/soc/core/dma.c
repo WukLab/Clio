@@ -28,6 +28,8 @@
 
 struct dma_info legomem_dma_info;
 
+#define CTRL_BUFFER_SIZE	(128)
+
 /*
  * Callback for init_thpool_buffer
  * We will allocate DMA-able mmeory.
@@ -44,6 +46,10 @@ int dma_thpool_alloc_cb(struct thpool_buffer *tb)
 
 	tb->tx = axidma_malloc(dev, THPOOL_BUFFER_SIZE);
 	if (!tb->tx)
+		return -ENOMEM;
+
+	tb->ctrl = axidma_malloc(dev, CTRL_BUFFER_SIZE);
+	if (!tb->ctrl)
 		return -ENOMEM;
 	return 0;
 }
