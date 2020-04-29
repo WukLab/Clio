@@ -30,7 +30,6 @@
 #include <pthread.h>
 
 #define THPOOL_BUFFER_SIZE	(4096)
-#define CTRL_BUFFER_SIZE	(128)
 
 struct thpool_buffer;
 

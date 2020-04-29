@@ -15,11 +15,6 @@ enum LEGOFPGA_OPCODE_REQ {
 	/* Zone 0x00 - 0x3F system ops */
 	OP_REQ_INVALID = 0,
 	OP_REQ_TEST,
-	/*
-	 * For host and monitor, this is a normal pingpong.
-	 * For legomem-board, a PingPong module need to be added for this to work
-	 */
-	OP_REQ_PINGPONG,
 	OP_REQ_BARRIER,
 
 	/* Zone 0x40 - 0x7F, application Ops */
@@ -76,6 +71,12 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_RESET_ALL,
 
 	OP_REQ_SOC_DEBUG,
+
+	/*
+	 * For host and monitor, this is a normal pingpong.
+	 * For legomem-board, a PingPong module need to be added for this to work
+	 */
+	OP_REQ_PINGPONG,
 
 	/*
 	 * For legomem-board, this pingpong msg should

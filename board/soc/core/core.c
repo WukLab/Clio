@@ -385,28 +385,11 @@ static void dispatcher(void)
 
 		ret = dma_recv_blocking(tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
 		if (ret < 0) {
-			printf("%s(): fail to recv lego_header\n", __func__);
-			continue;
-		}
-
-		payload_size = rx_lego_header->size - LEGO_HEADER_SIZE;
-		payload_ptr = (void *)(rx_lego_header + 1);
-		ret = dma_recv_blocking(payload_ptr, payload_size);
-		if (ret < 0) {
 			/* if timeout or fail, skip processing the packet */
 			free_thpool_buffer(tb);
 			continue;
 		}
 		memmove(rx_lego_header, tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
-
-		tx_lego_header = to_lego_header(tb->tx);
-		tx_lego_header->dest_ip = rx_lego_header->dest_ip;
-		tx_lego_header->src_sesid = rx_lego_header->src_sesid;
-		tx_lego_header->dst_sesid = rx_lego_header->dst_sesid;
-
-		soc_debug("req from src_sesid: %u to dst_sesid: %u\n",
-			  rx_lego_header->src_sesid,
-			  rx_lego_header->dst_sesid);
 
 		tx_lego_header = to_lego_header(tb->tx);
 		tx_lego_header->dest_ip = rx_lego_header->dest_ip;

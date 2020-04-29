@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "core.h"
+#include "../core.h"
 
 #define DEFAULT_TEST_SESSION 4
 
@@ -55,7 +55,7 @@ int test_legomem_soc(char *board_ip_port_str)
 	set_local_session_id(ses_net, DEFAULT_TEST_SESSION);
 	set_remote_session_id(ses_net, DEFAULT_TEST_SESSION);
 
-	add_net_session(ses_net);
+	//add_net_session(ses_net);
 	board_add_session(remote_board, ses_net);
 
 	struct msg {

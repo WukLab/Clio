@@ -1,11 +1,6 @@
 #
 # Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
 #
-TEST_SRCS := test_session.c \
-	     test_migration.c \
-	     test_raw_net.c \
-	     test_board.c \
-	     test_soc.c
 
 # Test cases used by host only
 TP := test
@@ -16,7 +11,8 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_raw_net.c \
 	     $(TP)/test_rel_net_mgmt.c \
 	     $(TP)/test_rel_net_normal.c \
-	     $(TP)/test_board.c
+	     $(TP)/test_board.c \
+	     $(TP)/test_soc.c
 
 # Board emulator files linked to soc files
 BP := board_emulator
