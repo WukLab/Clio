@@ -2,7 +2,10 @@
 # Copyright (c) 2020, Wuklab, UCSD. All rights reserved.
 #
 INCLUDE := -I../../../include/
-CFLAGS := -Wno-stringop-truncation -DCONFIG_ZCU106_SOC -DCONFIG_ARCH_ARM64
+
+CFLAGS := -Wno-stringop-truncation
+CFLAGS += -DCONFIG_ZCU106_SOC -DCONFIG_ARCH_ARM64
+CFLAGS += -rdynamic
 
 SRCS := $(wildcard *.c)
 
