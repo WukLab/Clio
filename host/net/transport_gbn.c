@@ -54,7 +54,7 @@
 #define NR_BUFFER_INFO_SLOTS		(256)
 #define GBN_RETRANS_TIMEOUT_US		(4000)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
-#define GBN_RECEIVE_MAX_TIMEOUT_S	(20)
+#define GBN_RECEIVE_MAX_TIMEOUT_S	(10)
 
 static int polling_thread_created = 0;
 static pthread_t polling_thread;

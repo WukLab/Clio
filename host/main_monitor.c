@@ -650,6 +650,17 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	}
 
 	/*
+	 * XXX Apr 30, 2020 Yizhou Shan
+	 * When monitor.o wants to notify board,
+	 * the board soc will get the request, send out reply
+	 * but the monitor will never get the reply.
+	 * I have tried to use OPEN_SESSION opcode, same thing.
+	 * I think there is probably sth wrong about monitor
+	 * side network stack or sth.. need to compare monitor/host
+	 * difference.
+	 */
+#if 0
+	/*
 	 * Step 2:
 	 * Notify all other online nodes about this new born
 	 */
@@ -682,6 +693,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 					  &new_resp, sizeof(new_resp));
 	}
 	pthread_rwlock_unlock(&board_lock);
+#endif
 
 	/*
 	 * Step 3:

@@ -318,7 +318,7 @@ void handle_new_node(struct thpool_buffer *tb)
 		return;
 	}
 
-	dprintf_INFO("!!new node added: %s, ip:port: %s:%d type: %s\n",
+	dprintf_INFO("new node: %s, ip:port: %s:%d type: %s\n",
 		req->op.name, new_ei->ip_str, new_ei->udp_port,
 		board_info_type_str(req->op.type));
 }

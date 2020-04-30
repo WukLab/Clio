@@ -12,26 +12,20 @@
 # define LEGOMEM_DEBUG
 #endif
 
-#ifndef dprintf_DEBUG
-# ifdef LEGOMEM_DEBUG
-#  define dprintf_DEBUG(fmt, ...) \
-	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-# else
-#  define dprintf_DEBUG(fmt, ...)  do { } while (0)
-# endif
+#ifdef LEGOMEM_DEBUG
+# define dprintf_DEBUG(fmt, ...) \
+	printf("\033[34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+#else
+# define dprintf_DEBUG(fmt, ...)  do { } while (0)
 #endif
 
 /* General info, always on */
-#ifndef dprintf_INFO
 #define dprintf_INFO(fmt, ...) \
-	printf("\033[30m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-#endif
+	printf("\033[1;34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /* ERROR/WARNING info, always on */
-#ifndef dprintf_ERROR
 #define dprintf_ERROR(fmt, ...) \
 	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
-#endif
 
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
