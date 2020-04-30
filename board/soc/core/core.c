@@ -20,11 +20,14 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <sys/sysinfo.h>
 
 #include "dma.h"
 #include "core.h"
 
+#if 0
 #define CONFIG_DEBUG_SOC
+#endif
 
 #ifdef CONFIG_DEBUG_SOC
 #define soc_debug(fmt, ...) \
@@ -33,8 +36,24 @@
 #define soc_debug(fmt, ...) do { } while (0)
 #endif
 
-#define NR_THPOOL_WORKERS	(1)
-#define NR_THPOOL_BUFFER	(32)
+/*
+ * The largest mesage we can receive from the AXI DMA interface.
+ */
+#define MAX_LEGOMEM_SOC_MSG_SIZE (512)
+
+/*
+ * Knob
+ *
+ * This is a bit arbitrary. It really depends on the
+ * incoming msg rate and the speed of each handler.
+ */
+#define NR_MAX_PER_WORKER_QUEUED	(8)
+
+static int create_thread_barrier;
+
+static int nr_online_cpus;
+static int NR_THPOOL_WORKERS;
+static int NR_THPOOL_BUFFER;
 
 /*
  * Each thpool worker is described by struct thpool_worker,
@@ -173,17 +192,15 @@ static void handle_free_proc(struct thpool_buffer *tb)
 
 static void handle_open_session(struct thpool_buffer *tb)
 {
-	struct legomem_open_close_session_req *req;
+	struct legomem_open_close_session_req *req __maybe_unused;
 	struct legomem_open_close_session_resp *resp;
 	struct lego_mem_ctrl *gbn_open_req;
-	unsigned int session_id, src_sesid;
+	unsigned int session_id;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
 	resp = (struct legomem_open_close_session_resp *)tb->tx;
 	gbn_open_req = (struct lego_mem_ctrl *)tb->ctrl;
 	set_tb_tx_size(tb, sizeof(*resp));
-
-	src_sesid = req->op.session_id;
 
 	session_id = alloc_session_id();
 	if (session_id < 0) {
@@ -204,7 +221,8 @@ static void handle_open_session(struct thpool_buffer *tb)
 	gbn_open_req->cmd = 0;
 	dma_ctrl_send(gbn_open_req, sizeof(*gbn_open_req));
 
-	soc_debug("Host sesid: %u SoC sesid: %u\n", src_sesid, session_id);
+	soc_debug("Host sesid: %u SoC sesid: %u\n",
+		req->op.session_id, session_id);
 }
 
 static void handle_close_session(struct thpool_buffer *tb)
@@ -315,10 +333,17 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	tx_lego_hdr = to_lego_header(tb->tx);
 	opcode = rx_lego_hdr->opcode;
 
-	/* IDs were swapped already */
-	soc_debug("Req src_sesid: %u to dst_sesid: %u Opcode: %s\n",
-		  rx_lego_hdr->dst_sesid, rx_lego_hdr->src_sesid,
-		  legomem_opcode_str(opcode));
+#ifdef CONFIG_DEBUG_SOC
+	if (1) {
+		int cpu, node;
+		getcpu(&cpu, &node);
+
+		/* Session IDs were swapped already */
+		soc_debug("Req src_sesid: %u to dst_sesid: %u Opcode: %s CPU: %d worker_%d\n",
+			  rx_lego_hdr->dst_sesid, rx_lego_hdr->src_sesid,
+			  legomem_opcode_str(opcode), cpu, tw->cpu);
+	}
+#endif
 
 	switch (opcode) {
 	/* VM */
@@ -370,9 +395,16 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		handle_new_node(tb);
 		break;
 	default:
-		/* Reply anything, remote might be waiting */
+		if (1) {
+			/* Reply anything, remote might be waiting */
+			struct legomem_common_headers *p;
+
+			tb->tx_size = sizeof(*p);
+			p = (struct legomem_common_headers *)tb->tx;
+			p->lego.cont = MAKE_CONT(LEGOMEM_CONT_NET, LEGOMEM_CONT_NONE,
+					         LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
+		}
 		soc_debug("Unknown or unimplemented opcode %s\n", legomem_opcode_str(opcode));
-		tb->tx_size = sizeof(struct legomem_common_headers);
 		break;
 	};
 
@@ -380,7 +412,13 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	 * To keep the handlers consistent, we skip the L2-L4 and GBN header
 	 * and only send the portion after GBN header
 	 */
-	if (likely(!ThpoolBufferNoreply(tb) && tb->tx_size > LEGO_HEADER_OFFSET)) {
+	if (likely(!ThpoolBufferNoreply(tb))) {
+		if (unlikely(tb->tx_size < LEGO_HEADER_OFFSET)) {
+			dprintf_ERROR("TX size %u smaller than header %lu\n",
+				tb->tx_size, LEGO_HEADER_OFFSET);
+			tb->tx_size = LEGO_HEADER_OFFSET;
+		}
+
 		/*
 		 * set the size field in lego header and
 		 * move data to the beginning of tx buffer
@@ -392,17 +430,105 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	free_thpool_buffer(tb);
 }
 
-#define MAX_LEGOMEM_SOC_MSG_SIZE (512)
+#define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
+#define smp_wmb()	dmb(ishst)
 
-static void dispatcher(void)
+static __always_inline void
+enqueue_tail_thpool_worker(struct thpool_worker *worker, struct thpool_buffer *buffer)
+{
+	pthread_spin_lock(&worker->lock);
+	list_add_tail(&buffer->next, &worker->work_head);
+	/*
+	 * We want to make sure the update of above list
+	 * fields can be _seen_ by others before the counter
+	 * is seen: because the worker thread check
+	 * the counter first, then check/dequeue list.
+	 *
+	 * Trivial for x86 TSO, ensuring compiler order is enough.
+	 * But ARM64 uses a relaxed consistency model, a bit more costly.
+	 */
+	smp_wmb();
+	inc_queued_thpool_worker(worker);
+	pthread_spin_unlock(&worker->lock);
+}
+
+static __always_inline struct thpool_buffer *
+__dequeue_head_thpool_worker(struct thpool_worker *worker)
+{
+	struct thpool_buffer *buffer;
+
+	buffer = list_entry(worker->work_head.next, struct thpool_buffer, next);
+	list_del(&buffer->next);
+	dec_queued_thpool_worker(worker);
+
+	return buffer;
+}
+
+static void *thpool_worker_func(void *_tw)
+{
+	struct thpool_worker *tw;
+	struct thpool_buffer *tb;
+	int cpu, node;
+
+	WRITE_ONCE(create_thread_barrier, 1);
+
+	tw = (struct thpool_worker *)_tw;
+
+	//pin_cpu(tw->cpu);
+	getcpu(&cpu, &node);
+	dprintf_INFO("Worker%d Running on CPU %2d Node %2d\n", tw->cpu, cpu, node);
+
+	while (1) {
+		while (nr_queued_thpool_worker(tw) == 0)
+			;
+
+		pthread_spin_lock(&tw->lock);
+		while (!list_empty(&tw->work_head)) {
+			tb = __dequeue_head_thpool_worker(tw);
+			pthread_spin_unlock(&tw->lock);
+
+			worker_handle_request_inline(tw, tb);
+			pthread_spin_lock(&tw->lock);
+		}
+		pthread_spin_unlock(&tw->lock);
+	}
+
+	return NULL;
+}
+
+static void polling_dispather(void)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
-	int ret;
+	struct lego_header *rx_lego_header, *tx_lego_header;
 
 	while (1) {
-		struct lego_header *rx_lego_header, *tx_lego_header;
+		tb = alloc_thpool_buffer();
+		tw = select_thpool_worker_rr();
 
+		while (dma_recv_blocking(tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE) < 0)
+			;
+
+		rx_lego_header = to_lego_header(tb->rx);
+		memmove(rx_lego_header, tb->rx, (MAX_LEGOMEM_SOC_MSG_SIZE - LEGO_HEADER_OFFSET));
+
+		/* FPGA has already swapped dst/src session IDs */
+		tx_lego_header = to_lego_header(tb->tx);
+		tx_lego_header->dest_ip = rx_lego_header->dest_ip;
+		tx_lego_header->src_sesid = rx_lego_header->src_sesid;
+		tx_lego_header->dst_sesid = rx_lego_header->dst_sesid;
+	
+		enqueue_tail_thpool_worker(tw, tb);
+	}
+}
+
+static void polling_inline_handle(void)
+{
+	struct thpool_buffer *tb;
+	struct thpool_worker *tw;
+	struct lego_header *rx_lego_header, *tx_lego_header;
+
+	while (1) {
 		tb = alloc_thpool_buffer();
 		tw = select_thpool_worker_rr();
 
@@ -422,16 +548,11 @@ static void dispatcher(void)
 		 * possible request so that we won't end up receiving an
 		 * imcomplete message.
 		 */
-		rx_lego_header = to_lego_header(tb->rx);
-		rx_lego_header->opcode = 0;
+		while (dma_recv_blocking(tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE) < 0)
+			;
 
-		ret = dma_recv_blocking(tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
-		if (ret < 0) {
-			/* if timeout or fail, skip processing the packet */
-			free_thpool_buffer(tb);
-			continue;
-		}
-		memmove(rx_lego_header, tb->rx, MAX_LEGOMEM_SOC_MSG_SIZE);
+		rx_lego_header = to_lego_header(tb->rx);
+		memmove(rx_lego_header, tb->rx, (MAX_LEGOMEM_SOC_MSG_SIZE - LEGO_HEADER_OFFSET));
 
 		/* FPGA has already swapped dst/src session IDs */
 		tx_lego_header = to_lego_header(tb->tx);
@@ -444,29 +565,47 @@ static void dispatcher(void)
 	}
 }
 
+static void gather_sysinfo(void)
+{
+	FILE *fp;
+	char line[128];
+	int cpu, node;
+
+	fp = popen("uname -a", "r");
+	if (fp) {
+		if (fgets(line, sizeof(line), fp))
+			printf("Kernel: %s", line);
+	}
+
+	nr_online_cpus = get_nprocs();
+	printf("There are %d physical CPUs, %d online CPUs.\n",
+		get_nprocs_conf(), nr_online_cpus);
+
+	getcpu(&cpu, &node);
+	printf("initial running on CPU %d\n", cpu);
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
-	FILE *fp;
-	char line[128];
+	int i;
 
-	/*
-	 * Print the system info
-	 * Just make sure we are running on top of the right system.
-	 */
-	fp = popen("uname -a", "r");
-	if (!fp) {
-		perror("popen uname");
-		return -1;
-	}
-	while (fgets(line, sizeof(line), fp))
-		printf("System Info: %s", line);
+	gather_sysinfo();
 
 	ret = init_dma();
 	if (ret) {
 		printf("Fail to init dma\n");
 		return 0;
 	}
+
+	/*
+	 * Run the polling thread on the last CPU.
+	 *
+	 * XXX: fail to pin, it stuck.
+	 */
+	//pin_cpu(nr_online_cpus - 1);
+	NR_THPOOL_WORKERS = nr_online_cpus - 1;
+	NR_THPOOL_BUFFER  = NR_THPOOL_WORKERS * NR_MAX_PER_WORKER_QUEUED;
 
 	ret = init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
 	if (ret) {
@@ -480,6 +619,31 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	dispatcher();
+	/*
+	 * Either create a poll of workers and then start polling
+	 * or just do inline handling.
+	 */
+	if (1) {
+		for (i = 0; i < NR_THPOOL_WORKERS; i++) {
+			struct thpool_worker *tw;
+			pthread_t t;
+
+			tw = thpool_worker_map + i;
+			tw->cpu = i;
+
+			create_thread_barrier = 0;
+			ret = pthread_create(&t, NULL, thpool_worker_func, tw);
+			if (ret) {
+				dprintf_ERROR("Fail to create worker %d\n", i);
+				exit(-1);
+			}
+			while (READ_ONCE(create_thread_barrier) == 0)
+				;
+			tw->task = t;
+		}
+		polling_dispather();
+	} else
+		polling_inline_handle();
+
 	return 0;
 }

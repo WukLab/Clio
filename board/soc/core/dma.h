@@ -3,6 +3,7 @@
 
 #include "libaxidma.h"
 #include <uapi/thpool.h>
+#include <pthread.h>
 
 #define DATA_SEND_CHANNEL 0
 #define DATA_RECV_CHANNEL 1
@@ -26,6 +27,8 @@ struct dma_info {
 };
 
 extern struct dma_info legomem_dma_info;
+extern pthread_spinlock_t send_data_lock;
+extern pthread_spinlock_t send_ctrl_lock;
 
 static inline int dma_recv_blocking(void *buf, size_t len)
 {
@@ -46,17 +49,27 @@ static inline int dma_recv_nonblocking(void *buf, size_t len)
 static inline int dma_send(void *buf, size_t len)
 {
 	axidma_dev_t dev;
+	int ret;
 
 	dev = legomem_dma_info.dev;
-	return axidma_oneway_transfer(dev, DATA_SEND_CHANNEL, buf, len, true);
+
+	pthread_spin_lock(&send_data_lock);
+	ret = axidma_oneway_transfer(dev, DATA_SEND_CHANNEL, buf, len, true);
+	pthread_spin_unlock(&send_data_lock);
+	return ret;
 }
 
 static inline int dma_ctrl_send(void *buf, size_t len)
 {
 	axidma_dev_t dev;
+	int ret;
 	
 	dev = legomem_dma_info.dev;
-	return axidma_oneway_transfer(dev, CTRL_SEND_CHANNEL, buf, len, true);
+
+	pthread_spin_lock(&send_ctrl_lock);
+	ret = axidma_oneway_transfer(dev, CTRL_SEND_CHANNEL, buf, len, true);
+	pthread_spin_unlock(&send_ctrl_lock);
+	return ret;
 }
 
 int init_dma(void);

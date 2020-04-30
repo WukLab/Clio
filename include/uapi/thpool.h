@@ -23,6 +23,7 @@
 
 #include <uapi/bitops.h>
 #include <uapi/compiler.h>
+#include <uapi/list.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -45,6 +46,8 @@ struct thpool_worker {
 	int			cpu;
 	int			nr_queued;
 	pthread_spinlock_t	lock;
+	struct list_head	work_head;
+	pthread_t		task;
 	TW_PADDING(_pad1);
 
 	/* stats */
@@ -61,6 +64,7 @@ struct tb_padding {
  */
 struct thpool_buffer {
 	unsigned int		flags;
+	struct list_head	next;
 
 	size_t			rx_size;
 	void			*rx;
@@ -73,7 +77,7 @@ struct thpool_buffer {
 	 * send control message to setup_manager
 	 */
 	char			*ctrl;
-} __aligned(64);
+} ____cacheline_aligned;
 
 static inline void
 set_tb_rx_size(struct thpool_buffer *tb, unsigned int rx_size)
@@ -148,6 +152,7 @@ static inline int init_thpool(unsigned int NR_THPOOL_WORKERS,
 		tw = map + i;
 		tw->cpu = 0;
 		tw->nr_queued = 0;
+		INIT_LIST_HEAD(&tw->work_head);
 		pthread_spin_init(&tw->lock, PTHREAD_PROCESS_PRIVATE);
 	}
 	*worker_map = map;
@@ -225,6 +230,21 @@ static inline int init_thpool_buffer(unsigned int NR_THPOOL_BUFFER,
 	}
 	*buffer_map = map;
 	return 0;
+}
+
+static inline int nr_queued_thpool_worker(struct thpool_worker *tw)
+{
+	return READ_ONCE(tw->nr_queued);
+}
+
+static inline void inc_queued_thpool_worker(struct thpool_worker *tw)
+{
+	tw->nr_queued++;
+}
+
+static inline void dec_queued_thpool_worker(struct thpool_worker *tw)
+{
+	tw->nr_queued--;
 }
 
 #endif /* _LEGOFPGA_UAPI_THPOOL_H_ */

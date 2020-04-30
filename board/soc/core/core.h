@@ -70,4 +70,7 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb);
 void board_soc_handle_migration_recv(struct thpool_buffer *tb);
 void board_soc_handle_migration_recv_cancel(struct thpool_buffer *tb);
 
+int pin_cpu(int cpu_id);
+void getcpu(int *cpu, int *node);
+
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

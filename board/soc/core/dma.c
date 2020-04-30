@@ -28,6 +28,9 @@
 
 struct dma_info legomem_dma_info;
 
+pthread_spinlock_t send_data_lock;
+pthread_spinlock_t send_ctrl_lock;
+
 #define CTRL_BUFFER_SIZE	(128)
 
 /*
@@ -63,6 +66,9 @@ int init_dma(void)
 	int ret;
 	axidma_dev_t dev;
 	const array_t *rx, *tx;
+
+	pthread_spin_init(&send_data_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&send_ctrl_lock, PTHREAD_PROCESS_PRIVATE);
 
 	dev = axidma_init();
 	if (!dev) {
