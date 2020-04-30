@@ -23,7 +23,7 @@
 
 #include "../core.h"
 
-int test_legomem_migration(void)
+int test_legomem_migration(char *_unused)
 {
 	struct legomem_context *ctx;
 	struct timespec s, e;

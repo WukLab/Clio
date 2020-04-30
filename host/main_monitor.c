@@ -980,6 +980,7 @@ static void print_usage(void)
 	       "                              Available Options are:\n"
 	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
 	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
+	       "  --add_board=<ip:port>       Manually add a remote board (Optional)\n"
 	       "\n"
 	       "Examples:\n"
 	       "  ./monitor.o --port 8888 --dev=\"lo\" \n"
@@ -992,6 +993,7 @@ static struct option long_options[] = {
 	{ "dev",		required_argument,	NULL,	'd'},
 	{ "net_raw_ops",	required_argument,	NULL,	'n'},
 	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
+	{ "add_board",		required_argument,	NULL,	'b'},
 	{ 0,			0,			0,	0  }
 };
 
@@ -1003,9 +1005,12 @@ int main(int argc, char **argv)
 	bool ndev_set = false;
 	int port = 0;
 
+	char board_addr[32];
+	char board_addr_set = false;
+
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "p:d:",
+		c = getopt_long(argc, argv, "p:d:n:b:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -1047,6 +1052,10 @@ int main(int argc, char **argv)
 				       "2. bypass (simple bypass transport layer, unreliable)\n", optarg);
 				exit(-1);
 			}
+			break;
+		case 'b':
+			strncpy(board_addr, optarg, sizeof(board_addr));
+			board_addr_set = true;
 			break;
 		default:
 			print_usage();
@@ -1109,6 +1118,10 @@ int main(int argc, char **argv)
 			   default_thpool_buffer_alloc_cb);
 
 	create_watchdog_thread();
+
+	if (board_addr_set) {
+		manually_add_new_node_str(board_addr, BOARD_INFO_FLAGS_BOARD);
+	}
 
 	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
 	if (ret) {

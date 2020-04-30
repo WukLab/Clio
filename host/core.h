@@ -388,14 +388,14 @@ int add_localhost_bi(struct endpoint_info *ei);
 /*
  * for test
  */
-int test_legomem_session(void);
-int test_legomem_migration(void);
+int test_legomem_session(char *);
+int test_legomem_migration(char *);
 int test_legomem_board(char *);
 int test_raw_net(char *);
-int test_rel_net_mgmt(void);
+int test_rel_net_mgmt(char *);
 int test_rel_net_normal(char *);
-int test_legomem_context(void);
-int test_legomem_alloc_free(void);
+int test_legomem_context(char *);
+int test_legomem_alloc_free(char *);
 int test_legomem_soc(char *);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);

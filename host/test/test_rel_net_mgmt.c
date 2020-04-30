@@ -111,7 +111,7 @@ static void *thread_func(void *_ti)
 /*
  * We run test against monitor rel stack.
  */
-int test_rel_net_mgmt(void)
+int test_rel_net_mgmt(char *board_ip_port_str)
 {
 	int k, i, j, ret;
 	int nr_threads;
@@ -124,8 +124,24 @@ int test_rel_net_mgmt(void)
 		return -1;
 	}
 
-	remote_board = monitor_bi;
-	printf("%s(): Using board %s\n", __func__, remote_board->name);
+	if (board_ip_port_str) {
+		unsigned int ip, port;
+		unsigned int ip1, ip2, ip3, ip4;
+
+		sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+		ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+		remote_board = find_board(ip, port);
+		if (!remote_board) {
+			dprintf_ERROR("Couldn't find the board_info for %s\n",
+				board_ip_port_str);
+			dump_boards();
+			return -1;
+		}
+	} else {
+		remote_board = monitor_bi;
+	}
+	dprintf_INFO("Remote Party: %s\n", remote_board->name);
 
 	ti = malloc(sizeof(*ti) * NR_MAX_THREADS);
 	tid = malloc(sizeof(*tid) * NR_MAX_THREADS);

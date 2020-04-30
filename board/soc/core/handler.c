@@ -47,6 +47,11 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 
 	resp = (struct legomem_alloc_free_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
+	resp->comm_headers.lego.opcode = is_alloc ? OP_REQ_ALLOC_RESP : OP_REQ_ALLOC_RESP;
+	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE);
 
 	req = (struct legomem_alloc_free_req *)tb->rx;
 	ops = &req->op;

@@ -20,7 +20,10 @@
 
 #define NR_SESSION	(128)
 
-int test_legomem_session(void)
+/*
+ * If @board_ip_port_str is NULL, we wil
+ */
+int test_legomem_session(char *board_ip_port_str)
 {
 	struct legomem_context *ctx;
 	struct board_info *remote_board;
@@ -28,26 +31,32 @@ int test_legomem_session(void)
 	int i;
 	struct timespec ts, te;
 
-	printf("%s(): Running session test\n", __func__);
-	/*
-	 * Step I
-	 * open a global unique context
-	 */
-	ctx = legomem_open_context();
-	if (!ctx)
-		return -1;
-	dump_legomem_contexts();
+	if (board_ip_port_str) {
+		unsigned int ip, port;
+		unsigned int ip1, ip2, ip3, ip4;
+
+		sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+		ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+		remote_board = find_board(ip, port);
+		if (!remote_board) {
+			dprintf_ERROR("Couldn't find the board_info for %s\n",
+				board_ip_port_str);
+			dump_boards();
+			return -1;
+		}
+	} else {
+		remote_board = monitor_bi;
+	}
+
+	dprintf_INFO("Running session test. Remote Party: %s\n", remote_board->name);
 
 	/*
-	 * Step II
-	 * Use monitor is fine because all hosts are using the same stack.
+	 * It's okay to have a NULL ctx
+	 * just for testing purpose.
 	 */
-	remote_board = monitor_bi;
+	ctx = NULL;
 
-	/*
-	 * Step III
-	 * Start test
-	 */
 	ses_net = malloc(NR_SESSION * sizeof(*ses_net));
 	if (!ses_net)
 		return -1;
@@ -63,7 +72,7 @@ int test_legomem_session(void)
 	}
 	clock_gettime(CLOCK_MONOTONIC, &te);
 
-	printf("open_session avg %f ns (#%d tests)\n",
+	dprintf_INFO("open_session avg %f ns (#%d tests)\n",
 		(((double)te.tv_sec*1.0e9 + te.tv_nsec) -
 		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / NR_SESSION, NR_SESSION);
 
@@ -74,7 +83,7 @@ int test_legomem_session(void)
 	}
 	clock_gettime(CLOCK_MONOTONIC, &te);
 
-	printf("close_session avg %f ns (#%d tests)\n",
+	dprintf_INFO("close_session avg %f ns (#%d tests)\n",
 		(((double)te.tv_sec*1.0e9 + te.tv_nsec) -
 		((double)ts.tv_sec*1.0e9 + ts.tv_nsec)) / NR_SESSION, NR_SESSION);
 

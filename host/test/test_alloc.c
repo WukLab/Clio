@@ -117,7 +117,7 @@ static void *thread_func(void *_ti)
  * 3) Collect latency numbers
  * 4) Change number of concurrent threads, repeat 1-3 steps.
  */
-int test_legomem_alloc_free(void)
+int test_legomem_alloc_free(char *_unused)
 {
 	int k, i, j, ret;
 	int nr_threads;

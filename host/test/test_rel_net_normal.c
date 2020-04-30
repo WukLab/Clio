@@ -16,19 +16,21 @@
 
 #include "../core.h"
 
-#define NR_RUN_PER_THREAD 1000000
-
+#define NR_MAX_THREADS	(128)
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
-#define NR_MAX_THREADS	(128)
 /* Tuning */
+#define NR_RUN_PER_THREAD 1000000
+
+#if 0
 //int test_size[] = { 4, 16, 64, 256, 1024 };
 //int test_nr_threads[] = { 1, 2, 4, 8, 16};
+#else
 int test_size[] = { 64 };
+static int test_nr_threads[] = { 2 };
+#endif
 
-/* Has to run config one by one */
-static int test_nr_threads[] = { 24 };
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
@@ -110,7 +112,7 @@ static void *thread_func(void *_ti)
 
 		latency_ns[ti->id][i] = lat_ns;
 
-#if 0
+#if 1
 		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
 			ti->id,
 			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
@@ -134,8 +136,6 @@ int test_rel_net_normal(char *board_ip_port_str)
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
-	unsigned int ip, port;
-	unsigned int ip1, ip2, ip3, ip4;
 
 	if (transport_net_ops != &transport_gbn_ops) {
 		dprintf_ERROR("Reliable network testing needs reliable transport layer.\n"
@@ -145,19 +145,25 @@ int test_rel_net_normal(char *board_ip_port_str)
 
 	pthread_spin_init(&_lock, PTHREAD_PROCESS_PRIVATE);
 
-	printf("%s(): test board %s\n", __func__, board_ip_port_str);
+	if (board_ip_port_str) {
+		unsigned int ip, port;
+		unsigned int ip1, ip2, ip3, ip4;
 
-	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
-	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+		sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
+		ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
 
-	remote_board = find_board(ip, port);
-	if (!remote_board) {
-		dprintf_ERROR("Couldn't find the board_info for %s\n",
-			board_ip_port_str);
-		dump_boards();
-		return -1;
+		remote_board = find_board(ip, port);
+		if (!remote_board) {
+			dprintf_ERROR("Couldn't find the board_info for %s\n",
+				board_ip_port_str);
+			dump_boards();
+			return -1;
+		}
+	} else {
+		remote_board = monitor_bi;
 	}
-	printf("%s(): Using board %s\n", __func__, remote_board->name);
+
+	dprintf_INFO("Remote Party: %s\n", remote_board->name);
 
 	ti = malloc(sizeof(*ti) * NR_MAX_THREADS);
 	tid = malloc(sizeof(*tid) * NR_MAX_THREADS);

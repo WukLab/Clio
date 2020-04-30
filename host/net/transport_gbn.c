@@ -921,6 +921,7 @@ __gbn_receive_one(struct session_net *net,
 					get_local_session_id(net),
 					ses->data_buffer_info_TAIL,
 					ses->data_buffer_info_HEAD);
+				print_backtrace();
 				return -ETIMEDOUT;
 			}
 		}

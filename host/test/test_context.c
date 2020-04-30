@@ -16,7 +16,7 @@
 
 #define NR_CONTEXT	128
 
-int test_legomem_context(void)
+int test_legomem_context(char *_unused)
 {
 	struct legomem_context **ctx;
 	struct timespec ts, te;

@@ -27,69 +27,6 @@
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
 
-/*
- * Manually add a new remote node.
- * Since this is not broadcast from monitor, this information is local only.
- * This interface is mainly designed for testing purpose.
- */
-int manually_add_new_node(unsigned int ip, unsigned int udp_port,
-			  unsigned int node_type)
-{
-	struct thpool_buffer tb;
-	struct legomem_membership_new_node_req *req;
-	struct endpoint_info *ei;
-	char ip_str[INET_ADDRSTRLEN];
-	char new_name[BOARD_NAME_LEN];
-
-	/* Cook the name */
-	get_ip_str(ip, ip_str);
-	if (node_type == BOARD_INFO_FLAGS_BOARD) {
-		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
-	} else {
-		dprintf_ERROR("Manual adding only supports _board_ for now. (%s)\n",
-			board_info_type_str(node_type));
-		return -EINVAL;
-	}
-
-	tb.rx = malloc(THPOOL_BUFFER_SIZE);
-	tb.tx = malloc(THPOOL_BUFFER_SIZE);
-	if (!tb.rx || !tb.rx)
-		return -ENOMEM;
-
-	req = (struct legomem_membership_new_node_req *)tb.rx;
-
-	/*
-	 * We do not need to fill the mac addr
-	 * let the handler figure it out
-	 */
-	ei = &req->op.ei;
-	memcpy(ei->ip_str, ip_str, INET_ADDRSTRLEN);
-	ei->ip = ip;
-	ei->udp_port = udp_port;
-
-	/* Fill in the fake request */
-	req->op.type = node_type;
-	req->op.mem_size_bytes = 0;
-	memcpy(req->op.name, new_name, BOARD_NAME_LEN);
-
-	/* Invoke handler locally */
-	handle_new_node(&tb);
-
-	free(tb.rx);
-	free(tb.tx);
-	return 0;
-}
-
-int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
-{
-	int ip, port;
-	int ip1, ip2, ip3, ip4;
-
-	sscanf(ip_port_str, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
-	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
-	return manually_add_new_node(ip, port, node_type);
-}
-
 static void handle_query_stat(struct thpool_buffer *tb)
 {
 	struct legomem_query_stat_resp *resp;
@@ -232,8 +169,65 @@ static int join_cluster(void)
 	return resp.ret;
 }
 
+struct test_option {
+	const char *name;
+	const char *desc;
+	bool set;
+	int (*func)(char *);
+};
+
+struct test_option test_options[] = {
+	{
+		.name	= "session",
+		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
+		.func	= test_legomem_session,
+	},
+	{
+		.name	= "relnet_normal",
+		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
+		.func	= test_rel_net_normal,
+	},
+	{
+		.name	= "relnet_mgmt",
+		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
+		.func	= test_rel_net_mgmt,
+	},
+	{
+		.name	= "alloc_free",
+		.desc	= "test legomem_alloc and legomem_free (monitor required)",
+		.func	= test_legomem_alloc_free,
+	},
+	{
+		.name	= "context",
+		.desc	= "test legomem_alloc/free_context (monitor required)",
+		.func	= test_legomem_context,
+	},
+	{
+		.name	= "migration",
+		.desc	= "test legomem_migration (monitor required)",
+		.func	= test_legomem_migration,
+	},
+};
+
+static struct test_option *find_test_option(const char *s)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(test_options); i++) {
+		struct test_option *t = &test_options[i];
+
+		if (!strncmp(t->name, s, 64)) {
+			t->set = true;
+			return t;
+		}
+	}
+	return NULL;
+}
+
 static void print_usage(void)
 {
+	int i;
+
 	printf("Usage ./host.o [Options]\n"
 	       "\n"
 	       "Options:\n"
@@ -252,11 +246,14 @@ static void print_usage(void)
 	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
 	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
 	       "  --add_board=<ip:port>       Manually add a remote board (Optional)\n"
-	       "  --run_test                  Run built-in tests (Optional)"
-	       "\n"
-	       "Examples:\n"
-	       "  ./host.o --monitor=\"127.0.0.1:8888\" --port 8887 --dev=\"lo\" \n"
-	       "  ./host.o -m 127.0.0.1:8888 -p 8887 -d lo\n");
+	       "  --run_test=<name>           Run built-in tests (Optional)\n");
+
+	for (i = 0; i < ARRAY_SIZE(test_options); i++) {
+		struct test_option *t = &test_options[i];
+
+		printf("                                 %d. %s (%s)\n",
+			i, t->name, t->desc);
+	}
 }
 
 #define OPT_NET_TRANS_OPS		(10000)
@@ -268,7 +265,7 @@ static struct option long_options[] = {
 	{ "net_raw_ops",	required_argument,	NULL,	'n'},
 	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
 	{ "add_board",		required_argument,	NULL,	'b'},
-	{ "run_test",		no_argument,		NULL,	't'},
+	{ "run_test",		required_argument,	NULL,	't'},
 	{ 0,			0,			0,	0  }
 };
 
@@ -282,14 +279,15 @@ int main(int argc, char **argv)
 	char ndev[32];
 	bool ndev_set = false;
 	int port = 0;
-	bool run_test = false;
 
 	char board_addr[32];
 	char board_addr_set = false;
 
+	struct test_option *test_option = NULL;
+
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "m:p:d:b:t",
+		c = getopt_long(argc, argv, "m:p:d:b:t:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -345,7 +343,12 @@ int main(int argc, char **argv)
 			board_addr_set = true;
 			break;
 		case 't':
-			run_test = true;
+			test_option = find_test_option(optarg);
+			if (!test_option) {
+				printf("Invalid --test option\n");
+				print_usage();
+				exit(-1);
+			}
 			break;
 		default:
 			print_usage();
@@ -449,7 +452,7 @@ int main(int argc, char **argv)
 	/*
 	 * Run predefined testing if there is any.
 	 */
-	if (run_test) {
+	if (test_option) {
 		int cpu, node;
 
 		getcpu(&cpu, &node);
@@ -459,18 +462,17 @@ int main(int argc, char **argv)
 			     "** (on cpu %d node %d)\n"
 			     "**\n"
 			     "**\n", cpu, node);
+
+
 		if (board_addr_set) {
+			test_option->func(board_addr);
+
 			//ret = test_legomem_board(board_addr);
 			//ret = test_raw_net(board_addr);
 			//ret = test_legomem_soc(board_addr);
+		} else {
+			test_option->func(NULL);
 		}
-
-		ret = test_rel_net_normal(board_addr);
-		//ret = test_rel_net_mgmt();
-		//ret = test_legomem_alloc_free();
-		//ret = test_legomem_context();
-		//ret = test_legomem_session();
-		//ret = test_legomem_migration();
 	}
 
 	pthread_join(mgmt_session->thread, NULL);

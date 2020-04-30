@@ -271,6 +271,40 @@ static int handle_soc_debug(struct thpool_buffer *tb)
 	return 0;
 }
 
+void handle_new_node(struct thpool_buffer *tb)
+{
+	struct legomem_membership_new_node_req *req;
+	struct legomem_membership_new_node_resp *resp;
+	struct endpoint_info *new_ei;
+
+	/* Setup response */
+	resp = (struct legomem_membership_new_node_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+
+	resp->ret = 0;
+	resp->comm_headers.lego.opcode = OP_OPEN_SESSION_RESP;
+	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE);
+
+	/* Setup request */
+	req = (struct legomem_membership_new_node_req *)tb->rx;
+	new_ei = &req->op.ei;
+
+	/* Sanity check */
+	if (req->op.type != BOARD_INFO_FLAGS_HOST &&
+	    req->op.type != BOARD_INFO_FLAGS_BOARD) {
+		dprintf_ERROR("invalid type: %lu %s\n",
+			req->op.type, board_info_type_str(req->op.type));
+		return;
+	}
+
+	dprintf_INFO("!!new node added: %s, ip:port: %s:%d type: %s\n",
+		req->op.name, new_ei->ip_str, new_ei->udp_port,
+		board_info_type_str(req->op.type));
+}
+
 static void worker_handle_request_inline(struct thpool_worker *tw,
 					 struct thpool_buffer *tb)
 {
@@ -332,7 +366,13 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	case OP_REQ_SOC_DEBUG:
 		handle_soc_debug(tb);
 		break;
+	case OP_REQ_MEMBERSHIP_NEW_NODE:
+		handle_new_node(tb);
+		break;
 	default:
+		/* Reply anything, remote might be waiting */
+		soc_debug("Unknown or unimplemented opcode %s\n", legomem_opcode_str(opcode));
+		tb->tx_size = sizeof(struct legomem_common_headers);
 		break;
 	};
 
