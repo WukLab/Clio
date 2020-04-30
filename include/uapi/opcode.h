@@ -56,6 +56,7 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	S(OP_REQ_PINGPONG);
 	S(OP_REQ_FPGA_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG);
+	S(OP_REQ_SOC_PINGPONG_RESP);
 	default:				return "unknown";
 	};
 	return NULL;

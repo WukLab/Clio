@@ -84,10 +84,11 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_FPGA_PINGPONG,
 
 	/*
-	 * For legomem-board, this pingpoong msg shoul
+	 * For legomem-board, this pingpoong msg should
 	 * return at the point of reaching SoC
 	 */
 	OP_REQ_SOC_PINGPONG,
+	OP_REQ_SOC_PINGPONG_RESP,
 };
 
 #endif /* _LEGOFPGA_OPCODE_TYPES_H_ */

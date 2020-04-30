@@ -261,9 +261,17 @@ static void handle_close_session(struct thpool_buffer *tb)
  * Handle SoC Pingpong testing request.
  * Simply return and let sender measure RTT.
  */
-static int handle_soc_pingpong(struct thpool_buffer *tb)
+static void handle_soc_pingpong(struct thpool_buffer *tb)
 {
-	return 0;
+	struct legomem_pingpong_resp *resp;
+
+	resp = (struct legomem_pingpong_resp *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*resp));
+	resp->comm_headers.lego.opcode = OP_REQ_SOC_PINGPONG_RESP;
+	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE,
+						 LEGOMEM_CONT_NONE);
 }
 
 /*

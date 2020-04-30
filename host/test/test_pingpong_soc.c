@@ -15,15 +15,20 @@
 
 #include "../core.h"
 
-#define NR_RUN_PER_THREAD 1000
-
+#define NR_MAX_THREADS	(128)
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
-#define NR_MAX_THREADS	(128)
-/* Tuning */
-static int test_size[] = { 4, 16, 64, 256, 1024 };
-static int test_nr_threads[] = { 1, 2, 4, 8, 16};
+#if 1
+#define NR_RUN_PER_THREAD 10000
+static int test_size[] = { 64 };
+static int test_nr_threads[] = { 16 };
+#else
+#define NR_RUN_PER_THREAD 1
+static int test_size[] = { 4 };
+static int test_nr_threads[] = { 1 };
+#endif
+
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
@@ -76,7 +81,7 @@ static void *thread_func(void *_ti)
 	net_reg_send_buf(ses, req, max_buf_size);
 
 	lego_header = to_lego_header(req);
-	lego_header->opcode = OP_REQ_PINGPONG;
+	lego_header->opcode = OP_REQ_SOC_PINGPONG;
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		int send_size = test_size[i];
@@ -112,10 +117,7 @@ static void *thread_func(void *_ti)
 	return NULL;
 }
 
-/*
- * We run test against monitor rel stack.
- */
-int test_rel_net_mgmt(char *board_ip_port_str)
+int test_pingpong_soc(char *board_ip_port_str)
 {
 	int k, i, j, ret;
 	int nr_threads;

@@ -207,6 +207,11 @@ struct test_option test_options[] = {
 		.desc	= "test legomem_migration (monitor required)",
 		.func	= test_legomem_migration,
 	},
+	{
+		.name	= "pingpong_soc",
+		.desc	= "test host <-> soc RTT",
+		.func	= test_pingpong_soc,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)

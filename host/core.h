@@ -397,6 +397,7 @@ int test_rel_net_normal(char *);
 int test_legomem_context(char *);
 int test_legomem_alloc_free(char *);
 int test_legomem_soc(char *);
+int test_pingpong_soc(char *board_ip_port_str);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
