@@ -9,6 +9,9 @@
  *
  * You need at least a monitor, a host running test case,
  * and either a real board or board emulator instance.
+ *
+ * legomem_migration is not an simple API, its perf varies depends on scenarios.
+ * So, be careful.
  */
 
 #include <uapi/vregion.h>
@@ -23,47 +26,70 @@
 
 #include "../core.h"
 
+#define NR_TESTS	100
+
 int test_legomem_migration(char *_unused)
 {
 	struct legomem_context *ctx;
 	struct timespec s, e;
 	struct board_info *dst_bi;
-	unsigned long __remote addr;
+	int i;
+	unsigned long __remote addr[NR_TESTS];
 	unsigned int ip, port;
 	unsigned int ip1, ip2, ip3, ip4;
 	double lat_ns;
 	unsigned int alloc_size;
 
-	char board_ip_port_str[] = "127.0.0.1:9998";
+	char board_ip_port_str[] = "192.168.1.31:1234";
 	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+	dst_bi = find_board(ip, port);
+	if (!dst_bi) {
+		dprintf_ERROR("Couldn't find board: %s\n", board_ip_port_str);
+		return 0;
+	}
 
 	dprintf_INFO("Running migration test. %d\n", 0);
 
 	ctx = legomem_open_context();
 
-	alloc_size = 128;
-	addr = legomem_alloc(ctx, alloc_size, 0);
-	if (!addr) {
-		dprintf_ERROR("alloc failed %d\n", 0);
-		goto close;
-	}
+	alloc_size = VREGION_SIZE - 1;
 
-	dst_bi = find_board(ip, port);
-	if (!dst_bi) {
-		dprintf_ERROR("Couldn't find board: %s\n", board_ip_port_str);
-		goto close;
+	for (i = 0; i < NR_TESTS; i++) {
+#if 0
+		dprintf_INFO(" alloc i=%3d addr=%#18lx vregion_idx=%u\n",
+			i, addr[i], va_to_vregion_index(addr[i]));
+#endif
+
+		addr[i] = legomem_alloc(ctx, alloc_size, 0);
+		if (!addr[i]) {
+			dprintf_ERROR("alloc failed %d\n", 0);
+			goto close;
+		}
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &s);
-	legomem_migration(ctx, dst_bi, addr, 128);
+	/* 
+	 * leave the first one open, we want to reuse its session
+	 * if we happen to use only one board.
+	 */
+	for (i = 1; i < NR_TESTS; i++) {
+#if 0
+		dprintf_INFO(" migrate i=%3d addr=%#18lx vregion_idx=%u\n",
+			i, addr[i], va_to_vregion_index(addr[i]));
+#endif
+
+		legomem_migration(ctx, dst_bi, addr[i], 128);
+	}
 	clock_gettime(CLOCK_MONOTONIC, &e);
 
 	lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 		 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+	lat_ns /= (NR_TESTS - 1);
 
-	dprintf_INFO("migrated [%#lx %#lx] vregion %d, latency_ns: %lf\n",
-		addr, addr + alloc_size, va_to_vregion_index(addr), lat_ns);
+	dprintf_INFO("#nr_migration: %d, #avg_latency_ns: %lf\n",
+		NR_TESTS, lat_ns);
 
 close:
 	legomem_close_context(ctx);

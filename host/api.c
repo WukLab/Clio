@@ -944,22 +944,37 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	if (!ses) {
 		dprintf_ERROR("Fail to find the original session associated "
 			      "with this thread (tid %d) and vregion (%u). "
-			      "Monitor has already moved the data. We are not "
-			      "moving it back, for now. \n", tid, vregion_index);
+			      "This is BUG. But we proceed anyway.\n",
+			      tid, vregion_index);
 		dump_legomem_vregion(v);
-		return -ENOMEM;
-	}
-	remove_vregion_session(v, tid);
-	legomem_close_session(ctx, ses);
+		dump_legomem_context_sessions(ctx);
+	} else {
+		remove_vregion_session(v, tid);
 
-	ses = legomem_open_session(ctx, dst_bi);
+		/*
+		 * XXX We cannot just close this session now.
+		 * Because this particular session might also
+		 * be used by other vRegions this thread owned.
+		 *
+		 * A proper way is using refcount/put/get everywhere.
+		 * Well, no time for this "decent" stuff now.
+		 */
+		//legomem_close_session(ctx, ses);
+	}
+
+	/*
+	 * Find out if this thread already has a session with the new board
+	 * If not, we need to open a new one.
+	 */
+	ses = context_find_session(ctx, tid, dst_bi->board_ip, dst_bi->udp_port);
 	if (!ses) {
-		dprintf_ERROR("Fail to open a session with the new board %s. "
-			      "Data was already migrated by monitor. "
-			      "We are not moving it back, for now.\n", dst_bi->name);
-		dump_net_sessions();
-		dump_boards();
-		return -ENOMEM;
+		ses = __legomem_open_session(ctx, dst_bi, tid, false, false);
+		if (!ses) {
+			dprintf_ERROR("Fail to open a session with the new board %s. "
+				      "Data was already migrated by monitor. "
+				      "We are not moving it back, for now.\n", dst_bi->name);
+			return 0;
+		}
 	}
 	add_vregion_session(v, ses);
 

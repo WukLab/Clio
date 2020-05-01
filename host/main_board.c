@@ -20,7 +20,7 @@
 #include <uapi/net_header.h>
 
 #include "core.h"
-#include "board_emulator/core.h"
+#include "board_emulator/external.h"
 
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	32

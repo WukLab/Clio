@@ -188,8 +188,8 @@ static inline void dump_legomem_vregion(struct legomem_vregion *v)
 	struct session_net *ses;
 
 	get_ip_str(v->board_ip, ip_str);
-	printf("vRegion (%s:%u) avail=%uB flags=%#lx. List of Sessions:\n",
-		ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
+	printf("vRegion %#18lx (%s:%u) avail=%uB flags=%#lx. List of Sessions:\n",
+		(unsigned long)v, ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
 
 	printf("bkt      ses_local       tid\n");
 	printf("-------- --------------- --------\n");

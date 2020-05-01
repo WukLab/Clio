@@ -511,7 +511,7 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	/* Step 1: notify new board to prepare */
 	ret = migration_notify_recv(dst_bi, req);
 	if (ret) {
-		dprintf_ERROR("dst board %s does not accept migration. "
+		dprintf_ERROR("New dst board %s did not accept migration! "
 			      "Error %d\n", dst_bi->name, ret);
 		goto error;
 	}
@@ -519,7 +519,7 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	/* Step 2: notify old board to start migration */
 	ret = migration_notify_send(src_bi, req);
 	if (ret) {
-		dprintf_ERROR("src board %s cannot start migration. "
+		dprintf_ERROR("Old src board %s cannot start migration. "
 			      "Error %d\n", src_bi->name, ret);
 
 		/* Tell new board to cancel */

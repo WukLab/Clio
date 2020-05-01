@@ -7,6 +7,7 @@
 
 #include <uapi/sched.h>
 #include <uapi/thpool.h>
+#include "external.h"
 
 #if 0
 # define LEGOMEM_DEBUG
@@ -58,11 +59,6 @@ void dump_procs(void);
 /* Session */
 int alloc_session_id(void);
 void free_session_id(unsigned int session_id);
-
-void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc);
-void board_soc_handle_migration_send(struct thpool_buffer *tb);
-void board_soc_handle_migration_recv(struct thpool_buffer *tb);
-void board_soc_handle_migration_recv_cancel(struct thpool_buffer *tb);
 
 int pin_cpu(int cpu_id);
 void getcpu(int *cpu, int *node);
