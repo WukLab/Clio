@@ -225,7 +225,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		 * Contact the remote party to open a network session.
 		 * If things go well, a remote session ID is returned.
 		 */
-		struct legomem_open_close_session_req req;
+		struct legomem_open_close_session_req req = { 0 };
 		struct legomem_open_close_session_resp resp;
 		struct lego_header *lego_header;
 		struct session_net *remote_mgmt_ses;
@@ -924,7 +924,6 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
 	}
-	dprintf_DEBUG("Monitor replied, data was migrated %d\n", 0);
 
 	if (unlikely(resp.op.ret)) {
 		struct board_info *src_bi;
@@ -933,6 +932,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 			vregion_index, src_bi->name, dst_bi->name);
 		return resp.op.ret;
 	}
+	dprintf_DEBUG("Monitor replied, data was migrated %d\n", 0);
 
 	/*
 	 * Data was migrated. Now update vregion medadata.

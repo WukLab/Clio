@@ -413,7 +413,7 @@ static int migration_notify_recv(struct board_info *dst_bi,
 	ses = get_board_mgmt_session(dst_bi);
 	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
 	if (ret <= 0) {
-		dprintf_DEBUG("net error: %d board: %s\n", ret, dst_bi->name);
+		dprintf_ERROR("net error: %d board: %s\n", ret, dst_bi->name);
 		return -EIO;
 	}
 	return resp.op.ret;

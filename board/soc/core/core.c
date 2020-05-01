@@ -120,6 +120,15 @@ free_thpool_buffer(struct thpool_buffer *tb)
 	barrier();
 }
 
+static inline void make_cont(struct thpool_buffer *tb)
+{
+	struct legomem_common_headers *p;
+
+	p = (struct legomem_common_headers *)tb->tx;
+	p->lego.cont = MAKE_CONT(LEGOMEM_CONT_NET, LEGOMEM_CONT_NONE,
+				 LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
+}
+
 /*
  * Note that in the current implementation flow, neither host nor monitor
  * will explicitly contact the board for new proc creation. That will be
@@ -211,10 +220,7 @@ static void handle_open_session(struct thpool_buffer *tb)
 	/* Success */
 	resp->op.session_id = session_id;
 	resp->comm_headers.lego.opcode = OP_OPEN_SESSION_RESP;
-	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE);
+
 	/* Notify GBN setup_manager */
 	set_gbn_conn_req(&gbn_open_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
 	gbn_open_req->epid = LEGOMEM_CONT_NET;
@@ -243,10 +249,6 @@ static void handle_close_session(struct thpool_buffer *tb)
 	/* Success */
 	resp->op.session_id = 0;
 	resp->comm_headers.lego.opcode = OP_CLOSE_SESSION_RESP;
-	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE);
 
 	/* Notify GBN setup_manager */
 	set_gbn_conn_req(&gbn_close_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_CLOSE);
@@ -268,10 +270,6 @@ static void handle_soc_pingpong(struct thpool_buffer *tb)
 	resp = (struct legomem_pingpong_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
 	resp->comm_headers.lego.opcode = OP_REQ_SOC_PINGPONG_RESP;
-	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE);
 }
 
 /*
@@ -309,10 +307,6 @@ void handle_new_node(struct thpool_buffer *tb)
 
 	resp->ret = 0;
 	resp->comm_headers.lego.opcode = OP_OPEN_SESSION_RESP;
-	resp->comm_headers.lego.cont = MAKE_CONT(LEGOMEM_CONT_NET,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE,
-						 LEGOMEM_CONT_NONE);
 
 	/* Setup request */
 	req = (struct legomem_membership_new_node_req *)tb->rx;
@@ -404,13 +398,9 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		break;
 	default:
 		if (1) {
-			/* Reply anything, remote might be waiting */
 			struct legomem_common_headers *p;
-
 			tb->tx_size = sizeof(*p);
-			p = (struct legomem_common_headers *)tb->tx;
-			p->lego.cont = MAKE_CONT(LEGOMEM_CONT_NET, LEGOMEM_CONT_NONE,
-					         LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
+			make_cont(tb);
 		}
 		soc_debug("Unknown or unimplemented opcode %s\n", legomem_opcode_str(opcode));
 		break;
@@ -428,9 +418,12 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		}
 
 		/*
-		 * set the size field in lego header and
-		 * move data to the beginning of tx buffer
+		 * Post-cooking:
+		 * 1. Set cont
+		 * 2. Set the size field in lego header
+		 * 3. move data to the beginning of tx buffer (64B aligned)
 		 */
+		make_cont(tb);
 		tx_lego_hdr->size = tb->tx_size - LEGO_HEADER_OFFSET;
 		memmove(tb->tx, tx_lego_hdr, tx_lego_hdr->size);
 		dma_send(tb->tx, tb->tx_size - LEGO_HEADER_OFFSET);
