@@ -454,7 +454,7 @@ udp_complete_inst (
     .s_udp_ip_dscp              (tx_udp_ip_dscp),
     .s_udp_ip_ecn               (tx_udp_ip_ecn),
     .s_udp_ip_ttl               (tx_udp_ip_ttl),
-    .s_udp_ip_source_ip         (tx_udp_ip_source_ip),
+    .s_udp_ip_source_ip         (local_ip),
     .s_udp_ip_dest_ip           (tx_udp_ip_dest_ip),
     .s_udp_source_port          (tx_udp_source_port),
     .s_udp_dest_port            (tx_udp_dest_port),
