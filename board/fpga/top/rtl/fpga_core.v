@@ -91,11 +91,11 @@ module fpga_core (
     /*
      * identity info
      */
-    input  wire [31:0]  local_ip
+    input  wire [31:0]  local_ip,
+    input  wire [47:0]  local_mac
 );
 
 // Configuration
-wire [47:0] local_mac   = 48'he4_1d_2d_b2_00_34;
 //wire [31:0] local_ip    = {8'd192, 8'd168, 8'd1,   8'd128};
 wire [31:0] gateway_ip  = {8'd192, 8'd168, 8'd1,   8'd1};
 wire [31:0] subnet_mask = {8'd255, 8'd255, 8'd255, 8'd0};
