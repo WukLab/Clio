@@ -208,6 +208,8 @@ struct vregion_info {
 	int			board_ip;
 	unsigned int		udp_port;
 
+	struct list_head	list;
+
 	/*
 	 * List of VMAs
 	 * Updated by vma_link_list
@@ -250,9 +252,47 @@ struct proc_info {
 	char			proc_name[PROC_NAME_LEN];
 
 	struct vregion_info	vregion[NR_VREGIONS];
-	struct vregion_info	*cached_vregion;
+	struct list_head	free_list_head;
 	int			nr_vmas;
 };
+
+static inline struct vregion_info * 
+__vregion_freelist_dequeue_head(struct proc_info *ctx)
+{
+	struct vregion_info *v;
+
+	v = list_entry(ctx->free_list_head.next, struct vregion_info, list);
+	list_del(&v->list);
+	return v;
+}
+
+static inline struct vregion_info * 
+vregion_freelist_dequeue_head(struct proc_info *ctx)
+{
+	struct vregion_info *v = NULL;
+
+	pthread_spin_lock(&ctx->lock);
+	if (!list_empty(&ctx->free_list_head))
+		v = __vregion_freelist_dequeue_head(ctx);
+	pthread_spin_unlock(&ctx->lock);
+	return v;
+}
+
+static inline void
+__vregion_freelist_enqueue_tail(struct proc_info *ctx,
+			      struct vregion_info *v)
+{
+	list_add_tail(&v->list, &ctx->free_list_head);
+}
+
+static inline void
+vregion_freelist_enqueue_tail(struct proc_info *ctx,
+			      struct vregion_info *v)
+{
+	pthread_spin_lock(&ctx->lock);
+	__vregion_freelist_enqueue_tail(ctx, v);
+	pthread_spin_unlock(&ctx->lock);
+}
 
 static inline void init_vregion(struct vregion_info *v)
 {
@@ -278,10 +318,15 @@ static inline void init_proc_info(struct proc_info *pi)
 	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
 	atomic_init(&pi->refcount, 1);
 
+	/* Vregion Related */
+	INIT_LIST_HEAD(&pi->free_list_head);
 	pi->nr_vmas = 0;
 	for (j = 0; j < NR_VREGIONS; j++) {
 		v = pi->vregion + j;
 		init_vregion(v);
+
+		if (j != 0)
+			__vregion_freelist_enqueue_tail(pi, v);
 	}
 }
 

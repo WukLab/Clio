@@ -46,6 +46,8 @@ struct legomem_vregion {
 	unsigned long flags;
 	atomic_int avail_space;
 
+	struct list_head	list;
+
 #define LEGOMEM_VREGION_HT_ENTRIES	(6)
 	struct hlist_head ht_sessions[LEGOMEM_VREGION_HT_ENTRIES];
 	pthread_rwlock_t rwlock;
@@ -206,6 +208,10 @@ static inline void init_legomem_vregion(struct legomem_vregion *v)
 	pthread_rwlock_init(&v->rwlock, NULL);
 }
 
+/*
+ * HACK!!
+ * If you add anything, please update init_legomem_context()!
+ */
 struct legomem_context {
 	unsigned long flags;
 	unsigned int pid;
@@ -222,9 +228,64 @@ struct legomem_context {
 	pthread_spinlock_t lock;
 
 	struct legomem_vregion vregion[NR_VREGIONS];
-	struct legomem_vregion *cached_vregion;
-	struct list_head open_vregion;
+	struct list_head alloc_list_head;
+	atomic_int nr_nonzero_vregions;
 } __aligned(64);
+
+static inline struct legomem_vregion * 
+__vregion_alloclist_dequeue_head(struct legomem_context *ctx)
+{
+	struct legomem_vregion *v;
+
+	v = list_entry(ctx->alloc_list_head.next, struct legomem_vregion, list);
+	list_del(&v->list);
+	return v;
+}
+
+static inline struct legomem_vregion * 
+vregion_allolist_dequeue_head(struct legomem_context *ctx)
+{
+	struct legomem_vregion *v = NULL;
+
+	pthread_spin_lock(&ctx->lock);
+	if (!list_empty(&ctx->alloc_list_head))
+		v = __vregion_alloclist_dequeue_head(ctx);
+	pthread_spin_unlock(&ctx->lock);
+	return v;
+}
+
+static inline void
+__vregion_alloclist_enqueue_tail(struct legomem_context *ctx,
+			       struct legomem_vregion *v)
+{
+	list_add_tail(&v->list, &ctx->alloc_list_head);
+}
+
+static inline void
+__vregion_alloclist_enqueue_head(struct legomem_context *ctx,
+			       struct legomem_vregion *v)
+{
+	list_add(&v->list, &ctx->alloc_list_head);
+}
+
+static inline void
+vregion_alloclist_enqueue_head(struct legomem_context *ctx,
+			       struct legomem_vregion *v)
+{
+	pthread_spin_lock(&ctx->lock);
+	__vregion_alloclist_enqueue_head(ctx, v);
+	pthread_spin_unlock(&ctx->lock);
+}
+
+static inline void
+vregion_alloclist_move_to_tail(struct legomem_context *ctx,
+				struct legomem_vregion *v)
+{
+	pthread_spin_lock(&ctx->lock);
+	list_del(&v->list);
+	__vregion_alloclist_enqueue_tail(ctx, v);
+	pthread_spin_unlock(&ctx->lock);
+}
 
 static inline void init_legomem_context(struct legomem_context *p)
 {
@@ -236,6 +297,9 @@ static inline void init_legomem_context(struct legomem_context *p)
 	INIT_HLIST_NODE(&p->link);
 	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
 
+	/* vregion related */
+	INIT_LIST_HEAD(&p->alloc_list_head);
+	atomic_store(&p->nr_nonzero_vregions, 0);
 	for (i = 0; i < NR_VREGIONS; i++) {
 		struct legomem_vregion *v;
 		v = p->vregion + i;

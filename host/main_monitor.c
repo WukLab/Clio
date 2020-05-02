@@ -261,35 +261,17 @@ static inline struct vregion_info *
 alloc_vregion(struct proc_info *p)
 {
 	struct vregion_info *v;
-	int i;
 
-	pthread_spin_lock(&p->lock);
-	/*
-	 * Skip vRegion 0 for now.
-	 * Avoid any possible corner cases in the future.
-	 */
-	for (i = 1; i < NR_VREGIONS; i++) {
-		v = p->vregion + i;
-		if (!(v->flags & VREGION_INFO_FLAG_ALLOCATED)) {
-			v->flags |= VREGION_INFO_FLAG_ALLOCATED;
-			pthread_spin_unlock(&p->lock);
-			return v;
-		}
-	}
-	pthread_spin_unlock(&p->lock);
-	return NULL;
+	v = vregion_freelist_dequeue_head(p);
+	if (v)
+		init_vregion(v);
+	return v;
 }
 
 static inline void free_vregion(struct proc_info *p,
 				struct vregion_info *v)
 {
-	pthread_spin_lock(&p->lock);
-	if (v->flags & VREGION_INFO_FLAG_ALLOCATED) {
-		v->flags &=  ~VREGION_INFO_FLAG_ALLOCATED;
-	} else {
-		BUG();
-	}
-	pthread_spin_unlock(&p->lock);
+	vregion_freelist_enqueue_tail(p, v);
 }
 
 /*
@@ -331,7 +313,8 @@ static void handle_alloc(struct thpool_buffer *tb)
 	/* Find an available vregion */
 	vi = alloc_vregion(pi);
 	if (!vi) {
-		dprintf_ERROR("Fail to alloc a new vRegion for pid %d\n", pid);
+		dprintf_ERROR("Fail to alloc a new vRegion for pid %d. "
+			      "The vRegion free list is empty!\n", pid);
 		resp->op.ret = -ENOMEM;
 		goto out;
 	}

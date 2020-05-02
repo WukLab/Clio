@@ -443,35 +443,54 @@ struct legomem_vregion *
 find_vregion_candidate(struct legomem_context *p, size_t size)
 {
 	struct legomem_vregion *v;
-	int i;
 
-	if (p->cached_vregion)
-		i = p->cached_vregion - p->vregion;
-	else {
-		/*
-		 * We have already taken special care about vregion 0,
-		 * i.e., make its starting address as 0x1000.
-		 * After all, it's still a special case, thus skipping it.
-		 */
-		i = 1;
-	}
+	/*
+	 * This is a small opt.
+	 * nr_nonzero_vregions means then number of vRegions
+	 * that still have available meomory. If this number is 0,
+	 * we can skip checking the list and directly go to monitor.
+	 *
+	 * This does not work too well when there is fragmentation.
+	 */
+	if (atomic_load(&p->nr_nonzero_vregions) == 0)
+		return NULL;
 
-	for ( ; i < NR_VREGIONS; i++) {
-		v = p->vregion + i;
-
-		if (!VregionAllocated(v))
-			continue;
-
-		/*
-		 * Note that when vRegion is initiated during startup,
-		 * each vRegion's avail_space is full vRegion size.
-		 */
+	/* Search from HEAD */
+	pthread_spin_lock(&p->lock);
+	list_for_each_entry(v, &p->alloc_list_head, list) {
 		if (atomic_load(&v->avail_space) >= size) {
-			p->cached_vregion = v;
+			pthread_spin_unlock(&p->lock);
 			return v;
 		}
 	}
+	pthread_spin_unlock(&p->lock);
 	return NULL;
+}
+
+static inline void
+adjust_vregion_avail_size(struct legomem_context *ctx,
+			  struct legomem_vregion *v, unsigned int size)
+{
+	int left;
+
+	atomic_fetch_sub(&v->avail_space, size);
+	left = atomic_load(&v->avail_space);
+
+	if (left > 0)
+		return;
+
+	if (left < 0) {
+		dprintf_ERROR("BUG!! left avail_space: %d\n", left);
+		atomic_store(&v->avail_space, 0);
+	}
+
+	/*
+	 * Move it to the TAIL of allocated vregion list
+	 * so the next searcher can hopefully start from
+	 * a new one:
+	 */
+	atomic_fetch_sub(&ctx->nr_nonzero_vregions, 1);
+	vregion_alloclist_move_to_tail(ctx, v);
 }
 
 #define CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
@@ -531,12 +550,17 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 					vregion_idx);
 			return 0;
 		}
-
-		/* Prepare the new vRegion */
 		init_legomem_vregion(v);
 		v->board_ip = board_ip;
 		v->udp_port = udp_port;
+
+		/*
+		 * Insert newly allocated ones into HEAD
+		 */
+		vregion_alloclist_enqueue_head(ctx, v);
+		atomic_fetch_add(&ctx->nr_nonzero_vregions, 1);
 	}
+	adjust_vregion_avail_size(ctx, v, size);
 
 	bi = find_board(board_ip, udp_port);
 	if (!bi) {
@@ -648,8 +672,6 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		dprintf_ERROR("remote alloc failure %d\n", resp.op.ret);
 		return 0;
 	}
-
-	atomic_fetch_sub(&v->avail_space, size);
 
 	addr = resp.op.addr;
 
