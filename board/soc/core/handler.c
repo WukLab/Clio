@@ -194,6 +194,7 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 			vregion_index_to_va(op->vregion_index + 1) - 1);
 
 #ifdef CONFIG_ARCH_ARM64
+#if 0
 	/*
 	 * Send commands to coremem pipeline
 	 * XXX: need to revisit these commands setup
@@ -217,6 +218,7 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 	migreq.op.size = VREGION_SIZE;
 
 	dma_send(&migreq, sizeof(migreq));
+#endif
 #endif
 
 	/* Done, success */

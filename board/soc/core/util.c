@@ -29,3 +29,13 @@ void getcpu(int *cpu, int *node)
 {
 	syscall(SYS_getcpu, cpu, node, NULL);
 }
+
+int parse_ip_str(const char *ip_str)
+{
+	int ip;
+	int ip1, ip2, ip3, ip4;
+
+	sscanf(ip_str, "%u.%u.%u.%u", &ip1, &ip2, &ip3, &ip4);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+	return ip;
+}

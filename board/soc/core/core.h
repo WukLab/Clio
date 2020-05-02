@@ -63,5 +63,6 @@ void free_session_id(unsigned int session_id);
 
 int pin_cpu(int cpu_id);
 void getcpu(int *cpu, int *node);
+int parse_ip_str(const char *ip_str);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

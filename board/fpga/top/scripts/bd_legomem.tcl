@@ -1,141 +1,31 @@
+# Proc to create BD top_legomem
+proc cr_bd_top_legomem { parentCell } {
 
-################################################################
-# This is a generated script based on design: legomem_system
-#
-# Though there are limitations about the generated script,
-# the main purpose of this utility is to make learning
-# IP Integrator Tcl commands easier.
-################################################################
+  # CHANGE DESIGN NAME HERE
+  set design_name top_legomem
 
-namespace eval _tcl {
-proc get_script_folder {} {
-   set script_path [file normalize [info script]]
-   set script_folder [file dirname $script_path]
-   return $script_folder
-}
-}
-variable script_folder
-set script_folder [_tcl::get_script_folder]
+  common::send_msg_id "BD_TCL-003" "INFO" "Currently there is no design <$design_name> in project, so creating one..."
 
-################################################################
-# Check if script is running in correct Vivado version.
-################################################################
-set scripts_vivado_version 2019.1
-set current_vivado_version [version -short]
+  create_bd_design $design_name
 
-if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
-   puts ""
-   catch {common::send_msg_id "BD_TCL-109" "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
-
-   return 1
-}
-
-################################################################
-# START
-################################################################
-
-# To test this script, run the following commands from Vivado Tcl console:
-# source legomem_system_script.tcl
-
-# If there is no project opened, this script will create a
-# project, but make sure you do not have an existing project
-# <./myproj/project_1.xpr> in the current working folder.
-
-set list_projs [get_projects -quiet]
-if { $list_projs eq "" } {
-   create_project project_1 myproj -part xczu7ev-ffvc1156-2-e
-   set_property BOARD_PART xilinx.com:zcu106:part0:2.4 [current_project]
-}
-
-
-# CHANGE DESIGN NAME HERE
-variable design_name
-set design_name legomem_system
-
-# If you do not already have an existing IP Integrator design open,
-# you can create a design using the following command:
-#    create_bd_design $design_name
-
-# Creating design if needed
-set errMsg ""
-set nRet 0
-
-set cur_design [current_bd_design -quiet]
-set list_cells [get_bd_cells -quiet]
-
-if { ${design_name} eq "" } {
-   # USE CASES:
-   #    1) Design_name not set
-
-   set errMsg "Please set the variable <design_name> to a non-empty value."
-   set nRet 1
-
-} elseif { ${cur_design} ne "" && ${list_cells} eq "" } {
-   # USE CASES:
-   #    2): Current design opened AND is empty AND names same.
-   #    3): Current design opened AND is empty AND names diff; design_name NOT in project.
-   #    4): Current design opened AND is empty AND names diff; design_name exists in project.
-
-   if { $cur_design ne $design_name } {
-      common::send_msg_id "BD_TCL-001" "INFO" "Changing value of <design_name> from <$design_name> to <$cur_design> since current design is empty."
-      set design_name [get_property NAME $cur_design]
-   }
-   common::send_msg_id "BD_TCL-002" "INFO" "Constructing design in IPI design <$cur_design>..."
-
-} elseif { ${cur_design} ne "" && $list_cells ne "" && $cur_design eq $design_name } {
-   # USE CASES:
-   #    5) Current design opened AND has components AND same names.
-
-   set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
-   set nRet 1
-} elseif { [get_files -quiet ${design_name}.bd] ne "" } {
-   # USE CASES: 
-   #    6) Current opened design, has components, but diff names, design_name exists in project.
-   #    7) No opened design, design_name exists in project.
-
-   set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
-   set nRet 2
-
-} else {
-   # USE CASES:
-   #    8) No opened design, design_name not in project.
-   #    9) Current opened design, has components, but diff names, design_name not in project.
-
-   common::send_msg_id "BD_TCL-003" "INFO" "Currently there is no design <$design_name> in project, so creating one..."
-
-   create_bd_design $design_name
-
-   common::send_msg_id "BD_TCL-004" "INFO" "Making design <$design_name> as current_bd_design."
-   current_bd_design $design_name
-
-}
-
-common::send_msg_id "BD_TCL-005" "INFO" "Currently the variable <design_name> is equal to \"$design_name\"."
-
-if { $nRet != 0 } {
-   catch {common::send_msg_id "BD_TCL-114" "ERROR" $errMsg}
-   return $nRet
-}
-
-set bCheckIPsPassed 1
-##################################################################
-# CHECK IPs
-##################################################################
-set bCheckIPs 1
-if { $bCheckIPs == 1 } {
-   set list_check_ips "\ 
-user.org:user:LegoMemSystem:1.0\
-user.org:user:MonitorRegisters:1.0\
-user.org:user:PingPong:1.0\
-xilinx.com:ip:axi_dma:7.1\
-xilinx.com:ip:ila:6.2\
-xilinx.com:ip:ddr4:2.2\
-xilinx.com:ip:axis_data_fifo:2.0\
-wuklab:user:relnet:1.0\
-xilinx.com:ip:proc_sys_reset:5.0\
-xilinx.com:ip:xlconcat:2.1\
-xilinx.com:ip:zynq_ultra_ps_e:3.3\
-"
+  set bCheckIPsPassed 1
+  ##################################################################
+  # CHECK IPs
+  ##################################################################
+  set bCheckIPs 1
+  if { $bCheckIPs == 1 } {
+     set list_check_ips "\ 
+  user.org:user:LegoMemSystem:1.0\
+  user.org:user:PingPong:1.0\
+  xilinx.com:ip:axi_dma:7.1\
+  xilinx.com:ip:ila:6.2\
+  xilinx.com:ip:ddr4:2.2\
+  xilinx.com:ip:axis_data_fifo:2.0\
+  wuklab:user:relnet:1.0\
+  xilinx.com:ip:proc_sys_reset:5.0\
+  xilinx.com:ip:xlconcat:2.1\
+  xilinx.com:ip:zynq_ultra_ps_e:3.3\
+  "
 
    set list_ips_missing ""
    common::send_msg_id "BD_TCL-006" "INFO" "Checking if the following IPs exist in the project's IP catalog: $list_check_ips ."
@@ -152,25 +42,14 @@ xilinx.com:ip:zynq_ultra_ps_e:3.3\
       set bCheckIPsPassed 0
    }
 
-}
+  }
 
-if { $bCheckIPsPassed != 1 } {
-  common::send_msg_id "BD_TCL-1003" "WARNING" "Will not continue with creation of design due to the error(s) above."
-  return 3
-}
-
-##################################################################
-# DESIGN PROCs
-##################################################################
-
-
-
-# Procedure to create entire design; Provide argument to make
-# procedure reusable. If parentCell is "", will use root.
-proc create_root_design { parentCell } {
+  if { $bCheckIPsPassed != 1 } {
+    common::send_msg_id "BD_TCL-1003" "WARNING" "Will not continue with creation of design due to the error(s) above."
+    return 3
+  }
 
   variable script_folder
-  variable design_name
 
   if { $parentCell eq "" } {
      set parentCell [get_bd_cells /]
@@ -246,8 +125,6 @@ proc create_root_design { parentCell } {
   set debugTimeStamps_5 [ create_bd_port -dir I -from 31 -to 0 debugTimeStamps_5 ]
   set debugTimeStamps_6 [ create_bd_port -dir I -from 31 -to 0 debugTimeStamps_6 ]
   set debugTimeStamps_7 [ create_bd_port -dir I -from 31 -to 0 debugTimeStamps_7 ]
-  set monitor_config_ip [ create_bd_port -dir O -from 31 -to 0 monitor_config_ip ]
-  set monitor_config_mac [ create_bd_port -dir O -from 63 -to 0 monitor_config_mac ]
   set rel_net_clk [ create_bd_port -dir I -type clk rel_net_clk ]
   set_property -dict [ list \
    CONFIG.ASSOCIATED_BUSIF {net_dataOut:net_headerOut:net_dataIn:net_headerIn:net_m_axi:udp_out_header:udp_out_payload:udp_in_header:udp_in_payload} \
@@ -260,9 +137,6 @@ proc create_root_design { parentCell } {
 
   # Create instance: LegoMemSystem_0, and set properties
   set LegoMemSystem_0 [ create_bd_cell -type ip -vlnv user.org:user:LegoMemSystem:1.0 LegoMemSystem_0 ]
-
-  # Create instance: MonitorRegisters_0, and set properties
-  set MonitorRegisters_0 [ create_bd_cell -type ip -vlnv user.org:user:MonitorRegisters:1.0 MonitorRegisters_0 ]
 
   # Create instance: PingPong_0, and set properties
   set PingPong_0 [ create_bd_cell -type ip -vlnv user.org:user:PingPong:1.0 PingPong_0 ]
@@ -298,7 +172,7 @@ proc create_root_design { parentCell } {
   # Create instance: axi_interconnect_0, and set properties
   set axi_interconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_0 ]
   set_property -dict [ list \
-   CONFIG.NUM_MI {4} \
+   CONFIG.NUM_MI {3} \
  ] $axi_interconnect_0
 
   # Create instance: axi_interconnect_1, and set properties
@@ -468,13 +342,6 @@ proc create_root_design { parentCell } {
   set_property -dict [ list \
    CONFIG.NUM_PORTS {4} \
  ] $xlconcat_0
-
-  # Create instance: xlconcat_1, and set properties
-  set xlconcat_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_1 ]
-  set_property -dict [ list \
-   CONFIG.IN0_WIDTH {32} \
-   CONFIG.IN1_WIDTH {32} \
- ] $xlconcat_1
 
   # Create instance: zynq_ultra_ps_e_0, and set properties
   set zynq_ultra_ps_e_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0 ]
@@ -1190,7 +1057,6 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_dma_0_M_AXIS_MM2S] [get_bd_i
   connect_bd_intf_net -intf_net axi_interconnect_0_M00_AXI [get_bd_intf_pins axi_dma_0/S_AXI_LITE] [get_bd_intf_pins axi_interconnect_0/M00_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_0_M01_AXI [get_bd_intf_pins axi_dma_1/S_AXI_LITE] [get_bd_intf_pins axi_interconnect_0/M01_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_0_M02_AXI [get_bd_intf_pins LegoMemSystem_0/regBus] [get_bd_intf_pins axi_interconnect_0/M02_AXI]
-  connect_bd_intf_net -intf_net axi_interconnect_0_M03_AXI [get_bd_intf_pins MonitorRegisters_0/regBus] [get_bd_intf_pins axi_interconnect_0/M03_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_1_M00_AXI [get_bd_intf_pins axi_interconnect_1/M00_AXI] [get_bd_intf_pins ddr4_0/C0_DDR4_S_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_2_M00_AXI [get_bd_intf_pins axi_interconnect_2/M00_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HPC0_FPD]
   connect_bd_intf_net -intf_net axi_interconnect_2_M01_AXI [get_bd_intf_pins axi_interconnect_2/M01_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HPC1_FPD]
@@ -1222,9 +1088,6 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets s_usr_sess_fifo_M_AXIS] [get_bd_
   connect_bd_intf_net -intf_net user_si570_sysclk_1 [get_bd_intf_ports user_si570_sysclk] [get_bd_intf_pins ddr4_0/C0_SYS_CLK]
 
   # Create port connections
-  connect_bd_net -net MonitorRegisters_0_outputRegs_0 [get_bd_ports monitor_config_ip] [get_bd_pins MonitorRegisters_0/outputRegs_0]
-  connect_bd_net -net MonitorRegisters_0_outputRegs_1 [get_bd_pins MonitorRegisters_0/outputRegs_1] [get_bd_pins xlconcat_1/In0]
-  connect_bd_net -net MonitorRegisters_0_outputRegs_2 [get_bd_pins MonitorRegisters_0/outputRegs_2] [get_bd_pins xlconcat_1/In1]
   connect_bd_net -net axi_dma_0_mm2s_introut [get_bd_pins axi_dma_0/mm2s_introut] [get_bd_pins xlconcat_0/In2]
   connect_bd_net -net axi_dma_0_s2mm_introut [get_bd_pins axi_dma_0/s2mm_introut] [get_bd_pins xlconcat_0/In3]
   connect_bd_net -net axi_dma_1_mm2s_introut [get_bd_pins axi_dma_1/mm2s_introut] [get_bd_pins xlconcat_0/In0]
@@ -1242,10 +1105,9 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets s_usr_sess_fifo_M_AXIS] [get_bd_
   connect_bd_net -net debugTimeStamps_7_0_1 [get_bd_ports debugTimeStamps_7] [get_bd_pins LegoMemSystem_0/debugTimeStamps_7]
   connect_bd_net -net reset_1 [get_bd_ports reset] [get_bd_pins ddr4_0/sys_rst]
   connect_bd_net -net rst_ddr4_0_300M_peripheral_aresetn [get_bd_pins axi_interconnect_1/M00_ARESETN] [get_bd_pins ddr4_0/c0_ddr4_aresetn] [get_bd_pins rst_ddr4_0_300M/peripheral_aresetn]
-  connect_bd_net -net s_axis_aclk_0_1 [get_bd_ports rel_net_clk] [get_bd_pins MonitorRegisters_0/clk] [get_bd_pins axi_interconnect_0/M03_ACLK] [get_bd_pins axi_interconnect_1/S03_ACLK] [get_bd_pins ila_0/clk] [get_bd_pins ila_1/clk] [get_bd_pins ila_2/clk] [get_bd_pins ila_3/clk] [get_bd_pins ila_7/clk] [get_bd_pins m_usr_data_fifo/s_axis_aclk] [get_bd_pins m_usr_header_fifo/s_axis_aclk] [get_bd_pins relnet_0/ap_clk] [get_bd_pins s_usr_data_fifo/m_axis_aclk] [get_bd_pins s_usr_header_fifo/m_axis_aclk] [get_bd_pins s_usr_sess_fifo/m_axis_aclk]
-  connect_bd_net -net s_axis_aresetn_0_1 [get_bd_ports rel_net_resetn] [get_bd_pins MonitorRegisters_0/resetn] [get_bd_pins axi_interconnect_0/M03_ARESETN] [get_bd_pins axi_interconnect_1/S03_ARESETN] [get_bd_pins m_usr_data_fifo/s_axis_aresetn] [get_bd_pins m_usr_header_fifo/s_axis_aresetn] [get_bd_pins relnet_0/ap_rst_n]
+  connect_bd_net -net s_axis_aclk_0_1 [get_bd_ports rel_net_clk] [get_bd_pins axi_interconnect_1/S03_ACLK] [get_bd_pins ila_0/clk] [get_bd_pins ila_1/clk] [get_bd_pins ila_2/clk] [get_bd_pins ila_3/clk] [get_bd_pins ila_7/clk] [get_bd_pins m_usr_data_fifo/s_axis_aclk] [get_bd_pins m_usr_header_fifo/s_axis_aclk] [get_bd_pins relnet_0/ap_clk] [get_bd_pins s_usr_data_fifo/m_axis_aclk] [get_bd_pins s_usr_header_fifo/m_axis_aclk] [get_bd_pins s_usr_sess_fifo/m_axis_aclk]
+  connect_bd_net -net s_axis_aresetn_0_1 [get_bd_ports rel_net_resetn] [get_bd_pins axi_interconnect_1/S03_ARESETN] [get_bd_pins m_usr_data_fifo/s_axis_aresetn] [get_bd_pins m_usr_header_fifo/s_axis_aresetn] [get_bd_pins relnet_0/ap_rst_n]
   connect_bd_net -net xlconcat_0_dout [get_bd_pins xlconcat_0/dout] [get_bd_pins zynq_ultra_ps_e_0/pl_ps_irq0]
-  connect_bd_net -net xlconcat_1_dout [get_bd_ports monitor_config_mac] [get_bd_pins xlconcat_1/dout]
   connect_bd_net -net zynq_ultra_ps_e_0_pl_clk0 [get_bd_pins LegoMemSystem_0/clk] [get_bd_pins PingPong_0/clk] [get_bd_pins axi_dma_0/m_axi_mm2s_aclk] [get_bd_pins axi_dma_0/m_axi_s2mm_aclk] [get_bd_pins axi_dma_0/s_axi_lite_aclk] [get_bd_pins axi_dma_1/m_axi_mm2s_aclk] [get_bd_pins axi_dma_1/m_axi_s2mm_aclk] [get_bd_pins axi_dma_1/s_axi_lite_aclk] [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins axi_interconnect_0/M00_ACLK] [get_bd_pins axi_interconnect_0/M01_ACLK] [get_bd_pins axi_interconnect_0/M02_ACLK] [get_bd_pins axi_interconnect_0/S00_ACLK] [get_bd_pins axi_interconnect_1/ACLK] [get_bd_pins axi_interconnect_1/S00_ACLK] [get_bd_pins axi_interconnect_1/S01_ACLK] [get_bd_pins axi_interconnect_1/S02_ACLK] [get_bd_pins axi_interconnect_2/ACLK] [get_bd_pins axi_interconnect_2/M00_ACLK] [get_bd_pins axi_interconnect_2/M01_ACLK] [get_bd_pins axi_interconnect_2/S00_ACLK] [get_bd_pins axi_interconnect_2/S01_ACLK] [get_bd_pins axi_interconnect_2/S02_ACLK] [get_bd_pins axi_interconnect_2/S03_ACLK] [get_bd_pins axis_interconnect_0/ACLK] [get_bd_pins axis_interconnect_0/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M02_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M03_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S02_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S03_AXIS_ACLK] [get_bd_pins axis_interconnect_1/ACLK] [get_bd_pins axis_interconnect_1/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_1/M01_AXIS_ACLK] [get_bd_pins axis_interconnect_1/M02_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S02_AXIS_ACLK] [get_bd_pins data_to_soc/clk] [get_bd_pins ila_4/clk] [get_bd_pins ila_6/clk] [get_bd_pins m_usr_data_fifo/m_axis_aclk] [get_bd_pins m_usr_header_fifo/m_axis_aclk] [get_bd_pins rst_ps8_0_99M/slowest_sync_clk] [get_bd_pins s_usr_data_fifo/s_axis_aclk] [get_bd_pins s_usr_header_fifo/s_axis_aclk] [get_bd_pins s_usr_sess_fifo/s_axis_aclk] [get_bd_pins zynq_ultra_ps_e_0/maxihpm0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/maxihpm1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins zynq_ultra_ps_e_0/saxihpc0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/saxihpc1_fpd_aclk]
   connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0 [get_bd_pins LegoMemSystem_0/resetn] [get_bd_pins PingPong_0/resetn] [get_bd_pins axi_dma_0/axi_resetn] [get_bd_pins axi_dma_1/axi_resetn] [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins axi_interconnect_0/M00_ARESETN] [get_bd_pins axi_interconnect_0/M01_ARESETN] [get_bd_pins axi_interconnect_0/M02_ARESETN] [get_bd_pins axi_interconnect_0/S00_ARESETN] [get_bd_pins axi_interconnect_1/ARESETN] [get_bd_pins axi_interconnect_1/S00_ARESETN] [get_bd_pins axi_interconnect_1/S01_ARESETN] [get_bd_pins axi_interconnect_1/S02_ARESETN] [get_bd_pins axi_interconnect_2/ARESETN] [get_bd_pins axi_interconnect_2/M00_ARESETN] [get_bd_pins axi_interconnect_2/M01_ARESETN] [get_bd_pins axi_interconnect_2/S00_ARESETN] [get_bd_pins axi_interconnect_2/S01_ARESETN] [get_bd_pins axi_interconnect_2/S02_ARESETN] [get_bd_pins axi_interconnect_2/S03_ARESETN] [get_bd_pins axis_interconnect_0/ARESETN] [get_bd_pins axis_interconnect_0/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M02_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M03_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S02_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S03_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/ARESETN] [get_bd_pins axis_interconnect_1/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/M01_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/M02_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S02_AXIS_ARESETN] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn] [get_bd_pins s_usr_data_fifo/s_axis_aresetn] [get_bd_pins s_usr_header_fifo/s_axis_aresetn] [get_bd_pins s_usr_sess_fifo/s_axis_aresetn]
   connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn1 [get_bd_pins rst_ps8_0_99M/ext_reset_in] [get_bd_pins zynq_ultra_ps_e_0/pl_resetn0]
@@ -1279,7 +1141,6 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets s_usr_sess_fifo_M_AXIS] [get_bd_
   create_bd_addr_seg -range 0x10000000 -offset 0xD0000000 [get_bd_addr_spaces axi_dma_1/Data_S2MM] [get_bd_addr_segs zynq_ultra_ps_e_0/SAXIGP1/HPC1_QSPI] SEG_zynq_ultra_ps_e_0_HPC1_QSPI
   create_bd_addr_seg -range 0x80000000 -offset 0x000500000000 [get_bd_addr_spaces relnet_0/M_AXI] [get_bd_addr_segs ddr4_0/C0_DDR4_MEMORY_MAP/C0_DDR4_ADDRESS_BLOCK] SEG_ddr4_0_C0_DDR4_ADDRESS_BLOCK
   create_bd_addr_seg -range 0x00001000 -offset 0xA0006000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs LegoMemSystem_0/regBus/reg0] SEG_LegoMemSystem_0_reg0
-  create_bd_addr_seg -range 0x00001000 -offset 0xA000C000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs MonitorRegisters_0/regBus/reg0] SEG_MonitorRegisters_0_reg0
   create_bd_addr_seg -range 0x00001000 -offset 0xA0000000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs axi_dma_0/S_AXI_LITE/Reg] SEG_axi_dma_0_Reg
   create_bd_addr_seg -range 0x00001000 -offset 0xA0001000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs axi_dma_1/S_AXI_LITE/Reg] SEG_axi_dma_1_Reg
   create_bd_addr_seg -range 0x80000000 -offset 0x000500000000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs ddr4_0/C0_DDR4_MEMORY_MAP/C0_DDR4_ADDRESS_BLOCK] SEG_ddr4_0_C0_DDR4_ADDRESS_BLOCK
@@ -1315,16 +1176,11 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets s_usr_sess_fifo_M_AXIS] [get_bd_
   current_bd_instance $oldCurInst
 
   save_bd_design
-}
-# End of create_root_design()
-
-
-##################################################################
-# MAIN FLOW
-##################################################################
-
-create_root_design ""
-
-
 common::send_msg_id "BD_TCL-1000" "WARNING" "This Tcl script was generated from a block design that has not been validated. It is possible that design <$design_name> may result in errors during validation."
 
+  close_bd_design $design_name 
+}
+# End of cr_bd_top_legomem()
+cr_bd_top_legomem ""
+set_property REGISTERED_WITH_MANAGER "1" [get_files top_legomem.bd ] 
+set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files top_legomem.bd ] 

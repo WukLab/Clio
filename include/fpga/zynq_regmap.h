@@ -16,8 +16,8 @@
  * RW: Read/Write
  */
 
-#define NET_SFP_IP			(0xA000C000) /* WO */
-#define NET_SFP_MAC_LO			(0xA000C004) /* WO mac [31:0] */
-#define NET_SFP_MAC_HI			(0xA000C008) /* WO mac [47:32] */
+#define SOC_REGMAP_NET_SFP_IP			(0xA000C000) /* WO */
+#define SOC_REGMAP_NET_SFP_MAC_LO		(0xA000C004) /* WO mac [31:0] */
+#define SOC_REGMAP_NET_SFP_MAC_HI		(0xA000C008) /* WO mac [47:32] */
 
 #endif /* _LEGOMEM_FPGA_ZYNQ_REGMAP_ */

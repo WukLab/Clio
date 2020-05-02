@@ -25,7 +25,7 @@
 #include "dma.h"
 #include "core.h"
 
-#if 0
+#if 1
 #define CONFIG_DEBUG_SOC
 #endif
 
@@ -586,10 +586,29 @@ static void gather_sysinfo(void)
 	printf("initial running on CPU %d\n", cpu);
 }
 
+static void set_sfp_ip(const char *ip_str)
+{
+	int ip;
+	int *sfp_reg_addr;
+
+	ip = parse_ip_str(ip_str);
+
+	sfp_reg_addr = (int *)SOC_REGMAP_NET_SFP_IP;
+	printf("before set\n");
+	*sfp_reg_addr = ip;
+	printf("after set\n");
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
 	int i;
+	char *ip_str;
+
+#if 0
+	ip_str = "192.168.1.31";
+	set_sfp_ip(ip_str);
+#endif
 
 	gather_sysinfo();
 
