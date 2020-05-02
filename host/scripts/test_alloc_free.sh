@@ -19,16 +19,31 @@ set -e
 # Make sure board is already up and running
 board_ip="192.168.1.31:1234"
 
+monitor_port=8888
+monitor_ip="192.168.1.2"
+
 if [ "$1" == "1" ]; then
-	./monitor.o \
-		--dev=p4p1 \
-		--port=8888 \
-		--add_board=$board_ip
+	if true; then
+	#if false; then
+		./monitor.o \
+			--dev=p4p1 \
+			--port=$monitor_port \
+			--add_board=$board_ip
+	else
+		./monitor.o \
+		./monitor.o \
+			--dev=p4p1 \
+			--port=$monitor_port
+	fi
 elif [ "$1" == "2" ]; then
 	./host.o \
-		--monitor=192.168.1.2:8888 \
+		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=p4p1 \
 		--port=1234 \
-		--net_trans_ops=gbn \
 		--run_test=alloc_free
+elif [ "$1" == "3" ]; then
+	./board_emulator.o \
+		--monitor=$monitor_ip:$monitor_port \
+		--d=p4p1 \
+		--port=9998
 fi

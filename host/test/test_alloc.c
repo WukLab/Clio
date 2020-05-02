@@ -21,8 +21,8 @@
 
 /* Knobs */
 #define NR_RUN_PER_THREAD 1000
-static int test_size[] = { 256*OneM };
-static int test_nr_threads[] = { 1 };
+static int test_size[] = { 4*OneM };
+static int test_nr_threads[] = { 2 };
 
 static double latency_alloc_ns[NR_MAX][NR_MAX];
 static double latency_free_ns[NR_MAX][NR_MAX];

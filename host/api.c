@@ -474,6 +474,8 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 	return NULL;
 }
 
+#define CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
+
 /*
  * @ctx: the legomem context
  * @size: the allocation size
@@ -513,7 +515,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	} else {
 		/*
 		 * Otherwise we ask monitor to alloc a new vRegion
-		 * and it will tell use the new board and vRegion index
+		 * and it will tell us the new board and vRegion index
 		 */
 		ret = ask_monitor_for_new_vregion(ctx, size, vm_flags,
 						  &board_ip, &udp_port, &vregion_idx);
@@ -620,8 +622,13 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	req.op.vregion_idx = vregion_idx;
 	req.op.vm_flags = vm_flags;
 
+#ifndef CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
 	ret = net_send_and_receive_lock(bi->mgmt_session, &req, sizeof(req),
 					&resp, sizeof(resp));
+#else
+	ret = net_send_and_receive_lock(ses, &req, sizeof(req),
+					&resp, sizeof(resp));
+#endif
 	if (unlikely(ret <= 0)) {
 		dprintf_ERROR("net error %d\n", ret);
 		return ret;
@@ -679,7 +686,18 @@ int legomem_free(struct legomem_context *ctx,
 	req.op.addr = addr;
 	req.op.len = size;
 
+#ifndef CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
 	ses = get_board_mgmt_session(bi);
+#else
+	ses = find_vregion_session(v, gettid());
+	if (unlikely(!ses)) {
+		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
+			      "an associated net session. It should "
+			      "have been created by legomem_alloc.\n", addr);
+		return -EINVAL;
+	}
+#endif
+
 	ret = net_send_and_receive_lock(ses, &req, sizeof(req),
 					&resp, sizeof(resp));
 	if (ret <= 0) {
