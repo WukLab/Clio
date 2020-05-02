@@ -7,6 +7,7 @@
 
 #include <uapi/sched.h>
 #include <uapi/thpool.h>
+#include <fpga/zynq_regmap.h>
 #include "external.h"
 
 #if 0
