@@ -80,6 +80,8 @@ struct gbn_header {
 	char		session_id[SES_ID_SIZE_BYTE];
 } __attribute__((packed));
 
+#ifndef __cplusplus
+
 #define GBN_HEADER_SLOT_ID_MSK	((1 << SLOT_ID_WIDTH) - 1)
 #define GBN_HEADER_SRC_ID_SHIFT	(0)
 #define GBN_HEADER_DST_ID_SHIFT	(SLOT_ID_WIDTH)
@@ -247,6 +249,8 @@ prepare_udp_header(struct udp_hdr *hdr, uint16_t src_port,
 	hdr->check = 0;
 }
 
+#endif /* __cplusplus */
+
 struct routing_info {
 	struct eth_hdr eth;
 	struct ipv4_hdr ipv4;
@@ -259,6 +263,8 @@ struct endpoint_info {
 	uint32_t ip;				/* ip addr in host order */
 	uint16_t udp_port;
 } __packed;
+
+#ifndef __cplusplus
 
 static __always_inline void
 prepare_routing_info(struct routing_info *ri, struct endpoint_info *src,
@@ -338,5 +344,7 @@ static inline uint16_t ip_csum(const void *iph, unsigned int ihl)
 	return 0;
 }
 #endif
+
+#endif /* __cplusplus */
 
 #endif /* _UAPI_NET_HEADER_H_ */

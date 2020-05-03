@@ -54,6 +54,8 @@ enum STAT_TYPES {
 	NR_STAT_TYPES,
 };
 
+#ifndef __cplusplus
+
 /* This is.. stupid? */
 static inline char *stat_type_string(enum STAT_TYPES item)
 {
@@ -95,5 +97,7 @@ static inline char *stat_type_string(enum STAT_TYPES item)
 	}
 	return "invalid";
 }
+
+#endif /* __cplusplus */
 
 #endif /* _UAPI_STAT_H_ */

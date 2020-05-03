@@ -14,6 +14,8 @@
 #include <uapi/net_header.h>
 #include <uapi/opcode_types.h>	/* Opcode definitions */
 
+#ifndef __cplusplus
+
 static inline char *legomem_opcode_str(unsigned int opcode)
 {
 #define S(_OP) \
@@ -76,6 +78,8 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	};
 	return NULL;
 }
+
+#endif /* __cplusplus */
 
 /*
  * For all op structures, their position within packet are fixed.
@@ -218,6 +222,28 @@ struct op_migration_ret {
 	int ret;
 } __packed;
 
+/*
+ * For Extended API
+ * - OP_REQ_IREAD
+ * - OP_REQ_IWRITE
+ */
+struct op_deref {
+	uint64_t		addr;
+	uint32_t 		off1;	// offset of indirect address
+	uint32_t 		off2;	// offset of address
+	uint64_t		size;
+
+	/* Hold write data, variable length */
+	char			data[0];
+} __packed;
+
+struct op_deref_ret {
+	unsigned char		ret;
+
+	/* Hold read read, variable length */
+	char			data[0];
+} __packed;
+
 struct legomem_common_headers {
 	struct eth_hdr		eth;
 	struct ipv4_hdr		ipv4;
@@ -272,6 +298,18 @@ struct legomem_alloc_free_req {
 struct legomem_alloc_free_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_alloc_free_ret op;
+} __packed;
+
+/*
+ * Extended API
+ */
+struct legomem_deref_req {
+	struct legomem_common_headers comm_headers;
+	struct op_deref op;
+} __packed;
+struct legomem_deref_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_deref_ret op;
 } __packed;
 
 /*

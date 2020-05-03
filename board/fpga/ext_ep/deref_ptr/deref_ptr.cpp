@@ -2,7 +2,8 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 
-#include "ext_ep.h"
+#include <fifo.h>
+#include "deref_ptr.h"
 
 using namespace hls;
 
@@ -55,15 +56,14 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 		in_pkt = data_in.read();
 
-		switch (((struct lego_mem_header *)&in_pkt)->req_type) {
-		case LEGOMEM_REQ_IREAD:
+		switch (in_pkt.range(hdr_opcode_up, hdr_opcode_lo)) {
+		case OP_REQ_IREAD:
 			wait_pkt.pkt = 0;
 			wait_pkt.last = 0;
 
 			// for deref request, first half request to core mem
 			send_pkt.pkt.range(hdr_up, hdr_lo) = in_pkt.range(hdr_up, hdr_lo);
-			send_pkt.pkt.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_READ;
-			send_pkt.pkt[hdr_access_cnt_bit] = 0;
+			send_pkt.pkt.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_READ;
 			send_pkt.pkt.range(hdr_size_up, hdr_size_lo) = sizeof(struct legomem_read_write_req);
 			send_pkt.pkt.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_MEM;
 			send_pkt.pkt.range(mem_va_up, mem_va_lo)
@@ -75,8 +75,7 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 
 			// second half to wait
 			wait_pkt.pkt.range(hdr_up, hdr_lo) = in_pkt.range(hdr_up, hdr_lo);
-			wait_pkt.pkt.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_READ;
-			wait_pkt.pkt[hdr_access_cnt_bit] = 1;
+			wait_pkt.pkt.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_READ;
 			wait_pkt.pkt.range(hdr_size_up, hdr_size_lo) = sizeof(struct legomem_read_write_req);
 			wait_pkt.pkt.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_MEM;
 			// filled with offset
@@ -90,14 +89,13 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 
 			break;
 
-		case LEGOMEM_REQ_IWRITE:
+		case OP_REQ_IWRITE:
 			wait_pkt.pkt = 0;
 			wait_pkt.last = 0;
 
 			// for deref request, first half request to core mem
 			send_pkt.pkt.range(hdr_up, hdr_lo) = in_pkt.range(hdr_up, hdr_lo);
-			send_pkt.pkt.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_READ;
-			send_pkt.pkt[hdr_access_cnt_bit] = 0;
+			send_pkt.pkt.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_READ;
 			send_pkt.pkt.range(hdr_size_up, hdr_size_lo) = sizeof(struct legomem_read_write_req);
 			send_pkt.pkt.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_MEM;
 			send_pkt.pkt.range(mem_va_up, mem_va_lo)
@@ -109,8 +107,7 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 
 			// second half to wait
 			wait_pkt.pkt.range(hdr_up, hdr_lo) = in_pkt.range(hdr_up, hdr_lo);
-			wait_pkt.pkt.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_WRITE;
-			wait_pkt.pkt[hdr_access_cnt_bit] = 1;
+			wait_pkt.pkt.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_WRITE;
 			wait_pkt.pkt.range(hdr_size_up, hdr_size_lo)
 				= in_pkt.range(deref_size_up, deref_size_lo)
 				+ sizeof(struct legomem_read_write_req);
@@ -137,7 +134,7 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 			seqid_wq.push(in_pkt.range(hdr_seqId_up, hdr_seqId_lo));
 			break;
 
-		case LEGOMEM_REQ_READ_RESP:
+		case OP_REQ_READ_RESP:
 			if (seqid_wq.front() == in_pkt.range(hdr_seqId_up, hdr_seqId_lo)) {
 				// release wait queue
 				release.addr = in_pkt.range(mem_ret_addr_up, mem_ret_addr_lo);
@@ -147,7 +144,7 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 			} else {
 				// forward packet back to network
 				send_pkt.pkt = in_pkt;
-				send_pkt.pkt.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_IREAD_RESP;
+				send_pkt.pkt.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_IREAD_RESP;
 				send_pkt.pkt.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_NET;
 				data_remain = in_pkt.range(hdr_size_up, hdr_size_lo);
 				if (data_remain > DATASIZE) {
@@ -161,9 +158,9 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 			}
 			break;
 
-		case LEGOMEM_REQ_WRITE_RESP:
+		case OP_REQ_WRITE_RESP:
 			send_pkt.pkt.range(hdr_up, hdr_lo) = in_pkt.range(hdr_up, hdr_lo);
-			send_pkt.pkt.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_IWRITE_RESP;
+			send_pkt.pkt.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_IWRITE_RESP;
 			send_pkt.pkt.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_NET;
 			send_pkt.last = 1;
 			delay_pkt(to_sendqueue_delay, send_pkt);
@@ -271,7 +268,8 @@ waitqueue(stream<struct data_if> &from_decode,
 		send_pkt.last = waiting_pkt.last;
 		if (waiting_pkt.last == 0)
 			state = DATA;
-		if (release_pkt.status != LEGOMEM_STATUS_OKAY) {
+		// status OKAY
+		if (release_pkt.status != 0) {
 			drop = 1;
 		} else {
 			drop = 0;
@@ -375,7 +373,7 @@ sendqueue(stream<struct data_if> &from_decode,
 	}
 }
 
-void ext_ep(hls::stream<ap_uint<DATAWIDTH> > &data_in, hls::stream<ap_uint<DATAWIDTH> > &data_out)
+void deref_ptr(hls::stream<ap_uint<DATAWIDTH> > &data_in, hls::stream<ap_uint<DATAWIDTH> > &data_out)
 {
 // remove ap_ctrl_none before doing cosim test
 #pragma HLS INTERFACE ap_ctrl_none port=return

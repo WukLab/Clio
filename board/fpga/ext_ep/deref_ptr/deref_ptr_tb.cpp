@@ -3,7 +3,7 @@
  */
 
 #include <iostream>
-#include "ext_ep.h"
+#include "deref_ptr.h"
 
 #define SUBMODULE_TEST	0
 
@@ -119,7 +119,7 @@ int test_waitqueue()
 	return ret;
 }
 
-void test_ext_ep()
+void test_deref_ptr()
 {
 	const int run_cycles = 100;
 	static int delay = 5;
@@ -130,7 +130,7 @@ void test_ext_ep()
 	cout << "\nTesting whole extapi endpoint" << endl;
 
 	// indirect read request
-	in.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_IREAD;
+	in.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_IREAD;
 	in.range(hdr_seqId_up, hdr_seqId_lo) = 0x0A;
 	in.range(hdr_size_up, hdr_size_lo) = sizeof(struct legomem_deref_req);
 	in.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_EXTAPI;
@@ -141,7 +141,7 @@ void test_ext_ep()
 	ext_in.write(in);
 
 	for (int cycle = 0; cycle < run_cycles; cycle++) {
-		ext_ep(ext_in, ext_out);
+		deref_ptr(ext_in, ext_out);
 
 		if (ext_out.empty())
 			continue;
@@ -153,18 +153,17 @@ void test_ext_ep()
 
 		out = ext_out.read();
 		cout << hex << "cycle (also used as return data): 0x" << cycle << " data: " << out << endl;
-		if (out.range(hdr_req_type_up, hdr_req_type_lo) == LEGOMEM_REQ_READ ||
-		    out.range(hdr_req_type_up, hdr_req_type_lo) == LEGOMEM_REQ_WRITE) {
+		if (out.range(hdr_opcode_up, hdr_opcode_lo) == OP_REQ_READ ||
+		    out.range(hdr_opcode_up, hdr_opcode_lo) == OP_REQ_WRITE) {
 			in = 0;
-			in.range(hdr_req_type_up, hdr_req_type_lo) = LEGOMEM_REQ_READ_RESP;
-			in[hdr_access_cnt_bit] = out[hdr_access_cnt_bit];
+			in.range(hdr_opcode_up, hdr_opcode_lo) = OP_REQ_READ_RESP;
 			in.range(hdr_seqId_up, hdr_seqId_lo) = 0x0A;
-			in.range(hdr_size_up, hdr_size_lo) = sizeof(struct lego_mem_header) + out.range(mem_size_up, mem_size_lo);
+			in.range(hdr_size_up, hdr_size_lo) = sizeof(struct lego_header) + out.range(mem_size_up, mem_size_lo);
 			in.range(hdr_cont_up, hdr_cont_lo) = LEGOMEM_CONT_EXTAPI;
 			// return something dummy, like cycle count
 			// vivado editor will produce grammar error, ignore it
-			in.range((((sizeof(struct lego_mem_header) + out.range(mem_size_up, mem_size_lo)) << 3) - 1),
-				 sizeof(struct lego_mem_header) << 3) = cycle;
+			in.range((((sizeof(struct lego_header) + out.range(mem_size_up, mem_size_lo)) << 3) - 1),
+				 sizeof(struct lego_header) << 3) = cycle;
 
 			ext_in.write(in);
 		}
@@ -176,7 +175,7 @@ int main() {
 	int ret = 0;
 	ret |= test_macro();
 	ret |= test_waitqueue();
-	test_ext_ep();
+	test_deref_ptr();
 
 	return ret;
 }

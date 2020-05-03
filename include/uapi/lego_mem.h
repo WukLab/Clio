@@ -12,6 +12,7 @@
 #define LEGOMEM_CONT_NET    (0)
 #define LEGOMEM_CONT_MEM    (1)
 #define LEGOMEM_CONT_SOC    (2)
+#define LEGOMEM_CONT_EXTAPI (3)
 
 struct lego_mem_access_header {
     struct lego_header header;

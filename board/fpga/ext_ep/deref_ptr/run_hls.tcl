@@ -9,11 +9,12 @@ set board "[lindex $argv 2]"
 # Create a project
 open_project	-reset generated_hls_project 
 
-add_files	ext_ep.cpp		-cflags -I../../../include/
-add_files -tb	ext_ep_tb.cpp		-cflags -I../../../include/
+set CFLAGS "-I../../../../include/ -I../include"
+add_files	deref_ptr.cpp		-cflags $CFLAGS
+add_files -tb	deref_ptr_tb.cpp	-cflags $CFLAGS
 
 # Specify the top-level function for synthesis
-set_top		ext_ep
+set_top		deref_ptr
 
 ###########################
 # Solution settings
@@ -57,7 +58,7 @@ config_rtl -reset all -reset_level low
 csynth_design
 
 # Export IP block
-export_design -format ip_catalog -display_name "ext_ep_hls" -description "extended API Endpoint HLS" -vendor "Wuklab.UCSD" -version "1.0"
+export_design -format ip_catalog -display_name "deref_ptr_hls" -description "extended API dereference pointer HLS" -vendor "Wuklab.UCSD" -version "1.0"
 
 # Do not perform any other steps
 # - The basic project will be opened in the GUI 
