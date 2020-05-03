@@ -18,19 +18,20 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 	enum decode_fsm {PARSE, DATATOWAITQUEUE, DATATOWAITQUEUE2, DATATOSENDQUEUE};
 
 	// stateful variable, remain the same between cycles
-	static ap_uint<16> data_remain		= 0;
-	static decode_fsm state			= PARSE;
-	static struct data_if wait_pkt		= {0,0};
+	static ap_uint<16> data_remain				= 0;
+	static decode_fsm state					= PARSE;
+	static struct data_if wait_pkt				= {0,0};
+	static FIFO<uint8_t> seqid_wq;
 
 	// delay packet for one cycle to meet timing
-	static data_delay to_waitqueue_delay	= {0,0};
-	static data_delay to_sendqueue_delay	= {0,0};
-	static release_delay release_delay	= {0,0};
+	static struct delay<struct data_if> to_waitqueue_delay	= {0,0};
+	static struct delay<struct data_if> to_sendqueue_delay	= {0,0};
+	static struct delay<struct release_if>  release_delay	= {0,0};
 
 	// temporary variable
-	ap_uint<DATAWIDTH> in_pkt		= 0;
-	struct data_if send_pkt			= {0,0};
-	struct release_if release		= {0,0};
+	ap_uint<DATAWIDTH> in_pkt			= 0;
+	struct data_if send_pkt				= {0,0};
+	struct release_if release			= {0,0};
 
 	/* delay one cycle logic */
 	if (to_sendqueue_delay.vld) {
@@ -85,6 +86,7 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 				= in_pkt.range(deref_size_up, deref_size_lo);
 			wait_pkt.last = 1;
 			delay_pkt(to_waitqueue_delay, wait_pkt);
+			seqid_wq.push(in_pkt.range(hdr_seqId_up, hdr_seqId_lo));
 
 			break;
 
@@ -131,14 +133,17 @@ decode(stream<ap_uint<DATAWIDTH> > &data_in,
 				data_remain -= DATASIZE;
 				state = DATATOWAITQUEUE;
 			}
+
+			seqid_wq.push(in_pkt.range(hdr_seqId_up, hdr_seqId_lo));
 			break;
 
 		case LEGOMEM_REQ_READ_RESP:
-			if (in_pkt[hdr_access_cnt_bit] == 0) {
+			if (seqid_wq.front() == in_pkt.range(hdr_seqId_up, hdr_seqId_lo)) {
 				// release wait queue
 				release.addr = in_pkt.range(mem_ret_addr_up, mem_ret_addr_lo);
 				release.status = in_pkt.range(hdr_req_status_up, hdr_req_status_lo);
 				delay_pkt(release_delay, release);
+				seqid_wq.pop();
 			} else {
 				// forward packet back to network
 				send_pkt.pkt = in_pkt;
@@ -237,15 +242,15 @@ waitqueue(stream<struct data_if> &from_decode,
 #pragma HLS INLINE off
 
 	enum wq_fsm {HEADER, DATA};
-	static wq_fsm state			= HEADER;
-	static ap_uint<1> drop 			= 0;		// drop if error occurs
+	static wq_fsm state					= HEADER;
+	static ap_uint<1> drop 					= 0;		// drop if error occurs
 
 	// delay packet to sendqueue for one cycle to meet timing
-	static data_delay to_sendqueue_delay	= {0,0};
+	static struct delay<struct data_if> to_sendqueue_delay	= {0,0};
 
-	struct release_if release_pkt		= {0,0};
-	struct data_if waiting_pkt 		= {0,0};
-	struct data_if send_pkt			= {0,0};
+	struct release_if release_pkt				= {0,0};
+	struct data_if waiting_pkt 				= {0,0};
+	struct data_if send_pkt					= {0,0};
 
 	if (to_sendqueue_delay.vld) {
 		to_sendqueue.write(to_sendqueue_delay.data);

@@ -142,13 +142,9 @@ struct release_if {
 	ap_uint<64>  		addr;
 };
 
-struct data_delay {
-	struct data_if		data;
-	ap_uint<1>		vld;
-};
-
-struct release_delay {
-	struct release_if	data;
+template <typename T>
+struct delay {
+	T			data;
 	ap_uint<1>		vld;
 };
 
@@ -157,6 +153,51 @@ do {				\
 	pipe.data = input;	\
 	pipe.vld = 1;		\
 } while(0)
+
+template <typename T>
+class FIFO {
+
+protected:
+	T top;
+	uint8_t top_vld;
+	hls::stream<T> rest;
+
+public:
+	FIFO() {
+		top = 0;
+		top_vld = 0;
+	}
+
+	bool empty() {
+		return top_vld == 0;
+	}
+
+	T front() {
+		if (top_vld == 0)
+			return static_cast<T>(0);
+
+		return top;
+	}
+
+	// assume user check empty before pop
+	T pop() {
+		T top_entry = top;
+		if (!rest.empty())
+			top = rest.read();
+		else
+			top_vld = 0;
+		return top_entry;
+	}
+
+	void push(T input) {
+		if (empty()) {
+			top = input;
+			top_vld = 1;
+		} else {
+			rest.write(input);
+		}
+	}
+};
 
 
 #endif /* _LEGO_MEM_EXT_EP_H_ */
