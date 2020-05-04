@@ -2,8 +2,8 @@
  * Copyright (c) 2020. Wuklab. All rights reserved.
  */
 
-#ifndef _LEGOMEM_SOC_CORE_H_
-#define _LEGOMEM_SOC_CORE_H_
+#ifndef _LEGOMEM_SOC_BUDDY_H_
+#define _LEGOMEM_SOC_BUDDY_H_
 
 #include <uapi/list.h>
 #include <errno.h>
@@ -105,4 +105,7 @@ static inline int __TestClearPage##uname(struct page *page)	\
 
 PAGE_FLAG(Buddy, buddy)
 
-#endif /* _LEGOMEM_SOC_CORE_H_ */
+extern unsigned long fpga_mem_start;
+extern unsigned long fpga_mem_end;
+
+#endif /* _LEGOMEM_SOC_BUDDY_H_ */

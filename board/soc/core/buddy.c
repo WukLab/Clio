@@ -2,6 +2,10 @@
  * Copyright (c) 2020. Wuklab. All rights reserved.
  */
 
+/*
+ * This file describes the buddy allocator.
+ */
+
 #include <uapi/err.h>
 #include <uapi/list.h>
 #include <uapi/vregion.h>
@@ -338,50 +342,6 @@ void dump_buddy(void)
 		total_free_kb, total_free_kb >> 10);
 }
 
-void test_page_alloc(void)
-{
-#if 0
-	struct page *p1, *p2, *p3, *p4;
-
-	p1 = alloc_page(0);
-	dump_buddy();
-
-	p2 = alloc_page(0);
-	dump_buddy();
-
-	p3 = alloc_page(0);
-	dump_buddy();
-
-	p4 = alloc_page(0);
-	dump_buddy();
-
-	/* double free, should be error */
-	free_page(p1, 0);
-	free_page(p1, 0);
-	dump_buddy();
-
-	free_page(p2, 0);
-	dump_buddy();
-
-	free_page(p3, 0);
-	dump_buddy();
-
-	/* should be the same as original */
-	free_page(p4, 0);
-	dump_buddy();
-
-	/* should be error */
-	p1 = alloc_page(MAX_ORDER);
-	dump_buddy();
-
-	p1 = alloc_page(MAX_ORDER-1);
-	dump_buddy();
-
-	p1 = alloc_page(MAX_ORDER-2);
-	dump_buddy();
-#endif
-}
-
 /*
  * The managed physical memory range.
  * We do not allow any holes at this point.
@@ -429,6 +389,5 @@ int init_page_alloc(void)
 		PAGE_SIZE >> 10);
 	dump_buddy();
 
-	test_page_alloc();
 	return 0;
 }

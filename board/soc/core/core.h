@@ -9,7 +9,7 @@
 #include <uapi/thpool.h>
 #include <fpga/zynq_regmap.h>
 #include "external.h"
-#include "page_alloc.h"
+#include "buddy.h"
 
 #if 0
 # define LEGOMEM_DEBUG
@@ -76,5 +76,7 @@ void free_pfn(unsigned long pfn, unsigned int order);
 int pin_cpu(int cpu_id);
 void legomem_getcpu(int *cpu, int *node);
 int parse_ip_str(const char *ip_str);
+
+int init_freepage_fifo(void);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

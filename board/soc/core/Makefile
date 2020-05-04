@@ -8,6 +8,7 @@ CFLAGS += -DCONFIG_ZCU106_SOC -DCONFIG_ARCH_ARM64
 CFLAGS += -rdynamic
 
 SRCS := $(wildcard *.c)
+SRCS += $(wildcard test/*.c)
 
 CC := aarch64-linux-gnu-gcc
 #CC := gcc

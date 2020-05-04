@@ -598,13 +598,18 @@ int main(int argc, char **argv)
 
 	gather_sysinfo();
 
-	init_page_alloc();
-
 	ret = init_dma();
 	if (ret) {
 		printf("Fail to init dma\n");
 		return 0;
 	}
+
+	/*
+	 * Init buddy allocator for FPGA physical memory.
+	 * Also launch a polling thread for freepage FIFOs.
+	 */
+	init_page_alloc();
+	init_freepage_fifo();
 
 	/*
 	 * Run the polling thread on the last CPU.
@@ -631,7 +636,7 @@ int main(int argc, char **argv)
 	 * Either create a poll of workers and then start polling
 	 * or just do inline handling.
 	 */
-	if (1) {
+	if (0) {
 		for (i = 0; i < NR_THPOOL_WORKERS; i++) {
 			struct thpool_worker *tw;
 			pthread_t t;
