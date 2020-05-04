@@ -31,7 +31,6 @@ if [ "$1" == "1" ]; then
 			--add_board=$board_ip
 	else
 		./monitor.o \
-		./monitor.o \
 			--dev=p4p1 \
 			--port=$monitor_port
 	fi

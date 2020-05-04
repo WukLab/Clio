@@ -458,10 +458,19 @@ find_vregion_candidate(struct legomem_context *p, size_t size)
 	/* Search from HEAD */
 	pthread_spin_lock(&p->lock);
 	list_for_each_entry(v, &p->alloc_list_head, list) {
+		/* Found one */
 		if (atomic_load(&v->avail_space) >= size) {
 			pthread_spin_unlock(&p->lock);
 			return v;
 		}
+
+		/*
+		 * If this one is zero, then all the ones behind it are zero.
+		 * Because we will move them to tail.
+		 * Of course, this is not perfect.. should use a priority queue.
+		 */
+		if (atomic_load(&v->avail_space) == 0)
+			break;
 	}
 	pthread_spin_unlock(&p->lock);
 	return NULL;
