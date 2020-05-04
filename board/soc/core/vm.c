@@ -747,24 +747,7 @@ struct vm_area_struct *vma_merge(struct vregion_info *vi,
 	return NULL;
 }
 
-/*
- * TODO: Send requests to FPGA side
- * to invalidate a) TLB, b) pgtable entries in DRAM.
- */
-static void notify_fpga_unmap_page_range(struct vm_area_struct *vma,
-					 unsigned long start_addr,
-					 unsigned long end_addr)
-{
-}
-
-/*
- * TODO
- */
-static void notify_fpga_new_page_range(void)
-{
-}
-
-static void unmap_single_vma(struct vm_area_struct *vma,
+static void unmap_single_vma(struct proc_info *proc, struct vm_area_struct *vma,
 			     unsigned long start_addr, unsigned long end_addr)
 {
 	unsigned long start = max(vma->vm_start, start_addr);
@@ -778,14 +761,15 @@ static void unmap_single_vma(struct vm_area_struct *vma,
 		return;
 
 	if (start != end)
-		notify_fpga_unmap_page_range(vma, start, end);
+		free_fpga_pte_range(proc, start, end);
 }
 
-static void unmap_region(struct vregion_info *vi, struct vm_area_struct *vma,
+static void unmap_region(struct proc_info *proc,
+			 struct vregion_info *vi, struct vm_area_struct *vma,
 			 unsigned long start, unsigned long end)
 {
 	for (; vma && vma->vm_start < end; vma = vma->vm_next)
-		unmap_single_vma(vma, start, end);
+		unmap_single_vma(proc, vma, start, end);
 }
 
 /*
@@ -884,7 +868,7 @@ static int __free_va(struct proc_info *proc, struct vregion_info *vi,
 	 * Notify FPGA side to invalidate
 	 * TLB and free PTE entries..
 	 */
-	unmap_region(vi, vma, start, end);
+	unmap_region(proc, vi, vma, start, end);
 
 	/*
 	 * Last step, free the VMAs
@@ -1195,14 +1179,7 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	if (IS_ERR_VALUE(addr))
 		return addr;
 
-	/*
-	 * TODO
-	 *
-	 * We should tell FPGA the new mapping
-	 * FPGA side would create a cached copy of the VA mapping
-	 */
-	notify_fpga_new_page_range();
-
+	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags);
 	return addr;
 }
 

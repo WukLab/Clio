@@ -17,6 +17,16 @@
 #define MAX_ORDER		(3)
 #define MAX_ORDER_NR_PAGES	(1 << (MAX_ORDER - 1))
 
+#define PAGE_SHIFT		(12)
+#define PAGE_SIZE		(1UL << PAGE_SHIFT)
+#define PAGE_MASK		(~(PAGE_SIZE-1))
+
+#define PFN_ALIGN(x)	(((unsigned long)(x) + (PAGE_SIZE - 1)) & PAGE_MASK)
+#define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
+#define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
+#define PFN_PHYS(x)	((unsigned long)(x) << PAGE_SHIFT)
+#define PHYS_PFN(x)	((unsigned long)((x) >> PAGE_SHIFT))
+
 #define for_each_order(order) \
 	for ((order) = 0; (order) < MAX_ORDER; (order)++)
 
@@ -53,6 +63,9 @@ enum pageflags {
 	PG_buddy,
 };
 
+/*
+ * We don't have atomic version for aarch64 for now.
+ */
 #define TEST_PAGE_FLAG(uname, lname)				\
 static inline int Page##uname(const struct page *page)		\
 {								\
