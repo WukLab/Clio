@@ -10,6 +10,7 @@
 #include <fpga/zynq_regmap.h>
 #include "external.h"
 #include "buddy.h"
+#include "pgtable.h"
 
 #if 0
 # define LEGOMEM_DEBUG
@@ -38,10 +39,6 @@ int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 unsigned long alloc_va(struct proc_info *proc, unsigned long len, unsigned long vm_flags);
 int free_va(struct proc_info *proc, unsigned long start, unsigned long len);
 void test_vm(void);
-void alloc_fpga_pte_range(struct proc_info *pi,
-			  unsigned long start, unsigned long end, unsigned long vm_flags);
-void free_fpga_pte_range(struct proc_info *proc,
-			 unsigned long start, unsigned long end);
 
 /*
  * SCHED APIs

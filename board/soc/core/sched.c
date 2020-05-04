@@ -57,7 +57,8 @@ void dump_procs(void)
  * proc_name and host_ip are optional.
  * @pid is a globally unique id allocated by monitor.
  */
-struct proc_info *alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
+struct proc_info *
+alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 {
 	struct proc_info *new;
 	struct proc_info *old;

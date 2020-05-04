@@ -21,6 +21,8 @@ BOARD_SRCS := $(BP)/core.h \
 	      $(BP)/handler.c \
 	      $(BP)/rbtree.c \
 	      $(BP)/sched.c \
+	      $(BP)/pgtable.c \
+	      $(BP)/buddy.c \
 	      $(BP)/vm.c
 
 # General sources used by everyone

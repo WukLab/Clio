@@ -164,6 +164,11 @@ static void handle_create_proc(struct thpool_buffer *tb)
 		return;
 	} 
 
+	/*
+	 * Prepare the per-process pgtables
+	 */
+	setup_fpga_pgtable(pi);
+
 	/* Success */
 	resp->op.ret = 0;
 	resp->op.pid = pid;
