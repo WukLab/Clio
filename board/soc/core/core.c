@@ -338,7 +338,7 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 #ifdef CONFIG_DEBUG_SOC
 	if (1) {
 		int cpu, node;
-		getcpu(&cpu, &node);
+		legomem_getcpu(&cpu, &node);
 
 		/* Session IDs were swapped already */
 		soc_debug("Req src_sesid: %u to dst_sesid: %u Opcode: %s CPU: %d worker_%d\n",
@@ -431,8 +431,12 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 	free_thpool_buffer(tb);
 }
 
+#ifdef __aarch64__
 #define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
 #define smp_wmb()	dmb(ishst)
+#else
+#define smp_wmb()	barrier();
+#endif
 
 static __always_inline void
 enqueue_tail_thpool_worker(struct thpool_worker *worker, struct thpool_buffer *buffer)
@@ -476,7 +480,7 @@ static void *thpool_worker_func(void *_tw)
 	tw = (struct thpool_worker *)_tw;
 
 	//pin_cpu(tw->cpu);
-	getcpu(&cpu, &node);
+	legomem_getcpu(&cpu, &node);
 	dprintf_INFO("Worker%d Running on CPU %2d Node %2d\n", tw->cpu, cpu, node);
 
 	while (1) {
@@ -582,7 +586,7 @@ static void gather_sysinfo(void)
 	printf("There are %d physical CPUs, %d online CPUs.\n",
 		get_nprocs_conf(), nr_online_cpus);
 
-	getcpu(&cpu, &node);
+	legomem_getcpu(&cpu, &node);
 	printf("initial running on CPU %d\n", cpu);
 }
 
@@ -592,8 +596,9 @@ int main(int argc, char **argv)
 	int ret;
 	int i;
 
-
 	gather_sysinfo();
+
+	init_page_alloc();
 
 	ret = init_dma();
 	if (ret) {

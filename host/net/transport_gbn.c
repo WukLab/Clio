@@ -701,7 +701,7 @@ static void *gbn_poll_func(void *_unused)
 		return NULL;
 	}
 
-	getcpu(&cpu, &node);
+	legomem_getcpu(&cpu, &node);
 	dprintf_INFO("Running on CPU=%d NODE=%d\n", cpu, node);
 
 	while (1) {

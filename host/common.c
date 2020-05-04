@@ -274,14 +274,14 @@ void *user_session_handler(void *_ses)
 	}
 
 	pin_cpu(tmp_cpu++);
-	getcpu(&cpu, &node);
+	legomem_getcpu(&cpu, &node);
 	dprintf_DEBUG("CPU=%d Node=%d ses lid=%u rid=%u "
 		      "Session Handler Thread UP and RUNNING ... \n",
 		      cpu, node, get_local_session_id(ses), get_remote_session_id(ses));
 
 	while (1) {
 		if (unlikely(ses_thread_should_stop(ses))) {
-			getcpu(&cpu, &node);
+			legomem_getcpu(&cpu, &node);
 			dprintf_DEBUG("CPU=%d Node=%d ses lid=%u rid=%u "
 				      "Session Handler Thread EXIT ... \n",
 				      cpu, node, get_local_session_id(ses), get_remote_session_id(ses));

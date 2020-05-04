@@ -460,7 +460,7 @@ int main(int argc, char **argv)
 	if (test_option) {
 		int cpu, node;
 
-		getcpu(&cpu, &node);
+		legomem_getcpu(&cpu, &node);
 		dprintf_INFO("\n**\n"
 			     "**\n"
 			     "** Start running test cases...\n"

@@ -58,7 +58,7 @@ CFLAG_DISABLE_WARN := -Wno-stringop-truncation
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g
-DEBUG :=
+DEBUG := -g
 
 all: $(SRCS) 
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(TEST_SRCS) $(CLIBS)

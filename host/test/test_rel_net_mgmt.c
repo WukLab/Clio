@@ -66,7 +66,7 @@ static void *thread_func(void *_ti)
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 
-	getcpu(&cpu, &node);
+	legomem_getcpu(&cpu, &node);
 	printf("%s(): thread id %d running on CPU %d, local session id %d remote session id %d\n",
 		__func__,
 		ti->id, cpu, get_local_session_id(ses), get_remote_session_id(ses));

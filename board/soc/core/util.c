@@ -25,7 +25,7 @@ int pin_cpu(int cpu_id)
 	return pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
 }
 
-void getcpu(int *cpu, int *node)
+void legomem_getcpu(int *cpu, int *node)
 {
 	syscall(SYS_getcpu, cpu, node, NULL);
 }

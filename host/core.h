@@ -468,7 +468,7 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 			  unsigned int node_type);
 
 int pin_cpu(int cpu_id);
-static inline void getcpu(int *cpu, int *node)
+static inline void legomem_getcpu(int *cpu, int *node)
 {
 	syscall(SYS_getcpu, cpu, node, NULL);
 }

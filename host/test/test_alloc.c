@@ -60,7 +60,7 @@ static void *thread_func(void *_ti)
 	if (!addr)
 		die("OOM");
 
-	getcpu(&cpu, &node);
+	legomem_getcpu(&cpu, &node);
 	printf("%s(): thread id %d running on CPU %d\n", __func__, ti->id, cpu);
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
