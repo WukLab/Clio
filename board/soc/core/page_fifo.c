@@ -118,7 +118,7 @@ void prepare_send_ctrl(struct lego_mem_ctrl *ctrl, struct fifo_info *fi,
 	ctrl->cmd = 0;
 
 	/* Per-FIFO specific routing info */
-	ctrl->addr = fi->private;
+	ctrl->addr = fi->addr;
 }
 
 /*
