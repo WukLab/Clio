@@ -167,7 +167,7 @@ static void handle_create_proc(struct thpool_buffer *tb)
 	/*
 	 * Prepare the per-process pgtables
 	 */
-	setup_fpga_pgtable(pi);
+	setup_proc_fpga_pgtable(pi);
 
 	/* Success */
 	resp->op.ret = 0;
@@ -594,15 +594,15 @@ static void gather_sysinfo(void)
 	fp = popen("uname -a", "r");
 	if (fp) {
 		if (fgets(line, sizeof(line), fp))
-			printf("Kernel: %s", line);
+			dprintf_INFO("Kernel: %s", line);
 	}
 
 	nr_online_cpus = get_nprocs();
-	printf("There are %d physical CPUs, %d online CPUs.\n",
+	dprintf_INFO("There are %d physical CPUs, %d online CPUs.\n",
 		get_nprocs_conf(), nr_online_cpus);
 
 	legomem_getcpu(&cpu, &node);
-	printf("initial running on CPU %d\n", cpu);
+	dprintf_INFO("Initial thread running on CPU %d\n", cpu);
 }
 
 
@@ -612,6 +612,7 @@ int main(int argc, char **argv)
 	int i;
 
 	gather_sysinfo();
+	init_fpga_pgtable();
 
 	ret = init_dma();
 	if (ret) {
@@ -650,6 +651,11 @@ int main(int argc, char **argv)
 	/*
 	 * Either create a poll of workers and then start polling
 	 * or just do inline handling.
+	 *
+	 * After some testing, we realize that we only have one incoming
+	 * data FIFO, and its not even faster enough to keep up a single core.
+	 * Thus it does not make any sense to have thpool anymore.
+	 * Anyway, we kept this code, and do inline handling by default.
 	 */
 	if (0) {
 		for (i = 0; i < NR_THPOOL_WORKERS; i++) {

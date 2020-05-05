@@ -26,8 +26,14 @@
 
 /*
  * The maximum PID space in a distributed legomem system.
+ *   0                       MAX_USER               MAX_SYSTEM
+ *   |-------------------------| ---------------------|
+ *   ^                         ^                      ^
+ *       global unique             per-board
+ *       managed by monitor        private pid space
  */
-#define NR_MAX_PID		(65535)
+#define NR_MAX_SYSTEM_PID	(65535)
+#define NR_MAX_USER_PID		(60000)
 
 typedef atomic_int atomic_t;
 
@@ -235,6 +241,8 @@ struct vregion_info {
 struct proc_info {
 	unsigned long		flags;
 
+	void 			*pgtable;
+
 	/*
 	 * For hashtable usage
 	 * pid and host node id uniquely identify a proc
@@ -246,14 +254,14 @@ struct proc_info {
 	pthread_spinlock_t	lock;
 	atomic_t		refcount;
 
+	struct vregion_info	vregion[NR_VREGIONS];
+	struct list_head	free_list_head;
+	int			nr_vmas;
+
 	/* For debugging purpose */
 	unsigned int		host_ip;
 	char			host_ip_str[INET_ADDRSTRLEN];
 	char			proc_name[PROC_NAME_LEN];
-
-	struct vregion_info	vregion[NR_VREGIONS];
-	struct list_head	free_list_head;
-	int			nr_vmas;
 };
 
 static inline struct vregion_info * 

@@ -7,7 +7,9 @@
 #include <uapi/sched.h>
 #include <uapi/thpool.h>
 
-void setup_fpga_pgtable(struct proc_info *pi);
+void init_fpga_pgtable(void);
+
+void setup_proc_fpga_pgtable(struct proc_info *pi);
 
 void alloc_fpga_pte_range(struct proc_info *pi,
 			  unsigned long start, unsigned long end, unsigned long vm_flags);

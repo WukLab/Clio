@@ -42,7 +42,7 @@ static atomic_int nr_boards;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
 
-static DECLARE_BITMAP(pid_map, NR_MAX_PID);
+static DECLARE_BITMAP(pid_map, NR_MAX_USER_PID);
 static pthread_spinlock_t(pid_lock);
 
 #define PID_ARRAY_HASH_BITS	(10)
@@ -60,8 +60,8 @@ int alloc_pid(void)
 	 * use lock will do harm here.
 	 */
 	pthread_spin_lock(&pid_lock);
-	bit = find_next_zero_bit(pid_map, NR_MAX_PID, 1);
-	if (bit >= NR_MAX_PID) {
+	bit = find_next_zero_bit(pid_map, NR_MAX_USER_PID, 1);
+	if (bit >= NR_MAX_USER_PID) {
 		bit = -1;
 		goto unlock;
 	}
@@ -74,7 +74,7 @@ unlock:
 
 void free_pid(unsigned int pid)
 {
-	BUG_ON(pid >= NR_MAX_PID);
+	BUG_ON(pid >= NR_MAX_USER_PID);
 
 	pthread_spin_lock(&pid_lock);
 	if (!test_and_clear_bit(pid, pid_map))
