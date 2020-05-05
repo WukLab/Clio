@@ -203,23 +203,18 @@ static void *ctrl_dispather(void *_unused)
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
 			;
 
-		// TODO
-		// hmm this is not correct impl?
-		// we use addr to distinguish different senders, but not ops.
-		// we should use another field to indicate the OPs,
-		// the addr field can just be passed from RX to TX ctrl.
-		switch (rx->addr) {
-		case 1:
+		switch (rx->cmd) {
+		case CMD_LEGOMEM_CTRL_CREATE_PROC:
 			handle_ctrl_create_proc(rx, tx);
 			break;
-		case 2:
+		case CMD_LEGOMEM_CTRL_ALLOC:
 			handle_ctrl_alloc(rx, tx);
 			break;
-		case 3:
+		case CMD_LEGOMEM_CTRL_FREE:
 			handle_ctrl_free(rx, tx);
 			break;
 		default:
-			dprintf_ERROR("Unknow addr info %#x\n", rx->addr);
+			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
 			break;
 		}
 	}

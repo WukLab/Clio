@@ -5,6 +5,15 @@
 #ifndef _LEGO_MEM_CTRL_
 #define _LEGO_MEM_CTRL_
 
+/*
+ * CMDs for lego_mem_ctrl->cmd
+ */
+enum {
+	CMD_LEGOMEM_CTRL_CREATE_PROC,
+	CMD_LEGOMEM_CTRL_ALLOC,
+	CMD_LEGOMEM_CTRL_FREE,
+};
+
 struct __attribute__((__packed__)) lego_mem_pte {
     uint64_t ppa : 60;
     uint8_t  page_type : 2;
