@@ -126,16 +126,16 @@ void prepare_send_ctrl(struct lego_mem_ctrl *ctrl, struct fifo_info *fi,
  * We check its size, get is order, find the corresponding fifo channel,
  * then refill one single page.
  */
-static void handle_freepage_ack(struct lego_mem_ctrl *ctrl_recv,
-				struct lego_mem_ctrl *ctrl_send)
+void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
+			      struct lego_mem_ctrl *tx)
 {
 	unsigned int order;
 	struct fifo_info *fi;
 	unsigned long pfn, pa;
 
-	order = get_order_from_ctrl(ctrl_recv);
+	order = get_order_from_ctrl(rx);
 	if (unlikely(order >= MAX_ORDER)) {
-		dprintf_ERROR("invalid size %#x\n", ctrl_recv->param32);
+		dprintf_ERROR("invalid size %#x\n", rx->param32);
 		return;
 	}
 	fi = order_to_fifo_into(order);
@@ -147,8 +147,8 @@ static void handle_freepage_ack(struct lego_mem_ctrl *ctrl_recv,
 	}
 
 	pa = PFN_PHYS(pfn);
-	prepare_send_ctrl(ctrl_send, fi, pa);
-	dma_ctrl_send(ctrl_send, sizeof(*ctrl_send));
+	prepare_send_ctrl(tx, fi, pa);
+	dma_ctrl_send(tx, sizeof(*tx));
 }
 
 static void *ctrl_poll_func(void *_unused)
@@ -163,7 +163,7 @@ static void *ctrl_poll_func(void *_unused)
 			;
 
 		dprintf_DEBUG("Get one. addr %#lx\n", ctrl_recv_buf->addr);
-		handle_freepage_ack(ctrl_recv_buf, ctrl_send_buf);
+		handle_ctrl_freepage_ack(ctrl_recv_buf, ctrl_send_buf);
 	}
 	return NULL;
 }

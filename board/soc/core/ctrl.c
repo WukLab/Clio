@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2020. Wuklab. All rights reserved.
  *
- * Ctrl.c describes functions handling requests sent from on-board modules.
+ * ctrl.c describes functions handling requests sent from on-board modules.
  * For instance, requests from extended modules and so on.
  */
 
@@ -55,6 +55,7 @@ static void free_sys_pid(int pid)
 {
 	if (pid < NR_MAX_USER_PID || pid >= NR_MAX_SYSTEM_PID) {
 		dprintf_ERROR("Invalid PID: %d\n", pid);
+		return;
 	}
 
 	pid -= NR_MAX_USER_PID;
@@ -64,16 +65,79 @@ static void free_sys_pid(int pid)
 	pthread_spin_unlock(&sys_pid_lock);
 }
 
+/*
+ * rx->param32: size in bytes
+ * rx->param8: pid
+ * tx->param32: va
+ *
+ * On success, return the allocated VA via param32. Otherwise, return 0.
+ * Sister function is board_soc_handle_alloc_free.
+ */
 static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 			      struct lego_mem_ctrl *tx)
 {
+	pid_t pid;
+	unsigned int size;
+	struct proc_info *pi;
+	struct vregion_info *vi;
+	unsigned int vregion_idx;
+	unsigned long addr;
 
+	/* See comment at handle_ctrl_create_proc */
+	pid = rx->param8 + NR_MAX_USER_PID;
+	size = rx->param32;
+
+	/* Prepare tx */
+	tx->epid = 0;
+	tx->addr = 0;
+	tx->cmd = 0;
+
+	pi = get_proc_by_pid(pid);
+	if (!pi) {
+		dprintf_ERROR("pid %u %u. proc_info not found.\n",
+			pid, pid - NR_MAX_USER_PID);
+		tx->param32 = 0;
+		goto out;
+	}
+
+	/*
+	 * We are taking a shortcut here.
+	 * Should be okay, still O(1).
+	 */
+	vregion_idx = pi->cached_vregion_index;
+
+repeat:
+	vi = index_to_vregion(pi, vregion_idx);
+	addr = alloc_va_vregion(pi, vi, size, 0);
+	if (unlikely(IS_ERR_VALUE(addr))) {
+		vregion_idx++;
+		if (vregion_idx == NR_VREGIONS) {
+			dprintf_ERROR("Well OOM%d\n", 0);
+			tx->param32 = 0;
+			goto out;
+		}
+		goto repeat;
+	}
+
+	pi->cached_vregion_index = vregion_idx;
+	tx->param32 = (u32)addr;
+out:
+	dma_ctrl_send(tx, sizeof(*tx));
 }
 
+/*
+ * rx->param32: addr
+ * rx->param8: pid
+ */
 static void handle_ctrl_free(struct lego_mem_ctrl *rx,
 			     struct lego_mem_ctrl *tx)
 {
-
+	/*
+	 * 40bits are not enough to carry
+	 * pid, addr, len at once.
+	 * Thus for now I couldn't impl this.
+	 */
+	dprintf_ERROR("Not implemented%d\n", 0);
 }
 
 /*
@@ -88,6 +152,11 @@ static void handle_ctrl_create_proc(struct lego_mem_ctrl *rx,
 {
 	struct proc_info *pi;
 	pid_t pid;
+
+	/* Prepare tx */
+	tx->epid = 0;
+	tx->addr = 0;
+	tx->cmd = 0;
 
 	pid = alloc_sys_pid();
 	if (pid < 0) {
@@ -104,7 +173,55 @@ static void handle_ctrl_create_proc(struct lego_mem_ctrl *rx,
 		goto out;
 	}
 
-	tx->param32 = pid;
+	/*
+	 * When the module wants to do alloc,
+	 * we only have 8bit for pid. Thus we
+	 * have to cut the base.
+	 */
+	tx->param32 = pid - NR_MAX_USER_PID;
 out:
 	dma_ctrl_send(tx, sizeof(*tx));
+}
+
+/*
+ * This is the CTRL AXIS DMA FIFO polling thread.
+ * It will dispatch events to different handlers
+ * depending on the rx->addr field.
+ */
+static void *ctrl_dispather(void *_unused)
+{
+	struct lego_mem_ctrl *rx;
+	struct lego_mem_ctrl *tx;
+	axidma_dev_t dev;
+
+	/* Allocate DMA-able send/recve buffers */
+	dev = legomem_dma_info.dev;
+	rx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
+	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
+
+	while (1) {
+		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
+			;
+
+		// TODO
+		// hmm this is not correct impl?
+		// we use addr to distinguish different senders, but not ops.
+		// we should use another field to indicate the OPs,
+		// the addr field can just be passed from RX to TX ctrl.
+		switch (rx->addr) {
+		case 1:
+			handle_ctrl_create_proc(rx, tx);
+			break;
+		case 2:
+			handle_ctrl_alloc(rx, tx);
+			break;
+		case 3:
+			handle_ctrl_free(rx, tx);
+			break;
+		default:
+			dprintf_ERROR("Unknow addr info %#x\n", rx->addr);
+			break;
+		}
+	}
+	return NULL;
 }

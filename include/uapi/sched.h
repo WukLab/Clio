@@ -84,7 +84,7 @@ struct board_info {
 	unsigned long		mem_avail;
 
 	unsigned long		*stat;
-};
+} ____cacheline_aligned;
 
 /*
  * Special board_info types are created by the system, for special usages.
@@ -258,11 +258,17 @@ struct proc_info {
 	struct list_head	free_list_head;
 	int			nr_vmas;
 
+	/*
+	 * Only used by SoC's handle_ctrl_alloc
+	 * which is self-managing vRegion array without monitor.
+	 */
+	int			cached_vregion_index;
+
 	/* For debugging purpose */
 	unsigned int		host_ip;
 	char			host_ip_str[INET_ADDRSTRLEN];
 	char			proc_name[PROC_NAME_LEN];
-};
+} ____cacheline_aligned;
 
 static inline struct vregion_info * 
 __vregion_freelist_dequeue_head(struct proc_info *ctx)
