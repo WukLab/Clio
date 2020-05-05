@@ -511,6 +511,11 @@ static void polling_dispather(void)
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
 	struct lego_header *rx_lego_header, *tx_lego_header;
+	int cpu, node;
+
+	legomem_getcpu(&cpu, &node);
+	dprintf_INFO("DATA AIXS Polling Thread running on CPU %2d Node %2d\n",
+		cpu, node);
 
 	while (1) {
 		tb = alloc_thpool_buffer();
@@ -537,6 +542,11 @@ static void polling_inline_handle(void)
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
 	struct lego_header *rx_lego_header, *tx_lego_header;
+	int cpu, node;
+
+	legomem_getcpu(&cpu, &node);
+	dprintf_INFO("DATA AIXS Polling Thread running on CPU %2d Node %2d\n",
+		cpu, node);
 
 	while (1) {
 		tb = alloc_thpool_buffer();

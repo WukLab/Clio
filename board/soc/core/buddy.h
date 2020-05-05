@@ -5,7 +5,6 @@
 #ifndef _LEGOMEM_SOC_BUDDY_H_
 #define _LEGOMEM_SOC_BUDDY_H_
 
-#include <uapi/list.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,10 +13,17 @@
 #include <stdatomic.h>
 #include <sys/sysinfo.h>
 
-#define MAX_ORDER		(3)
+#include <uapi/list.h>
+#include <uapi/log2.h>
+#include <uapi/bitops.h>
+
+#define MAX_ORDER		(7)
 #define MAX_ORDER_NR_PAGES	(1 << (MAX_ORDER - 1))
 
-#define PAGE_SHIFT		(12)
+/*
+ * Current smallest page size is 4M
+ */
+#define PAGE_SHIFT		(22)
 #define PAGE_SIZE		(1UL << PAGE_SHIFT)
 #define PAGE_MASK		(~(PAGE_SIZE-1))
 
@@ -107,5 +113,56 @@ PAGE_FLAG(Buddy, buddy)
 
 extern unsigned long fpga_mem_start;
 extern unsigned long fpga_mem_end;
+void dump_buddy(void);
+
+/*
+ * Runtime evaluation of get_order()
+ */
+static inline __attribute__((__const__))
+int __get_order(unsigned long size)
+{
+	int order;
+
+	size--;
+	size >>= PAGE_SHIFT;
+#if BITS_PER_LONG == 32
+	order = fls(size);
+#else
+	order = fls64(size);
+#endif
+	return order;
+}
+
+/**
+ * get_order - Determine the allocation order of a memory size
+ * @size: The size for which to get the order
+ *
+ * Determine the allocation order of a particular sized block of memory.  This
+ * is on a logarithmic scale, where:
+ *
+ *	0 -> 2^0 * PAGE_SIZE and below
+ *	1 -> 2^1 * PAGE_SIZE to 2^0 * PAGE_SIZE + 1
+ *	2 -> 2^2 * PAGE_SIZE to 2^1 * PAGE_SIZE + 1
+ *	3 -> 2^3 * PAGE_SIZE to 2^2 * PAGE_SIZE + 1
+ *	4 -> 2^4 * PAGE_SIZE to 2^3 * PAGE_SIZE + 1
+ *	...
+ *
+ * The order returned is used to find the smallest allocation granule required
+ * to hold an object of the specified size.
+ *
+ * The result is undefined if the size is 0.
+ *
+ * This function may be used to initialise variables with compile time
+ * evaluations of constants.
+ */
+#define get_order(n)						\
+(								\
+	__builtin_constant_p((n)) ? (				\
+		((n) == 0UL) ? BITS_PER_LONG - PAGE_SHIFT :	\
+		(((n) < (1UL << PAGE_SHIFT)) ? 0 :		\
+		 ilog2((n) - 1) - PAGE_SHIFT + 1)		\
+	) :							\
+	__get_order(n)						\
+)
 
 #endif /* _LEGOMEM_SOC_BUDDY_H_ */

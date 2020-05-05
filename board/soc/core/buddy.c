@@ -275,7 +275,8 @@ struct page *alloc_page(unsigned int order)
 	page = rmqueue(zone, order);
 	if (page) {
 		set_page_private(page, 0);
-	}
+	} else
+		dump_buddy();
 	return page;
 }
 
@@ -345,6 +346,11 @@ void dump_buddy(void)
 /*
  * The managed physical memory range.
  * We do not allow any holes at this point.
+ *
+ * Due to the lego_mem_ctrl param32+param8 constraint,
+ * we can support up to 2^40, or 1TB physical address range.
+ *
+ * This can be tuned.
  */
 unsigned long fpga_mem_start = PAGE_SIZE;
 unsigned long fpga_mem_end = 1024 * 1024 * 1024;

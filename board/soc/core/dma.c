@@ -28,10 +28,13 @@
 
 struct dma_info legomem_dma_info;
 
+/*
+ * The library is not SMP safe. Add lock for all sending path.
+ * Both data and ctrl polling are done by one thread only,
+ * thus no lock for them now.
+ */
 pthread_spinlock_t send_data_lock;
 pthread_spinlock_t send_ctrl_lock;
-
-#define CTRL_BUFFER_SIZE	(128)
 
 /*
  * Callback for init_thpool_buffer
@@ -94,6 +97,8 @@ int init_dma(void)
 	legomem_dma_info.dev = dev;
 	legomem_dma_info.rx = rx;
 	legomem_dma_info.tx = tx;
+
+	dprintf_INFO("AXIS DMA Library initialized... done! %d\n", 0);
 
 	return 0;
 
