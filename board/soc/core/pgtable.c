@@ -28,17 +28,65 @@
 int devmem_fd;
 void *devmem_pgtable_base;
 
-/*
- * Called to free the physical pages for va range [start, end].
- */
-void free_fpga_pte_range(struct proc_info *proc,
-			 unsigned long start, unsigned long end)
+// TODO Zhiyuan
+static __always_inline struct lego_mem_pte *
+addr_to_pte(struct lego_mem_pte *pgtable,
+	    unsigned long addr, unsigned long page_size)
 {
-	struct lego_mem_pte *base;
-	base = proc->pgtable;
+	return NULL;
+}
+
+static void zap_pte(struct lego_mem_pte *pte,
+		    unsigned long page_size)
+{
+	unsigned long phys;
+	int order;
+
+	if (unlikely(!pte->allocated)) {
+		dprintf_ERROR("pte %#lx invalid\n",
+			(unsigned long)pte);
+		return;
+	}
+
+	if (pte->valid) {
+		phys = pte->ppa;
+		order = get_order(page_size);
+		free_pfn(PHYS_PFN(phys), order);
+
+		pte->allocated = 0;
+		pte->valid = 0;
+	}
 }
 
 /*
+ * Called during legomem_free.
+ * Called to free the physical pages for va range [start, end].
+ */
+void free_fpga_pte_range(struct proc_info *pi,
+			 unsigned long start, unsigned long end,
+			 unsigned long page_size)
+{
+	struct lego_mem_pte *pgtable, *pte;
+
+	pgtable = (struct lego_mem_pte *)pi->pgtable;
+
+	while (start < end) {
+		pte = addr_to_pte(pgtable, start, page_size);
+		zap_pte(pte, page_size);
+		start += page_size;
+	}
+}
+
+static inline void alloc_pte(struct lego_mem_pte *pte,
+			     unsigned long page_size)
+{
+	pte->allocated = 1;
+	pte->valid = 0;
+}
+
+/*
+ * Called during legomem_alloc.
+ *
  * Update the PTEs that [start, start+len] mapped to.
  * We will mark the PTEs as Allocated, so the page fault handler
  * can know whether a certain VA was allocated by checking this bit
@@ -47,9 +95,26 @@ void free_fpga_pte_range(struct proc_info *proc,
  */
 void alloc_fpga_pte_range(struct proc_info *pi,
 			  unsigned long start, unsigned long end,
-			  unsigned long vm_flags)
+			  unsigned long vm_flags, unsigned long page_size)
 {
+	struct lego_mem_pte *pgtable, *pte;
 
+	pgtable = (struct lego_mem_pte *)pi->pgtable;
+
+	while (start < end) {
+		pte = addr_to_pte(pgtable, start, page_size);
+		alloc_pte(pte, page_size);
+		start += page_size;
+	}
+}
+
+/*
+ * Called when a new process is created.
+ * We need to prepare the pagetable for it.
+ */
+void setup_proc_fpga_pgtable(struct proc_info *pi)
+{
+	pi->pgtable = devmem_pgtable_base;
 }
 
 /*
@@ -84,13 +149,4 @@ void init_fpga_pgtable(void)
 		devmem_fd, (unsigned long)devmem_pgtable_base,
 		(unsigned long)devmem_pgtable_base + FPGA_DRAM_PGTABLE_SIZE,
 		FPGA_DRAM_PGTABLE_BASE, FPGA_DRAM_PGTABLE_BASE + FPGA_DRAM_PGTABLE_SIZE);
-}
-
-/*
- * Called when a new process is created.
- * We need to prepare the pagetable for it.
- */
-void setup_proc_fpga_pgtable(struct proc_info *pi)
-{
-	printf("TODO\n");
 }

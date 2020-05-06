@@ -761,7 +761,7 @@ static void unmap_single_vma(struct proc_info *proc, struct vm_area_struct *vma,
 		return;
 
 	if (start != end)
-		free_fpga_pte_range(proc, start, end);
+		free_fpga_pte_range(proc, start, end, PAGE_SIZE);
 }
 
 static void unmap_region(struct proc_info *proc,
@@ -1179,7 +1179,7 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	if (IS_ERR_VALUE(addr))
 		return addr;
 
-	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags);
+	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags, PAGE_SIZE);
 	return addr;
 }
 
