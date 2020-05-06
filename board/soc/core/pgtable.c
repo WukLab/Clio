@@ -66,6 +66,7 @@ void free_fpga_pte_range(struct proc_info *pi,
 			 unsigned long start, unsigned long end,
 			 unsigned long page_size)
 {
+#if 0
 	struct lego_mem_pte *pgtable, *pte;
 
 	pgtable = (struct lego_mem_pte *)pi->pgtable;
@@ -75,6 +76,7 @@ void free_fpga_pte_range(struct proc_info *pi,
 		zap_pte(pte, page_size);
 		start += page_size;
 	}
+#endif
 }
 
 static inline void alloc_pte(struct lego_mem_pte *pte,
@@ -97,6 +99,7 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 			  unsigned long start, unsigned long end,
 			  unsigned long vm_flags, unsigned long page_size)
 {
+#if 0
 	struct lego_mem_pte *pgtable, *pte;
 
 	pgtable = (struct lego_mem_pte *)pi->pgtable;
@@ -106,6 +109,7 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 		alloc_pte(pte, page_size);
 		start += page_size;
 	}
+#endif
 }
 
 /*

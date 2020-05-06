@@ -23,6 +23,7 @@ void test_buddy(void)
 	double diff_ns;
 
 	nr_pages = (fpga_mem_end - fpga_mem_start) >> PAGE_SHIFT;
+	nr_pages >>= 1;
 
 	dprintf_INFO("NR_PAGES: %lu\n", nr_pages);
 

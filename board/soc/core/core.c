@@ -612,7 +612,10 @@ int main(int argc, char **argv)
 	int i;
 
 	gather_sysinfo();
-	init_fpga_pgtable();
+
+#if 0
+	test_vm();
+#endif
 
 	ret = init_dma();
 	if (ret) {
@@ -621,10 +624,14 @@ int main(int argc, char **argv)
 	}
 
 	/*
-	 * Init buddy allocator for FPGA physical memory.
-	 * Also launch a polling thread for freepage FIFOs.
+	 * Memory-map the FPGA physical DRAM
+	 * The trick is in the SoC bus address map.
 	 */
-	init_page_alloc();
+	init_fpga_pgtable();
+
+	/* Init buddy allocator for FPGA physical memory. */
+	init_buddy();
+
 	init_freepage_fifo();
 
 	/*

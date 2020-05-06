@@ -355,7 +355,7 @@ void dump_buddy(void)
 unsigned long fpga_mem_start = PAGE_SIZE;
 unsigned long fpga_mem_end = 1024 * 1024 * 1024;
 
-int init_page_alloc(void)
+int init_buddy(void)
 {
 	struct fpga_zone *zone;
 	int i, nr_pages;
