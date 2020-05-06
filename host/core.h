@@ -412,6 +412,12 @@ unsigned long __remote
 legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags);
 int legomem_free(struct legomem_context *ctx,
 		 unsigned long __remote addr, size_t size);
+int legomem_read(struct legomem_context *ctx, void *buf,
+		 unsigned long __remote addr, size_t size);
+int legomem_write_sync(struct legomem_context *ctx, void *buf,
+		       unsigned long __remote addr, size_t size);
+int legomem_write_async(struct legomem_context *ctx, void *buf,
+			unsigned long __remote addr, size_t size);
 int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 		      unsigned long __remote addr, unsigned long size);
 
@@ -460,6 +466,7 @@ int test_rel_net_mgmt(char *);
 int test_rel_net_normal(char *);
 int test_legomem_context(char *);
 int test_legomem_alloc_free(char *);
+int test_legomem_read_write(char *);
 int test_legomem_soc(char *);
 int test_pingpong_soc(char *board_ip_port_str);
 

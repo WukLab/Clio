@@ -13,7 +13,8 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rel_net_normal.c \
 	     $(TP)/test_board.c \
 	     $(TP)/test_soc.c \
-	     $(TP)/test_pingpong_soc.c
+	     $(TP)/test_pingpong_soc.c \
+	     $(TP)/test_read_write.c
 
 # Board emulator files linked to soc files
 BP := board_emulator
