@@ -76,4 +76,7 @@ int parse_ip_str(const char *ip_str);
 
 int init_freepage_fifo(void);
 
+/* Test */
+void test_buddy(void);
+
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

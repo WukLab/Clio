@@ -393,7 +393,12 @@ int init_page_alloc(void)
 	dprintf_INFO("Buddy managing [%#018lx-%#018lx] Page Size %lu KB\n",
 		fpga_mem_start, fpga_mem_end,
 		PAGE_SIZE >> 10);
+
 	dump_buddy();
+
+#if 0
+	test_buddy();
+#endif 
 
 	return 0;
 }
