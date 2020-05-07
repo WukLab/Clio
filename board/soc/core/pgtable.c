@@ -7,55 +7,76 @@
 #include <uapi/vregion.h>
 #include <uapi/sched.h>
 #include <uapi/rbtree.h>
+#include <uapi/opcode.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <limits.h>
-#include <fpga/lego_mem_ctrl.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <fpga/lego_mem_ctrl.h>
+#include <fpga/pgtable.h>
 
 #include "core.h"
 #include "pgtable.h"
 
-/*
- * This is the BUS address for the pgtable in DRAM.
- */
-#define FPGA_DRAM_PGTABLE_BASE	(0x550000000UL)
-#define FPGA_DRAM_PGTABLE_SIZE	(0x10000UL)
 int devmem_fd;
 void *devmem_pgtable_base;
+void *devmem_pgtable_limit;
 
-// TODO Zhiyuan
-static __always_inline struct lego_mem_pte *
-addr_to_pte(struct lego_mem_pte *pgtable,
-	    unsigned long addr, unsigned long page_size)
+static inline struct lego_mem_pte *
+shadow_to_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte)
 {
-	return NULL;
+	unsigned long offset;
+	struct lego_mem_pte *fpga_pte;
+
+	offset = (unsigned long)soc_shadow_pte - (unsigned long)pi->soc_shadow_pgtable;
+	if (unlikely(offset >= FPGA_DRAM_PGTABLE_SIZE)) {
+		dprintf_ERROR("offset: %#lx max: %#lx\n",
+			offset, FPGA_DRAM_PGTABLE_SIZE);
+		return NULL;
+	}
+	fpga_pte = (struct lego_mem_pte *)((unsigned long)(pi->fpga_pgtable) + offset);
+	return fpga_pte;
 }
 
-static void zap_pte(struct lego_mem_pte *pte,
-		    unsigned long page_size)
+/* Free a PTE entry */
+static void zap_pte(struct proc_info *pi, 
+		    struct lego_mem_pte *soc_shadow_pte, unsigned long page_size)
 {
-	unsigned long phys;
+	unsigned long phys = 0;
 	int order;
+	struct lego_mem_pte *fpga_pte;
 
-	if (unlikely(!pte->allocated)) {
-		dprintf_ERROR("pte %#lx invalid\n",
-			(unsigned long)pte);
+	fpga_pte = shadow_to_fpga_pte(pi, soc_shadow_pte);
+	if (!fpga_pte)
+		return;
+
+	if (unlikely(!fpga_pte->allocated)) {
+		dprintf_ERROR("fpga pte %#lx invalid\n",
+			(unsigned long)fpga_pte);
 		return;
 	}
 
-	if (pte->valid) {
-		phys = pte->ppa;
+	/*
+	 * Valid means a page fault has ocurred on this page,
+	 * thus we need to free its physical page.
+	 */
+	if (fpga_pte->valid) {
+		phys = fpga_pte->ppa;
 		order = get_order(page_size);
 		free_pfn(PHYS_PFN(phys), order);
 
-		pte->allocated = 0;
-		pte->valid = 0;
+		fpga_pte->valid = 0;
 	}
+	fpga_pte->allocated = 0;
+	fpga_pte->tag = 0;
+
+#if 1
+	dprintf_DEBUG("fpga PTE (%#lx): pa=%#lx\n", (u64)fpga_pte, phys);
+#endif
 }
 
 /*
@@ -66,24 +87,66 @@ void free_fpga_pte_range(struct proc_info *pi,
 			 unsigned long start, unsigned long end,
 			 unsigned long page_size)
 {
-#if 0
-	struct lego_mem_pte *pgtable, *pte;
+	struct lego_mem_pte *pte;
 
-	pgtable = (struct lego_mem_pte *)pi->pgtable;
+	for ( ; start < end; start += page_size) {
+		pte = addr_to_shadow_pte(pi, start, PAGE_SHIFT);
+		if (!pte) {
+			dprintf_ERROR("addr %#lx PTE cannot find. "
+				      "It should have been setup by alloc. "
+				      "Somebody caused memory corruption. \n", start);
+			continue;
+		}
 
-	while (start < end) {
-		pte = addr_to_pte(pgtable, start, page_size);
-		zap_pte(pte, page_size);
-		start += page_size;
+		zap_shadow_pte(pte);
+		zap_pte(pi, pte, page_size);
 	}
-#endif
 }
 
-static inline void alloc_pte(struct lego_mem_pte *pte,
-			     unsigned long page_size)
+static inline struct lego_mem_pte *
+alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
+		   unsigned long addr, unsigned long vm_flags, unsigned long page_size)
 {
-	pte->allocated = 1;
-	pte->valid = 0;
+	struct lego_mem_pte *fpga_pte;
+	unsigned long pfn = 0;
+	int order;
+
+	fpga_pte = shadow_to_fpga_pte(pi, soc_shadow_pte);
+	if (!fpga_pte)
+		return NULL;
+
+	if (unlikely(fpga_pte->allocated)) {
+		dprintf_ERROR("fpga pte was allocated. pte %#lx\n",
+			(unsigned long)fpga_pte);
+		return NULL;
+	}
+
+	fpga_pte->allocated = 1;
+	fpga_pte->tag = soc_shadow_pte->tag;
+
+	/*
+	 * Did user ask to pre-populate PTEs
+	 * to avoid further pgfaults?
+	 */
+	if (vm_flags & LEGOMEM_VM_FLAGS_POPULATE) {
+		order = get_order(page_size);
+		pfn = alloc_pfn(order);
+		if (!pfn) {
+			dprintf_ERROR("User asked to prepopulate pgtables. \n"
+				      "But we are running out of memory! %d\n", 0);
+		} else {
+			fpga_pte->ppa = PFN_PHYS(pfn);
+		}
+		fpga_pte->valid = 1;
+	} else
+		fpga_pte->valid = 0;
+
+#if 1
+	dprintf_DEBUG("fpga PTE (%#lx): pa=%#lx (buddy_pfn=%#lx) tag=%#lx allocated=%d\n",
+		(u64)fpga_pte,
+		(u64)fpga_pte->ppa, pfn, fpga_pte->tag, fpga_pte->allocated);
+#endif
+	return fpga_pte;
 }
 
 /*
@@ -99,17 +162,56 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 			  unsigned long start, unsigned long end,
 			  unsigned long vm_flags, unsigned long page_size)
 {
-#if 0
-	struct lego_mem_pte *pgtable, *pte;
+	struct lego_mem_pte *pte;
 
-	pgtable = (struct lego_mem_pte *)pi->pgtable;
+	// XXX
+	vm_flags = LEGOMEM_VM_FLAGS_POPULATE;
 
-	while (start < end) {
-		pte = addr_to_pte(pgtable, start, page_size);
-		alloc_pte(pte, page_size);
-		start += page_size;
+	dprintf_DEBUG("pid: %u [%#lx - %#lx] vm_flags: %#lx\n",
+		pi->pid, start, end, vm_flags);
+
+	for ( ; start < end; start += page_size) {
+		/*
+		 * We will find a free slot from the SoC shadow copy
+		 * Once found one, we will set the corresponding PTE in FPGA DRAM.
+		 */
+		pte = alloc_one_shadow_pte(pi, start, PAGE_SHIFT);
+		if (!pte) {
+			dprintf_ERROR("Fail to alloc shadow PTE. adddr%#lx\n", start);
+			continue;
+		}
+
+		alloc_one_fpga_pte(pi, pte, start, vm_flags, page_size);
 	}
-#endif
+}
+
+void handle_test_pte(struct thpool_buffer *tb)
+{
+	struct legomem_test_pte *rx;
+	struct op_test_pte *op;
+	struct legomem_common_headers *tx;
+	struct proc_info *pi;
+	pid_t pid;
+
+	rx = (struct legomem_test_pte *)tb->rx;
+	op = &rx->op;
+	tx = (struct legomem_common_headers *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*tx));
+
+	/* Create one for testing */
+	pid = op->pid;
+	pi = alloc_proc(pid, NULL, 0);
+	dump_procs();
+
+	dprintf_INFO("PTE TEST pid %u op: %s [%#lx - %#lx]\n",
+		op->pid,
+		op->op == OP_TEST_PTE_ALLOC ? "alloc" : "free",
+		op->start, op->end);
+
+	if (op->op == OP_TEST_PTE_ALLOC)
+		alloc_fpga_pte_range(pi, op->start, op->end, 0, PAGE_SIZE);
+	else
+		free_fpga_pte_range(pi, op->start, op->end, PAGE_SIZE);
 }
 
 /*
@@ -118,7 +220,11 @@ void alloc_fpga_pte_range(struct proc_info *pi,
  */
 void setup_proc_fpga_pgtable(struct proc_info *pi)
 {
-	pi->pgtable = devmem_pgtable_base;
+	pi->fpga_pgtable = devmem_pgtable_base;
+	pi->soc_shadow_pgtable = soc_shadow_pgtable;
+
+	dprintf_DEBUG("Setup pid: %u fpga_pgtable: %#lx soc_shadow_pgtable: %#lx\n",
+		pi->pid, (u64)pi->fpga_pgtable, (u64)pi->soc_shadow_pgtable);
 }
 
 /*
@@ -149,8 +255,38 @@ void init_fpga_pgtable(void)
 		exit(1);
 	}
 
-	dprintf_INFO("/dev/mem fd=%d, VA[%#lx - %#lx] -> PA[%#lx - %#lx]\n",
-		devmem_fd, (unsigned long)devmem_pgtable_base,
-		(unsigned long)devmem_pgtable_base + FPGA_DRAM_PGTABLE_SIZE,
+	soc_shadow_pgtable = malloc(FPGA_DRAM_PGTABLE_SIZE);
+	if (!soc_shadow_pgtable) {
+		dprintf_ERROR("Fail to alloc shadow page table %d\n", errno);
+		exit(1);
+	}
+
+#if 1
+	test_pgtable_access();
+#endif
+
+	/*
+	 * Reset both hashtables to avoid
+	 * garbage values. Also. memset does not work. :/
+	 */
+#if 0
+	memset((void *)devmem_pgtable_base, 0, FPGA_DRAM_PGTABLE_SIZE);
+#else
+	unsigned long *ptr = devmem_pgtable_base;
+	while (ptr < (unsigned long *)devmem_pgtable_limit)
+		*ptr++ = 0;
+#endif
+	memset((void *)soc_shadow_pgtable, 0, FPGA_DRAM_PGTABLE_SIZE);
+
+	devmem_pgtable_limit = devmem_pgtable_base + FPGA_DRAM_PGTABLE_SIZE;
+
+	dprintf_INFO("/dev/mem fd=%d\n", devmem_fd);
+
+	dprintf_INFO("FPGA pgtable VA[%#lx - %#lx] -> PA[%#lx - %#lx]\n",
+		(unsigned long)devmem_pgtable_base, (unsigned long)devmem_pgtable_limit,
 		FPGA_DRAM_PGTABLE_BASE, FPGA_DRAM_PGTABLE_BASE + FPGA_DRAM_PGTABLE_SIZE);
+
+	dprintf_INFO("Shadow pgtable VA[%#lx - %#lx]\n",
+		(unsigned long)soc_shadow_pgtable,
+		(unsigned long)(soc_shadow_pgtable + FPGA_DRAM_PGTABLE_SIZE));
 }

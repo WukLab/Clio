@@ -217,6 +217,11 @@ struct test_option test_options[] = {
 		.desc	= "test legomem_read/write (monitor required)",
 		.func	= test_legomem_read_write,
 	},
+	{
+		.name	= "test_pte",
+		.desc	= "test legomem pte directly",
+		.func	= test_legomem_pte,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)

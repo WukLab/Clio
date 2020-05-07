@@ -110,7 +110,7 @@ static void *thread_func_read(void *_ti)
 	return NULL;
 }
 
-static void *thread_func_write(void *_ti)
+__used static void *thread_func_write(void *_ti)
 {
 	unsigned long __remote addr;
 	unsigned long size;

@@ -14,6 +14,7 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_board.c \
 	     $(TP)/test_soc.c \
 	     $(TP)/test_pingpong_soc.c \
+	     $(TP)/test_legomem_pte.c \
 	     $(TP)/test_read_write.c
 
 # Board emulator files linked to soc files
@@ -66,7 +67,7 @@ DEBUG := -g
 all: $(SRCS) 
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(TEST_SRCS) $(CLIBS)
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
-	gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(BOARD_SRCS) $(CLIBS)
+	#gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(BOARD_SRCS) $(CLIBS)
 
 clean:
 	rm *.o

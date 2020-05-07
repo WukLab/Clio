@@ -57,6 +57,7 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	S(OP_REQ_FPGA_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG_RESP);
+	S(OP_REQ_TEST_PTE);
 	default:				return "unknown";
 	};
 	return NULL;
@@ -94,6 +95,9 @@ struct op_membership_new_node {
 	char name[BOARD_NAME_LEN];
 	struct endpoint_info ei;
 } __packed;
+
+#define LEGOMEM_VM_FLAGS_WRITE		(0x1)
+#define LEGOMEM_VM_FLAGS_POPULATE	(0x2)
 
 struct op_alloc_free {
 	unsigned long	addr;
@@ -300,5 +304,21 @@ static inline size_t legomem_query_stat_resp_size(void)
 	return sizeof(struct legomem_query_stat_resp) +
 	       (NR_STAT_TYPES - 1) * sizeof(unsigned long);
 }
+
+/*
+ * TEST PTE
+ */
+#define OP_TEST_PTE_ALLOC	(0)
+#define OP_TEST_PTE_FREE	(1)
+struct op_test_pte {
+	int op;
+	pid_t pid;
+	unsigned long start;
+	unsigned long end;
+};
+struct legomem_test_pte {
+	struct legomem_common_headers comm_headers;
+	struct op_test_pte op;
+};
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

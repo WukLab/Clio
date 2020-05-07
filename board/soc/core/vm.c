@@ -18,6 +18,7 @@
 #include <limits.h>
 
 #include "core.h"
+#include "pgtable.h"
 
 #define VM_WARN_ON(cond)                                                       \
 	do {                                                                   \

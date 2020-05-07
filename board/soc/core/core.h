@@ -8,9 +8,9 @@
 #include <uapi/sched.h>
 #include <uapi/thpool.h>
 #include <fpga/zynq_regmap.h>
+#include <fpga/lego_mem_ctrl.h>
 #include "external.h"
 #include "buddy.h"
-#include "pgtable.h"
 
 #if 0
 # define LEGOMEM_DEBUG
@@ -75,8 +75,11 @@ int parse_ip_str(const char *ip_str);
 
 int init_freepage_fifo(void);
 
+void handle_test_pte(struct thpool_buffer *tb);
+
 /* Test */
 void test_buddy(void);
 void test_vm(void);
+void test_pgtable_access(void);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

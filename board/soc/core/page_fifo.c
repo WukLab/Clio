@@ -65,14 +65,14 @@ struct fifo_info freepage_fifos[] = {
 	[2] = {
 		.flags		= 1,
 		.depth		= FREEPAGE_FIFO_DEPTH,
-		.addr		= 0,
+		.addr		= 1,
 	},
 
 	/* 128MB, order 6 */
 	[6] = {
 		.flags		= 1,
 		.depth		= FREEPAGE_FIFO_DEPTH,
-		.addr		= 0,
+		.addr		= 2,
 	},
 };
 
@@ -109,6 +109,9 @@ static __always_inline
 void prepare_send_ctrl(struct lego_mem_ctrl *ctrl, struct fifo_info *fi,
 		       unsigned long new_pa)
 {
+#define FPGA_STORAGE_BASE_ADDRESS (540000000UL)
+	new_pa = new_pa + FPGA_STORAGE_BASE_ADDRESS;
+
 	/* 40bit for physical address */ 
 	ctrl->param32 = new_pa & 0xFFFFFFFF;
 	ctrl->param8 = (new_pa >> 32) & 0xFF;
@@ -162,7 +165,7 @@ static void *ctrl_poll_func(void *_unused)
 		while (dma_ctrl_recv_blocking(ctrl_recv_buf, CTRL_BUFFER_SIZE) < 0)
 			;
 
-		dprintf_DEBUG("Get one. addr %#lx\n", ctrl_recv_buf->addr);
+		dprintf_DEBUG("Get one. addr %#lx\n", (unsigned long)(ctrl_recv_buf->addr));
 		handle_ctrl_freepage_ack(ctrl_recv_buf, ctrl_send_buf);
 	}
 	return NULL;

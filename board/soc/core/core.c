@@ -24,6 +24,7 @@
 
 #include "dma.h"
 #include "core.h"
+#include "pgtable.h"
 
 #if 0
 #define CONFIG_DEBUG_SOC
@@ -163,11 +164,6 @@ static void handle_create_proc(struct thpool_buffer *tb)
 		resp->op.ret = -ENOMEM;
 		return;
 	} 
-
-	/*
-	 * Prepare the per-process pgtables
-	 */
-	setup_proc_fpga_pgtable(pi);
 
 	/* Success */
 	resp->op.ret = 0;
@@ -400,6 +396,9 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		break;
 	case OP_REQ_MEMBERSHIP_NEW_NODE:
 		handle_new_node(tb);
+		break;
+	case OP_REQ_TEST_PTE:
+		handle_test_pte(tb);
 		break;
 	default:
 		if (1) {

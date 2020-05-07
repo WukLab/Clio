@@ -27,7 +27,6 @@ void test_buddy(void)
 
 	dprintf_INFO("NR_PAGES: %lu\n", nr_pages);
 
-
 	clock_gettime(CLOCK_MONOTONIC, &s);
 	for (i = 0; i < nr_pages; i++) {
 		page = alloc_page(0);

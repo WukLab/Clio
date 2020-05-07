@@ -17,6 +17,7 @@
 #include <pthread.h>
 
 #include "core.h"
+#include "pgtable.h"
 
 /*
  * For each board, the valid process address spaces are linked
@@ -90,6 +91,8 @@ alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 	}
 	hash_add(proc_hash_array, &new->link, key);
 	pthread_spin_unlock(&proc_lock);
+
+	setup_proc_fpga_pgtable(new);
 
 	dprintf_DEBUG("alloc proc_info for PID=%d\n", pid);
 	return new;

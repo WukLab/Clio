@@ -241,7 +241,13 @@ struct vregion_info {
 struct proc_info {
 	unsigned long		flags;
 
-	void 			*pgtable;
+	/*
+	 * Used by SoC code only
+	 * fpga_pgtable points to the real pgtbale in FPGA
+	 * soc_shadow_pgtable points the shadow copy in DRAM
+	 */
+	void 			*fpga_pgtable;
+	void			*soc_shadow_pgtable;
 
 	/*
 	 * For hashtable usage

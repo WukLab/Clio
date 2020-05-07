@@ -20,8 +20,8 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1000
-static int test_size[] = { 64*OneM };
+#define NR_RUN_PER_THREAD 1
+static int test_size[] = { 8*OneM };
 static int test_nr_threads[] = { 1 };
 
 static double latency_alloc_ns[NR_MAX][NR_MAX];
