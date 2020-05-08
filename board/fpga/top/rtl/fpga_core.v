@@ -91,11 +91,11 @@ module fpga_core (
     /*
      * identity info
      */
-    input  wire [31:0]  local_ip
+    input  wire [31:0]  local_ip,
+    input  wire [47:0]  local_mac
 );
 
 // Configuration
-wire [47:0] local_mac   = 48'he4_1d_2d_b2_00_34;
 //wire [31:0] local_ip    = {8'd192, 8'd168, 8'd1,   8'd128};
 wire [31:0] gateway_ip  = {8'd192, 8'd168, 8'd1,   8'd1};
 wire [31:0] subnet_mask = {8'd255, 8'd255, 8'd255, 8'd0};
@@ -523,19 +523,20 @@ udp_complete_inst (
  * src ip at lowest position
  */
 assign m_udp_hdr_data = {
-	rx_udp_length,
-	rx_udp_dest_port,
-	rx_udp_source_port,
-	rx_udp_ip_dest_ip,
-	rx_udp_ip_source_ip
+    rx_udp_length,
+    rx_udp_dest_port,
+    rx_udp_source_port,
+    rx_udp_ip_dest_ip,
+    rx_udp_ip_source_ip
 };
 // bundle output UDP header info
 assign {
-	tx_udp_length,
-	tx_udp_dest_port,
-	tx_udp_source_port,
-	tx_udp_ip_dest_ip,
-	tx_udp_ip_source_ip
+    tx_udp_length,
+    tx_udp_dest_port,
+    tx_udp_source_port,
+    tx_udp_ip_dest_ip,
+    tx_udp_ip_source_ip
 } = s_udp_hdr_data;
 
 endmodule
+

@@ -32,6 +32,43 @@
 
 void *soc_shadow_pgtable;
 
+struct conflict_vma conflict_vmas[FPGA_NUM_PGTABLE_BUCKETS];
+
+static inline struct conflict_vma *to_conflict_vma_head(int index)
+{
+	BUG_ON(index >= FPGA_NUM_PGTABLE_BUCKETS);
+	return &conflict_vmas[index];
+}
+
+int add_conflict_vma(int bkt_index, struct vm_area_struct *vma)
+{
+	struct conflict_vma *cv;
+
+	cv = to_conflict_vma_head(bkt_index);
+
+	pthread_spin_lock(&cv->lock);
+	list_add(&vma->conflict_list, &cv->head);
+	pthread_spin_unlock(&cv->lock);
+
+	return 0;
+}
+
+void remove_all_conflict_vmas(int bkt_index)
+{
+	struct conflict_vma *cv;
+	struct vm_area_struct *vma;
+
+	cv = to_conflict_vma_head(bkt_index);
+
+	pthread_spin_lock(&cv->lock);
+	while (!list_empty(&cv->head)) {
+		vma = list_entry(cv->head.next, struct vm_area_struct, conflict_list);
+		list_del(&vma->conflict_list);
+		cv->nr--;
+	}
+	pthread_spin_unlock(&cv->lock);
+}
+
 /*
  * It's a shadow copy, thus the same offset.
  * We first calculate the offset of @fpga_pte from fpga table base,
@@ -40,17 +77,17 @@ void *soc_shadow_pgtable;
 static inline struct lego_mem_pte *
 to_soc_shadow_pte(struct proc_info *pi, struct lego_mem_pte *fpga_pte)
 {
-	unsigned long offset;
+	u64 offset;
 	struct lego_mem_pte *soc_shadow_pte;
 
-	offset = (unsigned long)fpga_pte - (unsigned long)(pi->fpga_pgtable);
+	offset = (u64)fpga_pte - (u64)(pi->fpga_pgtable);
 	if (unlikely(offset >= FPGA_DRAM_PGTABLE_SIZE)) {
 		dprintf_ERROR("offset: %#lx max: %#lx\n",
 			offset, FPGA_DRAM_PGTABLE_SIZE);
 		return NULL;
 	}
 
-	soc_shadow_pte = (struct lego_mem_pte *)((unsigned long)(pi->soc_shadow_pgtable) + offset);
+	soc_shadow_pte = (struct lego_mem_pte *)((u64)(pi->soc_shadow_pgtable) + offset);
 	return soc_shadow_pte;
 }
 
@@ -105,4 +142,17 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 		return pte;
 	}
 	return NULL;
+}
+
+int init_shadow_pgtable(void)
+{
+	int i;
+	struct conflict_vma *cv;
+
+	for (i = 0; i < FPGA_NUM_PGTABLE_BUCKETS; i++) {
+		cv = to_conflict_vma_head(i);
+		pthread_spin_init(&cv->lock, PTHREAD_PROCESS_PRIVATE);
+	}
+
+	return 0;
 }

@@ -247,6 +247,6 @@ set obj [get_filesets utils_1]
 # Set 'utils_1' fileset properties
 set obj [get_filesets utils_1]
 
-source scripts/bd_legomem.tcl
+source scripts/legomem_system.tcl
 
 exit

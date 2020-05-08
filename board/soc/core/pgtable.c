@@ -135,14 +135,29 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 			dprintf_ERROR("User asked to prepopulate pgtables. \n"
 				      "But we are running out of memory! %d\n", 0);
 		} else {
-			fpga_pte->ppa = PFN_PHYS(pfn);
+			unsigned long ppa = PFN_PHYS(pfn) + 0x500000000UL;
+			fpga_pte->ppa = ppa;
 		}
 		fpga_pte->valid = 1;
+
+
+		// XXX temp
+		char *p = mmap(0, 1<<22,
+				  PROT_READ | PROT_WRITE,
+				   MAP_SHARED, devmem_fd,
+				   PFN_PHYS(pfn) + 0x500000000);
+
+		dprintf_INFO("page pfn %#lx mapped at %#lx\n",
+			pfn, (u64)p);
+		for (int i = 0; i < 200; i++) {
+			p[i] = i;
+		}
+		munmap(p, page_size);
 	} else
 		fpga_pte->valid = 0;
 
 #if 1
-	dprintf_DEBUG("fpga PTE (%#lx): pa=%#lx (buddy_pfn=%#lx) tag=%#lx allocated=%d\n",
+	dprintf_DEBUG("!fpga PTE (%#lx): pa=%#lx (buddy_pfn=%#lx) tag=%#lx allocated=%d\n",
 		(u64)fpga_pte,
 		(u64)fpga_pte->ppa, pfn, fpga_pte->tag, fpga_pte->allocated);
 #endif

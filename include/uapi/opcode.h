@@ -136,7 +136,8 @@ struct op_read_write {
 } __packed;
 
 struct op_read_write_ret {
-	unsigned char		ret;
+	unsigned long __remote	va;
+	unsigned long		size;
 
 	/* Hold read read, variable length */
 	char			data[0];

@@ -5,6 +5,7 @@
 #define _PGTABLE_H_
 
 #include <uapi/sched.h>
+#include <uapi/list.h>
 #include <uapi/thpool.h>
 #include <fpga/pgtable.h>
 #include <fpga/lego_mem_ctrl.h>
@@ -17,6 +18,8 @@
  */
 #define FPGA_DRAM_PGTABLE_BASE	(0x520000000UL)
 #define FPGA_DRAM_PGTABLE_SIZE	(0x1000000UL)
+
+#define FPGA_TAG_OFFSET (20)
 
 extern int devmem_fd;
 extern void *devmem_pgtable_base;
@@ -87,8 +90,10 @@ addr_to_bucket(struct lego_mem_pte *pgtable_base_addr,
 static inline unsigned long
 generate_tag(pid_t pid, unsigned long va)
 {
-	return ((unsigned long)(pid & 0xFFFF) << (64 - FPGA_TAG_OFFSET)) &
-		(va >> FPGA_TAG_OFFSET);
+	unsigned long tag = ((unsigned long)(pid & 0xFFFF) << (64 - FPGA_TAG_OFFSET)) |
+			(va >> FPGA_TAG_OFFSET);
+	dprintf_DEBUG("Calculate Tag %#lx with addr:%#lx pid %#x offset: %d\n", tag, va, pid, FPGA_TAG_OFFSET);
+	return tag;
 }
 
 static inline struct lego_mem_pte *
@@ -134,5 +139,16 @@ addr_to_shadow_pte(struct proc_info *pi, unsigned long addr,
 	}
 	return NULL;
 }
+
+struct conflict_info {
+	unsigned long start, end;
+	struct proc_info *pi;
+};
+
+struct conflict_vma {
+	struct list_head head;
+	pthread_spinlock_t lock;
+	int nr;
+};
 
 #endif /* _PGTABLE_H_ */

@@ -486,6 +486,9 @@ assign led[0] = sfp_1_rx_block_lock;
 assign led[1] = sfp_2_rx_block_lock;
 assign led[7:2] = led_int[5:0];
 
+wire [31:0]    config_ip;
+wire [63:0]    config_mac;
+
 fpga_core core_inst (
     /*
      * Clock: 156.25 MHz
@@ -537,10 +540,11 @@ fpga_core core_inst (
     .s_udp_payload_axis_tkeep   (s_udp_payload_axis_tkeep),
     .s_udp_payload_axis_tuser   (s_udp_payload_axis_tuser),
 
-    .local_ip({8'd192, 8'd168, 8'd1,   8'd133})
+    .local_ip                   (config_ip),
+    .local_mac                  (config_mac[47:0])
 );
 
-top_legomem legomem_system_i (
+legomem_system legomem_system_i (
 
     // network interface
     .rel_net_clk            (clk_156mhz_int),
@@ -589,18 +593,12 @@ top_legomem legomem_system_i (
     .ddr4_sdram_dqs_t(ddr4_sdram_dqs_t),
     .ddr4_sdram_odt(ddr4_sdram_odt),
     .ddr4_sdram_reset_n(ddr4_sdram_reset_n),
-
-    // debug interface
-    .debugCounter(),
-    .debugTimeStamps_0(),
-    .debugTimeStamps_1(),
-    .debugTimeStamps_2(),
-    .debugTimeStamps_3(),
-    .debugTimeStamps_4(),
-    .debugTimeStamps_5(),
-    .debugTimeStamps_6(),
-    .debugTimeStamps_7()
+    
+    // Monitor Interface
+    .monitor_config_ip(config_ip),
+    .monitor_config_mac(config_mac)
 );
 
 
 endmodule
+

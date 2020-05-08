@@ -379,6 +379,12 @@ struct vm_area_struct {
 	/* Second cache line */
 	struct vregion_info *vi;
 	unsigned long vm_flags;
+
+	/*
+	 * Used by shadow pgtables
+	 * to chain all the conflicting VMAs..
+	 */
+	struct list_head conflict_list;
 };
 
 static inline unsigned long __remote

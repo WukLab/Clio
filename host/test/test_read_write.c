@@ -20,8 +20,8 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1000
-static int test_size[] = { 64*OneM };
+#define NR_RUN_PER_THREAD 1
+static int test_size[] = { 512 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -73,11 +73,30 @@ static void *thread_func_read(void *_ti)
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
 
-		addr = legomem_alloc(ctx, size, 0);
+		addr = legomem_alloc(ctx, 16 * OneM, 0);
 		if (unlikely(addr == 0)) {
 			dprintf_ERROR("thread id %d failed at alloc\n", ti->id);
 			break;
 		}
+		dprintf_INFO("Remote region [%#lx - %#lx]\n", addr, addr + size);
+
+		for (i = 0; i < size; i++) {
+			char *p = buf + i;
+			*p = i % 255;
+		}
+
+#if 0
+		/* Run bunch sync write */
+		ret = legomem_write_sync(ctx, buf, addr, size);
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR(
+				"thread id %d fail at %d, error code %d\n",
+				ti->id, j, ret);
+			break;
+		}
+
+		memset(buf, 0, size);
+#endif
 
 		/* Run bunch read */
 		clock_gettime(CLOCK_MONOTONIC, &s);
@@ -91,6 +110,13 @@ static void *thread_func_read(void *_ti)
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
+
+		for (i = 0; i < 100; i++) {
+			char *p = buf + i;
+			
+			printf("%x ", *p);
+		}
+		printf("\n");
 
 		if (addr)
 			legomem_free(ctx, addr, size);
