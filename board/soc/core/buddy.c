@@ -14,6 +14,7 @@
 #include <uapi/thpool.h>
 #include <uapi/lego_mem.h>
 #include <fpga/lego_mem_ctrl.h>
+#include <fpga/fpga_memory_map.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -351,9 +352,14 @@ void dump_buddy(void)
  * we can support up to 2^40, or 1TB physical address range.
  *
  * This can be tuned.
+ *
+ * Current legomem memory map (include/fpga/fpga_memory_map.h):
+ * 0-512M -> network cache
+ * 512M - 1G -> pgtable
+ * 1G - 2G -> data (buddy managed)
  */
-unsigned long fpga_mem_start = PAGE_SIZE;
-unsigned long fpga_mem_end = 1024 * 1024 * 1024;
+unsigned long fpga_mem_start = FPGA_MEMORY_MAP_DATA_START;
+unsigned long fpga_mem_end = FPGA_MEMORY_MAP_DATA_END;
 
 int init_buddy(void)
 {
