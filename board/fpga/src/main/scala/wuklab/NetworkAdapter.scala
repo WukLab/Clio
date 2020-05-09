@@ -2,7 +2,6 @@ package wuklab
 
 import spinal.core._
 import spinal.lib._
-
 import Utils._
 
 // TODO: use shapeless to define conversions
@@ -15,6 +14,16 @@ trait BitsInterface {
   def packedWidth : Int
   def asPackedBits : Bits
   def fromPackedBits(bits : Bits) : Unit
+}
+
+case class ControllerIO() extends Bundle with IMasterSlave {
+  val in  = Stream (ControlRequest())
+  val out = Stream (ControlRequest())
+
+  override def asMaster(): Unit = {
+    master (in)
+    slave  (out)
+  }
 }
 
 // TODO: finish this
@@ -127,8 +136,7 @@ class NetworkStorageAdapter extends Component {
 class NetworkAdapter extends Component {
 
   // Will record the incoming IP and do the trick
-  val currentIp   = Reg (UInt(32 bits)) init 0
-  val currentPort = Reg (UInt(16 bits)) init 0
+  val currentIp   = U"32'h0"
 
   val io = new Bundle {
     val net = NetworkInterface()
@@ -144,13 +152,13 @@ class NetworkAdapter extends Component {
     val (data, header) = StreamFork2(io.seq.dataIn)
 
     // Lookup the header
-    io.net.parsed.udpHeaderOut.translateFrom (header) { (header, bits) =>
+    io.net.parsed.udpHeaderOut.translateFrom (header.takeWhen(header.first)) { (header, bits) =>
       val memHeader = LegoMemHeader(bits.fragment)
       header.length := memHeader.size
       header.ip_dest_ip := memHeader.destIp
-      header.dest_port := memHeader.destPort
+      header.dest_port := memHeader.destPort.resize(16)
       header.ip_source_ip := currentIp
-      header.source_port := currentPort
+      header.source_port := memHeader.srcPort.resize(16)
     }
 
   }
@@ -168,7 +176,8 @@ class NetworkAdapter extends Component {
     io.seq.dataOut.last := widthConverter.io.internal.dataOut.last
     val replacedFirst = LegoMemHeader.assignToBitsOperation(header => {
       header.destIp := headerStream.ip_source_ip
-      header.destPort := headerStream.source_port
+      header.destPort := headerStream.source_port(7 downto 0)
+      header.srcPort := headerStream.dest_port(7 downto 0)
     })(dataStreamIn.fragment)
     io.seq.dataOut.fragment := Mux(dataStreamIn.first, replacedFirst, dataStreamIn.fragment)
     io.seq.dataOut.valid := Mux(dataStreamIn.first, headerStream.valid && dataStreamIn.valid, dataStreamIn.valid)
@@ -179,9 +188,17 @@ class NetworkAdapter extends Component {
 
     when (headerStream.fire) {
       currentIp := headerStream.ip_dest_ip
-      currentPort := headerStream.dest_port
     }
   }
 
 
+}
+
+class NetworkController extends Component {
+  val io = new Bundle {
+    val ctrl    = slave Stream ControlRequest()
+    val session = master Stream UInt(16 bits)
+  }
+
+  io.session << io.ctrl.fmap(_.param32(15 downto 0))
 }

@@ -130,7 +130,7 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
     // interface from request
     val lookupRes = slave Stream config.pteResType
     val headerIn  = slave Stream LegoMemAccessHeader(config.virtualAddrWidth)
-    val headerOut = master Stream LegoMemHeader()
+    val headerOut = master Stream LegoMemAccessHeader(config.virtualAddrWidth)
 
     // Interface to the data mover
     val wrCmd = master Stream AxiStreamDMAWriteCommand(config.physicalAddrWidth, config.dmaLengthWidth)
@@ -162,8 +162,9 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
       // Build the resp code
       // TODO: make this a function
       dst.snd.header.reqType := LegoMem.RequestType.resp(src.snd.header.reqType)
-      dst.snd.header.reqStatus := checkRequest(src)
-      dst.snd.header.size := genSize(src)
+      val status = checkRequest(src)
+      dst.snd.header.reqStatus := status
+      dst.snd.header.size := genSize(src, status)
     }
 
   }
@@ -172,6 +173,7 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
 
   // We Generate the response first;
   // We Filter if the request is valid later
+  // TODO: seems this one will process MIG, since ret of MIG is WIRTE
   val Seq(rdJoin, wrJoin) = StreamDemux2(cmd, cmd.snd.header.reqType === RequestType.WRITE_RESP)
   val (wrCmd, wrValid) = StreamFork2(wrJoin)
   io.wrCmd.translateFrom (wrCmd.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
@@ -180,37 +182,36 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
   io.rdCmd.translateFrom (rdJoin.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
 
   // TODO: join with the status returned by data mover
-  io.headerOut << rsp.fmap(_.snd.header)
+  io.headerOut << rsp.fmap(_.snd)
 
   // Protocol Checking
   def checkRequest(req : JoinType) : UInt = {
     val ret = UInt(4 bits)
-    switch (req.snd.header.reqType) {
+    when (req.fst.used) {
+      switch (req.snd.header.reqType) {
 
-      is (LegoMem.RequestType.WRITE) {
-        ret := LegoMem.RequestStatus.OKAY
-      }
+        is (LegoMem.RequestType.WRITE, LegoMem.RequestType.READ, LegoMem.RequestType.READ_MIG) {
+          ret := LegoMem.RequestStatus.OKAY
+        }
 
-      is (LegoMem.RequestType.READ) {
-        ret := LegoMem.RequestStatus.OKAY
+        default {
+          ret := LegoMem.RequestStatus.ERR_INVALID
+        }
       }
-
-      default {
-        ret := LegoMem.RequestStatus.ERR_INVALID
-      }
+    } otherwise {
+      ret := LegoMem.RequestStatus.ERR_INVALID
     }
     ret
   }
 
-  def genSize(req : JoinType) : UInt = {
+  def genSize(req : JoinType, status : UInt) : UInt = {
     val size = UInt(16 bits)
-    switch (req.snd.header.reqType) {
-      is (LegoMem.RequestType.READ) {
-        size := req.snd.length(15 downto 0) + req.snd.header.packedBytes
-      }
-
-      default {
-        size := req.snd.header.packedBytes
+    size := req.snd.packedBytes
+    when (status === RequestStatus.OKAY) {
+      switch (req.snd.header.reqType) {
+        is (LegoMem.RequestType.READ, LegoMem.RequestType.READ_MIG) {
+          size := req.snd.length(15 downto 0) + req.snd.packedBytes
+        }
       }
     }
     size
@@ -239,7 +240,7 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   endpoint.io.ep <> io.ep
 
   val packetParser = new PacketParser(512, LegoMemAccessHeader(config.virtualAddrWidth))
-  val packetBuilder = new PacketBuilder(512, LegoMemHeader())
+  val packetBuilder = new PacketBuilder(512, LegoMemAccessHeader(config.virtualAddrWidth))
   packetParser.io.dataIn << endpoint.io.raw.dataIn
   packetBuilder.io.dataOut >> endpoint.io.raw.dataOut
 
@@ -261,7 +262,8 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
   dma.io.m_axi <> io.bus.access
   dma.io.m_axis_read_data.liftStream(_.tdata) >> packetBuilder.io.dataIn
-  // TODO: split the defination of queue
+  // TODO: add a loopback path here
+  // signal A -> loopback queue -> signal B -> access unit
   val filteredData = packetParser.io.dataOut.queue(dataQueueSize).filterBySignal(access.io.wrDataSignal)
   dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, filteredData)
   dma.io.s_axis_read_desc <> access.io.rdCmd
@@ -273,6 +275,8 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
   def generateRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
     val next = AddressLookupRequest(config.tagWidth)
+    // TODO: Fix this, use different page sizes
+    // Currently we only fetch the smallest page sizes
     next.tag := config.genTag(header.header.pid, header.addr).asUInt
     // TODO: fix this, use an unified ID
     next.seqId := header.header.seqId.resize(16 bits)
@@ -299,6 +303,12 @@ case class LegoMemRawInterface() extends Bundle with IMasterSlave {
     master (ctrlIn)
     slave (ctrlOut)
   }
+
+  def disableCtrl = {
+    ctrlIn.freeRun()
+    ctrlOut.disable
+  }
+
 }
 
 class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
@@ -310,7 +320,10 @@ class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
 
   // Ctrl FIFOs
   io.raw.ctrlIn.translateFrom (io.ep.ctrlIn) { (ctrl, axis) => ctrl.assignFromBits(axis.tdata) }
-  io.ep.ctrlOut.translateFrom (io.raw.ctrlOut) { (axis, ctrl) => axis.tdata := ctrl.asBits; axis.tdest := ctrl.epid.resize(4) }
+  io.ep.ctrlOut.translateFrom (io.raw.ctrlOut) { (axis, ctrl) =>
+    axis.tdata := ctrl.asBits
+    axis.tdest := ctrl.epid.resize(4)
+  }
 
   // Data FIFOs
   io.raw.dataIn.translateFrom (io.ep.dataIn) { (f, s) => f.last := s.last; f.fragment := s.fragment.tdata }

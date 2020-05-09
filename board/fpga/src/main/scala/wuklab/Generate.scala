@@ -3,21 +3,23 @@ package wuklab
 import spinal.core._
 
 object GenerateContext {
+  val ddrBaseAddr = BigInt("500000000", 16)
   implicit val config : CoreMemConfig = new CoreMemConfig {
     val physicalAddrWidth = 40
     val virtualAddrWidth = 64
-    val hashtableAddrWidth = 40
-    val tagWidth = 40
-    val ppaWidth = 16
-    val pageSizes = Seq[Int](2,4,8)
+
+    // Virtual Memory Config
+    val pageSizes = Seq(4 MiB, 16 MiB, 64 MiB).map(_.toInt)
+    val fullTagWidth = 80
+    val tagOffset = 20
+
     // Cache config
     val numCacheCells = 128
     val numPageFaultCacheCells = 16
-    // Hash Table Config
-    val hashtableBaseAddr = BigInt("500000000", 16)
-    val pteAddrWidth = 4
 
-    val ptePerLine = 4
+    // Hash Table Config
+    val hashtableBaseAddr = ddrBaseAddr + (512 MiB)
+    val numBuckets = 512
     val ptePerBucket = 16
   }
 }
@@ -49,5 +51,19 @@ object LegoMemSystemGenerate {
     import GenerateContext._
     val report = MySpinalConfig.generateVerilog(new LegoMemSystem)
     report.mergeRTLSource("LegoMemSystemLib")
+  }
+}
+
+object PingPongGenerate {
+  def main(args: Array[String]) {
+    import GenerateContext._
+    MySpinalConfig.generateVerilog(new PingPong(8))
+  }
+}
+
+object MonitorRegistersGenerator {
+  def main(args: Array[String]) {
+    import GenerateContext._
+    MySpinalConfig.generateVerilog(new monitor.MonitorRegisters(0, 3, BigInt("A000C000", 16)))
   }
 }
