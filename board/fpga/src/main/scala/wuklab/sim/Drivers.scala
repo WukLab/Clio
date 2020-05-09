@@ -11,7 +11,7 @@ import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.amba4.axilite._
 import spinal.sim.SimThread
 
-import scala.collection.mutable
+import scala.collection.{SortedMap, mutable}
 import scala.util.Random
 import scala.collection.mutable.ArrayBuffer
 
@@ -206,6 +206,23 @@ object BitAxisDataGen {
     new BitAxisDataGen((seqs, port))(frag)
 }
 
+class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
+  stream.ready #= true
+
+  // Monitor the data
+
+}
+
+object StreamHalt{
+  def apply[T <: Data](stream : Stream[T]) {
+    if (stream.isMasterInterface) {
+      stream.ready #= false
+    } else {
+      stream.valid #= false
+    }
+  }
+}
+
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain) {
 
   stream.valid #= false
@@ -287,45 +304,19 @@ class Axi4MasterCommandDriver() {
 
 }
 
-class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends SimulationService {
+abstract class Axi4SlaveMemoryDriver (clockDomain: ClockDomain) extends SimulationService {
 
   case class ChannelStates(
                             var state : Int = 0,
                             var beats : Int = 0,
                             var burst : Int = 0,
-                            var addr : Int = 0
+                            var addr : BigInt = 0
                           )
+  def memoryRead(addr : BigInt, size : Int) : BigInt
+  def memoryWrite(addr : BigInt, size : Int, data : BigInt) : Unit
+  def init(values : (BigInt, Seq[Byte]) *): Axi4SlaveMemoryDriver
 
-  private val memory : ArrayBuffer[Byte] = ArrayBuffer.fill(size)(0)
-
-  def memoryRead(addr : Int, size : Int) : BigInt = {
-    println(f"Memory Read @$addr%08X:$size")
-    // TODO: deal with unaligned accesses
-    val buffer = new Array[Byte](size)
-    for (idx <- 0 until size)
-      buffer(idx) = memory(addr + idx)
-    new BigInt(new BigInteger(buffer.reverse))
-  }
-
-  def memoryWrite(addr : Int, size : Int, data : BigInt) : Unit = {
-    println(f"Memory Write @$addr%08X:$size")
-    val buffer = data.toByteArray
-    for (idx <- 0 until Math.min(size, buffer.size)) {
-      memory(idx + addr) = buffer(idx)
-    }
-  }
-
-  def init(values : (Int, Seq[Byte]) *): Axi4SlaveMemoryDriver = {
-    for ((addr, data) <- values) {
-      println(f"Memory Init @$addr%08X:${data.size}")
-      for (idx <- 0 until data.size) {
-        memory(addr + idx) = data(idx)
-      }
-    }
-    this
-  }
-
-  def init[T](values : (Int, T) *)(implicit assign: T => Seq[Byte]): Axi4SlaveMemoryDriver = {
+  def initValue[T](values : (BigInt, T) *)(implicit assign: T => Seq[Byte]): Axi4SlaveMemoryDriver = {
     init(values.map(p => (p._1, assign(p._2))) : _*)
   }
 
@@ -360,7 +351,7 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
             if (cmd.valid.toBoolean) {
               read.beats = if (config.useLen) cmd.len.toInt else 0
               read.burst = if (config.useBurst) cmd.burst.toInt else 0
-              read.addr = cmd.addr.toInt
+              read.addr = cmd.addr.toBigInt
               read.state = 1
             }
           }
@@ -414,7 +405,7 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
             if (cmd.valid.toBoolean) {
               write.beats = if (config.useLen) cmd.len.toInt else 0
               write.burst = if (config.useBurst) cmd.burst.toInt else 0
-              write.addr = cmd.addr.toInt
+              write.addr = cmd.addr.toBigInt
               write.state = 1
             }
           }
@@ -450,11 +441,71 @@ class Axi4SlaveMemoryDriver (val clockDomain: ClockDomain, size : Int) extends S
 
 }
 
+class ArrayMemoryDriver(val clockDomain: ClockDomain, size : Int) extends Axi4SlaveMemoryDriver(clockDomain) {
+  private val memory : ArrayBuffer[Byte] = ArrayBuffer.fill(size)(0)
 
-class AxiStreamInterconnect (val clockDomain: ClockDomain) extends SimulationService {
+  override def memoryRead(addr : BigInt, size : Int) : BigInt = {
+    println(f"Memory Read @$addr%08X:$size")
+    // TODO: deal with unaligned accesses
+    val buffer = new Array[Byte](size)
+    for (idx <- 0 until size)
+      buffer(idx) = memory(addr.toInt + idx)
+    new BigInt(new BigInteger(buffer.reverse))
+  }
+
+  override def memoryWrite(addr : BigInt, size : Int, data : BigInt) : Unit = {
+    println(f"Memory Write @$addr%08X:$size")
+    val buffer = data.toByteArray
+    for (idx <- 0 until Math.min(size, buffer.size)) {
+      memory(idx + addr.toInt) = buffer(idx)
+    }
+  }
+
+  override def init(values : (BigInt, Seq[Byte]) *): Axi4SlaveMemoryDriver = {
+    for ((addr, data) <- values) {
+      println(f"Memory Init @$addr%08X:${data.size}")
+      for (idx <- 0 until data.size) {
+        memory(addr.toInt + idx) = data(idx)
+      }
+    }
+    this
+  }
+}
+
+class DictMemoryDriver(val clockDomain: ClockDomain) extends Axi4SlaveMemoryDriver(clockDomain) {
+
+  private val memory : mutable.HashMap[BigInt, Seq[Byte]] = mutable.HashMap()
+
+  // TODO: Just an initial implementation. we only allow a whole segment
+  override def memoryRead(addr: BigInt, size: Int): BigInt = {
+    println(f"Memory Read @$addr%08X:$size")
+    val resultArray = memory
+      .find { case (s, seq) => addr >= s && addr < s + seq.size }
+      .map { case (s, seq) => seq.slice((addr - s).toInt, (addr - s + size).toInt).toArray }
+      .getOrElse { println("Memory Read Invalid!"); Array.fill(size)(0 : Byte) }
+    new BigInt(new BigInteger(resultArray.reverse))
+  }
+
+  override def memoryWrite(addr: BigInt, size: Int, data: BigInt): Unit = {
+    println(f"Memory Write @$addr%08X:$size")
+    memory += addr -> data.toByteArray.toSeq
+  }
+
+  override def init(values: (BigInt, Seq[Byte])*) = {
+    memory ++= values
+    this
+  }
+}
+
+class LegoMemEndPointInterconnect (val clockDomain: ClockDomain) extends SimulationService {
 
   // array for current
+  type ValidSelection[T <: Data] = T => Bool
+  type ReadySelection[T <: Data] = T => Bool
+  type TDestSelection[T <: Data] = T => UInt
+
   val decision = mutable.Set[(Int, Int)]()
+  val ctrlDecision = mutable.Set[(Int, Int)]()
   val eps = mutable.Map[Int, LegoMemEndPoint]()
 
   def validPort(port : Int) = eps.map(_._1).toSeq.contains(port)
@@ -468,24 +519,40 @@ class AxiStreamInterconnect (val clockDomain: ClockDomain) extends SimulationSer
   def clear = {
     halt()
     decision.clear()
+    ctrlDecision.clear()
   }
 
 
   // DO assignment
   def tik() = {
+    // We first halt on all ports
     halt()
+    // Then we connect our selected ports
     for ((src, dst) <- decision) {
       if (validPort(dst) && validPort(src)) {
 
         val out = eps(src).dataOut
         val in  = eps(dst).dataIn
 
-        out.ready #= in.ready.toBoolean
+        // TODO: revoke ready
+        out.ready #= in.ready.toBoolean & !in.last.toBoolean
         in.valid #= out.valid.toBoolean
         in.tdata #= out.tdata.toBigInt
         in.tdest #= out.tdest.toBigInt
         in.last #= out.last.toBoolean
+      }
+    }
+    for ((src, dst) <- ctrlDecision) {
+      if (validPort(dst) && validPort(src)) {
 
+        val out = eps(src).ctrlOut
+        val in  = eps(dst).ctrlIn
+
+        // TODO: revoke ready
+        out.ready #= in.ready.toBoolean
+        in.valid #= out.valid.toBoolean
+        in.tdata #= out.tdata.toBigInt
+        in.tdest #= out.tdest.toBigInt
       }
     }
   }
@@ -500,33 +567,59 @@ class AxiStreamInterconnect (val clockDomain: ClockDomain) extends SimulationSer
           waitUntil(clockDomain.isResetDeasserted)
         } else {
 
-          // Clean up last ones
-          eps.foreach { case (port, axis) =>
-            val out = axis.dataOut
-            if (out.valid.toBoolean && out.ready.toBoolean && out.last.toBoolean)
-              decision.remove((port, out.tdest.toInt))
-          }
-
           clockDomain.waitFallingEdge
 
           // get new ones
+          // ** For Data **
           val routingInfo = eps.toSeq
-            .filter { case (_, axis) => !axis.dataOut.last.toBoolean }
+            .filter { case (_, axis) => axis.dataOut.valid.toBoolean }
             .filter { case (_, axis) => !decision.map(_._2).contains(axis.dataOut.tdest.toInt) }
             .map { case (port, axis) => (port, axis.dataOut.tdest.toInt) }
 
-          println(s"ROUTING INFO: ${pprint.apply(routingInfo)}")
+          if (routingInfo.size > 0)
+            println(s"DATA ROUTING INFO: ${pprint.apply(routingInfo)}")
 
           // update decisions
           val routingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
           decision ++= routingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
-                        .map(_.swap)
-                        .filter { case (_, dest) => validPort(dest) }
+            .map(_.swap)
+            .filter { case (_, dest) => validPort(dest) }
 
-          println(s"ROUTING DECISION: ${pprint.apply(decision)}")
+          // ** for Ctrl **
+          val ctrlRoutingInfo = eps.toSeq
+            .filter { case (_, axis) => axis.ctrlOut.valid.toBoolean }
+            .filter { case (_, axis) => !decision.map(_._2).contains(axis.ctrlOut.tdest.toInt) }
+            .map { case (port, axis) => (port, axis.ctrlOut.tdest.toInt) }
+
+          if (routingInfo.size > 0)
+            println(s"CTRL ROUTING INFO: ${pprint.apply(routingInfo)}")
+
+          // update decisions
+          val ctrlRoutingTable = routingInfo.groupBy(_._2).mapValues(_.map(_._1))
+          ctrlDecision ++= ctrlRoutingTable.mapValues(xs => xs(Random.nextInt(xs.length)))
+            .map(_.swap)
+            .filter { case (_, dest) => validPort(dest) }
+
 
           clockDomain.waitRisingEdge
+
           tik()
+
+          // Clean up last ones
+          eps.foreach { case (port, axis) =>
+            // TODO: this remove cause extra cycles
+            val out = axis.dataOut
+            if (out.valid.toBoolean && out.ready.toBoolean && out.last.toBoolean)
+              decision.remove((port, out.tdest.toInt))
+
+            val ctrl = axis.ctrlOut
+            // Control do one cycle transfer
+            if (ctrl.valid.toBoolean && ctrl.ready.toBoolean)
+              ctrlDecision.remove((port, ctrl.tdest.toInt))
+          }
+
+          if (decision.size > 0)
+            println(s"ROUTING DECISION: ${pprint.apply(decision)}")
 
         }
 
@@ -539,7 +632,5 @@ class AxiStreamInterconnect (val clockDomain: ClockDomain) extends SimulationSer
   def =# (port : Int)(ep : LegoMemEndPoint): Unit = eps += port -> ep
 
   // initilization
-  waitInit
-  halt()
   forward()
 }

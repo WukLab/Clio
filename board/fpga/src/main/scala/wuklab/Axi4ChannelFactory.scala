@@ -1,9 +1,9 @@
 package wuklab
 
-import wuklab.Utils._
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4Ar, Axi4Aw, Axi4B, Axi4Config, Axi4R}
+import spinal.lib.bus.amba4.axi._
+import wuklab.Utils._
 
 // Can use different bus!
 class LegoCmd extends Bundle {

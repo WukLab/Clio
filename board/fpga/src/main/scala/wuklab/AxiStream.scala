@@ -58,6 +58,36 @@ case class LegoMemEndPoint(dataConfig : AxiStreamConfig, ctrlConfig : AxiStreamC
   val ctrlIn  = slave  Stream AxiStreamPayload(ctrlConfig)
 }
 
+class LegoMemAxiStreamBridge(config : AxiStreamConfig) extends Component {
+
+  val io = new Bundle {
+    val lego = new Bundle {
+      val dataIn  = slave  Stream Fragment(Bits(512 bits))
+      val dataOut = master Stream Fragment(Bits(512 bits))
+    }
+    val axis = new Bundle {
+      val dataIn  = slave  Stream Fragment(AxiStreamPayload(config))
+      val dataOut = master Stream Fragment(AxiStreamPayload(config))
+    }
+  }
+
+  // Output Path
+  val size = RegNextWhenBypass(LegoMemHeader(io.lego.dataIn.fragment).size, io.lego.dataIn.first)
+  val allZero = !size(5 downto 0).orR
+  val shiftSize = (allZero ## size(5 downto 0)).asUInt
+  // TODO: check this
+  val lastKeep = ((U"1'b1" << shiftSize) - 1).resize(64).asBits
+
+  io.axis.dataOut.translateFrom (io.lego.dataIn) { (next, beat) =>
+    next.last := beat.last
+    next.fragment.tdata := beat.fragment
+    next.fragment.tkeep := Mux(beat.last, lastKeep, Bits(64 bits).setAll())
+  }
+
+  // Input Path
+  io.axis.dataIn.liftStream(_.tdata) >> io.lego.dataOut
+}
+
 // Converter
 class LegoMemDataOutputAdapter(externalWidth : Int) extends Component {
   assert(512 % externalWidth == 0, "Adapter: width conversion is not 1:n")
@@ -81,10 +111,11 @@ class LegoMemDataOutputAdapter(externalWidth : Int) extends Component {
   val adaptCtrl = new Area {
     val dataOut = Stream Fragment AxiStreamPayload(adapterConfig)
 
-    val size = RegNextWhenBypass(LegoMemHeader(io.internal.dataIn.fragment).size, io.internal.dataIn.isFirst)
+    val size = RegNextWhenBypass(LegoMemHeader(io.internal.dataIn.fragment).size, io.internal.dataIn.first)
+    val allZero = !size(5 downto 0).orR
+    val shiftSize = (allZero ## size(5 downto 0)).asUInt
     // TODO: check this
-    val header = LegoMemHeader(io.internal.dataIn.fragment)
-    val lastKeep = ((U(1, 64 bits) << header.getSize.maskBy(64)) - 1).resize(64).asBits
+    val lastKeep = ((U"1'b1" << shiftSize) - 1).resize(64).asBits
 
     dataOut.translateFrom (io.internal.dataIn) { (next, beat) =>
       next.last := beat.last
@@ -269,11 +300,6 @@ case class AxiStreamDMAWriteCommand(
                                      addrWidth: Int, lenWidth : Int, tagWidth : Int = 0
                                    ) extends AxiStreamDMACommand(addrWidth, lenWidth, tagWidth) {}
 
-
-
-// For now, we ignore the status things
-
-
 //
 ///*
 // * AXI read descriptor status output
@@ -301,3 +327,38 @@ case class AxiStreamDMAWriteCommand(
 //output wire [AXIS_ID_WIDTH-1:0]   m_axis_write_desc_status_id,
 //output wire [AXIS_DEST_WIDTH-1:0] m_axis_write_desc_status_dest,
 //output wire [AXIS_USER_WIDTH-1:0] m_axis_write_desc_status_user,
+
+// The complex interface
+case class AxiStreamDMAReadInterface(config : AxiStreamConfig, addrWidth: Int, lenWidth : Int, tagWidth : Int = 0) extends Bundle with IMasterSlave {
+  val cmd = Stream (AxiStreamDMAReadCommand(config, addrWidth, lenWidth, tagWidth))
+  val data = Stream Fragment (Bits(512 bits))
+
+  override def asMaster(): Unit = {
+    master (cmd)
+    slave (data)
+  }
+}
+
+case class AxiStreamDMAWriteInterface(addrWidth: Int, lenWidth : Int, tagWidth : Int = 0) extends Bundle with IMasterSlave {
+  val cmd = Stream (AxiStreamDMAWriteCommand(addrWidth, lenWidth, tagWidth))
+  val data = Stream Fragment (Bits(512 bits))
+
+  override def asMaster(): Unit = {
+    master (cmd)
+    master (data)
+  }
+}
+
+case class AxiStreamDMAInterface(config : AxiStreamConfig,
+                                 addrWidth: Int,
+                                 lenWidth : Int,
+                                 tagWidth : Int = 0
+                                ) extends Bundle with IMasterSlave {
+  val read = AxiStreamDMAReadInterface(config, addrWidth, lenWidth, tagWidth)
+  val write = AxiStreamDMAWriteInterface(addrWidth, lenWidth, tagWidth)
+
+  override def asMaster(): Unit = {
+    master (read)
+    master (write)
+  }
+}

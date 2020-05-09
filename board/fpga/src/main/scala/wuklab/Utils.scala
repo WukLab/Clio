@@ -30,9 +30,9 @@ trait XilinxAXI4Toplevel {
         .replaceAll("_desc_tvalid$", "_desc_valid")
         // fragments
         .replaceAll("_fragment$", "_tdata")
-      println(f"Xilinx: Rename $wire, ${wire.getName()} -> $newName")
       wire.setName(newName)
     }
+    println(f"Xilinx: Rename ${this.getClass().getSimpleName}")
   }
 
   // TODO: find a solution to this
@@ -121,13 +121,6 @@ object Utils {
 
   // Another way is stopable pipeline
   implicit class StreamUtils[T <: Data](stream : Stream[T]) {
-    def continueWhenPipeline(valid : Bool, delay : Int): Stream[T] = {
-      // TODO: change queue size
-      val buffer = stream.queue(delay)
-
-      buffer.continueWhen(valid)
-    }
-
     def fmap[T2 <: Data](f : T => T2) : Stream[T2] = {
       stream ~~ f
     }
@@ -193,6 +186,22 @@ object Utils {
     }
     def takeBy(f : T => Bool) : Stream[T] = {
       stream.takeWhen(f(stream.payload))
+    }
+
+    def disable : Unit = {
+      stream.payload.clearAll
+      stream.valid.clear()
+    }
+
+
+    def forkWith(signal : Stream[Bool]) : (Stream[T], Stream[T]) = {
+      val (ifTrue, ifFalse) = StreamFork2(stream)
+
+      ifTrue.continueWhen(signal.valid && signal.payload)
+      ifFalse.continueWhen(signal.valid && !signal.payload)
+
+      signal.ready := ifTrue.fire || ifFalse.fire
+      (ifTrue, ifFalse)
     }
 
   }
@@ -302,6 +311,14 @@ object Utils {
 
   implicit class StreamFragmentUtils[T <: Data](frag : Stream[Fragment[T]]) {
 
+    def fmapFirst (f : T => T) : Stream[Fragment[T]] = {
+      val next = cloneOf(frag)
+      next.last := frag.last
+      next.valid := next.valid
+      next.fragment := Mux(frag.first, f(frag.fragment), frag.fragment)
+      next
+    }
+
     // Filter message by signal
     def filterBySignal(signal : Stream[Bool]): Stream[Fragment[T]] = {
       val next = cloneOf(frag)
@@ -311,6 +328,32 @@ object Utils {
       frag.ready := Mux(signal.payload, signal.valid && next.ready, signal.valid)
       signal.ready := frag.lastFire
       next
+    }
+
+    def syncWith[T2 <: Data](stream : Stream[T2]): (Stream[Fragment[T]], Stream[T2]) = {
+      val nextStream = cloneOf(stream)
+      val nextFrag = cloneOf(frag)
+
+      nextStream << stream.continueWhen (frag.last && frag.valid && nextFrag.ready)
+      nextFrag   << frag.continueWhen   (stream.valid && Mux(frag.last, nextStream.ready, True))
+
+      (nextFrag, nextStream)
+    }
+
+    def forkBySignal(signal : Stream[Bool]) : (Stream[Fragment[T]], Stream[Fragment[T]]) = {
+      val ifTrue = cloneOf(frag)
+      val ifFalse = cloneOf(frag)
+
+      ifTrue.payload := frag.payload
+      ifFalse.payload := frag.payload
+
+      ifTrue.valid := signal.payload && signal.valid && frag.valid
+      ifFalse.valid := !signal.payload && signal.valid && frag.valid
+
+      frag.ready := signal.valid && Mux(signal.payload, ifTrue.ready, ifFalse.ready)
+      signal.ready := frag.lastFire
+
+      (ifTrue, ifFalse)
     }
 
     def translateWithLastInsert(data : T, requireInsert : Bool): Stream[Fragment[T]] = {
@@ -335,6 +378,8 @@ object Utils {
         f1.last := f2.last
       }
     }
+
+    def takeFirst : Stream[Fragment[T]] = frag.takeWhen(frag.first)
 
 
   }
@@ -376,6 +421,8 @@ object Utils {
     val res = (1 until width) map (x |<< _) reduce (_ | _)
     res(width-1 downto 0)
   }
+
+  def rightOR(x : UInt) : UInt = (1 until x.getWidth) map (x |>> _) reduce (_ | _)
 }
 
 object Pair {
@@ -421,6 +468,9 @@ object FlowMux {
 object StreamDemux2 {
   def apply[T <: Data](stream : Stream[T], sel : Bool) = StreamDemux(stream, sel.asUInt, 2)
 }
+object StreamDemuxBy2 {
+  def apply[T <: Data](stream : Stream[T])(sel : T => Bool) = StreamDemux(stream, sel(stream.payload).asUInt, 2)
+}
 
 object StreamReorder {
   def apply[T <: Data](l : Stream[T], r : Stream[T])(order : T => UInt) : Stream[T] = {
@@ -435,7 +485,6 @@ trait Pipeline {
   def pipelineDelay : Int
 
   def delay [T <: Data](t : T) : T
-
 }
 
 trait NonStoppablePipeline extends Pipeline {
@@ -449,10 +498,6 @@ trait NonStoppablePipeline extends Pipeline {
 
 trait StoppablePipeline extends Pipeline {
   def enableSignal : Bool
-
-  // These methods DO change the internal value, so do not chain these methods
-  def haltWhen(cond : Bool) : Unit = enableSignal := !cond
-  def continueWhen(cond : Bool) : Unit = enableSignal := cond
 
   // TODO: find a way to initialize this delayed register
   def delay [T <: Data](t : T) : T = {
@@ -477,9 +522,49 @@ trait StoppablePipeline extends Pipeline {
     stream
   }
 
+  def streamDelay[T <: Data](stream : Stream[T]) = stream.queueLowLatency(log2Up(pipelineDelay))
+
+  // Inject Operator
   // Since this is not a stream, we only have this direction
   // Without driving stream's ready
   def <|| [T <: Data](stream : Stream[T]) : Stream[T] = {
     delayStream(stream.payload, stream.valid)
+  }
+}
+
+// TODO: better impl
+object StreamDemuxOH {
+  def apply[T <: Data](stream : Stream[T], selectOH: Vec[Bool]) = {
+    val numPorts = selectOH.size
+    StreamDemux(stream, OHToUInt(selectOH), numPorts)
+  }
+
+}
+
+object StreamWithFragmentArbiter {
+  import Utils._
+
+  def apply[T1 <: Data, T2 <: Data]
+  (streams : Seq[Stream[T1]], fragments : Seq[Stream[Fragment[T2]]]) : (Stream[T1], Fragment[T2])= {
+
+    require(streams.length > 0, "Should work on a list")
+    require(streams.length == fragments.length, "Length of the streams should match fragments")
+    val numPairs = streams.length
+    val fragType = fragments(0).payloadType
+
+    val dataArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(fragType, numPairs)
+
+    val (dataOutputStream, dataRouteStreamF) = StreamFork2(dataArbiter.io.output)
+
+    val dataRouteStream = dataRouteStreamF.takeFirst.translateWith(dataArbiter.io.chosen).queueLowLatency(4)
+    val cmdOutputStream = StreamMux(dataRouteStream.payload, streams) <* dataRouteStream
+
+    (cmdOutputStream, dataOutputStream)
+  }
+
+  def onInterface[T <: Data, T1 <: Data, T2 <: Data](ts : T *)
+  (select : T => (Stream[T1], Stream[Fragment[T2]])) : (Stream[T1], Fragment[T2]) = {
+    val (cs, ds) = ts.map(select).unzip
+    apply(cs, ds)
   }
 }
