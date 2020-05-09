@@ -147,6 +147,8 @@ struct transport_net_ops {
 	int (*close_session)(struct session_net *);
 
 	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
+	struct msg_buf *(*reg_msg_buf)(struct session_net *, void *buf, size_t buf_size);
+	int (*dereg_msg_buf)(struct session_net *, struct msg_buf *);
 };
 
 /*
@@ -196,7 +198,6 @@ struct raw_net_ops {
 	 * We should remove reg_send_buf.
 	 */
 	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
-
 	struct msg_buf *(*reg_msg_buf)(struct session_net *, void *buf, size_t buf_size);
 	int (*dereg_msg_buf)(struct session_net *, struct msg_buf *);
 };
@@ -283,6 +284,8 @@ default_transport_reg_send_buf(struct session_net *net, void *buf, size_t buf_si
 }
 
 /*
+ * Deprecated. DO NOT USE. Use reg_msg_buf.
+ *
  * Register a per-session send_buf
  * This is necessary for verbs-based users.
  *
@@ -293,6 +296,18 @@ static __always_inline int
 net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
 {
 	return transport_net_ops->reg_send_buf(ses, buf, buf_size);
+}
+
+static inline int
+net_dereg_msg_buf(struct session_net *ses, struct msg_buf *mb)
+{
+	return raw_net_ops->dereg_msg_buf(ses, mb);
+}
+
+static inline struct msg_buf *
+net_reg_msg_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return raw_net_ops->reg_msg_buf(ses, buf, buf_size);
 }
 
 static __always_inline int

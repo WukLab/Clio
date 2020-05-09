@@ -96,8 +96,16 @@ struct op_membership_new_node {
 	struct endpoint_info ei;
 } __packed;
 
+/*
+ * Flags used during legomem_alloc
+ * 1. Write: if this new range is writable.
+ * 2. Populate: if we should pre-populate pgtables during alloc
+ * 3. Zero: if we need to zero out all pages for initial setup
+ */
 #define LEGOMEM_VM_FLAGS_WRITE		(0x1)
 #define LEGOMEM_VM_FLAGS_POPULATE	(0x2)
+#define LEGOMEM_VM_FLAGS_ZERO		(0x4)
+#define LEGOMEM_VM_FLAGS_CONFLICT	(0x8) /* internal */
 
 struct op_alloc_free {
 	unsigned long	addr;
@@ -129,7 +137,7 @@ struct op_create_proc_resp {
  */
 struct op_read_write {
 	unsigned long __remote	va;
-	unsigned long		size;
+	unsigned int		size;
 
 	/* Hold write data, variable length */
 	char			data[0];
@@ -137,7 +145,7 @@ struct op_read_write {
 
 struct op_read_write_ret {
 	unsigned long __remote	va;
-	unsigned long		size;
+	unsigned int		size;
 
 	/* Hold read read, variable length */
 	char			data[0];

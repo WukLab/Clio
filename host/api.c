@@ -740,6 +740,10 @@ int legomem_free(struct legomem_context *ctx,
 	return 0;
 }
 
+/*
+ * TODO
+ * adjust values.
+ */
 int legomem_read(struct legomem_context *ctx, void *buf,
 		 unsigned long __remote addr, size_t size)
 {
@@ -767,12 +771,6 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 	req.op.va = addr;
 	req.op.size = size;
 
-	/*
-	 * XXX
-	 * ugh? This is obviously not good.
-	 * Either caller prepare a larger buffer,
-	 * or we create a sge interface.
-	 */
 	tmp_resp = malloc(size + sizeof(*tmp_resp));
 
 	ret = net_send_and_receive(ses, &req, sizeof(req),
@@ -782,13 +780,16 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 		return -EIO;
 	}
 
-	if (unlikely(tmp_resp->ret.ret)) {
-		dprintf_ERROR("board fail to read %d\n",
-			tmp_resp->ret.ret);
-		return -EFAULT;
-	}
-
 	memcpy(buf, tmp_resp->ret.data, size);
+
+	printf("reply->va %#lx reply->size %#x whole packet size %d\n",
+		tmp_resp->ret.va, tmp_resp->ret.size, ret);
+	for (int i = 0; i < 100; i++) {
+		char *p = (char *)(tmp_resp) + i;
+		
+		printf("%d ", *p);
+	}
+	printf("\n");
 	free(tmp_resp);
 
 	return 0;
@@ -850,9 +851,8 @@ int __legomem_write(struct legomem_context *ctx, void *buf,
 			dprintf_ERROR("net errno %d\n", ret);
 			return -EIO;
 		}
-		if (unlikely(resp.ret.ret)) {
-			dprintf_ERROR("board fail to write %d\n",
-				resp.ret.ret);
+		if (0) {
+			dprintf_ERROR("board fail to write %d\n", 0);
 			return -EFAULT;
 		}
 	}

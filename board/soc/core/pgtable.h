@@ -19,9 +19,6 @@
 #define FPGA_DRAM_PGTABLE_BASE	(0x520000000UL)
 #define FPGA_DRAM_PGTABLE_SIZE	(0x1000000UL)
 
-#define FPGA_TAG_OFFSET (20)
-
-extern int devmem_fd;
 extern void *devmem_pgtable_base;
 extern void *devmem_pgtable_limit;
 
@@ -50,25 +47,31 @@ hash_lower_bits(unsigned long fullTag, int shift)
 	return (fullTag >> shift) & ((0x1UL << FPGA_BUCKET_NUMBER_LENGTH) - 1);
 }
 
-static inline struct lego_mem_bucket *
-addr_to_bucket(struct lego_mem_pte *pgtable_base_addr,
-	       unsigned long addr, unsigned long page_size_shift)
+static inline unsigned int
+addr_to_bucket_index(unsigned long addr, unsigned long page_size_shift)
 {
-	struct lego_mem_bucket *bucket;
-	uint64_t index;
+	unsigned int index;
 
 	/*
 	 * TODO: Hash function
 	 */
 	index = hash_lower_bits(addr, page_size_shift);
+	return index;
+}
 
-	// TODO: base addr of type pte
-	index *= FPGA_NUM_PTE_PER_BUCKET;
-	bucket = (struct lego_mem_bucket *)(pgtable_base_addr + index);
+static inline struct lego_mem_bucket *
+addr_to_bucket(struct lego_mem_pte *pgtable_base_addr,
+	       unsigned long addr, unsigned long page_size_shift)
+{
+	struct lego_mem_bucket *bucket;
+	unsigned int index;
+
+	index = addr_to_bucket_index(addr, page_size_shift);
+	bucket = (struct lego_mem_bucket *)(pgtable_base_addr) + index;
 
 	/* Sanity check */
-	if (unlikely((unsigned long)bucket >= (unsigned long)devmem_pgtable_limit)) {
-		dprintf_ERROR("addr: %#lx index: %#lx "
+	if (unlikely((u64)bucket >= (u64)devmem_pgtable_limit)) {
+		dprintf_ERROR("addr: %#lx index: %#x "
 			      "bucket: %#lx base: %#lx limit: %#lx\n",
 			      addr, index,
 			      (unsigned long)bucket, (unsigned long)pgtable_base_addr,
@@ -92,7 +95,9 @@ generate_tag(pid_t pid, unsigned long va)
 {
 	unsigned long tag = ((unsigned long)(pid & 0xFFFF) << (64 - FPGA_TAG_OFFSET)) |
 			(va >> FPGA_TAG_OFFSET);
-	dprintf_DEBUG("Calculate Tag %#lx with addr:%#lx pid %#x offset: %d\n", tag, va, pid, FPGA_TAG_OFFSET);
+
+	dprintf_DEBUG("    Tag=%#lx addr=%#lx pid=%#x offset=%d\n",
+			tag, va, pid, FPGA_TAG_OFFSET);
 	return tag;
 }
 
@@ -140,15 +145,21 @@ addr_to_shadow_pte(struct proc_info *pi, unsigned long addr,
 	return NULL;
 }
 
-struct conflict_info {
-	unsigned long start, end;
-	struct proc_info *pi;
-};
+static inline unsigned int
+shadow_pte_to_bucket_index(struct lego_mem_pte *pte)
+{
+	unsigned long index;
 
-struct conflict_vma {
-	struct list_head head;
-	pthread_spinlock_t lock;
-	int nr;
-};
+	index = (u64)pte - (u64)soc_shadow_pgtable;
+	index /= FPGA_NUM_PTE_PER_BUCKET;
+	return (u32)index;
+}
+
+bool check_and_insert_shadow_conflicts(struct proc_info *pi,
+				       struct vregion_info *vi,
+				       unsigned long addr,
+				       unsigned long page_size,
+				       unsigned long page_size_shift,
+				       unsigned long len);
 
 #endif /* _PGTABLE_H_ */

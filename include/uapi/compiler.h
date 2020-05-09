@@ -138,6 +138,7 @@ static inline void print_backtrace(void)
 #define round_down(x, y)	((x) & ~__round_mask(x, y))
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
 #define ALIGN(x, a)		(((x) + (a) - 1) & ~((a) - 1))
+#define IS_ALIGNED(x, a)	(((x) & ((typeof(x))(a) - 1)) == 0)
 
 #define min(x, y) ({				\
 	typeof(x) _min1 = (x);			\

@@ -21,7 +21,7 @@
 
 /* Knobs */
 #define NR_RUN_PER_THREAD 1
-static int test_size[] = { 512 };
+static int test_size[] = { 8 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -80,12 +80,12 @@ static void *thread_func_read(void *_ti)
 		}
 		dprintf_INFO("Remote region [%#lx - %#lx]\n", addr, addr + size);
 
+#if 0
 		for (i = 0; i < size; i++) {
 			char *p = buf + i;
 			*p = i % 255;
 		}
 
-#if 0
 		/* Run bunch sync write */
 		ret = legomem_write_sync(ctx, buf, addr, size);
 		if (unlikely(ret < 0)) {
@@ -97,6 +97,8 @@ static void *thread_func_read(void *_ti)
 
 		memset(buf, 0, size);
 #endif
+
+		sleep(3);
 
 		/* Run bunch read */
 		clock_gettime(CLOCK_MONOTONIC, &s);
@@ -111,16 +113,18 @@ static void *thread_func_read(void *_ti)
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 
-		for (i = 0; i < 100; i++) {
+		for (i = 0; i < size; i++) {
 			char *p = buf + i;
 			
-			printf("%x ", *p);
+			printf("%d ", *p);
 		}
 		printf("\n");
 
+#if 0
 		if (addr)
 			legomem_free(ctx, addr, size);
-		
+#endif
+
 		latency_read_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);

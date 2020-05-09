@@ -10,6 +10,7 @@
 #include <uapi/vregion.h>
 #include <uapi/sched.h>
 #include <uapi/rbtree.h>
+#include <uapi/compiler.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -761,7 +762,12 @@ static void unmap_single_vma(struct proc_info *proc, struct vm_area_struct *vma,
 	if (end <= vma->vm_start)
 		return;
 
-	if (start != end)
+	/*
+	 * CONFLICT VMAs are not real VMAs mapped to pgtables.
+	 * They are created during __alloc_va.
+	 * They should not call into pgtable code now.
+	 */
+	if ((start != end) && (vma->vm_flags != LEGOMEM_VM_FLAGS_CONFLICT))
 		free_fpga_pte_range(proc, start, end, PAGE_SIZE);
 }
 
@@ -809,8 +815,8 @@ static void detach_vmas_to_be_unmapped(struct vregion_info *vi,
 /*
  * Lock is already held upon entry.
  */
-static int __free_va(struct proc_info *proc, struct vregion_info *vi,
-		     unsigned long start, unsigned long len)
+int __free_va(struct proc_info *proc, struct vregion_info *vi,
+	      unsigned long start, unsigned long len)
 {
 	unsigned long end;
 	struct vm_area_struct *vma, *prev, *last;
@@ -1162,15 +1168,55 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 				unsigned long len, unsigned long vm_flags)
 {
 	unsigned long addr;
+	bool has_conflict;
+	int nr_retry = 0;
 
-	if (unlikely(len > VREGION_SIZE)) {
-		BUG();
-		return -EINVAL;
+	/*
+	 * All length must be page aligned
+	 * to cover a whole PTE range.
+	 */
+	len = PAGE_ALIGN(len);
+	BUG_ON(len > VREGION_SIZE);
+
+retry:
+	/*
+	 * Step 1:
+	 * Go through the current VMA tree, find a range.
+	 * Nothing will be updated during this one.
+	 */
+	addr = __find_va_range(proc, vi, len);
+	if (IS_ERR_VALUE(addr)) {
+		dprintf_ERROR("nr_retry: %d\n", nr_retry);
+		return 0;
 	}
 
-	addr = __find_va_range(proc, vi, len);
-	if (IS_ERR_VALUE(addr))
-		return addr;
+	if (unlikely(!IS_ALIGNED(addr, PAGE_SIZE))) {
+		dprintf_ERROR("addr %#lx not page aligned. why??\n", addr);
+		return 0;
+	}
+
+	/*
+	 * Step 2:
+	 * Check if above [addr, addr+len] mapped PTEs
+	 * can be allocated from the shadow pgtable.
+	 */
+	has_conflict = check_and_insert_shadow_conflicts(proc, vi, addr,
+							 PAGE_SIZE, PAGE_SHIFT, /* XXX User defined? */
+							 len);
+	if (has_conflict) {
+		nr_retry++;
+
+		/*
+		 * XXX
+		 * which range?
+		 * only a page, or the whole?? Maybe a page is enough?
+		 */
+		vma_tree_new(proc, vi, addr, len, LEGOMEM_VM_FLAGS_CONFLICT);
+
+		dprintf_DEBUG("va alloc conflict [%#lx-%#lx] nr_retry: %d\n",
+			addr, addr + len, nr_retry);
+		goto retry;
+	}
 
 	/*
 	 * Try to update the VMA tree with [addr, addr+len]
@@ -1178,7 +1224,7 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	 */
 	addr = vma_tree_new(proc, vi, addr, len, vm_flags);
 	if (IS_ERR_VALUE(addr))
-		return addr;
+		return 0;
 
 	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags, PAGE_SIZE);
 	return addr;

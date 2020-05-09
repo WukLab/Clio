@@ -32,63 +32,105 @@
 
 void *soc_shadow_pgtable;
 
-struct conflict_vma conflict_vmas[FPGA_NUM_PGTABLE_BUCKETS];
+struct conflict_info {
+	struct list_head list;
+	struct proc_info *pi;
+	struct vregion_info *vi;
+	unsigned long start;
+	unsigned long page_size;
+};
 
-static inline struct conflict_vma *to_conflict_vma_head(int index)
+struct shadow_bucket_info {
+	atomic_int nr_free;
+	int nr_conflicts;
+	struct list_head conflict_head;
+	pthread_spinlock_t lock;
+};
+
+struct shadow_bucket_info shadow_bucket_infos[FPGA_NUM_PGTABLE_BUCKETS];
+
+static inline struct shadow_bucket_info *
+index_to_shadow_bucket_info(int index)
 {
 	BUG_ON(index >= FPGA_NUM_PGTABLE_BUCKETS);
-	return &conflict_vmas[index];
-}
-
-int add_conflict_vma(int bkt_index, struct vm_area_struct *vma)
-{
-	struct conflict_vma *cv;
-
-	cv = to_conflict_vma_head(bkt_index);
-
-	pthread_spin_lock(&cv->lock);
-	list_add(&vma->conflict_list, &cv->head);
-	pthread_spin_unlock(&cv->lock);
-
-	return 0;
-}
-
-void remove_all_conflict_vmas(int bkt_index)
-{
-	struct conflict_vma *cv;
-	struct vm_area_struct *vma;
-
-	cv = to_conflict_vma_head(bkt_index);
-
-	pthread_spin_lock(&cv->lock);
-	while (!list_empty(&cv->head)) {
-		vma = list_entry(cv->head.next, struct vm_area_struct, conflict_list);
-		list_del(&vma->conflict_list);
-		cv->nr--;
-	}
-	pthread_spin_unlock(&cv->lock);
+	return &shadow_bucket_infos[index];
 }
 
 /*
- * It's a shadow copy, thus the same offset.
- * We first calculate the offset of @fpga_pte from fpga table base,
- * then we get its shadow pte from soc table.
+ * Return true if there is conflict and the conflict info is saved.
+ * Otherwise return false, caller can proceed.
  */
-static inline struct lego_mem_pte *
-to_soc_shadow_pte(struct proc_info *pi, struct lego_mem_pte *fpga_pte)
+bool check_and_insert_shadow_conflicts(struct proc_info *pi,
+				       struct vregion_info *vi,
+				       unsigned long addr,
+				       unsigned long page_size,
+				       unsigned long page_size_shift,
+				       unsigned long len)
 {
-	u64 offset;
-	struct lego_mem_pte *soc_shadow_pte;
+	unsigned long start, end;
+	struct shadow_bucket_info *info;
+	int index;
 
-	offset = (u64)fpga_pte - (u64)(pi->fpga_pgtable);
-	if (unlikely(offset >= FPGA_DRAM_PGTABLE_SIZE)) {
-		dprintf_ERROR("offset: %#lx max: %#lx\n",
-			offset, FPGA_DRAM_PGTABLE_SIZE);
-		return NULL;
+	/*
+	 * Both addr and len are page aligned,
+	 * ensured by caller.
+	 */
+	start = addr;
+	end = start + len;
+
+	for ( ; start < end; start += page_size) {
+		index = addr_to_bucket_index(addr, page_size_shift);
+		info = index_to_shadow_bucket_info(index);
+
+		if (unlikely(atomic_load(&info->nr_free) == 0)) {
+			struct conflict_info *ci;
+
+			ci = malloc(sizeof(*ci));
+			ci->pi = pi;
+			ci->vi = vi;
+			ci->start = start;
+			ci->page_size = page_size;
+
+			pthread_spin_lock(&info->lock);
+			list_add(&ci->list, &info->conflict_head);
+			info->nr_conflicts++;
+			pthread_spin_unlock(&info->lock);
+
+			dprintf_DEBUG("New conflict. index=%d insert: pid=%d addr=%#lx nr=%d\n",
+				index, pi->pid, start, info->nr_conflicts);
+
+			return true;
+		}
 	}
+	return false;
+}
 
-	soc_shadow_pte = (struct lego_mem_pte *)((u64)(pi->soc_shadow_pgtable) + offset);
-	return soc_shadow_pte;
+static void free_all_conflicts(struct shadow_bucket_info *info)
+{
+	struct conflict_info *ci;
+
+	pthread_spin_lock(&info->lock);
+	while (!list_empty(&info->conflict_head)) {
+		ci = list_entry(info->conflict_head.next, struct conflict_info, list);
+		list_del(&ci->list);
+		info->nr_conflicts--;
+
+		/*
+		 * This function runs deep within free_va_vregion stack.
+		 * free_va_vregion
+		 *  __free_va
+		 *  ...
+		 *   unmap_single_vma
+		 *     free_fpga_pte_range
+		 *       zap_shadow_pte
+		 *
+		 * And the vregion lock is held.
+		 * Thus we must recursivelyc all __free_va.
+		 */
+		__free_va(ci->pi, ci->vi, ci->start, ci->page_size);
+		free(ci);
+	}
+	pthread_spin_unlock(&info->lock);
 }
 
 /*
@@ -97,11 +139,21 @@ to_soc_shadow_pte(struct proc_info *pi, struct lego_mem_pte *fpga_pte)
  */
 void zap_shadow_pte(struct lego_mem_pte *pte)
 {
+	struct shadow_bucket_info *info;
+	unsigned int index;
+
 	if (unlikely(!pte->allocated)) {
 		dprintf_ERROR("shadow pte %#lx invalid\n",
 			(unsigned long)pte);
 		return;
 	}
+
+	index = shadow_pte_to_bucket_index(pte);
+	info = index_to_shadow_bucket_info(index);
+
+	atomic_fetch_add(&info->nr_free, 1);
+	free_all_conflicts(info);
+
 	pte->tag = 0;
 	pte->allocated = 0;
 	pte->valid = 0;
@@ -117,9 +169,14 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 {
 	struct lego_mem_pte *pte;
 	struct lego_mem_bucket *bucket;
+	struct shadow_bucket_info *info;
+	unsigned int index;
 	int i;
 
 	bucket = addr_to_bucket(pi->soc_shadow_pgtable, addr, page_size_shift);
+
+	index = addr_to_bucket_index(addr, page_size_shift);
+	info = index_to_shadow_bucket_info(index);
 
 	/*
 	 * Walk through all slots within this bucket,
@@ -139,6 +196,8 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 		pte->tag = generate_tag(pi->pid, addr);
 		pte->allocated = 1;
 		pte->valid = 0;
+
+		atomic_fetch_sub(&info->nr_free, 1);
 		return pte;
 	}
 	return NULL;
@@ -147,12 +206,28 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 int init_shadow_pgtable(void)
 {
 	int i;
-	struct conflict_vma *cv;
+	struct shadow_bucket_info *info;
 
 	for (i = 0; i < FPGA_NUM_PGTABLE_BUCKETS; i++) {
-		cv = to_conflict_vma_head(i);
-		pthread_spin_init(&cv->lock, PTHREAD_PROCESS_PRIVATE);
+		info = index_to_shadow_bucket_info(i);
+
+		atomic_store(&info->nr_free, FPGA_NUM_PTE_PER_BUCKET);
+
+		info->nr_conflicts = 0;
+		INIT_LIST_HEAD(&info->conflict_head);
+		pthread_spin_init(&info->lock, PTHREAD_PROCESS_PRIVATE);
 	}
+
+	soc_shadow_pgtable = malloc(FPGA_DRAM_PGTABLE_SIZE);
+	if (!soc_shadow_pgtable) {
+		dprintf_ERROR("Fail to alloc shadow page table %d\n", errno);
+		exit(1);
+	}
+	memset((void *)soc_shadow_pgtable, 0, FPGA_DRAM_PGTABLE_SIZE);
+
+	dprintf_INFO("Shadow pgtable @[%#lx - %#lx]\n",
+		(unsigned long)soc_shadow_pgtable,
+		(unsigned long)(soc_shadow_pgtable + FPGA_DRAM_PGTABLE_SIZE));
 
 	return 0;
 }

@@ -12,7 +12,7 @@
 #include "external.h"
 #include "buddy.h"
 
-#if 0
+#if 1
 # define LEGOMEM_DEBUG
 #endif
 
@@ -31,6 +31,8 @@
 #define dprintf_ERROR(fmt, ...) \
 	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
+extern int devmem_fd;
+
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 			       unsigned long len, unsigned long vm_flags);
@@ -38,6 +40,8 @@ int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 	    unsigned long start, unsigned long len);
 unsigned long alloc_va(struct proc_info *proc, unsigned long len, unsigned long vm_flags);
 int free_va(struct proc_info *proc, unsigned long start, unsigned long len);
+int __free_va(struct proc_info *proc, struct vregion_info *vi,
+	      unsigned long start, unsigned long len);
 
 /*
  * SCHED APIs
@@ -73,6 +77,7 @@ int pin_cpu(int cpu_id);
 void legomem_getcpu(int *cpu, int *node);
 int parse_ip_str(const char *ip_str);
 
+int init_shadow_pgtable(void);
 int init_freepage_fifo(void);
 
 void handle_test_pte(struct thpool_buffer *tb);

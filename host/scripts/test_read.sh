@@ -16,7 +16,7 @@ set -e
 
 # Knob
 # Make sure board is already up and running
-board_ip="192.168.1.9:1234"
+board_ip="192.168.1.166:1234"
 
 monitor_port=1234
 monitor_ip="192.168.1.3"

@@ -22,20 +22,32 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <sys/sysinfo.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 #include "core.h"
 
 struct fpga_zone *fpga_zone;
 
-static inline struct page *pfn_to_page(unsigned long pfn)
-{
-	return fpga_zone->page_map + pfn;
-}
-
-static inline unsigned long page_to_pfn(struct page *page)
-{
-	return page - fpga_zone->page_map;
-}
+/*
+ * The managed physical memory range.
+ * We do not allow any holes at this point.
+ *
+ * Due to the lego_mem_ctrl param32+param8 constraint,
+ * we can support up to 2^40, or 1TB physical address range.
+ *
+ * This can be tuned.
+ *
+ * Current legomem memory map (include/fpga/fpga_memory_map.h):
+ * 0-512M -> network cache
+ * 512M - 1G -> pgtable
+ * 1G - 2G -> data (buddy managed)
+ *
+ * There are physical DRAM address, not bus address.
+ */
+unsigned long fpga_mem_start = FPGA_MEMORY_MAP_DATA_START;
+unsigned long fpga_mem_end = FPGA_MEMORY_MAP_DATA_END;
+unsigned long fpga_mem_start_soc_va;
 
 /*
  * Locate the struct page for both the matching buddy in our
@@ -344,22 +356,28 @@ void dump_buddy(void)
 		total_free_kb, total_free_kb >> 10);
 }
 
-/*
- * The managed physical memory range.
- * We do not allow any holes at this point.
- *
- * Due to the lego_mem_ctrl param32+param8 constraint,
- * we can support up to 2^40, or 1TB physical address range.
- *
- * This can be tuned.
- *
- * Current legomem memory map (include/fpga/fpga_memory_map.h):
- * 0-512M -> network cache
- * 512M - 1G -> pgtable
- * 1G - 2G -> data (buddy managed)
- */
-unsigned long fpga_mem_start = FPGA_MEMORY_MAP_DATA_START;
-unsigned long fpga_mem_end = FPGA_MEMORY_MAP_DATA_END;
+static void init_devmem_mapping(void)
+{
+	void *p;
+
+	/*
+	 * mmap devmem requires a bus address,
+	 * thus we need to add FPGA_MEMORY_MAP_MAPPING_BASE.
+	 *
+	 * Further, same trick as page_map, we mmap
+	 * [0, fpga_mem_end].
+	 */
+	p = mmap(0, fpga_mem_end,
+		 PROT_READ | PROT_WRITE,
+		 MAP_SHARED, devmem_fd,
+		 FPGA_MEMORY_MAP_MAPPING_BASE + 0);
+	if (p == MAP_FAILED) {
+		dprintf_ERROR("Fail to mmap fpga dram. %d", errno);
+		exit(0);
+	}
+
+	fpga_mem_start_soc_va = (unsigned long)p;
+}
 
 int init_buddy(void)
 {
@@ -369,7 +387,6 @@ int init_buddy(void)
 	zone = malloc(sizeof(*zone));
 	if (!zone)
 		return -ENOMEM;
-
 	pthread_spin_init(&zone->lock, PTHREAD_PROCESS_PRIVATE);
 	zone->nr_free = 0;
 
@@ -385,6 +402,9 @@ int init_buddy(void)
 	/*
 	 * Allocate page_map
 	 * No matter what start is, we prepare all pages till the end.
+	 * Thus pfn_to_page and page_to_pfn etc can work in the simplest way.
+	 *
+	 * But we will only use the [fpga_mem_start, fpga_mem_end] portion.
 	 */
 	nr_pages = PHYS_PFN(fpga_mem_end);
 	fpga_zone->page_map = malloc(nr_pages * sizeof(struct page));
@@ -394,11 +414,23 @@ int init_buddy(void)
 		return -ENOMEM;
 	}
 
+	/* Make buddy full again */
 	initial_free_pages(fpga_mem_start, fpga_mem_end);
 
-	dprintf_INFO("Buddy managing [%#018lx-%#018lx] Page Size %lu KB\n",
-		fpga_mem_start, fpga_mem_end,
-		PAGE_SIZE >> 10);
+	/* Build the mapping to access real FPGA pages*/
+	init_devmem_mapping();
+
+	dprintf_INFO("Buddy page_map @[%#lx-%#lx] data_map @[%#lx-%#lx] "
+		     "for FPGA Physical DRAM @[%#lx-%#lx], offset@%#lx\n",
+			(u64)fpga_zone->page_map,
+			(u64)fpga_zone->page_map + nr_pages * sizeof(struct page),
+			fpga_mem_start_soc_va,
+			fpga_mem_start_soc_va + fpga_mem_end,
+			0UL, fpga_mem_end,
+			FPGA_MEMORY_MAP_MAPPING_BASE);
+
+	dprintf_INFO("Buddy is only managing [%#lx-%#lx]. Default page_size %lu KB\n",
+		fpga_mem_start, fpga_mem_end, PAGE_SIZE >> 10);
 
 	dump_buddy();
 

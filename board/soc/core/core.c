@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include <stdatomic.h>
 #include <sys/sysinfo.h>
 
@@ -604,6 +606,18 @@ static void gather_sysinfo(void)
 	dprintf_INFO("Initial thread running on CPU %d\n", cpu);
 }
 
+int devmem_fd;
+
+static void open_devmem(void)
+{
+	devmem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+	if (devmem_fd < 0) {
+		perror("open");
+		dprintf_ERROR("Fail to open /dev/mem ret %d\n", errno);
+		exit(1);
+	}
+	dprintf_INFO("Open /dev/mem fd=%d\n", devmem_fd);
+}
 
 int main(int argc, char **argv)
 {
@@ -616,17 +630,16 @@ int main(int argc, char **argv)
 	test_vm();
 #endif
 
+	open_devmem();
+
 	ret = init_dma();
 	if (ret) {
 		printf("Fail to init dma\n");
 		return 0;
 	}
 
-	/*
-	 * Memory-map the FPGA physical DRAM
-	 * The trick is in the SoC bus address map.
-	 */
 	init_fpga_pgtable();
+	init_shadow_pgtable();
 
 	/* Init buddy allocator for FPGA physical memory. */
 	init_buddy();

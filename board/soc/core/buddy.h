@@ -33,6 +33,12 @@
 #define PFN_PHYS(x)	((unsigned long)(x) << PAGE_SHIFT)
 #define PHYS_PFN(x)	((unsigned long)((x) >> PAGE_SHIFT))
 
+/* to align the pointer to the (next) page boundary */
+#define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
+
+/* test whether an address is aligned to PAGE_SIZE */
+#define PAGE_ALIGNED(addr)	IS_ALIGNED((unsigned long)(addr), PAGE_SIZE)
+
 #define for_each_order(order) \
 	for ((order) = 0; (order) < MAX_ORDER; (order)++)
 
@@ -113,6 +119,8 @@ PAGE_FLAG(Buddy, buddy)
 
 extern unsigned long fpga_mem_start;
 extern unsigned long fpga_mem_end;
+extern unsigned long fpga_mem_start_soc_va;
+extern struct fpga_zone *fpga_zone;
 void dump_buddy(void);
 
 /*
@@ -164,5 +172,34 @@ int __get_order(unsigned long size)
 	) :							\
 	__get_order(n)						\
 )
+
+/*
+ * Notes on these convertions:
+ *
+ * Despite that buddy allocator only manages [fpga_mem_start, fpga_mem_end],
+ * we will prepare page_map and fpga_mem_start_soc_va for [0, fpga_mem_end].
+ * Thus we don't need to do any PFN shifting.
+ */
+
+static inline struct page *pfn_to_page(unsigned long pfn)
+{
+	return fpga_zone->page_map + pfn;
+}
+
+static inline unsigned long page_to_pfn(struct page *page)
+{
+	return page - fpga_zone->page_map;
+}
+
+static inline unsigned long pfn_to_soc_va(unsigned long pfn)
+{
+	return fpga_mem_start_soc_va + pfn * PAGE_SIZE;
+}
+
+static inline unsigned long page_to_soc_va(struct page *page)
+{
+	unsigned long pfn = page_to_pfn(page);
+	return pfn_to_soc_va(pfn);
+}
 
 #endif /* _LEGOMEM_SOC_BUDDY_H_ */
