@@ -64,6 +64,13 @@ all:
 	$(Q)make -C monitor
 	$(Q)make -C board
 
+PHONY += tags
+tags:
+	ctags -R --exclude="generated_vivado_project" \
+		 --exclude="generated_ip" \
+		 --exclude="generated_hls_project" \
+		 --exclude="board/soc/linux/golden"
+
 #
 # This cleans up everything.
 # Compiling takes time.
