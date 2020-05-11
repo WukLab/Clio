@@ -89,6 +89,8 @@ void arbiter_64(stream<struct udp_info>		*rsp_header,
 		} else if (result == arb_tx) {
 			send_udp_info = tx_header->read();
 		}
+		send_udp_info.dest_port = send_udp_info.dest_ip(15, 0);
+		send_udp_info.dest_ip = send_udp_info.dest_ip(31, 16) | SUBNET;
 		out_header->write(send_udp_info);
 		state = udp_arbiter_send_payload;
 		break;

@@ -96,7 +96,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			slot_id = send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
 
 			send_udp_info.src_port = LEGOMEM_PORT;
-			send_udp_info.dest_port = send_udp_info.dest_ip(15, 0);
+			send_udp_info.dest_port = LEGOMEM_PORT;
 
 			check_full_req->write(slot_id);
 			state = TX_STATE_GBN_HEADER;
@@ -112,8 +112,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			gbn_header.last = 0;
 
 			send_udp_info.src_port = LEGOMEM_PORT;
-			send_udp_info.dest_port = send_udp_info.dest_ip(15, 0);
-			send_udp_info.dest_ip = send_udp_info.dest_ip(31, 16) | SUBNET;
+			send_udp_info.dest_port = LEGOMEM_PORT;
 
 			tx_header->write(send_udp_info);
 			tx_payload->write(gbn_header);
@@ -145,8 +144,6 @@ void tx_64(stream<struct udp_info>		*tx_header,
 		 */
 		send_route_info.dest_ip = send_udp_info.dest_ip;
 		send_route_info.length = send_udp_info.length;
-
-		send_udp_info.dest_ip = send_udp_info.dest_ip(31, 16) | SUBNET;
 
 		/*
 		 * send udp header to tx port

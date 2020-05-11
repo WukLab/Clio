@@ -167,10 +167,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		 * the ip for each board is pre-determined, so we don't
 		 * need to take care of it at GBN layer
 		 */
-		rsp_udp_info.dest_ip = gbn_query_req.src_ip(31, 16) | SUBNET;
+		rsp_udp_info.dest_ip = gbn_query_req.src_ip;
 		rsp_udp_info.src_ip = 0;
 		rsp_udp_info.src_port = LEGOMEM_PORT;
-		rsp_udp_info.dest_port = gbn_query_req.src_ip(15, 0);
+		rsp_udp_info.dest_port = LEGOMEM_PORT;
 		rsp_udp_info.length = 8;
 
 		/*
