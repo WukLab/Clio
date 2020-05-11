@@ -9,15 +9,10 @@
 #include <uapi/thpool.h>
 #include <fpga/pgtable.h>
 #include <fpga/lego_mem_ctrl.h>
+#include <fpga/fpga_memory_map.h>
 #include <stdio.h>
 
 #include "core.h"
-
-/*
- * This is the BUS address for the pgtable in DRAM.
- */
-#define FPGA_DRAM_PGTABLE_BASE	(0x520000000UL)
-#define FPGA_DRAM_PGTABLE_SIZE	(0x1000000UL)
 
 extern void *devmem_pgtable_base;
 extern void *devmem_pgtable_limit;

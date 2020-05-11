@@ -24,7 +24,7 @@ void test_pgtable_access(void)
 	struct lego_mem_pte *pte;
 	double diff_ns, diff1_ns;
 
-	nr_pte = FPGA_DRAM_PGTABLE_SIZE / sizeof(struct lego_mem_pte);
+	nr_pte = FPGA_MEMORY_MAP_PGTABLE_SIZE / sizeof(struct lego_mem_pte);
 
 	/* FPGA */
 	clock_gettime(CLOCK_MONOTONIC, &s);

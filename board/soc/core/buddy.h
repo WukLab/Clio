@@ -35,8 +35,8 @@
  *
  * There are physical DRAM address, not bus address.
  */
-#define fpga_mem_start		FPGA_MEMORY_MAP_DATA_START
-#define fpga_mem_end		FPGA_MEMORY_MAP_DATA_END
+#define fpga_mem_start		_FPGA_MEMORY_MAP_DATA_START
+#define fpga_mem_end		_FPGA_MEMORY_MAP_DATA_END
 
 #define MAX_ORDER		(7)
 #define MAX_ORDER_NR_PAGES	(1 << (MAX_ORDER - 1))

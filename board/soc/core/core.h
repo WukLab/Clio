@@ -82,6 +82,8 @@ int init_freepage_fifo(void);
 
 void handle_test_pte(struct thpool_buffer *tb);
 
+void init_stat_mapping(void);
+
 /* Test */
 void test_buddy(void);
 void test_vm(void);

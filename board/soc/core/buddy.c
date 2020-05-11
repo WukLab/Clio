@@ -348,6 +348,8 @@ static void init_devmem_mapping(void)
 	 *
 	 * Further, same trick as page_map, we mmap
 	 * [0, fpga_mem_end].
+	 *
+	 * See zynq_regmap.h for more details.
 	 */
 	p = mmap(0, fpga_mem_end,
 		 PROT_READ | PROT_WRITE,

@@ -606,6 +606,18 @@ static void gather_sysinfo(void)
 	dprintf_INFO("Initial thread running on CPU %d\n", cpu);
 }
 
+/*
+ * devmem is used by SoC code to access various things.
+ * Here, we should have a clear separation about physical address and bus address.
+ * Think all the addresses as bus address, and only a portion of it is used
+ * for SoC DRAM physical address space.
+ *
+ * Some bus addresses (such as the ones used for dynamic IP/MAC setup) may look
+ * like SoC DRAM physical address, but they are bus address that maps to FPGA registers.
+ * Same for FPGA DRAM, whose bus base is FPGA_MEMORY_MAP_DATA_START (0x500000000).
+ * All those things are set by Vivado Address Editor.
+ * Interesting embedded systems.
+ */
 int devmem_fd;
 
 static void open_devmem(void)
@@ -637,6 +649,8 @@ int main(int argc, char **argv)
 		printf("Fail to init dma\n");
 		return 0;
 	}
+
+	init_stat_mapping();
 
 	init_fpga_pgtable();
 	init_shadow_pgtable();

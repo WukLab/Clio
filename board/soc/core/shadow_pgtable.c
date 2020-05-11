@@ -232,16 +232,16 @@ int init_shadow_pgtable(void)
 		pthread_spin_init(&info->lock, PTHREAD_PROCESS_PRIVATE);
 	}
 
-	soc_shadow_pgtable = malloc(FPGA_DRAM_PGTABLE_SIZE);
+	soc_shadow_pgtable = malloc(FPGA_MEMORY_MAP_PGTABLE_SIZE);
 	if (!soc_shadow_pgtable) {
 		dprintf_ERROR("Fail to alloc shadow page table %d\n", errno);
 		exit(1);
 	}
-	memset((void *)soc_shadow_pgtable, 0, FPGA_DRAM_PGTABLE_SIZE);
+	memset((void *)soc_shadow_pgtable, 0, FPGA_MEMORY_MAP_PGTABLE_SIZE);
 
 	dprintf_INFO("Shadow pgtable @[%#lx - %#lx]\n",
 		(unsigned long)soc_shadow_pgtable,
-		(unsigned long)(soc_shadow_pgtable + FPGA_DRAM_PGTABLE_SIZE));
+		(unsigned long)(soc_shadow_pgtable + FPGA_MEMORY_MAP_PGTABLE_SIZE));
 
 	return 0;
 }

@@ -33,9 +33,9 @@ shadow_to_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte)
 	struct lego_mem_pte *fpga_pte;
 
 	offset = (unsigned long)soc_shadow_pte - (unsigned long)pi->soc_shadow_pgtable;
-	if (unlikely(offset >= FPGA_DRAM_PGTABLE_SIZE)) {
+	if (unlikely(offset >= FPGA_MEMORY_MAP_PGTABLE_SIZE)) {
 		dprintf_ERROR("offset: %#lx max: %#lx\n",
-			offset, FPGA_DRAM_PGTABLE_SIZE);
+			offset, FPGA_MEMORY_MAP_PGTABLE_SIZE);
 		return NULL;
 	}
 	fpga_pte = (struct lego_mem_pte *)((unsigned long)(pi->fpga_pgtable) + offset);
@@ -304,11 +304,15 @@ void init_fpga_pgtable(void)
 {
 	int i, nr_pte;
 
+	/*
+	 * mmap a portion of fpga physical dram.
+	 * See zynq_regmap.h for more details.
+	 */
 	devmem_pgtable_base = mmap(0,
-				   FPGA_DRAM_PGTABLE_SIZE,
+				   FPGA_MEMORY_MAP_PGTABLE_SIZE,
 				   PROT_READ | PROT_WRITE,
 				   MAP_SHARED, devmem_fd,
-				   FPGA_DRAM_PGTABLE_BASE);
+				   FPGA_MEMORY_MAP_PGTABLE_START);
 	if (devmem_pgtable_base == MAP_FAILED) {
 		perror("mmap");
 		dprintf_ERROR("Fail to mmap /dev/mem ret %d\n", errno);
@@ -323,7 +327,7 @@ void init_fpga_pgtable(void)
 	 * Big chunk memset does not work.
 	 * We must reset one by one.
 	 */
-	nr_pte = FPGA_DRAM_PGTABLE_SIZE / sizeof(struct lego_mem_pte);
+	nr_pte = FPGA_MEMORY_MAP_PGTABLE_SIZE / sizeof(struct lego_mem_pte);
 	for (i = 0; i < nr_pte; i++) {
 		struct lego_mem_pte *pte;
 
@@ -335,9 +339,9 @@ void init_fpga_pgtable(void)
 		pte->valid = 0;
 		pte->tag = 0;
 	}
-	devmem_pgtable_limit = devmem_pgtable_base + FPGA_DRAM_PGTABLE_SIZE;
+	devmem_pgtable_limit = devmem_pgtable_base + FPGA_MEMORY_MAP_PGTABLE_SIZE;
 
 	dprintf_INFO("FPGA pgtable @[%#lx - %#lx] -> PA[%#lx - %#lx]\n",
 		(unsigned long)devmem_pgtable_base, (unsigned long)devmem_pgtable_limit,
-		FPGA_DRAM_PGTABLE_BASE, FPGA_DRAM_PGTABLE_BASE + FPGA_DRAM_PGTABLE_SIZE);
+		FPGA_MEMORY_MAP_PGTABLE_START, FPGA_MEMORY_MAP_PGTABLE_END);
 }
