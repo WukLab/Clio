@@ -14,7 +14,7 @@ object GenerateContext {
     val tagOffset = 20
 
     // Cache config
-    val numCacheCells = 128
+    val numCacheCells = 64
     val numPageFaultCacheCells = 16
 
     // Hash Table Config

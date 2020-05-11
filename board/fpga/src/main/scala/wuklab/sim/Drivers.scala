@@ -180,7 +180,7 @@ class BitAxisDataGen(bits : (scodec.bits.BitVector, Int))(frag : Fragment[AxiStr
 
   override def tik = {
     val isLast = tail.sizeLessThanOrEqual(config.dataWidth)
-    wire.fragment.tdata #= BigInt(data)
+    wire.fragment.tdata #= new BigInteger(1, data)
     wire.last #= isLast
     if (config.useDest) wire.fragment.tdest #= dest
     if (config.useKeep) wire.fragment.tkeep #= {
@@ -483,7 +483,8 @@ class DictMemoryDriver(val clockDomain: ClockDomain) extends Axi4SlaveMemoryDriv
       .find { case (s, seq) => addr >= s && addr < s + seq.size }
       .map { case (s, seq) => seq.slice((addr - s).toInt, (addr - s + size).toInt).toArray }
       .getOrElse { println("Memory Read Invalid!"); Array.fill(size)(0 : Byte) }
-    new BigInt(new BigInteger(resultArray.reverse))
+    println(s"ResultLength: ${resultArray.size}")
+    new BigInt(new BigInteger(1, resultArray.reverse))
   }
 
   override def memoryWrite(addr: BigInt, size: Int, data: BigInt): Unit = {
