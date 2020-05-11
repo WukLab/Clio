@@ -21,7 +21,7 @@ case class KeyValueHeader() extends Bundle with Header[KeyValueHeader] {
   val keySize = UInt(4 bits)
   val valueSize = UInt(12 bits)
 
-  override val packedWidth =
+  override val packedWidth = header.packedWidth + 32
   override def getSize = header.getSize
   override def fromWiderBits(bits: Bits) = {
     assignFromBits(bits)

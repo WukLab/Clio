@@ -4,6 +4,7 @@ import wuklab.Utils._
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Aw, Axi4Config, Axi4ReadOnly, Axi4W, Axi4WriteOnly, Axi4WriteOnlyUpsizer}
+import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
 
@@ -76,6 +77,7 @@ class PageFaultUint(implicit config : CoreMemConfig) extends Component {
 
   io.res << faultFwd.fmap(_.snd)
   // Only report valid ones
+  // TODO: add more resource here
   io.rpt << faultFwd.tapAsFlow.fmap(_.snd).takeBy(_.allocated)
 
   val addrFireVec = Vec(io.addrFifos.map(_.fire))
@@ -387,6 +389,7 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
       val in = slave Stream ControlRequest()
       val out = master Stream ControlRequest()
     }
+
     val bus = master (Axi4(config.lookupAxi4Config))
   }
 

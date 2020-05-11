@@ -388,16 +388,23 @@ object Utils {
     // 0 -----------> 512
     // initial | (head | tail) | (head | tail) | (head | tail)
     // (initial | head) | (tail | head) | ...
-    def shiftAt(offset : Int, initial : Bits): Bits = {
-      require(initial.getWidth == offset, "need the initial bits to be same width of the pad bits")
-      val width = frag.fragment.getWidth
-      val next = RegNextWhen(frag.fragment(frag.fragment.getWidth downBy offset), frag.fire)
-      // This is delayed one cycles.
-      val pad = Mux(frag.first, initial, next)
-      frag.fragment(width-1 downto offset) ## pad
-    }
-    def shiftAt(offset : Int): Bits = {
-      shiftAt(offset, Bits(offset bits).clearAll())
+    def shiftAt(initial : Bits, skipLast : Bool): Stream[Fragment[Bits]] = {
+      // TODO: we may waste a cycle here, repair this!
+      val next = cloneOf(frag)
+      val offset = frag.fragment.getWidth - initial.getWidth
+
+      val tailReg = RegNextWhen(frag.fragment(frag.fragment.getWidth - 1 downto offset), frag.fire)
+      val shiftedData = frag.fragment(offset - 1 downto 0) ## Mux(frag.first, initial, tailReg)
+
+      val longIn = frag.insertHeader(shiftedData)
+      val in = longIn.throwWhen(longIn.first && skipLast)
+
+      next.translateFrom (in) { (dst, src) =>
+        dst.fragment := shiftedData
+        dst.last := src.last
+      }
+
+      next
     }
   }
 
