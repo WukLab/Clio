@@ -42,6 +42,13 @@ shadow_to_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte)
 	return fpga_pte;
 }
 
+static inline void dump_pte(struct lego_mem_pte *pte, bool shadow)
+{
+	dprintf_DEBUG("Dump %s PTE(%#lx) ppa=%#lx alloc=%d valid=%d tag=%#lx\n",
+		shadow ? "Shadow" : "FPGA",
+		(u64)pte, (u64)pte->ppa, pte->allocated, pte->valid, pte->tag);
+}
+
 /* Free a PTE entry */
 static void zap_pte(struct proc_info *pi, 
 		    struct lego_mem_pte *soc_shadow_pte, unsigned long page_size)
@@ -57,6 +64,7 @@ static void zap_pte(struct proc_info *pi,
 	if (unlikely(!fpga_pte->allocated)) {
 		dprintf_ERROR("fpga pte %#lx invalid\n",
 			(unsigned long)fpga_pte);
+		dump_pte(fpga_pte, false);
 		return;
 	}
 
@@ -66,6 +74,7 @@ static void zap_pte(struct proc_info *pi,
 	 */
 	if (fpga_pte->valid) {
 		phys = fpga_pte->ppa;
+		phys -= FPGA_MEMORY_MAP_MAPPING_BASE;
 		order = get_order(page_size);
 		free_pfn(PHYS_PFN(phys), order);
 
@@ -73,10 +82,6 @@ static void zap_pte(struct proc_info *pi,
 	}
 	fpga_pte->allocated = 0;
 	fpga_pte->tag = 0;
-
-#if 1
-	dprintf_DEBUG("fpga PTE (%#lx): pa=%#lx\n", (u64)fpga_pte, phys);
-#endif
 }
 
 /*
@@ -89,6 +94,9 @@ void free_fpga_pte_range(struct proc_info *pi,
 {
 	struct lego_mem_pte *pte;
 
+	dprintf_DEBUG("PID: %u Free VA @[%#lx - %#lx]\n",
+		pi->pid, start, end);
+
 	for ( ; start < end; start += page_size) {
 		pte = addr_to_shadow_pte(pi, start, PAGE_SHIFT);
 		if (!pte) {
@@ -98,15 +106,9 @@ void free_fpga_pte_range(struct proc_info *pi,
 			continue;
 		}
 
-		zap_shadow_pte(pte);
+		zap_shadow_pte(pi, pte, page_size);
 		zap_pte(pi, pte, page_size);
 	}
-}
-
-static inline void dump_pte(struct lego_mem_pte *pte)
-{
-	dprintf_DEBUG("Dump PTE(%#lx) ppa=%#lx alloc=%d valid=%d tag=%#lx\n",
-		(u64)pte, (u64)pte->ppa, pte->allocated, pte->valid, pte->tag);
 }
 
 /*
@@ -141,7 +143,7 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 
 	if (unlikely(fpga_pte->allocated)) {
 		dprintf_ERROR("FPGA PTE was already allocated. %d", 0);
-		dump_pte(fpga_pte);
+		dump_pte(fpga_pte, false);
 		return NULL;
 	}
 
@@ -181,7 +183,6 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 	} else
 		fpga_pte->valid = 0;
 
-	dump_pte(fpga_pte);
 	return fpga_pte;
 }
 

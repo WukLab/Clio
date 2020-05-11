@@ -38,7 +38,8 @@ extern void *soc_shadow_pgtable;
 struct lego_mem_pte *
 alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 		     unsigned long page_size_shift);
-void zap_shadow_pte(struct lego_mem_pte *pte);
+void zap_shadow_pte(struct proc_info *pi, struct lego_mem_pte *pte,
+		    unsigned long page_size);
 
 // TODO replace this with lookup3
 static inline unsigned long
@@ -96,8 +97,10 @@ generate_tag(pid_t pid, unsigned long va)
 	unsigned long tag = ((unsigned long)(pid & 0xFFFF) << (64 - FPGA_TAG_OFFSET)) |
 			(va >> FPGA_TAG_OFFSET);
 
+#if 0
 	dprintf_DEBUG("    Tag=%#lx addr=%#lx pid=%#x offset=%d\n",
 			tag, va, pid, FPGA_TAG_OFFSET);
+#endif
 	return tag;
 }
 
@@ -146,11 +149,14 @@ addr_to_shadow_pte(struct proc_info *pi, unsigned long addr,
 }
 
 static inline unsigned int
-shadow_pte_to_bucket_index(struct lego_mem_pte *pte)
+shadow_pte_to_bucket_index(struct proc_info *pi, struct lego_mem_pte *pte)
 {
 	unsigned long index;
 
-	index = (u64)pte - (u64)soc_shadow_pgtable;
+	/* Get PTE offset */
+	index = pte - (struct lego_mem_pte *)(pi->soc_shadow_pgtable);
+
+	/* Then to bucket offset */
 	index /= FPGA_NUM_PTE_PER_BUCKET;
 	return (u32)index;
 }

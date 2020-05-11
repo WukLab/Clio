@@ -52,7 +52,11 @@ struct shadow_bucket_info shadow_bucket_infos[FPGA_NUM_PGTABLE_BUCKETS];
 static inline struct shadow_bucket_info *
 index_to_shadow_bucket_info(int index)
 {
-	BUG_ON(index >= FPGA_NUM_PGTABLE_BUCKETS);
+	if (unlikely(index >= FPGA_NUM_PGTABLE_BUCKETS)) {
+		dprintf_ERROR("index = %d max = %d\n",
+			index, FPGA_NUM_PGTABLE_BUCKETS);
+		BUG();
+	}
 	return &shadow_bucket_infos[index];
 }
 
@@ -115,6 +119,15 @@ static void free_all_conflicts(struct shadow_bucket_info *info)
 		list_del(&ci->list);
 		info->nr_conflicts--;
 
+		dprintf_DEBUG("free conflict pid %d [%#lx-%#lx]\n",
+			ci->pi->pid, ci->start, ci->start + ci->page_size);
+
+		/*
+		 * TODO
+		 * the pi may already be closed. and because we don't have
+		 * reference count, it was freed. We need to add that one day..
+		 */
+
 		/*
 		 * This function runs deep within free_va_vregion stack.
 		 * free_va_vregion
@@ -137,7 +150,8 @@ static void free_all_conflicts(struct shadow_bucket_info *info)
  * Sister function for zap_pte().
  * Clear a shadow PTE.
  */
-void zap_shadow_pte(struct lego_mem_pte *pte)
+void zap_shadow_pte(struct proc_info *pi, struct lego_mem_pte *pte,
+		    unsigned long page_size)
 {
 	struct shadow_bucket_info *info;
 	unsigned int index;
@@ -148,7 +162,7 @@ void zap_shadow_pte(struct lego_mem_pte *pte)
 		return;
 	}
 
-	index = shadow_pte_to_bucket_index(pte);
+	index = shadow_pte_to_bucket_index(pi, pte);
 	info = index_to_shadow_bucket_info(index);
 
 	atomic_fetch_add(&info->nr_free, 1);

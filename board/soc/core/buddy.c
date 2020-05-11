@@ -29,24 +29,6 @@
 
 struct fpga_zone *fpga_zone;
 
-/*
- * The managed physical memory range.
- * We do not allow any holes at this point.
- *
- * Due to the lego_mem_ctrl param32+param8 constraint,
- * we can support up to 2^40, or 1TB physical address range.
- *
- * This can be tuned.
- *
- * Current legomem memory map (include/fpga/fpga_memory_map.h):
- * 0-512M -> network cache
- * 512M - 1G -> pgtable
- * 1G - 2G -> data (buddy managed)
- *
- * There are physical DRAM address, not bus address.
- */
-unsigned long fpga_mem_start = FPGA_MEMORY_MAP_DATA_START;
-unsigned long fpga_mem_end = FPGA_MEMORY_MAP_DATA_END;
 unsigned long fpga_mem_start_soc_va;
 
 /*

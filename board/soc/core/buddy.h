@@ -16,6 +16,27 @@
 #include <uapi/list.h>
 #include <uapi/log2.h>
 #include <uapi/bitops.h>
+#include <fpga/lego_mem_ctrl.h>
+#include <fpga/fpga_memory_map.h>
+
+/*
+ * The managed physical memory range.
+ * We do not allow any holes at this point.
+ *
+ * Due to the lego_mem_ctrl param32+param8 constraint,
+ * we can support up to 2^40, or 1TB physical address range.
+ *
+ * This can be tuned.
+ *
+ * Current legomem memory map (include/fpga/fpga_memory_map.h):
+ * 0-512M -> network cache
+ * 512M - 1G -> pgtable
+ * 1G - 2G -> data (buddy managed)
+ *
+ * There are physical DRAM address, not bus address.
+ */
+#define fpga_mem_start		FPGA_MEMORY_MAP_DATA_START
+#define fpga_mem_end		FPGA_MEMORY_MAP_DATA_END
 
 #define MAX_ORDER		(7)
 #define MAX_ORDER_NR_PAGES	(1 << (MAX_ORDER - 1))
@@ -38,6 +59,8 @@
 
 /* test whether an address is aligned to PAGE_SIZE */
 #define PAGE_ALIGNED(addr)	IS_ALIGNED((unsigned long)(addr), PAGE_SIZE)
+
+#define max_pfn			PHYS_PFN(fpga_mem_end)
 
 #define for_each_order(order) \
 	for ((order) = 0; (order) < MAX_ORDER; (order)++)
@@ -117,10 +140,9 @@ static inline int __TestClearPage##uname(struct page *page)	\
 
 PAGE_FLAG(Buddy, buddy)
 
-extern unsigned long fpga_mem_start;
-extern unsigned long fpga_mem_end;
 extern unsigned long fpga_mem_start_soc_va;
 extern struct fpga_zone *fpga_zone;
+
 void dump_buddy(void);
 
 /*
@@ -181,14 +203,18 @@ int __get_order(unsigned long size)
  * Thus we don't need to do any PFN shifting.
  */
 
-static inline struct page *pfn_to_page(unsigned long pfn)
+static __always_inline struct page *pfn_to_page(unsigned long pfn)
 {
+	BUG_ON(pfn >= max_pfn);
 	return fpga_zone->page_map + pfn;
 }
 
-static inline unsigned long page_to_pfn(struct page *page)
+static __always_inline unsigned long page_to_pfn(struct page *page)
 {
-	return page - fpga_zone->page_map;
+	unsigned long pfn;
+	pfn = page - fpga_zone->page_map;
+	BUG_ON(pfn >= max_pfn);
+	return pfn;
 }
 
 static inline unsigned long pfn_to_soc_va(unsigned long pfn)
