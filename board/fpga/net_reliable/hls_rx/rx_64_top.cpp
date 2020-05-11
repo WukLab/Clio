@@ -87,6 +87,8 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		   recv_pkt.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				 DEST_SLOT_OFFSET).to_uint());
 
+		recv_udp_info.src_ip = (recv_udp_info.src_ip << 16) | recv_udp_info.src_port;
+
 		/*
 		 * src/dest ip are reversed in state table
 		 */

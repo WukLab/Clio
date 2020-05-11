@@ -51,7 +51,7 @@ void test_util::run_one_cycle(stream<struct udp_info> *rx_header,
 			SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1, SRC_SLOT_OFFSET);
 		ap_uint<SLOT_ID_WIDTH> dest_slot = gbn_query.gbn_header(
 			DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1, DEST_SLOT_OFFSET);
-		dph("[cycle %2d] state tabel get gbn header: [type %d, seq %lld, src slot %d, dest slot %d]\n",
+		dph("[cycle %2d] state table get gbn header: [type %d, seq %lld, src slot %d, dest slot %d]\n",
 		    cycle, type.to_ushort(), seqnum.to_uint64(),
 		    src_slot.to_uint(), dest_slot.to_uint());
 	}

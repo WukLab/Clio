@@ -19,7 +19,7 @@ class test_util {
 			   stream<ap_uint<SLOT_ID_WIDTH> >	*check_full_req,			   
 			   stream<bool>				*tx_finish_sig,
 			   stream<ap_uint<SLOT_ID_WIDTH> >	*rt_timeout_sig,
-			   stream<ap_uint<SLOT_ID_WIDTH> >	*init_req);
+			   stream<struct conn_mgmt_req>		*init_req);
 
     private:
 	stream<struct udp_info> rsp_header;
@@ -45,7 +45,7 @@ void test_util::run_one_cycle(stream<struct query_req>		*state_query_req,
 			      stream<ap_uint<SLOT_ID_WIDTH> >	*check_full_req,
 			      stream<bool>			*tx_finish_sig,
 			      stream<ap_uint<SLOT_ID_WIDTH> >	*rt_timeout_sig,
-			      stream<ap_uint<SLOT_ID_WIDTH> >	*init_req)
+			      stream<struct conn_mgmt_req>	*init_req)
 {
 	struct udp_info recv_hd;
 	struct net_axis_64 recv_data;
@@ -133,17 +133,20 @@ void test_rx(vector<unsigned> &test_seq)
 	
 	test_util test_rx_util;
 	struct query_req test_query;
+	struct conn_mgmt_req init;
 	ap_uint<SES_ID_WIDTH> ses_id;
 	stream<struct query_req> rx_query("receive query request");
 	stream<ap_uint<SLOT_ID_WIDTH>> check_full("dummy check full");
 	stream<bool> tx_fin("dummy tx completion sig");
 	stream<ap_uint<SLOT_ID_WIDTH> > rt_timeout("dummy timeout sig");
-	stream<ap_uint<SLOT_ID_WIDTH> > init_req("initiate request");
+	stream<struct conn_mgmt_req> init_req("initiate request");
 
 	test_query.src_ip = 0xc0a80102;  // 192.168.1.2
 	test_query.dest_ip = 0xc0a80180; // 192.168.1.128
 
-	init_req.write(10);
+	init.set_type = GBN_SOC2FPGA_SET_TYPE_OPEN;
+	init.slotid = 10;
+	init_req.write(init);
 	test_rx_util.run_one_cycle(&rx_query, &check_full, &tx_fin,
 				   &rt_timeout, &init_req);
 
@@ -175,6 +178,7 @@ void test_ack(vector<unsigned> &ack_seq, vector<enum gbn_pkt_type> &ack_type)
 	test_util test_ack_util;
 	vector<unsigned> send_seq = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 	struct query_req test_query;
+	struct conn_mgmt_req init;
 
 	ap_uint<SLOT_ID_WIDTH> slot_id = 10;
 	ap_uint<SES_ID_WIDTH> ses_id;
@@ -182,12 +186,14 @@ void test_ack(vector<unsigned> &ack_seq, vector<enum gbn_pkt_type> &ack_type)
 	stream<ap_uint<SLOT_ID_WIDTH>> check_full("dummy check full request");
 	stream<bool> tx_fin("dummy tx completion sig");
 	stream<ap_uint<SLOT_ID_WIDTH> > rt_timeout("dummy timeout sig");
-	stream<ap_uint<SLOT_ID_WIDTH> > init_req("initiate request");
+	stream<struct conn_mgmt_req> init_req("initiate request");
 
 	test_query.src_ip = 0xc0a80102;  // 192.168.1.2
 	test_query.dest_ip = 0xc0a80180; // 192.168.1.128
 
-	init_req.write(slot_id);
+	init.set_type = GBN_SOC2FPGA_SET_TYPE_OPEN;
+	init.slotid = slot_id;
+	init_req.write(init);
 	test_ack_util.run_one_cycle(&rx_query, &check_full, &tx_fin,
 				    &rt_timeout, &init_req);
 
@@ -224,6 +230,7 @@ void test_consistency()
 {
 	test_util test_cons_util;
 	struct query_req test_query;
+	struct conn_mgmt_req init;
 
 	ap_uint<SLOT_ID_WIDTH> slot_id = 10;
 	ap_uint<SES_ID_WIDTH> ses_id;
@@ -231,12 +238,14 @@ void test_consistency()
 	stream<ap_uint<SLOT_ID_WIDTH>> check_full("check full request");
 	stream<bool> tx_fin("dummy tx completion sig");
 	stream<ap_uint<SLOT_ID_WIDTH> > rt_timeout("dummy timeout sig");
-	stream<ap_uint<SLOT_ID_WIDTH> > init_req("initiate request");
+	stream<struct conn_mgmt_req> init_req("initiate request");
 
 	test_query.src_ip = 0xc0a80102;  // 192.168.1.2
 	test_query.dest_ip = 0xc0a80180; // 192.168.1.128
 
-	init_req.write(slot_id);
+	init.set_type = GBN_SOC2FPGA_SET_TYPE_OPEN;
+	init.slotid = slot_id;
+	init_req.write(init);
 	test_cons_util.run_one_cycle(&rx_query, &check_full, &tx_fin,
 				     &rt_timeout, &init_req);
 	

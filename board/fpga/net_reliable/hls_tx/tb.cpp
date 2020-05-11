@@ -104,10 +104,8 @@ void test_util::run_one_cycle(stream<struct udp_info> *usr_tx_header,
 	}
 	if (!tx_buff_route_info.empty()) {
 		struct route_info recv_ri = tx_buff_route_info.read();
-		ap_uint<32> src_ip = recv_ri.ip_info.src_ip;
-		ap_uint<32> dest_ip = recv_ri.ip_info.dest_ip;
-		dph("[cycle %2d] tx buffer get route info: %lx -> %lx\n", cycle,
-		    src_ip.to_uint(), dest_ip.to_uint());
+		ap_uint<32> dest_ip = recv_ri.dest_ip;
+		dph("[cycle %2d] tx buffer get route info: -> %lx\n", cycle, dest_ip.to_uint());
 	}
 
 	cycle++;

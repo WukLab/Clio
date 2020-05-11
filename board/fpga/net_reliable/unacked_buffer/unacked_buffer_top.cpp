@@ -192,9 +192,9 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 		rt_dest_ip = dest_ip_array[rt_slot_id];
 
-		retrans_udp_info.dest_ip = rt_dest_ip;
+		retrans_udp_info.dest_ip = rt_dest_ip(31, 16) | SUBNET;
 		retrans_udp_info.src_ip = 0;
-		retrans_udp_info.dest_port = LEGOMEM_PORT;
+		retrans_udp_info.dest_port = rt_dest_ip(15, 0);
 		retrans_udp_info.src_port = LEGOMEM_PORT;
 		retrans_udp_info.length = rd_length.data(15, 0);
 
