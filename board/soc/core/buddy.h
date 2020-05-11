@@ -60,7 +60,8 @@
 /* test whether an address is aligned to PAGE_SIZE */
 #define PAGE_ALIGNED(addr)	IS_ALIGNED((unsigned long)(addr), PAGE_SIZE)
 
-#define max_pfn			PHYS_PFN(fpga_mem_end)
+#define START_PFN		PHYS_PFN(fpga_mem_start)
+#define MAX_PFN			PHYS_PFN(fpga_mem_end)
 
 #define for_each_order(order) \
 	for ((order) = 0; (order) < MAX_ORDER; (order)++)
@@ -205,7 +206,7 @@ int __get_order(unsigned long size)
 
 static __always_inline struct page *pfn_to_page(unsigned long pfn)
 {
-	BUG_ON(pfn >= max_pfn);
+	BUG_ON(pfn >= MAX_PFN || pfn < START_PFN);
 	return fpga_zone->page_map + pfn;
 }
 
@@ -213,12 +214,13 @@ static __always_inline unsigned long page_to_pfn(struct page *page)
 {
 	unsigned long pfn;
 	pfn = page - fpga_zone->page_map;
-	BUG_ON(pfn >= max_pfn);
+	BUG_ON(pfn >= MAX_PFN || pfn < START_PFN);
 	return pfn;
 }
 
 static inline unsigned long pfn_to_soc_va(unsigned long pfn)
 {
+	BUG_ON(pfn >= MAX_PFN || pfn < START_PFN);
 	return fpga_mem_start_soc_va + pfn * PAGE_SIZE;
 }
 

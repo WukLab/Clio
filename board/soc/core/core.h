@@ -86,5 +86,6 @@ void handle_test_pte(struct thpool_buffer *tb);
 void test_buddy(void);
 void test_vm(void);
 void test_pgtable_access(void);
+void test_clear_page(void);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

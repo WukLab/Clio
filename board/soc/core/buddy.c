@@ -420,5 +420,9 @@ int init_buddy(void)
 	test_buddy();
 #endif 
 
+#if 0
+	test_clear_page();
+#endif
+
 	return 0;
 }

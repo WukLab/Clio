@@ -185,6 +185,11 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 
 		soc_va = (char *)pfn_to_soc_va(pfn);
 
+		/*
+		 * Clear a 4M page from SoC is super slow.
+		 * Benchmark (test/test_clear_page) show the average
+		 * latency is 21667916 ns, or around 21.7 ms.
+		 */
 		if (vm_flags & LEGOMEM_VM_FLAGS_ZERO)
 			clear_fpga_page(soc_va, PAGE_SIZE);
 
@@ -225,7 +230,7 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 	struct lego_mem_pte *pte;
 
 	/* TODO */
-	vm_flags = LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_ZERO;
+	vm_flags = LEGOMEM_VM_FLAGS_POPULATE;
 
 	dprintf_DEBUG("PID: %u New VA @[%#lx - %#lx] vm_flags: %#lx\n",
 		pi->pid, start, end, vm_flags);
