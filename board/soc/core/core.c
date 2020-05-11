@@ -28,7 +28,7 @@
 #include "core.h"
 #include "pgtable.h"
 
-#if 0
+#if 1
 #define CONFIG_DEBUG_SOC
 #endif
 
@@ -328,6 +328,25 @@ void handle_new_node(struct thpool_buffer *tb)
 		board_info_type_str(req->op.type));
 }
 
+static void handle_query_stat(struct thpool_buffer *tb)
+{
+	struct legomem_query_stat_resp *resp;
+	size_t size;
+
+	/*
+	 * calculate the size of resp msg
+	 * minus 1 because of the original pointer
+	 */
+	resp = (struct legomem_query_stat_resp *)tb->tx;
+	resp->comm_headers.lego.opcode = OP_REQ_QUERY_STAT_RESP;
+
+	size = sizeof(*resp) + (NR_STAT_TYPES - 1) * sizeof(unsigned long);
+	set_tb_tx_size(tb, size);
+
+	memset(resp->stat, 0, NR_STAT_TYPES * sizeof(unsigned long));
+	resp->nr_items = NR_STAT_TYPES;
+}
+
 static void worker_handle_request_inline(struct thpool_worker *tw,
 					 struct thpool_buffer *tb)
 {
@@ -401,6 +420,9 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		break;
 	case OP_REQ_TEST_PTE:
 		handle_test_pte(tb);
+		break;
+	case OP_REQ_QUERY_STAT:
+		handle_query_stat(tb);
 		break;
 	default:
 		if (1) {
