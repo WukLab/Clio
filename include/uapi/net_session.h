@@ -87,6 +87,15 @@ struct session_net {
 	void 			*raw_net_private;
 } __aligned(64);
 
+static inline void init_session_net(struct session_net *p)
+{
+	memset(p, 0, sizeof(*p));
+	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
+	INIT_HLIST_NODE(&p->ht_link_board);
+	INIT_HLIST_NODE(&p->ht_link_context);
+	INIT_HLIST_NODE(&p->ht_link_vregion);
+}
+
 static inline bool ses_thread_should_stop(struct session_net *ses)
 {
 	return READ_ONCE(ses->thread_should_stop);

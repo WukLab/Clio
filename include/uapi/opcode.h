@@ -28,6 +28,10 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 
 	S(OP_REQ_READ);
 	S(OP_REQ_READ_RESP);
+	S(OP_REQ_READ_TAS);
+	S(OP_REQ_READ_DEREF_WRITE);
+	S(OP_REQ_READ_DEREF_READ);
+	S(OP_REQ_READ_MIGRATION);
 
 	S(OP_REQ_WRITE);
 	S(OP_REQ_WRITE_RESP);
@@ -149,7 +153,11 @@ struct op_read_write {
 	unsigned long __remote	va;
 	unsigned int		size;
 
-	/* Hold write data, variable length */
+	/*
+	 * Hold write data, variable length
+	 * But from GCC's pespective, this variable has no storage.
+	 * Thus the whole size of this structure is 8+4=12.
+	 */
 	char			data[0];
 } __packed;
 
@@ -166,6 +174,15 @@ struct op_read_write_ret {
  * Same as op_read_write.
  */
 struct op_cache_flush {
+	unsigned long __remote	va;
+	unsigned int		size;
+} __packed;
+
+/*
+ * Internal migration struct.
+ * From SoC to corememt.
+ */
+struct op_read_migration {
 	unsigned long __remote	va;
 	unsigned int		size;
 } __packed;

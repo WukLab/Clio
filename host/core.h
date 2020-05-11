@@ -376,9 +376,6 @@ struct session_net *context_find_session_by_board(struct legomem_context *p,
 						  pid_t tid,
 						  struct board_info *bi);
 
-#define ANY_BOARD	(UINT_MAX)	/* return the first real board */
-#define ANY_NODE	(UINT_MAX-1)	/* return anything except special BIs */
-
 struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     struct endpoint_info *remote_ei,
 			     struct endpoint_info *local_ei,

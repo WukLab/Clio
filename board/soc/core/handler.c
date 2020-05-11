@@ -144,6 +144,64 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 	} while (0)
 #endif
 
+void *global_migration_req;
+
+static inline void *get_migration_req(void)
+{
+	BUG_ON(!global_migration_req);
+	return global_migration_req;
+}
+
+void init_migration_setup(void)
+{
+	axidma_dev_t dev;
+	void *p;
+
+	dev = legomem_dma_info.dev;
+	p = axidma_malloc(dev, THPOOL_BUFFER_SIZE);
+	if (!p) {
+		dprintf_ERROR("Fail to alloc the dma reqbuf for migration. %d\n", errno);
+		exit(0);
+	}
+	global_migration_req = p;
+}
+
+static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_index)
+{
+	struct __packed {
+		struct lego_header lego_header;
+		struct op_read_migration op;
+	} *req;
+	int i, nr_rounds;
+
+	/* Get prepared DMA-able req */
+	req = get_migration_req();
+
+	/*
+	 * Notify FPGA to start migration.
+	 * There is packet size limit, so we do multiple rounds.
+	 */
+#define READ_MIGRATION_SIZE	(2<<10)
+	req->lego_header.pid = pid;
+	req->lego_header.opcode = OP_REQ_READ_MIGRATION;
+	req->lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM,
+					    LEGOMEM_CONT_NET,
+					    LEGOMEM_CONT_NONE,
+					    LEGOMEM_CONT_NONE);
+	/* Use session 0? */
+	req->lego_header.src_sesid = 0;
+	req->lego_header.dst_sesid = 0;
+	req->lego_header.dest_ip = dst_board_ip;
+	req->lego_header.size = sizeof(*req);
+
+	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
+	for (i = 0; i < nr_rounds; i++) {
+		req->op.size = READ_MIGRATION_SIZE;
+		req->op.va = vregion_index_to_va(vregion_index) + i * READ_MIGRATION_SIZE;
+		dma_send(req, sizeof(*req));
+	}
+}
+
 /*
  * Monitor asked us to migrate a certain vregion to a new node.
  * The new node has already been notified and waiting for us.
@@ -152,9 +210,9 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
  * 1. Monitor has made sure all hosts, boards will stop using
  *    this vRegion. Thus we do not to stop traffic at this board.
  * 2. The flow of this function is as follows:
- *    a) first we will free the local VMA resources
- *    b) then we will construct a legomem READ request to core-mem pipeline,
+ *    a) we will construct a legomem READ request to core-mem pipeline,
  *       which in turn will read data out and sent to network layer.
+ *    a) we will free the local VMA resources
  */
 void board_soc_handle_migration_send(struct thpool_buffer *tb)
 {
@@ -165,10 +223,6 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 	struct proc_info *pi;
 	struct vregion_info *vi;
 	pid_t pid;
-	struct {
-		struct lego_header lego_header;
-		struct op_read_write op;
-	} migreq __maybe_unused;
 
 	/* Setup req and resp */
 	req = (struct legomem_migration_req *)tb->rx;
@@ -178,6 +232,7 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 	resp = (struct legomem_migration_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
 
+	/* Find the task being migrated */
 	pid = lego_header->pid;
 	pi = get_proc_by_pid(pid);
 	if (!pi) {
@@ -187,40 +242,16 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 	}
 	dump_migration_req(pid, op);
 
-	/* Free all VMAs within this vRegion */
+#ifdef CONFIG_ZCU106_SOC
+	/* Do the dirty work */
+	do_read_migration(pid, op->dst_board_ip, op->vregion_index);
+#endif
+
+	/* Reap all VMAs within this vRegion */
 	vi = index_to_vregion(pi, op->vregion_index);
 	free_va_vregion(pi, vi,
 			vregion_index_to_va(op->vregion_index),
-			vregion_index_to_va(op->vregion_index + 1) - 1);
-
-#ifdef CONFIG_ARCH_ARM64
-#if 0
-	/*
-	 * TODO
-	 * Send commands to coremem pipeline
-	 * XXX: need to revisit these commands setup
-	 * also note that, if we pacthed fpga part into the alloc/free vma code,
-	 * we need to make sure coremem pipeline can still accept this requst.
-	 * If it can, just switch the order.
-	 */
-	memset(&migreq, 0, sizeof(migreq));
-	migreq.lego_header.pid = pid;
-	migreq.lego_header.tag = 0;
-	migreq.lego_header.opcode = OP_REQ_READ;
-	migreq.lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM,
-					    LEGOMEM_CONT_NET,
-					    LEGOMEM_CONT_NONE,
-					    LEGOMEM_CONT_NONE);
-	migreq.lego_header.src_sesid = 0;
-	migreq.lego_header.dst_sesid = 0;
-	migreq.lego_header.dest_ip = 0;
-
-	migreq.op.va = vregion_index_to_va(op->vregion_index);
-	migreq.op.size = VREGION_SIZE;
-
-	dma_send(&migreq, sizeof(migreq));
-#endif
-#endif
+			vregion_index_to_va(op->vregion_index + 1));
 
 	/* Done, success */
 	resp->op.ret = 0;

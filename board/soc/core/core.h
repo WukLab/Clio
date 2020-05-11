@@ -18,14 +18,14 @@
 
 #ifdef LEGOMEM_DEBUG
 # define dprintf_DEBUG(fmt, ...) \
-	printf("\033[34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
 #else
 # define dprintf_DEBUG(fmt, ...)  do { } while (0)
 #endif
 
 /* General info, always on */
 #define dprintf_INFO(fmt, ...) \
-	printf("\033[1;34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /* ERROR/WARNING info, always on */
 #define dprintf_ERROR(fmt, ...) \
@@ -63,8 +63,9 @@ void dump_proc(struct proc_info *pi);
 void dump_procs(void);
 
 /* Session */
-int alloc_session_id(void);
-void free_session_id(unsigned int session_id);
+struct session_net *alloc_session(void);
+void free_session_by_id(unsigned int id);
+void dump_net_sessions(void);
 
 /* Buddy */
 int init_buddy(void);
@@ -79,15 +80,20 @@ int parse_ip_str(const char *ip_str);
 
 int init_shadow_pgtable(void);
 int init_freepage_fifo(void);
+void init_stat_mapping(void);
+void init_migration_setup(void);
 
 void handle_test_pte(struct thpool_buffer *tb);
-
-void init_stat_mapping(void);
 
 /* Test */
 void test_buddy(void);
 void test_vm(void);
 void test_pgtable_access(void);
 void test_clear_page(void);
+
+/* board.c */
+struct board_info *add_board(char *board_name, int board_ip, int udp_port);
+struct board_info *find_board(int ip, unsigned int port);
+void dump_boards(void);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

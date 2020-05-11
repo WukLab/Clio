@@ -86,6 +86,9 @@ struct board_info {
 	unsigned long		*stat;
 } ____cacheline_aligned;
 
+#define ANY_BOARD	(UINT_MAX)	/* return the first real board */
+#define ANY_NODE	(UINT_MAX-1)	/* return anything except special BIs */
+
 /*
  * Special board_info types are created by the system, for special usages.
  * They do not have remote counterparts.

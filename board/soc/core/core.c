@@ -28,17 +28,6 @@
 #include "core.h"
 #include "pgtable.h"
 
-#if 1
-#define CONFIG_DEBUG_SOC
-#endif
-
-#ifdef CONFIG_DEBUG_SOC
-#define soc_debug(fmt, ...) \
-	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__);
-#else
-#define soc_debug(fmt, ...) do { } while (0)
-#endif
-
 /*
  * The largest mesage we can receive from the AXI DMA interface.
  */
@@ -123,13 +112,81 @@ free_thpool_buffer(struct thpool_buffer *tb)
 	barrier();
 }
 
-static inline void make_cont(struct thpool_buffer *tb)
+static __always_inline void make_cont(struct thpool_buffer *tb)
 {
 	struct legomem_common_headers *p;
 
 	p = (struct legomem_common_headers *)tb->tx;
 	p->lego.cont = MAKE_CONT(LEGOMEM_CONT_NET, LEGOMEM_CONT_NONE,
 				 LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
+}
+
+/*
+ * Open a network session with remote.
+ *
+ * The steps are similar to handle_open_session.
+ * 1. alloc a new local session
+ * 2. notify fpga setup_manager to open it
+ * 3. send a msg to remote to open a new session,
+ *    we use session 0 to send this msg.
+ *
+ * 192.168.@ip3.@ip4
+ */
+struct session_net *
+open_session_with_remote(unsigned char ip3, unsigned char ip4,
+			 unsigned int udp_port)
+{
+	struct session_net *ses;
+	unsigned int local_sesid;
+	struct lego_mem_ctrl *ctrl;
+	struct __packed {
+		struct lego_header lego;
+		struct op_open_close_session op;
+	} *req;
+	struct lego_header *lego;
+
+	ses = alloc_session();
+	if (!ses) {
+		dprintf_ERROR("Fail to alloc a local session. %d\n", 0);
+		return NULL;
+	}
+	local_sesid = get_local_session_id(ses);
+	ses->board_ip = 192 << 24 | 168 << 16 | ip3 << 8 | ip4;
+	ses->udp_port = udp_port;
+
+	/* notify GBN setup_manager */
+	ctrl = axidma_malloc(legomem_dma_info.dev, THPOOL_BUFFER_SIZE);
+	set_gbn_conn_req(&ctrl->param32, local_sesid,
+			 GBN_SOC2FPGA_SET_TYPE_OPEN);
+	ctrl->epid = LEGOMEM_CONT_NET;
+	ctrl->cmd = 0;
+	if (dma_ctrl_send(ctrl, sizeof(*ctrl)) < 0) {
+		dprintf_ERROR("fail to do dma ctrl send%d\n", 0);
+		return NULL;
+	}
+
+	dprintf_INFO("after alloc session %d\n", local_sesid);
+
+	/* Send open request to remote */ 
+	req = axidma_malloc(legomem_dma_info.dev, THPOOL_BUFFER_SIZE);
+	lego = &req->lego;
+	lego->opcode = OP_OPEN_SESSION;
+	lego->size = sizeof(*req);
+	lego->src_sesid = local_sesid;
+	lego->dst_sesid = 0;
+	lego->dest_ip = ip3 << 24 | ip4 << 16 | (u16)(udp_port);
+	lego->cont = MAKE_CONT(LEGOMEM_CONT_NET, LEGOMEM_CONT_NONE,
+			       LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
+	if (dma_send(lego, sizeof(*req)) < 0) {
+		dprintf_ERROR("fail to do dma data send %d\n", 0);
+		return NULL;
+	}
+
+	dprintf_INFO("-after sent dma 192.168.%d.%d req %#lx size %#lx\n",
+		ip3, ip4, (u64)req, sizeof(*req));
+
+	//set_remote_session_id(ses, req->op.session_id);
+	return ses;
 }
 
 /*
@@ -202,11 +259,17 @@ static void handle_free_proc(struct thpool_buffer *tb)
 	resp->comm_headers.lego.opcode = OP_FREE_PROC_RESP;
 }
 
+/*
+ * This is a two-step function.
+ * First we allocate a local session struct and an ID.
+ * Then we notify FPGA GBN stack to open this new session.
+ */
 static void handle_open_session(struct thpool_buffer *tb)
 {
 	struct legomem_open_close_session_req *req __maybe_unused;
 	struct legomem_open_close_session_resp *resp;
 	struct lego_mem_ctrl *gbn_open_req;
+	struct session_net *ses;
 	unsigned int session_id;
 
 	req = (struct legomem_open_close_session_req *)tb->rx;
@@ -214,26 +277,39 @@ static void handle_open_session(struct thpool_buffer *tb)
 	gbn_open_req = (struct lego_mem_ctrl *)tb->ctrl;
 	set_tb_tx_size(tb, sizeof(*resp));
 
-	session_id = alloc_session_id();
-	if (session_id < 0) {
+	ses = alloc_session();
+	if (!ses) {
+		dprintf_ERROR("Fail to alloc a new session. %d\n", 0);
 		resp->op.session_id = 0;
 		return;
 	}
+	session_id = get_local_session_id(ses);
 
-	/* Success */
-	resp->op.session_id = session_id;
-	resp->comm_headers.lego.opcode = OP_OPEN_SESSION_RESP;
+	/* Try to fill some info into the new ses */
+	set_remote_session_id(ses, req->op.session_id);
+	ses->board_ip = to_lego_header(req)->dest_ip;
+	ses->udp_port = 0;
 
-	/* Notify GBN setup_manager */
-	set_gbn_conn_req(&gbn_open_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_OPEN);
+	/* Then notify GBN setup_manager() */
+	set_gbn_conn_req(&gbn_open_req->param32, session_id,
+			 GBN_SOC2FPGA_SET_TYPE_OPEN);
 	gbn_open_req->epid = LEGOMEM_CONT_NET;
 	gbn_open_req->cmd = 0;
 	dma_ctrl_send(gbn_open_req, sizeof(*gbn_open_req));
 
-	soc_debug("Host sesid: %u SoC sesid: %u\n",
-		req->op.session_id, session_id);
+	/* Setup resp */
+	resp->op.session_id = session_id;
+	resp->comm_headers.lego.opcode = OP_OPEN_SESSION_RESP;
+
+	dprintf_DEBUG("new session: remote_sesid: %u local_sesid: %u\n",
+			req->op.session_id, session_id);
+	dump_net_sessions();
 }
 
+/*
+ * Similar to handle_open_session, this is also a two-step func.
+ * We first free the session and then notify FPGA GBN.
+ */
 static void handle_close_session(struct thpool_buffer *tb)
 {
 	struct legomem_open_close_session_req *req;
@@ -247,19 +323,20 @@ static void handle_close_session(struct thpool_buffer *tb)
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	session_id = req->op.session_id;
-	free_session_id(session_id);
+	free_session_by_id(session_id);
 
 	/* Success */
 	resp->op.session_id = 0;
 	resp->comm_headers.lego.opcode = OP_CLOSE_SESSION_RESP;
 
 	/* Notify GBN setup_manager */
-	set_gbn_conn_req(&gbn_close_req->param32, session_id, GBN_SOC2FPGA_SET_TYPE_CLOSE);
+	set_gbn_conn_req(&gbn_close_req->param32, session_id,
+			 GBN_SOC2FPGA_SET_TYPE_CLOSE);
 	gbn_close_req->epid = LEGOMEM_CONT_NET;
 	gbn_close_req->cmd = 0;
 	dma_ctrl_send(gbn_close_req, sizeof(*gbn_close_req));
 
-	soc_debug("Closed session_id: %d\n", session_id);
+	dprintf_DEBUG("Closed local_sesid: %d\n", session_id);
 }
 
 /*
@@ -303,6 +380,7 @@ void handle_new_node(struct thpool_buffer *tb)
 	struct legomem_membership_new_node_req *req;
 	struct legomem_membership_new_node_resp *resp;
 	struct endpoint_info *new_ei;
+	struct board_info *bi;
 
 	/* Setup response */
 	resp = (struct legomem_membership_new_node_resp *)tb->tx;
@@ -323,9 +401,13 @@ void handle_new_node(struct thpool_buffer *tb)
 		return;
 	}
 
-	dprintf_INFO("new node: %s, ip:port: %s:%d type: %s\n",
-		req->op.name, new_ei->ip_str, new_ei->udp_port,
-		board_info_type_str(req->op.type));
+	/* Finally add the board to the system */
+	bi = add_board(req->op.name, new_ei->ip, new_ei->udp_port);
+	if (!bi)
+		return;
+	bi->flags = req->op.type;
+
+	dump_boards();
 }
 
 static void handle_query_stat(struct thpool_buffer *tb)
@@ -363,7 +445,7 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		legomem_getcpu(&cpu, &node);
 
 		/* Session IDs were swapped already */
-		soc_debug("Req src_sesid: %u to dst_sesid: %u Opcode: %s CPU: %d worker_%d\n",
+		dprintf_DEBUG("Req src_sesid: %u to dst_sesid: %u Opcode: %s CPU: %d worker_%d\n",
 			  rx_lego_hdr->dst_sesid, rx_lego_hdr->src_sesid,
 			  legomem_opcode_str(opcode), cpu, tw->cpu);
 	}
@@ -430,7 +512,7 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 			tb->tx_size = sizeof(*p);
 			make_cont(tb);
 		}
-		soc_debug("Unknown or unimplemented opcode %s\n", legomem_opcode_str(opcode));
+		dprintf_ERROR("Unknown or unimplemented opcode %s\n", legomem_opcode_str(opcode));
 		break;
 	};
 
@@ -673,6 +755,7 @@ int main(int argc, char **argv)
 	}
 
 	init_stat_mapping();
+	init_migration_setup();
 
 	init_fpga_pgtable();
 	init_shadow_pgtable();
@@ -702,6 +785,8 @@ int main(int argc, char **argv)
 		printf("Fail to init thpool buffer\n");
 		return 0;
 	}
+
+	//open_session_with_remote(1, 3, 8888);
 
 	/*
 	 * Either create a poll of workers and then start polling
