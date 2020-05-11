@@ -228,4 +228,16 @@ static inline unsigned long page_to_soc_va(struct page *page)
 	return pfn_to_soc_va(pfn);
 }
 
+static inline void clear_fpga_page(void *page, unsigned long size)
+{
+	unsigned long *ptr;
+	int nr;
+
+	ptr = page;
+	nr = size / sizeof(*ptr);
+
+	while (nr--)
+		*ptr++ = 0;
+}
+
 #endif /* _LEGOMEM_SOC_BUDDY_H_ */

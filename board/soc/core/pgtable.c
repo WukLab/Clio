@@ -85,8 +85,35 @@ static void zap_pte(struct proc_info *pi,
 }
 
 /*
+ * Send a TLB cache flush to coremem cached BRAM pgtable.
+ * Simple semantic, just as you know it.
+ */
+void tlb_flush(struct proc_info *pi, unsigned long va, unsigned long size)
+{
+#if 0
+	struct {
+		struct lego_header lego_header;
+		struct op_cache_flush op;
+	} req __packed;
+
+	req.lego_header.pid = pi->pid;
+	req.lego_header.opcode = OP_REQ_CACHE_INVALID;
+	req.lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM, LEGOMEM_CONT_NONE,
+					 LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
+
+	req.op.va = va;
+	req.op.size = size;
+
+	dma_send(&req, sizeof(req));
+#endif
+}
+
+/*
  * Called during legomem_free.
  * Called to free the physical pages for va range [start, end].
+ * Both FPGA and SoC shadow pgtables will be updated.
+ *
+ * TLB is flushed at the end.
  */
 void free_fpga_pte_range(struct proc_info *pi,
 			 unsigned long start, unsigned long end,
@@ -109,23 +136,8 @@ void free_fpga_pte_range(struct proc_info *pi,
 		zap_shadow_pte(pi, pte, page_size);
 		zap_pte(pi, pte, page_size);
 	}
-}
 
-/*
- * memset does not work. It stuck. Why?
- */
-static inline void clear_fpga_page(void *page, unsigned long size)
-{
-#if 0
-	unsigned long *ptr;
-	int nr;
-
-	ptr = page;
-	nr = size / sizeof(*ptr);
-
-	while (nr--)
-		*ptr++ = 0;
-#endif
+	tlb_flush(pi, start, end - start);
 }
 
 static inline struct lego_mem_pte *
@@ -134,7 +146,7 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 {
 	struct lego_mem_pte *fpga_pte;
 	unsigned long pfn = 0;
-	char *new_page_soc_va;
+	char *soc_va;
 	int order;
 
 	fpga_pte = shadow_to_fpga_pte(pi, soc_shadow_pte);
@@ -171,18 +183,20 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 		fpga_pte->ppa = PFN_PHYS(pfn) + FPGA_MEMORY_MAP_MAPPING_BASE;
 		fpga_pte->valid = 1;
 
-		new_page_soc_va = (char *)pfn_to_soc_va(pfn);
+		soc_va = (char *)pfn_to_soc_va(pfn);
+
 		if (vm_flags & LEGOMEM_VM_FLAGS_ZERO)
-			clear_fpga_page(new_page_soc_va, PAGE_SIZE);
+			clear_fpga_page(soc_va, PAGE_SIZE);
 
 #if 1
 		// XXX DEBUG
 		for (int i = 0; i < PAGE_SIZE; i++)
-			new_page_soc_va[i] = i % 255;
+			soc_va[i] = i % 255;
 #endif
 	} else
 		fpga_pte->valid = 0;
 
+	dump_pte(fpga_pte, false);
 	return fpga_pte;
 }
 
@@ -192,9 +206,15 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
  * Update the PTEs that [start, start+len] mapped to.
  * We will mark the PTEs as Allocated, so the page fault handler
  * can know whether a certain VA was allocated by checking this bit
- * (similar to find_vma in linux ;/). But we do not allocate physical
+ * (similar to find_vma in linux ;/). But we do not alays allocate physical
  * memory at this point, that's passed along the free page list.
  *
+ * However, if user set LEGOMEM_VM_FLAGS_POPULATE, we will alloc physical pages
+ * and pre-populate PTEs.
+ *
+ * We will always check shadow pgtables first, and then update FPGA pgtables.
+ *
+ * Inputs:
  * Both @start and @end are page aligned, ensured by caller.
  * @vm_flags came from legomem_alloc(), specificed by user.
  */
@@ -294,6 +314,10 @@ void init_fpga_pgtable(void)
 	test_pgtable_access();
 #endif
 
+	/*
+	 * Big chunk memset does not work.
+	 * We must reset one by one.
+	 */
 	nr_pte = FPGA_DRAM_PGTABLE_SIZE / sizeof(struct lego_mem_pte);
 	for (i = 0; i < nr_pte; i++) {
 		struct lego_mem_pte *pte;

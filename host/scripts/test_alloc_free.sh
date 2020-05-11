@@ -39,7 +39,6 @@ elif [ "$1" == "2" ]; then
 		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=p4p1 \
 		--port=1234 \
-		--net_raw_ops=raw_udp \
 		--run_test=alloc_free
 elif [ "$1" == "3" ]; then
 	./board_emulator.o \

@@ -20,20 +20,31 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case _OP:				return __stringify(_OP)
 
 	switch (opcode) {
+	S(OP_REQ_INVALID);
 	S(OP_REQ_TEST);
+
+	S(OP_REQ_PINGPONG);
+	S(OP_REQ_BARRIER);
+
+	S(OP_REQ_READ);
+	S(OP_REQ_READ_RESP);
+
+	S(OP_REQ_WRITE);
+	S(OP_REQ_WRITE_RESP);
+	S(OP_REQ_WRITE_NOREPLY);
+
+	S(OP_REQ_CACHE_INVALID);
+
 	S(OP_REQ_ALLOC);
 	S(OP_REQ_ALLOC_RESP);
 	S(OP_REQ_FREE);
 	S(OP_REQ_FREE_RESP);
-	S(OP_REQ_READ);
-	S(OP_REQ_READ_RESP);
-	S(OP_REQ_WRITE);
-	S(OP_REQ_WRITE_RESP);
-	S(OP_REQ_WRITE_NOREPLY);
+
 	S(OP_CREATE_PROC);
 	S(OP_CREATE_PROC_RESP);
 	S(OP_FREE_PROC);
 	S(OP_FREE_PROC_RESP);
+
 	S(OP_REQ_MIGRATION_H2M);
 	S(OP_REQ_MIGRATION_H2M_RESP);
 	S(OP_REQ_MIGRATION_B2M);
@@ -53,7 +64,6 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	S(OP_REQ_MEMBERSHIP_NEW_NODE_RESP);
 	S(OP_REQ_QUERY_STAT);
 	S(OP_REQ_QUERY_STAT_RESP);
-	S(OP_REQ_PINGPONG);
 	S(OP_REQ_FPGA_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG_RESP);
@@ -149,6 +159,15 @@ struct op_read_write_ret {
 
 	/* Hold read read, variable length */
 	char			data[0];
+} __packed;
+
+/*
+ * BRAM cached pgtable flush a.k.a TLB flush
+ * Same as op_read_write.
+ */
+struct op_cache_flush {
+	unsigned long __remote	va;
+	unsigned int		size;
 } __packed;
 
 /*

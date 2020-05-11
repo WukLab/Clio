@@ -196,6 +196,7 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 #ifdef CONFIG_ARCH_ARM64
 #if 0
 	/*
+	 * TODO
 	 * Send commands to coremem pipeline
 	 * XXX: need to revisit these commands setup
 	 * also note that, if we pacthed fpga part into the alloc/free vma code,
