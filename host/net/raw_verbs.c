@@ -271,6 +271,8 @@ raw_verbs_send(struct session_net *ses_net,
 			return errno;
 		}
 		new_mr = true;
+
+		dprintf_INFO("    Created a new MR for this particular send. Check if this is on datapath! %d\n", 0);
 	} else {
 		new_mr = false;
 		send_mr = ses_verbs->send_mr;

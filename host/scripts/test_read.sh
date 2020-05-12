@@ -16,16 +16,16 @@ set -e
 
 # Knob
 # Make sure board is already up and running
-board_ip="192.168.1.166:1234"
+board_ip="192.168.1.9:1234"
 
-monitor_port=1234
+monitor_port=8888
 monitor_ip="192.168.1.3"
 
 if [ "$1" == "1" ]; then
 	if true; then
 	#if false; then
 		./monitor.o \
-			--dev=ens4 \
+			--dev=p4p1 \
 			--port=$monitor_port \
 			--add_board=$board_ip
 	else
@@ -37,7 +37,7 @@ elif [ "$1" == "2" ]; then
 	./host.o \
 		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=p4p1 \
-		--port=1234 \
+		--port=9999 \
 		--run_test=read_write 
 elif [ "$1" == "3" ]; then
 	./board_emulator.o \

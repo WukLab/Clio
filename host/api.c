@@ -740,18 +740,28 @@ int legomem_free(struct legomem_context *ctx,
 	return 0;
 }
 
-/*
- * TODO
- * adjust values.
- */
-int legomem_read(struct legomem_context *ctx, void *buf,
+struct session_net *
+get_vregion_session(struct legomem_context *ctx, unsigned long __remote addr)
+{
+	struct legomem_vregion *v;
+	struct session_net *ses;
+
+	v = va_to_legomem_vregion(ctx, addr);
+	ses = find_vregion_session(v, gettid());
+	if (!ses)
+		dump_legomem_vregion(v);
+	return ses;
+}
+
+int legomem_read(struct legomem_context *ctx, void *send_buf, void *recv_buf,
 		 unsigned long __remote addr, size_t size)
 {
 	struct legomem_vregion *v;
 	struct session_net *ses;
-	struct legomem_read_write_req req;
-	struct legomem_read_write_resp *tmp_resp;
-	struct lego_header *lego_header;
+	struct legomem_read_write_req *req;
+	struct legomem_read_write_resp *resp;
+	struct lego_header *tx_lego_header;
+	struct lego_header *rx_lego_header;
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
@@ -763,35 +773,28 @@ int legomem_read(struct legomem_context *ctx, void *buf,
 		return -EINVAL;
 	}
 
-	lego_header = to_lego_header((void *)&req);
-	lego_header->opcode = OP_REQ_READ;
-	lego_header->pid = ctx->pid;
-	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
+	resp = recv_buf;
 
-	req.op.va = addr;
-	req.op.size = size;
+	req = send_buf;
+	req->op.va = addr;
+	req->op.size = size;
+	tx_lego_header = to_lego_header(req);
+	tx_lego_header->opcode = OP_REQ_READ;
+	tx_lego_header->pid = ctx->pid;
 
-	tmp_resp = malloc(size + sizeof(*tmp_resp));
-
-	ret = net_send_and_receive(ses, &req, sizeof(req),
-				   tmp_resp, size + sizeof(*tmp_resp));
+	ret = net_send_and_receive(ses, req, sizeof(*req),
+				   resp, size + sizeof(*resp));
 	if (unlikely(ret <= 0)) {
-		dprintf_ERROR("net errno %d\n", ret);
-		return -EIO;
+		dprintf_ERROR("net errno %d\n", 0);
+		return -1;
 	}
 
-	memcpy(buf, tmp_resp->ret.data, size);
-
-	printf("reply->va %#lx reply->size %#x whole packet size %d\n",
-		tmp_resp->ret.va, tmp_resp->ret.size, ret);
-	for (int i = 0; i < 100; i++) {
-		char *p = (char *)(tmp_resp) + i;
-		
-		printf("%d ", *p);
+	rx_lego_header = to_lego_header(resp);
+	if (unlikely(rx_lego_header->req_status != 0)) {
+		dprintf_ERROR("errno: req_status=%x\n",
+			      rx_lego_header->req_status);
+		return -1;
 	}
-	printf("\n");
-	free(tmp_resp);
-
 	return 0;
 }
 
@@ -800,7 +803,7 @@ enum legomem_write_flag {
 	LEGOMEM_WRITE_ASYNC,
 };
 
-int __legomem_write(struct legomem_context *ctx, void *buf,
+int __legomem_write(struct legomem_context *ctx, void *send_buf,
 		    unsigned long __remote addr, size_t size,
 		    enum legomem_write_flag flag)
 {
@@ -808,7 +811,8 @@ int __legomem_write(struct legomem_context *ctx, void *buf,
 	struct session_net *ses;
 	struct legomem_read_write_req *req;
 	struct legomem_read_write_resp resp;
-	struct lego_header *lego_header;
+	struct lego_header *tx_lego_header;
+	struct lego_header *rx_lego_header;
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
@@ -820,40 +824,28 @@ int __legomem_write(struct legomem_context *ctx, void *buf,
 		return -EINVAL;
 	}
 
-	/*
-	 * XXX
-	 * same as legomem_read.
-	 * malloc/memcpy/free can be saved
-	 */
-	req = malloc(size + sizeof(*req));
-	memcpy(req->op.data, buf, size);
-
-	lego_header = to_lego_header(req);
-	lego_header->pid = ctx->pid;
-	if (flag == LEGOMEM_WRITE_SYNC)
-		lego_header->opcode = OP_REQ_WRITE;
-	else if (flag == LEGOMEM_WRITE_ASYNC)
-		lego_header->opcode = OP_REQ_WRITE_NOREPLY;
-
+	req = send_buf;
 	req->op.va = addr;
 	req->op.size = size;
+	tx_lego_header = to_lego_header(req);
+	tx_lego_header->pid = ctx->pid;
+	if (flag == LEGOMEM_WRITE_SYNC)
+		tx_lego_header->opcode = OP_REQ_WRITE;
+	else if (flag == LEGOMEM_WRITE_ASYNC)
+		tx_lego_header->opcode = OP_REQ_WRITE_NOREPLY;
 
-	ret = net_send(ses, req, size + sizeof(*req));
-	if (unlikely(ret <= 0)) {
-		dprintf_ERROR("net error %d\n", ret);
-		return -EIO;
-	}
-	free(req);
-
-	if (flag == LEGOMEM_WRITE_SYNC) {
+	net_send(ses, req, size + sizeof(*req));
+	if (likely(flag == LEGOMEM_WRITE_SYNC)) {
 		ret = net_receive(ses, &resp, sizeof(resp));
 		if (unlikely(ret <= 0)) {
 			dprintf_ERROR("net errno %d\n", ret);
 			return -EIO;
 		}
-		if (0) {
-			dprintf_ERROR("board fail to write %d\n", 0);
-			return -EFAULT;
+		rx_lego_header = to_lego_header(&resp);
+		if (unlikely(rx_lego_header->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n",
+				      rx_lego_header->req_status);
+			return -1;
 		}
 	}
 	return 0;
@@ -863,20 +855,20 @@ int __legomem_write(struct legomem_context *ctx, void *buf,
  * Perform a legomem write to remote board (s).
  * This is the synchronous version where we will wait for the ACK from board (s).
  */
-int legomem_write_sync(struct legomem_context *ctx, void *buf,
+int legomem_write_sync(struct legomem_context *ctx, void *send_buf,
 		       unsigned long __remote addr, size_t size)
 {
-	return __legomem_write(ctx, buf, addr, size, LEGOMEM_WRITE_SYNC);
+	return __legomem_write(ctx, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
 }
 
 /*
  * This function will return right after the data is sent out from current host. 
  * In other words, there is no guarantee that data has persisted when it returns.
  */
-int legomem_write_async(struct legomem_context *ctx, void *buf,
+int legomem_write_async(struct legomem_context *ctx, void *send_buf,
 			unsigned long __remote addr, size_t size)
 {
-	return __legomem_write(ctx, buf, addr, size, LEGOMEM_WRITE_ASYNC);
+	return __legomem_write(ctx, send_buf, addr, size, LEGOMEM_WRITE_ASYNC);
 }
 
 /*

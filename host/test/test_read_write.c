@@ -20,9 +20,9 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1
-static int test_size[] = { 8 };
-static int test_nr_threads[] = { 1 };
+#define NR_RUN_PER_THREAD 1000000
+static int test_size[] = { 0x10 };
+static int test_nr_threads[] = { 1, 2, 4 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
 static double latency_write_ns[NR_MAX][NR_MAX];
@@ -48,12 +48,13 @@ static void *thread_func_read(void *_ti)
 {
 	unsigned long __remote addr;
 	unsigned long size;
-	void *buf;
+	void *send_buf, *recv_buf;
 	int i, j, nr_tests;
 	struct timespec s, e;
 	struct thread_info *ti = (struct thread_info *)_ti;
 	int cpu, node;
 	int ret;
+	struct session_net *ses;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
@@ -63,123 +64,28 @@ static void *thread_func_read(void *_ti)
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
-
-		buf = malloc(size);
-		if (!buf)
-			die("OOM");
-
 		nr_tests = NR_RUN_PER_THREAD;
-
-		/* Sync for every round */
-		pthread_barrier_wait(&thread_barrier);
 
 		addr = legomem_alloc(ctx, 16 * OneM, 0);
-		if (unlikely(addr == 0)) {
-			dprintf_ERROR("thread id %d failed at alloc\n", ti->id);
-			break;
-		}
-		dprintf_INFO("Remote region [%#lx - %#lx]\n", addr, addr + size);
+		dprintf_INFO("Remote region [%#lx - %#lx]\n", addr, addr + 16 * OneM);
 
-#if 0
-		for (i = 0; i < size; i++) {
-			char *p = buf + i;
-			*p = i % 255;
-		}
+		/* Prepare the send buf */
+		ses = get_vregion_session(ctx, addr);
+		BUG_ON(!ses);
+		send_buf = malloc(VREGION_SIZE);
+		recv_buf = malloc(VREGION_SIZE);
+		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
-		/* Run bunch sync write */
-		ret = legomem_write_sync(ctx, buf, addr, size);
-		if (unlikely(ret < 0)) {
-			dprintf_ERROR(
-				"thread id %d fail at %d, error code %d\n",
-				ti->id, j, ret);
-			break;
-		}
-
-		memset(buf, 0, size);
-#endif
-
-		sleep(3);
-
-		/* Run bunch read */
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_read(ctx, buf, addr, size);
-			if (unlikely(ret < 0)) {
-				dprintf_ERROR(
-					"thread id %d fail at %d, error code %d\n",
-					ti->id, j, ret);
-				break;
-			}
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
-
-		for (i = 0; i < size; i++) {
-			char *p = buf + i;
-			
-			printf("%d ", *p);
-		}
-		printf("\n");
-
-#if 0
-		if (addr)
-			legomem_free(ctx, addr, size);
-#endif
-
-		latency_read_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
-#if 1
-		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns\n",
-			ti->id, nr_tests, size,
-			latency_read_ns[ti->id][i] / nr_tests);
-
-		free(buf);
-#endif
-	}
-	return NULL;
-}
-
-__used static void *thread_func_write(void *_ti)
-{
-	unsigned long __remote addr;
-	unsigned long size;
-	void *buf;
-	int i, j, nr_tests;
-	struct timespec s, e;
-	struct thread_info *ti = (struct thread_info *)_ti;
-	int cpu, node;
-	int ret;
-
-	if (pin_cpu(ti->cpu))
-		die("can not pin to cpu %d\n", ti->cpu);
-
-	legomem_getcpu(&cpu, &node);
-	printf("%s(): thread id %d running on CPU %d\n", __func__, ti->id, cpu);
-
-	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
-		size = test_size[i];
-
-		buf = malloc(size);
-		if (!buf)
-			die("OOM");
-		memset(buf, 0, size);
-
-		nr_tests = NR_RUN_PER_THREAD;
+		sleep(5);
 
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
 
-		addr = legomem_alloc(ctx, size, 0);
-		if (unlikely(addr == 0)) {
-			dprintf_ERROR("thread id %d failed at alloc\n", ti->id);
-			break;
-		}
-
+#if 1
 		/* Run bunch sync write */
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_write_sync(ctx, buf, addr, size);
+			ret = legomem_write_sync(ctx, send_buf, addr, size);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -188,21 +94,43 @@ __used static void *thread_func_write(void *_ti)
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
-
-		if (addr)
-			legomem_free(ctx, addr, size);
 
 		latency_write_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-#if 1
 		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns\n",
 			ti->id, nr_tests, size,
 			latency_write_ns[ti->id][i] / nr_tests);
-
-		free(buf);
 #endif
+
+#if 1
+		clock_gettime(CLOCK_MONOTONIC, &s);
+		for (j = 0; j < nr_tests; j++) {
+			ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
+			if (unlikely(ret < 0)) {
+				dprintf_ERROR(
+					"thread id %d fail at %d, error code %d\n",
+					ti->id, j, ret);
+				break;
+			}
+		}
+		clock_gettime(CLOCK_MONOTONIC, &e);
+
+		//if (addr)
+		//	legomem_free(ctx, addr, size);
+
+		latency_read_ns[ti->id][i] =
+			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+
+		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns\n",
+			ti->id, nr_tests, size,
+			latency_read_ns[ti->id][i] / nr_tests);
+#endif
+
+		free(send_buf);
+		free(recv_buf);
 	}
 	return NULL;
 }

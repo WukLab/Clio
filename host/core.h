@@ -16,20 +16,22 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "api.h"
+
 #if 0
 # define LEGOMEM_DEBUG
 #endif
 
 #ifdef LEGOMEM_DEBUG
 # define dprintf_DEBUG(fmt, ...) \
-	printf("\033[1;34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
 #else
 # define dprintf_DEBUG(fmt, ...)  do { } while (0)
 #endif
 
 /* General info, always on */
 #define dprintf_INFO(fmt, ...) \
-	printf("\033[1;34m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 /* ERROR/WARNING info, always on */
 #define dprintf_ERROR(fmt, ...) \
@@ -389,34 +391,6 @@ void dump_net_sessions(void);
 struct session_net *alloc_session(void);
 void free_session(struct session_net *ses);
 struct session_net *find_net_session(unsigned int session_id);
-
-/*
- * LegoMem Public APIs
- */
-struct legomem_context *legomem_open_context(void);
-int legomem_close_context(struct legomem_context *ctx);
-struct session_net *legomem_open_session(struct legomem_context *ctx, struct board_info *bi);
-struct session_net *generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid);
-int generic_handle_close_session(struct legomem_context *ctx,
-				 struct board_info *bi,
-				 struct session_net *ses);
-struct session_net *
-legomem_open_session_remote_mgmt(struct board_info *bi);
-struct session_net *
-legomem_open_session_local_mgmt(struct board_info *bi);
-int legomem_close_session(struct legomem_context *ctx, struct session_net *ses);
-unsigned long __remote
-legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags);
-int legomem_free(struct legomem_context *ctx,
-		 unsigned long __remote addr, size_t size);
-int legomem_read(struct legomem_context *ctx, void *buf,
-		 unsigned long __remote addr, size_t size);
-int legomem_write_sync(struct legomem_context *ctx, void *buf,
-		       unsigned long __remote addr, size_t size);
-int legomem_write_async(struct legomem_context *ctx, void *buf,
-			unsigned long __remote addr, size_t size);
-int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
-		      unsigned long __remote addr, unsigned long size);
 
 /* init and utils */
 extern char global_net_dev[32];
