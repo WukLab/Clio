@@ -743,6 +743,7 @@ static void *gbn_poll_func(void *_unused)
 
 			dprintf_ERROR("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
 				str, get_gbn_src_session(gbn_hdr), dst_sesid);
+			dump_packet_headers(recv_buf, NULL);
 			inc_stat(STAT_NET_GBN_NR_RX_ERROR_NO_SESSION);
 			continue;
 		}
