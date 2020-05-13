@@ -162,13 +162,12 @@ __raw_verbs_send(struct session_net *ses_net,
 	/*
 	 * Cook the L2-L4 layer headers
 	 * If users provide their own ri, we use it.
-	 * Otherwise use the session ri.
+	 * Otherwise use the saved session ri.
 	 */
-	if (_route)
+	if (unlikely(_route))
 		route = (struct routing_info *)_route;
 	else
 		route = &ses_net->route;
-
 	prepare_headers(route, buf, buf_size);
 
 	sge.addr = (uint64_t)buf;

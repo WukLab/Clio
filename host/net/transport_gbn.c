@@ -801,6 +801,10 @@ prepare_gbn_headers(struct gbn_header *hdr, struct session_net *net)
  * This function is multithread safe both within and across sessions.
  * But if a session is used by multiple threads, the caller itself
  * need to ensure the ordering among threads.
+ *
+ * NOTE:
+ * We are NOT COPYing the data to unack queue.
+ * We are JUST saving th pointers.
  */
 static inline int gbn_send_one(struct session_net *net,
 			       void *buf, size_t buf_size, void *route)

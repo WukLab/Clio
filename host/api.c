@@ -753,16 +753,25 @@ get_vregion_session(struct legomem_context *ctx, unsigned long __remote addr)
 	return ses;
 }
 
+static int max_lego_payload ____cacheline_aligned = 1000;
+
+/*
+ * @send_buf: the buf used to send request to remote board
+ * @recv_buf: placeholder for returned data
+ * @addr: remote virtual address
+ * @size: size of data to read
+ */
 int legomem_read(struct legomem_context *ctx, void *send_buf, void *recv_buf,
-		 unsigned long __remote addr, size_t size)
+		 unsigned long __remote addr, size_t total_size)
 {
 	struct legomem_vregion *v;
 	struct session_net *ses;
 	struct legomem_read_write_req *req;
 	struct legomem_read_write_resp *resp;
-	struct lego_header *tx_lego_header;
-	struct lego_header *rx_lego_header;
-	int ret;
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego;
+	int nr_sent, ret, i;
+	size_t sz, recv_size;
 
 	v = va_to_legomem_vregion(ctx, addr);
 	ses = find_vregion_session(v, gettid());
@@ -773,27 +782,55 @@ int legomem_read(struct legomem_context *ctx, void *send_buf, void *recv_buf,
 		return -EINVAL;
 	}
 
-	resp = recv_buf;
-
 	req = send_buf;
-	req->op.va = addr;
-	req->op.size = size;
-	tx_lego_header = to_lego_header(req);
-	tx_lego_header->opcode = OP_REQ_READ;
-	tx_lego_header->pid = ctx->pid;
+	tx_lego= to_lego_header(req);
+	tx_lego->pid = ctx->pid;
+	tx_lego->opcode = OP_REQ_READ;
 
-	ret = net_send_and_receive(ses, req, sizeof(*req),
-				   resp, size + sizeof(*resp));
-	if (unlikely(ret <= 0)) {
-		dprintf_ERROR("net errno %d\n", 0);
-		return -1;
-	}
+	nr_sent = 0;
+	do {
+		if (total_size >= max_lego_payload)
+			sz = max_lego_payload;
+		else
+			sz = total_size;
+		total_size -= sz;
 
-	rx_lego_header = to_lego_header(resp);
-	if (unlikely(rx_lego_header->req_status != 0)) {
-		dprintf_ERROR("errno: req_status=%x\n",
-			      rx_lego_header->req_status);
-		return -1;
+		req->op.va = addr + nr_sent * max_lego_payload;
+		req->op.size = sz;
+
+		ret = net_send(ses, req, sizeof(*req));
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
+			break;
+		}
+		nr_sent++;
+	} while (total_size);
+
+	/* Shift to start of payload */
+	recv_buf += sizeof(*resp);
+	for (i = 0; i < nr_sent; i++) {
+		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+		if (unlikely(ret <= 0)) {
+			dprintf_ERROR("Fail to recv read at %dth\n", i);
+			continue;
+		}
+
+		/* Sanity Checks */
+		rx_lego = to_lego_header(resp);
+		if (unlikely(rx_lego->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
+			continue;
+		}
+		if (unlikely(rx_lego->opcode != OP_REQ_READ_RESP)) {
+			dprintf_ERROR("errnor: invalid resp msg %s\n",
+				legomem_opcode_str(rx_lego->opcode));
+			continue;
+		}
+
+		/* Copy to final dest */
+		recv_size -= sizeof(*resp);
+		memcpy(recv_buf, resp->ret.data, recv_size);
+		recv_buf += recv_size;
 	}
 	return 0;
 }
