@@ -54,7 +54,7 @@ object CoreMemSim {
       ).require
       def rd_cmd(seq : Int, size : Int) = legoMemAccessMsgCodec.encode(
         (LegoMemHeaderSim(pid = 0x0001, tag = 0, reqType = 0x40, cont = 0x4321, seqId = seq, size = 28),
-          0x7e000000, size, ByteVector.empty)
+          0x79000000, size, ByteVector.empty)
       ).require
       def mig_cmd(seq : Int, size : Int) = legoMemAccessMsgCodec.encode(
         (LegoMemHeaderSim(pid = 0x0001, tag = 0, reqType = 0x45, cont = 0x4321, seqId = seq, size = 28),
@@ -64,7 +64,7 @@ object CoreMemSim {
       // Start Simulation
       val dataThread = fork {
         // Setup the cache
-        dataStream #= BitAxisDataGen(rd_cmd(0, 0x10))
+        dataStream #= BitAxisDataGen(mig_cmd(0, 0x10))
         dut.clockDomain.waitRisingEdge(30)
 
         for (i <- 1 to 512) {

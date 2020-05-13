@@ -541,22 +541,6 @@ case class AddressLookupRequest(tagWidth : Int) extends Bundle {
   val seqId     = UInt(16 bits)
   val reqType   = UInt(2 bits)
   val tag       = UInt(tagWidth bits)
-
-  // This methods are for test only
-  override def asBits : Bits = {
-    val bits = Bits(64 bits)
-    bits(45 downto 0) := tag.asBits.resize(46 bits)
-    bits(47 downto 46) := reqType.asBits
-    bits(63 downto 48) := seqId.asBits
-    bits
-  }
-
-  override def assignFromBits(bits: Bits): Unit = {
-    assert(bits.getWidth == 64)
-    tag     := bits(45 downto 0).asUInt.resize(tagWidth bits)
-    reqType := bits(47 downto 46).asUInt
-    seqId   := bits(63 downto 48).asUInt
-  }
 }
 
 case class AddressLookupResult(addrWidth : Int) extends Bundle {
