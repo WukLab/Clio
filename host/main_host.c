@@ -442,6 +442,8 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
+	dprintf_INFO("gbn_header: %zu B, lego_header: %zu B, eth/ip/udp/gbn/lego: %zu B\n",
+		GBN_HEADER_SIZE, LEGO_HEADER_SIZE, sizeof(struct legomem_common_headers));
 	/*
 	 * We only contact monitor if the --skip_join flag is NOT passed.
 	 * This special flag is for testing purpose.
