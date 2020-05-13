@@ -255,7 +255,7 @@ class LookupTableStoppable(
     cam.io.rd.res.ready := enableSignal
     // report path
     if (useHitReport)
-      io.rd.rpt << cam.io.rd.res.tapAsFlow.takeBy(_.hit).stage().fmap(_.value)
+      io.rd.rpt << cam.io.rd.res.tapAsFlow.stage().fmap(_.value)
   }
 
 }

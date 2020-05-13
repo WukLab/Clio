@@ -208,6 +208,7 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
   val Seq(rdJoin, wrJoin) = StreamDemux2(cmd, cmd.snd.header.reqType === RequestType.WRITE_RESP)
   val (wrCmd, wrValid) = StreamFork2(wrJoin)
   io.wrCmd.translateFrom (wrCmd.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
+  // TODO: add queue
   io.wrDataSignal.translateFrom (wrValid) ( _ := _.snd.header.reqStatus === RequestStatus.OKAY)
 
   io.rdCmd.translateFrom (rdJoin.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
@@ -270,8 +271,12 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
       val lookup = master (Axi4(config.lookupAxi4Config))
     }
 
-    val regBus = new AxiLite4(AxiLite4Config(32, 32))
+    // debg info
+    val counters = Vec(out (UInt(32 bits)), 16)
+    val lookup_counters = Vec(out (UInt(32 bits)), 11)
   }
+
+
 
   val endpoint = new RawInterfaceEndpoint
   endpoint.io.ep <> io.ep
@@ -284,12 +289,12 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   // TODO: add fifo here
   val (lookupHeader, accessHeader) = StreamFork2(packetParser.io.headerOut)
 
-  // TODO: generate req here
   val lookup = new AddressLookupUnit
   lookup.io.bus <> io.bus.lookup
   lookup.io.ctrl.in << endpoint.io.raw.ctrlIn
   lookup.io.ctrl.out >> endpoint.io.raw.ctrlOut
-  lookup.io.req << lookupHeader.queueLowLatency(headerQueueSize).fmap(generateLookupRequest)
+  // We insert a queue here
+  lookup.io.req << lookupHeader.queue(headerQueueSize).fmap(generateLookupRequest)
 
   val access = new MemoryAccessUnit
   lookup.io.res <> access.io.lookupRes
@@ -302,7 +307,7 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   // TODO: add a loopback path here, for extended module parameters
   // signal A -> loopback queue -> signal B -> access unit
   val filteredDataF = packetParser.io.dataOut.queue(writeDataQueueSize)
-  val filteredData = filteredDataF.filterBySignal(access.io.wrDataSignal)
+  val filteredData = filteredDataF.filterBySignal(access.io.wrDataSignal.queueLowLatency(dmaRequestQueueSize))
   dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, filteredData)
   dma.io.s_axis_read_desc <> access.io.rdCmd.queue(dmaRequestQueueSize)
   dma.io.s_axis_write_desc <> access.io.wrCmd.queue(dmaRequestQueueSize)
@@ -311,12 +316,44 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   dma.io.read_enable := True
   dma.io.write_abort := False
 
+
+  // Monitor registers
+  val Registers = Seq[(String, Bool)](
+    ("ParserDataIn",      packetParser.io.dataIn.lastFire),
+    ("ParserHeaderOut",   packetParser.io.headerOut.fire),
+    ("ParserDataOut",     packetParser.io.dataOut.lastFire),
+    ("BuilderDataIn",     packetBuilder.io.dataIn.lastFire),
+    ("BuilderHeaderIn",   packetBuilder.io.headerIn.fire),
+    ("BuilderHeaderOut",  packetBuilder.io.dataOut.lastFire),
+    ("LookupHeader",      lookup.io.req.fire),
+    ("AccessHeader",      access.io.headerIn.fire),
+    ("LookupRes",         lookup.io.res.fire),
+    ("writeDesc",         dma.io.s_axis_write_desc.fire),
+    ("readDesc",          dma.io.s_axis_read_desc.fire),
+    ("filterSignal",      access.io.wrDataSignal.fire),
+    ("FilteredSignal",    filteredData.lastFire),
+    ("dmaWriteData",      dma.io.s_axis_write_data.lastFire),
+    ("dmaReadData",       dma.io.m_axis_read_data.lastFire),
+    ("ctrlOUt",           io.ep.ctrlOut.fire)
+  )
+
+  val regs = Registers.map(_._2).map(Counter(32 bits, _))
+  (io.counters, regs).zipped map (_ := _.value)
+
+  val base = BigInt("A0006400", 16)
+  println(f"* Build Register Access Script on $base")
+  Registers.map(_._1).zipWithIndex.map { case (str, idx) =>
+    val addr = base + idx * 4
+    println(f"echo $str")
+    println(f"devmem 0x$addr%X 32")
+  }
+
+  lookup.io.counters <> io.lookup_counters
+
   def generateLookupRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
     val next = AddressLookupRequest(config.tagWidth)
-    // TODO: Fix this, use different page sizes
     // Currently we only fetch the smallest page sizes
     next.tag := config.genTag(header.header.pid, header.addr).asUInt
-    // TODO: fix this, use an unified ID
     next.seqId := header.header.seqId.resize(16 bits)
     val isShootDown = header.header.reqType === LegoMem.RequestType.CACHE_SHOOTDOWN
     next.reqType := Mux(isShootDown, AddressLookupRequest.RequestType.SHOOTDOWN, AddressLookupRequest.RequestType.LOOKUP)
@@ -385,6 +422,6 @@ class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
   when (io.raw.dataOut.first) { io.ep.dataOut.tdata(0, LegoMemHeader.headerWidth bits) := header.asBits }
 
 
-  
+
 
 }

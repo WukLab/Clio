@@ -92,11 +92,11 @@ class LegoMemSystem(implicit config : CoreMemConfig) extends Component with Xili
   val regs = new AxiLite4SlaveFactory(io.regBus)
   def offset(i : Int) = BigInt("A0006000", 16) + BigInt(i * 4)
   regs.read (last.epSocIn,  offset(16 + 1)) // 0x44
-  regs.read (last.epSocOut, offset(16 + 2)) // 0x4c
-  regs.read (last.epMemIn,  offset(16 + 3)) // 0x50
-  regs.read (last.epMemOut, offset(16 + 4)) // 0x54
-  regs.read (last.epSeqIn,  offset(16 + 5)) // 0x58
-  regs.read (last.epSeqOut, offset(16 + 6)) // 0x5c
+  regs.read (last.epSocOut, offset(16 + 2)) // 0x48
+  regs.read (last.epMemIn,  offset(16 + 3)) // 0x4c
+  regs.read (last.epMemOut, offset(16 + 4)) // 0x50
+  regs.read (last.epSeqIn,  offset(16 + 5)) // 0x54
+  regs.read (last.epSeqOut, offset(16 + 6)) // 0x58
   regs.read (last.netIn,    offset(16 + 7)) // 0x60
   regs.read (last.netOut,   offset(16 + 8)) // 0x64
 
@@ -109,6 +109,10 @@ class LegoMemSystem(implicit config : CoreMemConfig) extends Component with Xili
   regs.read (first.epSeqOut, offset(32 + 6)) // 0x9c
   regs.read (first.netIn,    offset(32 + 7)) // 0xa0
   regs.read (first.netOut,   offset(32 + 8)) // 0xa4
+
+  // 0x100
+  access.io.counters.zipWithIndex.map { case (reg, idx) => regs.read(reg, offset(0x100 + idx)) }
+  access.io.lookup_counters.zipWithIndex.map { case (reg, idx) => regs.read(reg, offset(0x200 + idx)) }
 
   // Rename
   addPrePopTask(renameIO)
