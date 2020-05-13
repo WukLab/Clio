@@ -20,9 +20,9 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1000000
+#define NR_RUN_PER_THREAD 100000
 static int test_size[] = { 0x10 };
-static int test_nr_threads[] = { 1, 2, 4 };
+static int test_nr_threads[] = { 4 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
 static double latency_write_ns[NR_MAX][NR_MAX];
@@ -76,7 +76,7 @@ static void *thread_func_read(void *_ti)
 		recv_buf = malloc(VREGION_SIZE);
 		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
-		sleep(5);
+		//sleep(5);
 
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
@@ -100,9 +100,11 @@ static void *thread_func_read(void *_ti)
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
 		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns\n",
-			ti->id, nr_tests, size,
-			latency_write_ns[ti->id][i] / nr_tests);
+			ti->id, j, size,
+			latency_write_ns[ti->id][i] / j);
 #endif
+
+		pthread_barrier_wait(&thread_barrier);
 
 #if 1
 		clock_gettime(CLOCK_MONOTONIC, &s);
@@ -125,8 +127,8 @@ static void *thread_func_read(void *_ti)
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
 		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns\n",
-			ti->id, nr_tests, size,
-			latency_read_ns[ti->id][i] / nr_tests);
+			ti->id, j, size,
+			latency_read_ns[ti->id][i] / j);
 #endif
 
 		free(send_buf);
@@ -203,6 +205,8 @@ int test_legomem_read_write(char *_unused)
 		}
 	}
 	legomem_close_context(ctx);
+
+	while (1);
 
 	return 0;
 }

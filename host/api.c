@@ -810,9 +810,10 @@ int __legomem_write(struct legomem_context *ctx, void *send_buf,
 	struct legomem_vregion *v;
 	struct session_net *ses;
 	struct legomem_read_write_req *req;
-	struct legomem_read_write_resp resp;
-	struct lego_header *tx_lego_header;
-	struct lego_header *rx_lego_header;
+	struct legomem_read_write_resp *resp;
+	size_t recv_size;
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego;
 	int ret;
 
 	v = va_to_legomem_vregion(ctx, addr);
@@ -827,24 +828,23 @@ int __legomem_write(struct legomem_context *ctx, void *send_buf,
 	req = send_buf;
 	req->op.va = addr;
 	req->op.size = size;
-	tx_lego_header = to_lego_header(req);
-	tx_lego_header->pid = ctx->pid;
+	tx_lego= to_lego_header(req);
+	tx_lego->pid = ctx->pid;
 	if (flag == LEGOMEM_WRITE_SYNC)
-		tx_lego_header->opcode = OP_REQ_WRITE;
+		tx_lego->opcode = OP_REQ_WRITE;
 	else if (flag == LEGOMEM_WRITE_ASYNC)
-		tx_lego_header->opcode = OP_REQ_WRITE_NOREPLY;
+		tx_lego->opcode = OP_REQ_WRITE_NOREPLY;
 
 	net_send(ses, req, size + sizeof(*req));
 	if (likely(flag == LEGOMEM_WRITE_SYNC)) {
-		ret = net_receive(ses, &resp, sizeof(resp));
+		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
 		if (unlikely(ret <= 0)) {
 			dprintf_ERROR("net errno %d\n", ret);
 			return -EIO;
 		}
-		rx_lego_header = to_lego_header(&resp);
-		if (unlikely(rx_lego_header->req_status != 0)) {
-			dprintf_ERROR("errno: req_status=%x\n",
-				      rx_lego_header->req_status);
+		rx_lego = to_lego_header(resp);
+		if (unlikely(rx_lego->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
 			return -1;
 		}
 	}
@@ -862,7 +862,7 @@ int legomem_write_sync(struct legomem_context *ctx, void *send_buf,
 }
 
 /*
- * This function will return right after the data is sent out from current host. 
+ * This function will return right after the data is sent out from current host. N
  * In other words, there is no guarantee that data has persisted when it returns.
  */
 int legomem_write_async(struct legomem_context *ctx, void *send_buf,
