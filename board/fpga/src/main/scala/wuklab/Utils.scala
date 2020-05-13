@@ -1,7 +1,7 @@
 package wuklab
 
 import spinal.core._
-import spinal.lib._
+import spinal.lib.{Stream, _}
 import wuklab.Utils.AxiStream
 
 // TODO: set composition name
@@ -379,6 +379,12 @@ object Utils {
       }
     }
 
+    def demux(select : Stream[UInt], num: Int) : Seq[Stream[Fragment[T]]] = {
+      val fragments = StreamDemux(frag.continueWhen(select.valid), select.payload, num)
+      select.throwWhen(frag.fire)
+      fragments
+    }
+
     def takeFirst : Stream[Fragment[T]] = frag.takeWhen(frag.first)
 
 
@@ -545,7 +551,7 @@ object StreamWithFragmentArbiter {
   import Utils._
 
   def apply[T1 <: Data, T2 <: Data]
-  (streams : Seq[Stream[T1]], fragments : Seq[Stream[Fragment[T2]]]) : (Stream[T1], Fragment[T2])= {
+  (streams : Seq[Stream[T1]], fragments : Seq[Stream[Fragment[T2]]]) : (Stream[T1], Stream[Fragment[T2]])= {
 
     require(streams.length > 0, "Should work on a list")
     require(streams.length == fragments.length, "Length of the streams should match fragments")
@@ -563,8 +569,32 @@ object StreamWithFragmentArbiter {
   }
 
   def onInterface[T <: Data, T1 <: Data, T2 <: Data](ts : T *)
-  (select : T => (Stream[T1], Stream[Fragment[T2]])) : (Stream[T1], Fragment[T2]) = {
+  (select : T => (Stream[T1], Stream[Fragment[T2]])) : (Stream[T1], Stream[Fragment[T2]]) = {
     val (cs, ds) = ts.map(select).unzip
     apply(cs, ds)
   }
+}
+
+object StreamWithFragmentDemux {
+  import Utils._
+
+  def apply[T1 <: Data, T2 <: Data]
+  (num : Int, select : Stream[UInt])(stream : Stream[T1], fragment : Stream[Fragment[T2]]) : (Seq[Stream[T1]], Seq[Stream[Fragment[T2]]]) = {
+    val (streamSel, fragSel) = StreamFork2(select)
+    val streams = StreamDemux(stream <* streamSel, streamSel.payload, num)
+    val fragments = StreamDemux(fragment.continueWhen(fragSel.valid), fragSel.payload, num)
+    fragSel.throwWhen(fragment.fire)
+    (streams, fragments)
+  }
+
+  def onInterface[T <: Data, T1 <: Data, T2 <: Data]
+  (num : Int, selectFunc : T1 => UInt)(t : T, select : T => (Stream[T1], Stream[Fragment[T2]]))
+  : (Seq[Stream[T1]], Seq[Stream[Fragment[T2]]]) = {
+    val (streamF, fragment) = select(t)
+    val (stream, selectStreamF) = StreamFork2(streamF)
+    val selectStream = selectStreamF.fmap(selectFunc)
+    apply(num, selectStream)(stream, fragment)
+  }
+
+
 }

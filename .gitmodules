@@ -3,4 +3,4 @@
 	url = https://github.com/alexforencich/verilog-axi
 [submodule "board/fpga/src/lib/verilog/verilog-axis"]
 	path = board/fpga/src/lib/verilog/verilog-axis
-	url = https://github.com/alexforencich/verilog-axis
+	url = https://github.com/alexforencich/verilog-axis.git

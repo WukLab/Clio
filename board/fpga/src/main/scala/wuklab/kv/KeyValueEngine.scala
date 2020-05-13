@@ -8,37 +8,6 @@ import spinal.core.internals.Operator
 import spinal.lib
 
 
-class KeyValueEndPointWithPhysicalMemory extends Component {
-  // Convert the DMA interface to the Physcial interfaece
-
-}
-
-class KeyValueEngine(implicit config : KeyValueConfig) extends Component {
-  // One -> multiple
-  // Queue for multiple instances
-  //
-
-  // Fetch the first bucket
-  // Fetch the second bucket
-  val io = {
-    val ep = LegoMemEndPoint()
-    val dma = AxiStreamDMAInterface()
-  }
-
-  // connect the modules
-
-  // do arbitration on modules
-
-}
-
-// This is a object view
-trait View[ViewT <: Data, T <: Data] {
-  implicit def toView   (t : T) : ViewT
-  implicit def fromView (t : ViewT) : T
-  implicit def assignToView   (view : ViewT, t : T) : Unit = view := toView(t)
-  implicit def assignFromView (t : T, view : ViewT) : Unit = t := fromView(view)
-}
-
 // 64 bit size
 // 32 addr + flags, 16 version + 4 bit 2nd hash (last 4 bit)
 
@@ -168,6 +137,26 @@ case class KeyValueReply() extends Bundle {
   val id = LegoMemKV.Id()
 }
 
+case class KeyValueBucketCommandInterface() extends IMasterSlave {
+  val header = slave Stream KeyValueBucketCommand()
+  val data   = slave Stream Fragment(Bits(512 bits))
+
+  override def asMaster(): Unit = {
+    master (header)
+    master (data)
+  }
+}
+
+case class KeyValueEntryCommandInterface() extends IMasterSlave {
+  val header = slave Stream KeyValueEntryCommand()
+  val data   = slave Stream Fragment(Bits(512 bits))
+
+  override def asMaster(): Unit = {
+    master (header)
+    master (data)
+  }
+}
+
 // If it is a dma read
 // DO_READ
 // TRY_READ
@@ -185,7 +174,7 @@ case class KeyValueReply() extends Bundle {
 // Fetch?
 // Not?
 // Process Per entry operation
-class EntryProcessor() extends Component {
+class EntryProcessor(implicit config : KeyValueConfig) extends Component {
   val io = new Bundle {
     val cmd = slave Stream KeyValueEntryCommand()
     val data = slave Stream Fragment(Bits(512 bits))
@@ -369,24 +358,19 @@ class EntryProcessor() extends Component {
 }
 
 // Process Bucket
-class BucketProcessor(matchFunction : (KeyValueBucketCommand, KeyValueHashEntry) => Bool) extends Component {
+class BucketProcessor(implicit config : KeyValueConfig) extends Component {
   val numSyncFifos = 4
   val io = new Bundle {
     // Three FIFOs here:
-    val req = slave (KeyValueBucketCommandInterface())
-    val cmd = slave Stream KeyValueBucketCommand()
-    val bucket = slave Stream Fragment(Bits(512 bits))
+    val bucketIn = slave (KeyValueBucketCommandInterface())
 
     // Commit FIFOs: data & command
-    val entryOut = new Bundle {
-      val cmd = master Stream KeyValueEntryCommand()
-      val data = slave Stream Fragment(Bits(512 bits))
-    }
-
+    val entryOut = master (KeyValueEntryCommandInterface())
     val bucketOut = slave (KeyValueBucketCommandInterface())
 
     // Async FIFOs
-    val asyncFifos = Vec(slave Stream UInt(32 bits), 4)
+    val bucketAddressFifo = slave Stream UInt(config.physicalAddressWidth bits)
+    val bucketAddressFree = master Stream UInt(config.physicalAddressWidth bits)
 
     // Commit to DMA
     val dma = master (AxiStreamDMAWriteInterface())
@@ -394,10 +378,10 @@ class BucketProcessor(matchFunction : (KeyValueBucketCommand, KeyValueHashEntry)
 
   val numHtePerLine = 512 / 64
   // Generate 1:n mapping
-  val (syncData, syncCmd) = io.bucket syncWith io.cmd
+  val (syncData, syncCmd) = io.bucketIn.data syncWith io.bucketIn.header
 
   val prevLinkPort = new AxiStreamDMAWriteInterface()
-  val nextLinkPort = new AxiStreamDMAWriteInterface()
+  val nextLinkPort = new AxiStreamDMAWriteInterface().
 
   // If True, we map this as a end signal
   val commandReleaseSignal = Stream(Bool)
@@ -488,7 +472,7 @@ class BucketProcessor(matchFunction : (KeyValueBucketCommand, KeyValueHashEntry)
   // We have a command fifo, and controlled by a queue
   // We can emit this signal at half or at donw.
 
-  def assignEntryCommand(entry : KeyValueEntryCommand, bucket: KeyValueBucketCommand) : Unit
+  def generateEntryCommand(entry : KeyValueEntryCommand, bucket: KeyValueBucketCommand) : Unit
 
   // Fork by if next
   // Cmd
@@ -571,16 +555,6 @@ class KeyValueLock extends Component {
   io.dataOut << io.dataIn
 
   def getHashTag(header: KeyValueHeader) : UInt
-}
-
-case class KeyValueBucketCommandInterface() extends IMasterSlave {
-  val header = slave Stream KeyValueBucketCommand()
-  val data   = slave Stream Fragment(Bits(512 bits))
-
-  override def asMaster(): Unit = {
-    master (header)
-    master (data)
-  }
 }
 
 class KeyValueIssuer extends Component {
