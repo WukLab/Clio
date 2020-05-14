@@ -82,6 +82,7 @@ int init_shadow_pgtable(void);
 int init_freepage_fifo(void);
 void init_stat_mapping(void);
 void init_migration_setup(void);
+int init_ctrl_polling(void);
 
 void handle_test_pte(struct thpool_buffer *tb);
 
@@ -95,5 +96,8 @@ void test_clear_page(void);
 struct board_info *add_board(char *board_name, int board_ip, int udp_port);
 struct board_info *find_board(int ip, unsigned int port);
 void dump_boards(void);
+
+void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
+			      struct lego_mem_ctrl *tx);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

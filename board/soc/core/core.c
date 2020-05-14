@@ -177,12 +177,12 @@ open_session_with_remote(unsigned char ip3, unsigned char ip4,
 	lego->dest_ip = ip3 << 24 | ip4 << 16 | (u16)(udp_port);
 	lego->cont = MAKE_CONT(LEGOMEM_CONT_NET, LEGOMEM_CONT_NONE,
 			       LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
-	if (dma_send(lego, sizeof(*req)) < 0) {
+	if (dma_send(req, sizeof(*req)) < 0) {
 		dprintf_ERROR("fail to do dma data send %d\n", 0);
 		return NULL;
 	}
 
-	dprintf_INFO("-after sent dma 192.168.%d.%d req %#lx size %#lx\n",
+	dprintf_INFO("!after sent dma 192.168.%d.%d req %#lx size %#lx\n",
 		ip3, ip4, (u64)req, sizeof(*req));
 
 	//set_remote_session_id(ses, req->op.session_id);
@@ -753,17 +753,25 @@ int main(int argc, char **argv)
 		printf("Fail to init dma\n");
 		return 0;
 	}
-
 	init_stat_mapping();
 	init_migration_setup();
-
-	init_fpga_pgtable();
-	init_shadow_pgtable();
 
 	/* Init buddy allocator for FPGA physical memory. */
 	init_buddy();
 
+	init_fpga_pgtable();
+	init_shadow_pgtable();
+
+	/*
+	 * Init all FREEPAGE fifos.
+	 * Push down initial free pages.
+	 */
 	init_freepage_fifo();
+
+	/*
+	 * Launch a polling thread for CTRL FIFOs.
+	 */
+	init_ctrl_polling();
 
 	/*
 	 * Run the polling thread on the last CPU.

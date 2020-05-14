@@ -188,7 +188,7 @@ out:
  * It will dispatch events to different handlers
  * depending on the rx->addr field.
  */
-static void *ctrl_dispather(void *_unused)
+static void *ctrl_poll_func(void *_unused)
 {
 	struct lego_mem_ctrl *rx;
 	struct lego_mem_ctrl *tx;
@@ -203,20 +203,44 @@ static void *ctrl_dispather(void *_unused)
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
 			;
 
-		switch (rx->cmd) {
-		case CMD_LEGOMEM_CTRL_CREATE_PROC:
-			handle_ctrl_create_proc(rx, tx);
-			break;
-		case CMD_LEGOMEM_CTRL_ALLOC:
-			handle_ctrl_alloc(rx, tx);
-			break;
-		case CMD_LEGOMEM_CTRL_FREE:
-			handle_ctrl_free(rx, tx);
+		dprintf_DEBUG("ADDR %x CMD %x\n", rx->addr, rx->cmd);
+
+		switch (rx->addr) {
+		case LEGOMEM_CTRL_ADDR_FREEPAGE_0:
+		case LEGOMEM_CTRL_ADDR_FREEPAGE_1:
+		case LEGOMEM_CTRL_ADDR_FREEPAGE_2:
+			handle_ctrl_freepage_ack(rx, tx);
 			break;
 		default:
-			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
+			switch (rx->cmd) {
+			case CMD_LEGOMEM_CTRL_CREATE_PROC:
+				handle_ctrl_create_proc(rx, tx);
+				break;
+			case CMD_LEGOMEM_CTRL_ALLOC:
+				handle_ctrl_alloc(rx, tx);
+				break;
+			case CMD_LEGOMEM_CTRL_FREE:
+				handle_ctrl_free(rx, tx);
+				break;
+			default:
+				dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
+				break;
+			}
 			break;
 		}
 	}
 	return NULL;
+}
+
+int init_ctrl_polling(void)
+{
+	int ret;
+	pthread_t t;
+
+	ret = pthread_create(&t, NULL, ctrl_poll_func, NULL);
+	if (ret) {
+		dprintf_ERROR("Fail to launch CTRL poll func %d\n", ret);
+		exit(1);
+	}
+	return 0;
 }

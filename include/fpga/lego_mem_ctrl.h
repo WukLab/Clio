@@ -26,4 +26,12 @@ struct lego_mem_ctrl {
     uint8_t epid;
 } __packed;
 
-#endif
+/*
+ * On-chip ADDR distribution
+ * Each on-chip sender has its own ADDR.
+ */
+#define LEGOMEM_CTRL_ADDR_FREEPAGE_0	(0)
+#define LEGOMEM_CTRL_ADDR_FREEPAGE_1	(1)
+#define LEGOMEM_CTRL_ADDR_FREEPAGE_2	(2)
+
+#endif /* _LEGO_MEM_CTRL_ */

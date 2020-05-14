@@ -34,9 +34,6 @@
  */
 #define FREEPAGE_FIFO_DEPTH	(2)
 
-static struct lego_mem_ctrl *ctrl_recv_buf;
-static struct lego_mem_ctrl *ctrl_send_buf;
-
 struct fifo_info {
 	/* page allocation order */
 	unsigned int flags;
@@ -58,28 +55,28 @@ struct fifo_info freepage_fifos[] = {
 	[0] = {
 		.flags		= 1,
 		.depth		= FREEPAGE_FIFO_DEPTH,
-		.addr		= 0,
+		.addr		= LEGOMEM_CTRL_ADDR_FREEPAGE_0,
 	},
 
 	/* 16MB, order 2 */
 	[2] = {
 		.flags		= 1,
 		.depth		= FREEPAGE_FIFO_DEPTH,
-		.addr		= 1,
+		.addr		= LEGOMEM_CTRL_ADDR_FREEPAGE_1,
 	},
 
 	/* 128MB, order 6 */
 	[6] = {
 		.flags		= 1,
 		.depth		= FREEPAGE_FIFO_DEPTH,
-		.addr		= 2,
+		.addr		= LEGOMEM_CTRL_ADDR_FREEPAGE_2,
 	},
 };
 
 #define for_each_fifo_info(i, fi, base) \
 	for ((i) = 0, (fi) = (base); (i) < ARRAY_SIZE(base); (i)++, (fi)++)
 
-static inline struct fifo_info *order_to_fifo_into(unsigned int order)
+static inline struct fifo_info *order_to_fifo_info(unsigned int order)
 {
 	return freepage_fifos + order;
 }
@@ -109,8 +106,11 @@ static __always_inline
 void prepare_send_ctrl(struct lego_mem_ctrl *ctrl, struct fifo_info *fi,
 		       unsigned long new_pa)
 {
-#define FPGA_STORAGE_BASE_ADDRESS (540000000UL)
-	new_pa = new_pa + FPGA_STORAGE_BASE_ADDRESS;
+	/*
+	 * Coremem sees physical address as we do.
+	 * We need to get the bus address.
+	 */
+	new_pa = new_pa + FPGA_MEMORY_MAP_MAPPING_BASE;
 
 	/* 40bit for physical address */ 
 	ctrl->param32 = new_pa & 0xFFFFFFFF;
@@ -141,7 +141,7 @@ void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
 		dprintf_ERROR("invalid size %#x\n", rx->param32);
 		return;
 	}
-	fi = order_to_fifo_into(order);
+	fi = order_to_fifo_info(order);
 
 	pfn = alloc_pfn(fi->order);
 	if (unlikely(!pfn)) {
@@ -154,35 +154,15 @@ void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
 	dma_ctrl_send(tx, sizeof(*tx));
 }
 
-static void *ctrl_poll_func(void *_unused)
-{
-	int cpu, node;
-
-	legomem_getcpu(&cpu, &node);
-	dprintf_INFO("CTRL AXIS DMA Polling Thread running on CPU %d\n", cpu);
-
-	while (1) {
-		while (dma_ctrl_recv_blocking(ctrl_recv_buf, CTRL_BUFFER_SIZE) < 0)
-			;
-
-		dprintf_DEBUG("Get one. addr %#lx\n", (unsigned long)(ctrl_recv_buf->addr));
-		handle_ctrl_freepage_ack(ctrl_recv_buf, ctrl_send_buf);
-	}
-	return NULL;
-}
-
 /*
  * This function is called during startup
  * to pre-fill all the fifos.
  */
-static void prefill_fifos(void)
+static void prefill_fifos(struct lego_mem_ctrl *ctrl)
 {
 	int i, j;
 	struct fifo_info *fi;
 	unsigned long new_pfn, new_pa;
-	struct lego_mem_ctrl *ctrl;
-
-	ctrl = ctrl_send_buf;
 
 	for_each_fifo_info(i, fi, freepage_fifos) {
 		if (!fifo_info_valid(fi))
@@ -205,41 +185,28 @@ static void prefill_fifos(void)
 	}
 }
 
-/*
- * 1. allocate buffers
- * 2. prefill all the free page fifos
- * 3. create a background polling thread
- */
 int init_freepage_fifo(void)
 {
-	pthread_t t;
 	axidma_dev_t dev;
-	int i, ret;
 	struct fifo_info *fi;
+	int i;
+	struct lego_mem_ctrl *ctrl_send_buf;
 
 	BUILD_BUG_ON(ARRAY_SIZE(freepage_fifos) > MAX_ORDER);
 
 	for_each_fifo_info(i, fi, freepage_fifos) {
 		if (!fifo_info_valid(fi))
 			continue;
-
 		fi->order = i;
 	}
 
-	/* Allocate DMA-able send/recve buffers */
 	dev = legomem_dma_info.dev;
 	ctrl_send_buf = axidma_malloc(dev, CTRL_BUFFER_SIZE);
-	ctrl_recv_buf = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
-	prefill_fifos();
+	/* Refill all the FIFOs */
+	prefill_fifos(ctrl_send_buf);
 
-	dprintf_INFO("CTRL send buf: %#lx recv buf: %#lx\n",
-		(unsigned long)ctrl_send_buf, (unsigned long)ctrl_recv_buf);
+	axidma_free(dev, ctrl_send_buf, CTRL_BUFFER_SIZE);
 
-	ret = pthread_create(&t, NULL, ctrl_poll_func, NULL);
-	if (ret) {
-		dprintf_ERROR("Fail to launch the freepage list poll func %d\n", ret);
-		exit(1);
-	}
 	return 0;
 }
