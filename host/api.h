@@ -17,6 +17,7 @@
 #include <pthread.h>
 
 struct legomem_context;
+struct legomem_vregion;
 
 /*
  * LegoMem Public APIs
@@ -46,7 +47,10 @@ int legomem_write_async(struct legomem_context *ctx, void *send_buf,
 int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 		      unsigned long __remote addr, unsigned long size);
 
-struct session_net *
-get_vregion_session(struct legomem_context *ctx, unsigned long __remote addr);
+struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
+						    struct legomem_vregion *v);
+
+struct session_net *find_or_alloc_vregion_session(struct legomem_context *ctx,
+						  unsigned long __remote addr);
 
 #endif /* _LEGOMEM_PUBLIC_APIS_ */

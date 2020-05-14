@@ -166,7 +166,10 @@ remove_vregion_session(struct legomem_vregion *v, pid_t tid)
 	return -1;
 }
 
-/* Frequently used, sitting on datapath */
+/*
+ * Frequently used, sitting on datapath
+ * Find out if thread @tid has a session associated with vregion @v.
+ */
 static __always_inline struct session_net *
 find_vregion_session(struct legomem_vregion *v, pid_t tid)
 {
@@ -182,26 +185,6 @@ find_vregion_session(struct legomem_vregion *v, pid_t tid)
 	}
 	pthread_rwlock_unlock(&v->rwlock);
 	return NULL;
-}
-
-int get_ip_str(unsigned int ip, char *ip_str);
-static inline void dump_legomem_vregion(struct legomem_vregion *v)
-{
-	int i;
-	char ip_str[INET_ADDRSTRLEN];
-	struct session_net *ses;
-
-	get_ip_str(v->board_ip, ip_str);
-	printf("vRegion %#18lx (%s:%u) avail=%uB flags=%#lx. List of Sessions:\n",
-		(unsigned long)v, ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
-
-	printf("bkt      ses_local       tid\n");
-	printf("-------- --------------- --------\n");
-	pthread_rwlock_rdlock(&v->rwlock);
-	hash_for_each(v->ht_sessions, i, ses, ht_link_vregion) {
-		printf("%-8d %-15d %-8d\n", i, get_local_session_id(ses), ses->tid);
-	}
-	pthread_rwlock_unlock(&v->rwlock);
 }
 
 static inline void init_legomem_vregion(struct legomem_vregion *v)
@@ -463,5 +446,31 @@ void handle_open_session(struct thpool_buffer *tb);
 int create_watchdog_thread(void);
 
 void *user_session_handler(void *_ses);
+
+int get_ip_str(unsigned int ip, char *ip_str);
+
+static inline void
+dump_legomem_vregion(struct legomem_context *ctx, struct legomem_vregion *v)
+{
+	int i;
+	unsigned int index;
+	char ip_str[INET_ADDRSTRLEN];
+	struct session_net *ses;
+
+	index = legomem_vregion_to_index(ctx, v);
+
+	get_ip_str(v->board_ip, ip_str);
+	printf("Dump vRegion@[%#lx-%#lx] index=%u (%s:%u) avail=%uB flags=%#lx. Associated sessions:\n",
+		(u64)(index * VREGION_SIZE), (u64)(index + 1) * VREGION_SIZE, index,
+		ip_str, v->udp_port, atomic_load(&v->avail_space), v->flags);
+	printf("    bkt      ses_local       tid\n");
+	printf("    -------- --------------- --------\n");
+
+	pthread_rwlock_rdlock(&v->rwlock);
+	hash_for_each(v->ht_sessions, i, ses, ht_link_vregion) {
+		printf("    %-8d %-15d %-8d\n", i, get_local_session_id(ses), ses->tid);
+	}
+	pthread_rwlock_unlock(&v->rwlock);
+}
 
 #endif /* _HOST_CORE_H_ */

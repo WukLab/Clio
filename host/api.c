@@ -24,6 +24,11 @@ struct session_net *monitor_session;
 struct board_info *monitor_bi;
 
 /*
+ * Depends on MTU: sysctl_link_mtu
+ */
+int max_lego_payload ____cacheline_aligned = 1400;
+
+/*
  * Allocate a new process-local legomem context.
  * Monitor will be contacted. On success, the context is returned.
  *
@@ -634,12 +639,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 * one used by other vRegions.
 		 */
 		add_vregion_session(v, ses);
+		dump_legomem_vregion(ctx, v);
 	}
-
-#ifdef LEGOMEM_DEBUG
-	dump_legomem_context_sessions(ctx);
-	dump_legomem_vregion(v);
-#endif
 
 	/*
 	 * Step IV:
@@ -740,23 +741,66 @@ int legomem_free(struct legomem_context *ctx,
 	return 0;
 }
 
-struct session_net *
-get_vregion_session(struct legomem_context *ctx, unsigned long __remote addr)
+/*
+ * Find the per-thread session associated with vregion @v.
+ */
+struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
+						    struct legomem_vregion *v)
 {
-	struct legomem_vregion *v;
+	char ip_str[INET_ADDRSTRLEN];
 	struct session_net *ses;
+	pid_t tid;
 
-	v = va_to_legomem_vregion(ctx, addr);
-	ses = find_vregion_session(v, gettid());
-	if (!ses)
-		dump_legomem_vregion(v);
+	// XXX Will gettid be an issue?
+	tid = gettid();
+	ses = find_vregion_session(v, tid);
+	if (likely(ses))
+		return ses;
+
+	/*
+	 * Find if this particular thread has an established
+	 * session with the owner board of this vregion.
+	 */
+	ses = context_find_session(ctx, tid, v->board_ip, v->udp_port);
+	if (!ses) {
+		struct board_info *bi;
+
+		bi = find_board(v->board_ip, v->udp_port);
+		if (!bi) {
+			get_ip_str(v->board_ip, ip_str);
+			dprintf_ERROR("Fail to find board: %s:%d\n", ip_str, v->udp_port);
+			return NULL;
+		}
+
+		ses = __legomem_open_session(ctx, bi, tid, false, false);
+		if (!ses) {
+			get_ip_str(v->board_ip, ip_str);
+			dprintf_ERROR("Fail to open a net session "
+				      "with board: %s:%d\n", ip_str, v->udp_port);
+			return NULL;
+		}
+	}
+	add_vregion_session(v, ses);
+
+	dprintf_DEBUG("new session %d enqueued into vregion %d, pid %u\n",
+		get_local_session_id(ses), legomem_vregion_to_index(ctx, v), tid);
+	dump_legomem_vregion(ctx, v);
 	return ses;
 }
 
-/*
- * Depends on MTU: sysctl_link_mtu
- */
-static int max_lego_payload ____cacheline_aligned = 1400;
+struct session_net *find_or_alloc_vregion_session(struct legomem_context *ctx,
+						  unsigned long __remote addr)
+{
+	struct legomem_vregion *v;
+
+	v = va_to_legomem_vregion(ctx, addr);
+	if (!VregionAllocated(v)) {
+		dprintf_ERROR("remote va %#lx vregion index %#x not allocated\n",
+			addr, va_to_vregion_index(addr));
+		return NULL;
+	}
+	return __find_or_alloc_vregion_session(ctx, v);
+}
 
 /*
  * @send_buf: the buf used to send request to remote board.
@@ -779,12 +823,11 @@ int legomem_read(struct legomem_context *ctx, void *send_buf, void *recv_buf,
 	size_t sz, recv_size;
 
 	v = va_to_legomem_vregion(ctx, addr);
-	ses = find_vregion_session(v, gettid());
-	if (unlikely(!ses)) {
-		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session. It should "
-			      "have been created by legomem_alloc.\n", addr);
-		return -EINVAL;
+	ses = __find_or_alloc_vregion_session(ctx, v);
+	if (!ses) {
+		dump_legomem_vregion(ctx, v);
+		dprintf_ERROR("Cannot get or alloc session %#lx\n", addr);
+		return -EIO;
 	}
 
 	req = send_buf;
@@ -864,12 +907,11 @@ int __legomem_write(struct legomem_context *ctx, void *send_buf,
 	int i, ret, nr_sent;
 
 	v = va_to_legomem_vregion(ctx, addr);
-	ses = find_vregion_session(v, gettid());
-	if (unlikely(!ses)) {
-		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session. It should "
-			      "have been created by legomem_alloc.\n", addr);
-		return -EINVAL;
+	ses = __find_or_alloc_vregion_session(ctx, v);
+	if (!ses) {
+		dump_legomem_vregion(ctx, v);
+		dprintf_ERROR("Cannot get or alloc session %#lx\n", addr);
+		return -EIO;
 	}
 
 	req = send_buf;
@@ -965,11 +1007,11 @@ int legomem_ptr_chasing_read(struct legomem_context *ctx, void *buf,
 	struct session_net *ses;
 
 	v = va_to_legomem_vregion(ctx, ptr);
-	ses = find_vregion_session(v, gettid());
-	if (unlikely(!ses)) {
-		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session.\n", ptr);
-		return -EINVAL;
+	ses = __find_or_alloc_vregion_session(ctx, v);
+	if (!ses) {
+		dump_legomem_vregion(ctx, v);
+		dprintf_ERROR("Cannot get or alloc session %#lx\n", ptr);
+		return -EIO;
 	}
 
 	return 0;
@@ -987,11 +1029,11 @@ int legomem_ptr_chasing_write(struct legomem_context *ctx, void *buf,
 	struct session_net *ses;
 
 	v = va_to_legomem_vregion(ctx, ptr);
-	ses = find_vregion_session(v, gettid());
-	if (unlikely(!ses)) {
-		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session.\n", ptr);
-		return -EINVAL;
+	ses = __find_or_alloc_vregion_session(ctx, v);
+	if (!ses) {
+		dump_legomem_vregion(ctx, v);
+		dprintf_ERROR("Cannot get or alloc session %#lx\n", ptr);
+		return -EIO;
 	}
 
 	return 0;
@@ -1067,7 +1109,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 			      "with this thread (tid %d) and vregion (%u). "
 			      "This is BUG. But we proceed anyway.\n",
 			      tid, vregion_index);
-		dump_legomem_vregion(v);
+		dump_legomem_vregion(ctx, v);
 		dump_legomem_context_sessions(ctx);
 	} else {
 		remove_vregion_session(v, tid);

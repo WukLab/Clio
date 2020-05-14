@@ -20,8 +20,8 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 100000
-static int test_size[] = { 0x10 };
+#define NR_RUN_PER_THREAD 1000000
+static int test_size[] = { 64 };
 static int test_nr_threads[] = { 4 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -42,6 +42,7 @@ struct thread_info {
 };
 
 static struct legomem_context *ctx;
+unsigned long global_base_addr;
 static pthread_barrier_t thread_barrier;
 
 static void *thread_func_read(void *_ti)
@@ -55,6 +56,7 @@ static void *thread_func_read(void *_ti)
 	int cpu, node;
 	int ret;
 	struct session_net *ses;
+	struct session_net *mgmt_ses;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
@@ -66,22 +68,42 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
+		/*
+		 * This is tunable
+		 *
+		 * Either 1) all threads use same addr
+		 * 2) each thread use their own addr
+		 *
+		 * Of course, for best perf, each thread should use
+		 * their own vregion, to avoid the hashtable search.
+		 */
+#if 1
 		addr = legomem_alloc(ctx, 16 * OneM, 0);
-		dprintf_INFO("Remote region [%#lx - %#lx]\n", addr, addr + 16 * OneM);
+#else
+		addr = global_base_addr;
+#endif
+		ses = find_or_alloc_vregion_session(ctx, addr);
+		BUG_ON(!ses);
 
 		/* Prepare the send buf */
-		ses = get_vregion_session(ctx, addr);
-		BUG_ON(!ses);
 		send_buf = malloc(VREGION_SIZE);
 		recv_buf = malloc(VREGION_SIZE);
 		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
+		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
+				ti->id, get_local_session_id(ses),
+				addr, addr + 16 * OneM);
+
+		//mgmt_ses = get_board_mgmt_session(ses->board_info);
+		//net_reg_send_buf(mgmt_ses, send_buf, 4096);
+
 		//sleep(5);
 
-		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
 
 #if 1
+		legomem_write_sync(ctx, send_buf, addr, 0x10);
+
 		/* Run bunch sync write */
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
@@ -99,14 +121,17 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns\n",
+		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
-			latency_write_ns[ti->id][i] / j);
+			latency_write_ns[ti->id][i] / j,
+			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000)
+			);
 #endif
-
 		pthread_barrier_wait(&thread_barrier);
+		exit(0);
 
 #if 1
+		ret = legomem_read(ctx, send_buf, recv_buf, addr, 0x10);
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
@@ -119,6 +144,14 @@ static void *thread_func_read(void *_ti)
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 
+#if 0
+		char *pp = recv_buf + sizeof(struct legomem_read_write_resp);
+		for (int k = 0; k < size; k++) {
+			printf("%x ", pp[k]);
+		}
+		printf("\n");
+#endif
+
 		//if (addr)
 		//	legomem_free(ctx, addr, size);
 
@@ -126,9 +159,11 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns\n",
+		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
-			latency_read_ns[ti->id][i] / j);
+			latency_read_ns[ti->id][i] / j,
+			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000)
+			);
 #endif
 
 		free(send_buf);
@@ -155,6 +190,8 @@ int test_legomem_read_write(char *_unused)
 	if (!ctx)
 		return -1;
 	dump_legomem_contexts();
+
+	global_base_addr = legomem_alloc(ctx, 16 * OneM, 0);
 
 	ti = malloc(sizeof(*ti) * NR_MAX);
 	tid = malloc(sizeof(*tid) * NR_MAX);
@@ -206,7 +243,7 @@ int test_legomem_read_write(char *_unused)
 	}
 	legomem_close_context(ctx);
 
-	while (1);
+	//while (1);
 
 	return 0;
 }
