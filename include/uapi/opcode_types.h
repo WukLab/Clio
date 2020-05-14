@@ -12,18 +12,35 @@
 #define BOARD_NAME_LEN		(64)
 
 enum LEGOFPGA_OPCODE_REQ {
+    	// Zone 0x00 - 0x3F system ops
 	OP_REQ_INVALID = 0,
 	OP_REQ_TEST,
+	/*
+	 * For host and monitor, this is a normal pingpong.
+	 * For legomem-board, a PingPong module need to be added for this to work
+	 */
+	OP_REQ_PINGPONG,
+	OP_REQ_BARRIER,
 
-	OP_REQ_ALLOC,
+	// Zone 0x40 - 0x7F, application Ops
+	OP_REQ_READ = 0x40,
+	OP_REQ_READ_RESP = 0x41,
+	OP_REQ_READ_TAS = 0x42,
+	OP_REQ_READ_DEREF_WRITE = 0x43,
+	OP_REQ_READ_DEREF_READ = 0x44,
+	OP_REQ_READ_MIGRATION = 0x45,
+
+	OP_REQ_WRITE = 0x50,
+	OP_REQ_WRITE_RESP,
+	OP_REQ_WRITE_NOREPLY,
+
+	OP_REQ_CACHE_INVALID = 0x70,
+
+	// Zone 0x80 + 
+	OP_REQ_ALLOC = 0x80, 
 	OP_REQ_ALLOC_RESP,
 	OP_REQ_FREE,
 	OP_REQ_FREE_RESP,
-
-	OP_REQ_READ,
-	OP_REQ_READ_RESP,
-	OP_REQ_WRITE,
-	OP_REQ_WRITE_RESP,
 
 	OP_CREATE_PROC,
 	OP_CREATE_PROC_RESP,
@@ -65,22 +82,19 @@ enum LEGOFPGA_OPCODE_REQ {
 	OP_REQ_SOC_DEBUG,
 
 	/*
-	 * For host and monitor, this is a normal pingpong.
-	 * For legomem-board, this is undefined.
-	 */
-	OP_REQ_PINGPONG,
-
-	/*
 	 * For legomem-board, this pingpong msg should
 	 * return at the point of reaching network stack
 	 */
 	OP_REQ_FPGA_PINGPONG,
 
 	/*
-	 * For legomem-board, this pingpoong msg shoul
+	 * For legomem-board, this pingpoong msg should
 	 * return at the point of reaching SoC
 	 */
 	OP_REQ_SOC_PINGPONG,
+	OP_REQ_SOC_PINGPONG_RESP,
+
+	OP_REQ_TEST_PTE,
 };
 
 #endif /* _LEGOFPGA_OPCODE_TYPES_H_ */

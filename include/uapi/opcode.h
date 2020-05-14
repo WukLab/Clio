@@ -20,24 +20,40 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	case _OP:				return __stringify(_OP)
 
 	switch (opcode) {
+	S(OP_REQ_INVALID);
 	S(OP_REQ_TEST);
+
+	S(OP_REQ_PINGPONG);
+	S(OP_REQ_BARRIER);
+
+	S(OP_REQ_READ);
+	S(OP_REQ_READ_RESP);
+	S(OP_REQ_READ_TAS);
+	S(OP_REQ_READ_DEREF_WRITE);
+	S(OP_REQ_READ_DEREF_READ);
+	S(OP_REQ_READ_MIGRATION);
+
+	S(OP_REQ_WRITE);
+	S(OP_REQ_WRITE_RESP);
+	S(OP_REQ_WRITE_NOREPLY);
+
+	S(OP_REQ_CACHE_INVALID);
+
 	S(OP_REQ_ALLOC);
 	S(OP_REQ_ALLOC_RESP);
-	case OP_REQ_FREE:			return "op_free";
-	case OP_REQ_FREE_RESP:			return "op_free_resp";
-	case OP_REQ_READ:			return "op_read";
-	case OP_REQ_READ_RESP:			return "op_read_resp";
-	case OP_REQ_WRITE:			return "op_write";
-	case OP_REQ_WRITE_RESP:			return "op_write_resp";
-	case OP_CREATE_PROC:			return "op_create_proc";
-	case OP_CREATE_PROC_RESP:		return "op_create_proc_resp";
-	case OP_FREE_PROC:			return "op_free_proc";
-	case OP_FREE_PROC_RESP:			return "op_free_proc_resp";
-	case OP_REQ_MIGRATION_H2M:		return "op_migration_h2m";
-	case OP_REQ_MIGRATION_H2M_RESP:		return "op_migration_h2m_resp";
-	case OP_REQ_MIGRATION_B2M:		return "op_migration_b2m";
-	case OP_REQ_MIGRATION_B2M_RESP:		return "op_migration_b2m_resp";
-	case OP_REQ_MIGRATION_M2B_RECV:		return "op_migration_m2b_recv";
+	S(OP_REQ_FREE);
+	S(OP_REQ_FREE_RESP);
+
+	S(OP_CREATE_PROC);
+	S(OP_CREATE_PROC_RESP);
+	S(OP_FREE_PROC);
+	S(OP_FREE_PROC_RESP);
+
+	S(OP_REQ_MIGRATION_H2M);
+	S(OP_REQ_MIGRATION_H2M_RESP);
+	S(OP_REQ_MIGRATION_B2M);
+	S(OP_REQ_MIGRATION_B2M_RESP);
+	S(OP_REQ_MIGRATION_M2B_RECV);
 	S(OP_REQ_MIGRATION_M2B_RECV_RESP);
 	S(OP_REQ_MIGRATION_M2B_RECV_CANCEL_RESP);
 	S(OP_REQ_MIGRATION_M2B_SEND);
@@ -52,9 +68,10 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	S(OP_REQ_MEMBERSHIP_NEW_NODE_RESP);
 	S(OP_REQ_QUERY_STAT);
 	S(OP_REQ_QUERY_STAT_RESP);
-	S(OP_REQ_PINGPONG);
 	S(OP_REQ_FPGA_PINGPONG);
 	S(OP_REQ_SOC_PINGPONG);
+	S(OP_REQ_SOC_PINGPONG_RESP);
+	S(OP_REQ_TEST_PTE);
 	default:				return "unknown";
 	};
 	return NULL;
@@ -68,6 +85,8 @@ static inline char *legomem_opcode_str(unsigned int opcode)
  * ^     ^       ^     ^         ^          ^       ^
  * | ETH |  IP   | UDP |  GBN    | LegoMem | OP_XXX   | data  |
  */
+
+#define MAX_LEGOMEM_OP_SIZE	512
 
 struct op_membership_join_cluster {
 	/*
@@ -90,6 +109,17 @@ struct op_membership_new_node {
 	char name[BOARD_NAME_LEN];
 	struct endpoint_info ei;
 } __packed;
+
+/*
+ * Flags used during legomem_alloc
+ * 1. Write: if this new range is writable.
+ * 2. Populate: if we should pre-populate pgtables during alloc
+ * 3. Zero: if we need to zero out all pages for initial setup
+ */
+#define LEGOMEM_VM_FLAGS_WRITE		(0x1)
+#define LEGOMEM_VM_FLAGS_POPULATE	(0x2)
+#define LEGOMEM_VM_FLAGS_ZERO		(0x4)
+#define LEGOMEM_VM_FLAGS_CONFLICT	(0x8) /* internal */
 
 struct op_alloc_free {
 	unsigned long	addr;
@@ -121,17 +151,40 @@ struct op_create_proc_resp {
  */
 struct op_read_write {
 	unsigned long __remote	va;
-	unsigned long		size;
+	unsigned int		size;
 
-	/* Hold write data, variable length */
+	/*
+	 * Hold write data, variable length
+	 * But from GCC's pespective, this variable has no storage.
+	 * Thus the whole size of this structure is 8+4=12.
+	 */
 	char			data[0];
 } __packed;
 
 struct op_read_write_ret {
-	unsigned char		ret;
+	unsigned long __remote	va;
+	unsigned int		size;
 
 	/* Hold read read, variable length */
 	char			data[0];
+} __packed;
+
+/*
+ * BRAM cached pgtable flush a.k.a TLB flush
+ * Same as op_read_write.
+ */
+struct op_cache_flush {
+	unsigned long __remote	va;
+	unsigned int		size;
+} __packed;
+
+/*
+ * Internal migration struct.
+ * From SoC to corememt.
+ */
+struct op_read_migration {
+	unsigned long __remote	va;
+	unsigned int		size;
 } __packed;
 
 /*
@@ -145,7 +198,7 @@ struct op_open_close_session {
 	 * For CLOSE, this is the intended session
 	 */
 	unsigned int	session_id;
-};
+} __packed;
 
 struct op_open_close_session_ret {
 	/*
@@ -153,17 +206,17 @@ struct op_open_close_session_ret {
 	 * For CLOSE, this is the status.
 	 */
 	unsigned int	session_id;
-};
+} __packed;
 
 struct op_migration {
 	unsigned int src_board_ip, src_udp_port;
 	unsigned int dst_board_ip, dst_udp_port;
 	unsigned int vregion_index;
-};
+} __packed;
 
 struct op_migration_ret {
 	int ret;
-};
+} __packed;
 
 struct legomem_common_headers {
 	struct eth_hdr		eth;
@@ -273,10 +326,12 @@ struct legomem_migration_resp {
  */
 struct legomem_pingpong_req {
 	struct legomem_common_headers comm_headers;
+	int reply_size;
 } __packed;
 
 struct legomem_pingpong_resp {
 	struct legomem_common_headers comm_headers;
+	char data[0];
 } __packed;
 
 struct legomem_query_stat_req {
@@ -294,5 +349,21 @@ static inline size_t legomem_query_stat_resp_size(void)
 	return sizeof(struct legomem_query_stat_resp) +
 	       (NR_STAT_TYPES - 1) * sizeof(unsigned long);
 }
+
+/*
+ * TEST PTE
+ */
+#define OP_TEST_PTE_ALLOC	(0)
+#define OP_TEST_PTE_FREE	(1)
+struct op_test_pte {
+	int op;
+	pid_t pid;
+	unsigned long start;
+	unsigned long end;
+};
+struct legomem_test_pte {
+	struct legomem_common_headers comm_headers;
+	struct op_test_pte op;
+};
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

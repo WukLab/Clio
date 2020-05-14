@@ -1,13 +1,41 @@
-TEST_SRCS := test_session.c \
-	     test_migration.c \
-	     test_raw_net.c \
-	     test_board.c
+#
+# Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+#
 
+# Test cases used by host only
+TP := test
+TEST_SRCS := $(TP)/test_session.c \
+	     $(TP)/test_context.c \
+	     $(TP)/test_alloc.c \
+	     $(TP)/test_migration.c \
+	     $(TP)/test_raw_net.c \
+	     $(TP)/test_rel_net_mgmt.c \
+	     $(TP)/test_rel_net_normal.c \
+	     $(TP)/test_board.c \
+	     $(TP)/test_soc.c \
+	     $(TP)/test_pingpong_soc.c \
+	     $(TP)/test_legomem_pte.c \
+	     $(TP)/test_read_write.c
+
+# Board emulator files linked to soc files
+BP := board_emulator
+BOARD_SRCS := $(BP)/core.h \
+	      $(BP)/handler.c \
+	      $(BP)/rbtree.c \
+	      $(BP)/sched.c \
+	      $(BP)/pgtable.c \
+	      $(BP)/buddy.c \
+	      $(BP)/vm.c
+
+# General sources used by everyone
 C_SRCS := board.c \
 	util.c \
 	api.c \
 	context.c \
 	session.c \
+	pp.c \
+	common.c \
+	watchdog.c \
 	net/core.c \
 	net/raw_verbs.c \
 	net/raw_socket.c \
@@ -15,20 +43,31 @@ C_SRCS := board.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c
 
-SRCS := $(C_SRCS) $(TEST_SRCS)
+SRCS := $(C_SRCS)
 
 INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread
 
-EXTRA_CFLAGS := -Wall -DCONFIG_ARCH_X86
+EXTRA_CFLAGS := -O2 -Wall
+EXTRA_CFLAGS += -DCONFIG_ARCH_X86 -DCONFIG_PROFILING_POINTS
+EXTRA_CFLAGS += -rdynamic
+
+#
+# Debug Knobs
+# Stat counting has non-trivial overhead
+#
+#EXTRA_CFLAGS += -DCONFIG_DEBUG_STAT -DCONFIG_DEBUG_WATCHDOG
+
+CFLAG_DISABLE_WARN := -Wno-stringop-truncation
+EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g
 DEBUG := -g
 
 all: $(SRCS) 
-	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(CLIBS)
+	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(TEST_SRCS) $(CLIBS)
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
-	gcc $(DEBUG) $(EXTRA_CFLAGS )-o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(CLIBS)
+	#gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(BOARD_SRCS) $(CLIBS)
 
 clean:
 	rm *.o

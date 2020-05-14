@@ -43,6 +43,18 @@
 #define BITS_PER_LONG		(64)
 #define BITS_PER_LONG_SHIFT	(6)
 
+#ifndef MSEC_PER_SEC
+# define MSEC_PER_SEC	1000L
+#endif
+
+#ifndef USEC_PER_SEC
+# define USEC_PER_SEC	1000000L
+#endif
+
+#ifndef NSEC_PER_SEC
+# define NSEC_PER_SEC	1000000000L
+#endif
+
 static inline void print_backtrace(void)
 {
 #define BT_BUFFER_SIZE	128
@@ -79,6 +91,8 @@ static inline void print_backtrace(void)
 #define __must_check		__attribute__((__warn_unused_result__))
 
 #define __section(S)		__attribute__ ((__section__(#S)))
+
+#define __constructor		__attribute__((constructor))
 
 #ifndef __always_inline
 # define __always_inline	inline __attribute__((always_inline))
@@ -124,6 +138,7 @@ static inline void print_backtrace(void)
 #define round_down(x, y)	((x) & ~__round_mask(x, y))
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
 #define ALIGN(x, a)		(((x) + (a) - 1) & ~((a) - 1))
+#define IS_ALIGNED(x, a)	(((x) & ((typeof(x))(a) - 1)) == 0)
 
 #define min(x, y) ({				\
 	typeof(x) _min1 = (x);			\
@@ -294,12 +309,16 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+#define __read_mostly
+
 /* To mark a remote legomem address */
 #define __remote
 
+#if 1
 static inline pid_t gettid(void)
 {
 	return syscall(SYS_gettid);
 }
+#endif
 
 #endif /* _LEGOMEM_UAPI_COMPILER_H_ */

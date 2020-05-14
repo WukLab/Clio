@@ -24,305 +24,8 @@
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	1
 
-static int TW_HEAD = 0;
-static int TB_HEAD = 0;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
-
-static __always_inline struct thpool_worker *
-select_thpool_worker_rr(void)
-{
-	struct thpool_worker *tw;
-	int idx;
-
-	idx = TW_HEAD % NR_THPOOL_WORKERS;
-	tw = thpool_worker_map + idx;
-	TW_HEAD++;
-	return tw;
-}
-
-static __always_inline struct thpool_buffer *
-alloc_thpool_buffer(void)
-{
-	struct thpool_buffer *tb;
-	int idx;
-
-	idx = TB_HEAD % NR_THPOOL_BUFFER;
-	tb = thpool_buffer_map + idx;
-	TB_HEAD++;
-
-	/*
-	 * If this happens during runtime, it means:
-	 * - ring buffer is not large enough
-	 * - some previous handlers are too slow
-	 */
-	while (unlikely(ThpoolBufferUsed(tb))) {
-		;
-	}
-
-	SetThpoolBufferUsed(tb);
-	barrier();
-	return tb;
-}
-
-static __always_inline void
-free_thpool_buffer(struct thpool_buffer *tb)
-{
-	tb->flags = 0;
-	barrier();
-}
-
-static void handle_close_session(struct thpool_buffer *tb)
-{
-	struct legomem_open_close_session_req *req;
-	struct legomem_open_close_session_resp *resp;
-	unsigned int ip, port;
-	char ip_str[INET_ADDRSTRLEN];
-	struct board_info *bi;
-	struct ipv4_hdr *ipv4_hdr;
-	struct udp_hdr *udp_hdr;
-	struct session_net *ses_net;
-	unsigned int dst_sesid;
-	int ret;
-
-	req = (struct legomem_open_close_session_req *)tb->rx;
-	resp = (struct legomem_open_close_session_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-
-	ipv4_hdr = to_ipv4_header(req);
-	udp_hdr = to_udp_header(req);
-
-	ip = ntohl(ipv4_hdr->src_ip);
-	get_ip_str(ip, ip_str);
-	port = ntohs(udp_hdr->src_port);
-
-	bi = find_board(ip, port);
-	if (!bi) {
-		dprintf_ERROR("board not found %s:%d\n", ip_str, port);
-		goto error;
-	}
-
-	/* Find if the session exist */
-	dst_sesid = req->op.session_id;
-	ses_net = find_net_session(ip, port, dst_sesid);
-	if (!ses_net) {
-		dprintf_ERROR("session not found %s:%d sesid %u\n",
-			ip_str, port, dst_sesid);
-		dump_net_sessions();
-		goto error;
-	}
-
-	ret = generic_handle_close_session(NULL, bi, ses_net);
-	if (ret) {
-		dprintf_ERROR("fail to close session %s:%d sesid %u\n",
-			ip_str, port, dst_sesid);
-		dump_net_sessions();
-		goto error;
-	}
-
-	dprintf_DEBUG("session closed, remote: %s remote sesid: %u local sesid: %u\n",
-		bi->name, get_remote_session_id(ses_net), get_local_session_id(ses_net));
-
-	/* Success */
-	resp->op.session_id = 0;
-	return;
-
-error:
-	resp->op.session_id = -EFAULT;
-}
-
-/*
- * Handle the case when a remote party wants to open a session
- * with us. It must tell us its local session id.
- */
-static void handle_open_session(struct thpool_buffer *tb)
-{
-	struct legomem_open_close_session_req *req;
-	struct legomem_open_close_session_resp *resp;
-	unsigned int ip, port;
-	struct board_info *bi;
-	struct ipv4_hdr *ipv4_hdr;
-	struct udp_hdr *udp_hdr;
-	struct session_net *ses_net;
-
-	req = (struct legomem_open_close_session_req *)tb->rx;
-	resp = (struct legomem_open_close_session_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-
-	ipv4_hdr = to_ipv4_header(req);
-	udp_hdr = to_udp_header(req);
-
-	ip = ntohl(ipv4_hdr->src_ip);
-	port = ntohs(udp_hdr->src_port);
-
-	bi = find_board(ip, port);
-	if (!bi) {
-		char ip_str[INET_ADDRSTRLEN];
-		get_ip_str(ip, ip_str);
-		dprintf_ERROR("board not found %s:%d\n", ip_str, port);
-		dump_boards();
-		goto error;
-	}
-
-	ses_net = generic_handle_open_session(bi, req->op.session_id);
-	if (!ses_net) {
-		dprintf_ERROR("fail to open receiver side session. sender: %s\n",
-			bi->name);
-		goto error;
-	}
-
-	resp->op.session_id = get_local_session_id(ses_net);
-
-	dprintf_DEBUG("session opened, remote: %s remote sesid: %u local sesid: %u\n",
-		bi->name, get_remote_session_id(ses_net), get_local_session_id(ses_net));
-
-	return;
-
-error:
-	resp->op.session_id = 0;
-}
-
-/*
- * Handle the case when _monitor_ notifies us
- * that there is a new node joining the cluster.
- * We will add it to our local list.
- */
-static void handle_new_node(struct thpool_buffer *tb)
-{
-	struct legomem_membership_new_node_req *req;
-	struct legomem_membership_new_node_resp *resp;
-	struct endpoint_info *new_ei;
-	struct board_info *bi;
-	int ret, i;
-	unsigned char mac[6];
-	int ip;
-	char *ip_str;
-
-	/* Setup response */
-	resp = (struct legomem_membership_new_node_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-	resp->ret = 0;
-
-	/* Setup request */
-	req = (struct legomem_membership_new_node_req *)tb->rx;
-	new_ei = &req->op.ei;
-
-	/* Sanity check */
-	if (req->op.type != BOARD_INFO_FLAGS_HOST &&
-	    req->op.type != BOARD_INFO_FLAGS_BOARD) {
-		dprintf_ERROR("invalid type: %lu %s\n",
-			req->op.type, board_info_type_str(req->op.type));
-		return;
-	}
-
-	/*
-	 * We may use a different local MAC address to reach the new host
-	 * run our local ARP protocol to get the latest and update if necessary.
-	 */
-	ip = new_ei->ip;
-	ip_str = (char *)new_ei->ip_str;
-	ret = get_mac_of_remote_ip(ip, ip_str, global_net_dev, mac);
-	if (ret) {
-		dprintf_ERROR("fail to get mac of new node. ip %s\n", ip_str);
-		return;
-	}
-
-	if (memcmp(mac, new_ei->mac, 6)) {
-		printf("%s(): INFO mac updated ", __func__);
-		for (i = 0; i < 6; i++) {
-			if (i < 5)
-				printf("%x:", new_ei->mac[i]);
-			else
-				printf("%x -> ", new_ei->mac[i]);
-		}
-		for (i = 0; i < 6; i++) {
-			if (i < 5)
-				printf("%x:", mac[i]);
-			else
-				printf("%x\n", mac[i]);
-		}
-
-		/* Override the original MAC */
-		memcpy(new_ei->mac, mac, 6);
-	}
-
-	/* Finally add the board to the system */
-	bi = add_board(req->op.name, req->op.mem_size_bytes,
-		       new_ei, &default_local_ei, false);
-	if (!bi)
-		return;
-	bi->flags = req->op.type;
-
-	dprintf_INFO("new node added name: %s, ip:port: %s:%d type: %s\n",
-		req->op.name, new_ei->ip_str, new_ei->udp_port,
-		board_info_type_str(bi->flags));
-
-	dump_boards();
-	dump_net_sessions();
-}
-
-/*
- * Manually add a new remote node.
- * Since this is not broadcast from monitor, this information is local only.
- * This interface is mainly designed for testing purpose.
- */
-int manually_add_new_node(unsigned int ip, unsigned int udp_port,
-			  unsigned int node_type)
-{
-	struct thpool_buffer tb;
-	struct legomem_membership_new_node_req *req;
-	struct endpoint_info *ei;
-	char ip_str[INET_ADDRSTRLEN];
-	char new_name[BOARD_NAME_LEN];
-
-	/* Cook the name */
-	get_ip_str(ip, ip_str);
-	if (node_type == BOARD_INFO_FLAGS_BOARD) {
-		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
-	} else {
-		dprintf_ERROR("Manual adding only supports _board_ for now. (%s)\n",
-			board_info_type_str(node_type));
-		return -EINVAL;
-	}
-
-	tb.rx = malloc(THPOOL_BUFFER_SIZE);
-	tb.tx = malloc(THPOOL_BUFFER_SIZE);
-	if (!tb.rx || !tb.rx)
-		return -ENOMEM;
-
-	req = (struct legomem_membership_new_node_req *)tb.rx;
-
-	/*
-	 * We do not need to fill the mac addr
-	 * let the handler figure it out
-	 */
-	ei = &req->op.ei;
-	memcpy(ei->ip_str, ip_str, INET_ADDRSTRLEN);
-	ei->ip = ip;
-	ei->udp_port = udp_port;
-
-	/* Fill in the fake request */
-	req->op.type = node_type;
-	req->op.mem_size_bytes = 0;
-	memcpy(req->op.name, new_name, BOARD_NAME_LEN);
-
-	/* Invoke handler locally */
-	handle_new_node(&tb);
-
-	free(tb.rx);
-	free(tb.tx);
-	return 0;
-}
-
-int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
-{
-	int ip, port;
-	int ip1, ip2, ip3, ip4;
-
-	sscanf(ip_port_str, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
-	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
-	return manually_add_new_node(ip, port, node_type);
-}
 
 static void handle_query_stat(struct thpool_buffer *tb)
 {
@@ -343,14 +46,6 @@ static void handle_query_stat(struct thpool_buffer *tb)
 	resp->nr_items = NR_STAT_TYPES;
 }
 
-static void handle_pingpong(struct thpool_buffer *tb)
-{
-	struct legomem_pingpong_resp *resp;
-
-	resp = (struct legomem_pingpong_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-}
-
 static void
 worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 {
@@ -361,6 +56,11 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
+
+	if (0) {
+		dprintf_INFO("received opcode: %u (%s)\n",
+			opcode, legomem_opcode_str(opcode));
+	}
 
 	switch (opcode) {
 	case OP_REQ_MEMBERSHIP_NEW_NODE:
@@ -379,9 +79,14 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		handle_query_stat(tb);
 		break;
 	default:
-		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
-			opcode, legomem_opcode_str(opcode));
-		goto free;
+		if (1) {
+			char err_msg[128];
+			dump_packet_headers(tb->rx, err_msg);
+			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s) packet dump: \n"
+				      "%s\n", opcode, legomem_opcode_str(opcode), err_msg);
+		}
+		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
+		return;
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
@@ -404,9 +109,6 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	}
-
-free:
-	free_thpool_buffer(tb);
 }
 
 static void *dispatcher(void *_unused)
@@ -415,98 +117,26 @@ static void *dispatcher(void *_unused)
 	struct thpool_worker *tw;
 	int ret;
 
-	while (1) {
-		tb = alloc_thpool_buffer();
-		tw = select_thpool_worker_rr();
+	tb = thpool_buffer_map;
+	tw = thpool_worker_map;
 
-		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
+	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
+	if (ret) {
+		dprintf_ERROR("Fail to register TX buffer %d\n", ret);
+		return NULL;
+	}
+
+	while (1) {
+#if 1
+		ret = net_receive_zerocopy_nb(mgmt_session, &tb->rx, &tb->rx_size);
 		if (ret <= 0)
 			continue;
-		tb->rx_size = ret;
 
 		/* We only have one thread, thus inline handling */
 		worker_handle_request_inline(tw, tb);
+#endif
 	}
 	return NULL;
-}
-/*
- * Use input @monitor_addr to create a local network session with the monitor.
- * Note we just create local data structures for monitor's management session.
- * We do not need to contact monitor for this particular creation.
- */
-static int init_monitor_session(char *ndev, char *monitor_addr,
-				struct endpoint_info *local_ei)
-{
-	char ip_str[INET_ADDRSTRLEN];
-	int ip, port;
-	int ip1, ip2, ip3, ip4;
-	struct in_addr in_addr;
-	unsigned char mac[6];
-	struct endpoint_info monitor_ei;
-	int ret, i;
-
-	sscanf(monitor_addr, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
-	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
-
-	in_addr.s_addr = htonl(ip);
-	inet_ntop(AF_INET, &in_addr, ip_str, sizeof(ip_str));
-
-	ret = get_mac_of_remote_ip(ip, ip_str, ndev, mac);
-	if (ret) {
-		dprintf_ERROR("cannot get mac of ip %s\n", ip_str);
-		return ret;
-	}
-
-	/*
-	 * Now let's save the info
-	 * into the global variables
-	 */
-	memcpy(monitor_ip_str, ip_str, INET_ADDRSTRLEN);
-	monitor_ip_h = ip;
-
-	/* EI needs host order ip */
-	monitor_ei.ip = ip;
-	monitor_ei.udp_port = port;
-	memcpy(monitor_ei.mac, mac, 6);
-
-	monitor_bi = add_board("monitor", 0,
-			       &monitor_ei, local_ei,
-			       false);
-	if (!monitor_bi)
-		return -ENOMEM;
-
-	monitor_bi->flags |= BOARD_INFO_FLAGS_MONITOR;
-
-	monitor_session = get_board_mgmt_session(monitor_bi);
-
-	/* Debugging info */
-	printf("%s(): monitor IP: %s Port: %d MAC: ",
-		__func__, monitor_ip_str, port);
-	for (i = 0; i < 6; i++)
-		printf("%x ", mac[i]);
-	printf("\n");
-	return 0;
-}
-
-void test(void)
-{
-	struct msg {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} req;
-	struct lego_header *lego_header;
-	int i;
-
-	lego_header = to_lego_header(&req);
-	lego_header->opcode = OP_REQ_TEST;
-
-	for (i = 0; i < 100; i++) {
-		req.cnt = i;
-		net_send(monitor_session, &req, sizeof(req));
-		printf("%s(): finished sending cnt %5d\n", __func__, req.cnt);
-		//net_receive(monitor_session, &resp, sizeof(resp));
-		//printf("%s(): finished receiving cnt %5d\n", __func__, req.cnt);
-	}
 }
 
 static int join_cluster(void)
@@ -539,8 +169,80 @@ static int join_cluster(void)
 	return resp.ret;
 }
 
+struct test_option {
+	const char *name;
+	const char *desc;
+	bool set;
+	int (*func)(char *);
+};
+
+struct test_option test_options[] = {
+	{
+		.name	= "session",
+		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
+		.func	= test_legomem_session,
+	},
+	{
+		.name	= "relnet_normal",
+		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
+		.func	= test_rel_net_normal,
+	},
+	{
+		.name	= "relnet_mgmt",
+		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
+		.func	= test_rel_net_mgmt,
+	},
+	{
+		.name	= "alloc_free",
+		.desc	= "test legomem_alloc and legomem_free (monitor required)",
+		.func	= test_legomem_alloc_free,
+	},
+	{
+		.name	= "context",
+		.desc	= "test legomem_alloc/free_context (monitor required)",
+		.func	= test_legomem_context,
+	},
+	{
+		.name	= "migration",
+		.desc	= "test legomem_migration (monitor required)",
+		.func	= test_legomem_migration,
+	},
+	{
+		.name	= "pingpong_soc",
+		.desc	= "test host <-> soc RTT",
+		.func	= test_pingpong_soc,
+	},
+	{
+		.name	= "read_write",
+		.desc	= "test legomem_read/write (monitor required)",
+		.func	= test_legomem_read_write,
+	},
+	{
+		.name	= "test_pte",
+		.desc	= "test legomem pte directly",
+		.func	= test_legomem_pte,
+	},
+};
+
+static struct test_option *find_test_option(const char *s)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(test_options); i++) {
+		struct test_option *t = &test_options[i];
+
+		if (!strncmp(t->name, s, 64)) {
+			t->set = true;
+			return t;
+		}
+	}
+	return NULL;
+}
+
 static void print_usage(void)
 {
+	int i;
+
 	printf("Usage ./host.o [Options]\n"
 	       "\n"
 	       "Options:\n"
@@ -559,11 +261,14 @@ static void print_usage(void)
 	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
 	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
 	       "  --add_board=<ip:port>       Manually add a remote board (Optional)\n"
-	       "  --run_test                  Run built-in tests (Optional)"
-	       "\n"
-	       "Examples:\n"
-	       "  ./host.o --monitor=\"127.0.0.1:8888\" --port 8887 --dev=\"lo\" \n"
-	       "  ./host.o -m 127.0.0.1:8888 -p 8887 -d lo\n");
+	       "  --run_test=<name>           Run built-in tests (Optional)\n");
+
+	for (i = 0; i < ARRAY_SIZE(test_options); i++) {
+		struct test_option *t = &test_options[i];
+
+		printf("                                 %d. %s (%s)\n",
+			i, t->name, t->desc);
+	}
 }
 
 #define OPT_NET_TRANS_OPS		(10000)
@@ -575,7 +280,7 @@ static struct option long_options[] = {
 	{ "net_raw_ops",	required_argument,	NULL,	'n'},
 	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
 	{ "add_board",		required_argument,	NULL,	'b'},
-	{ "run_test",		no_argument,		NULL,	't'},
+	{ "run_test",		required_argument,	NULL,	't'},
 	{ 0,			0,			0,	0  }
 };
 
@@ -589,14 +294,15 @@ int main(int argc, char **argv)
 	char ndev[32];
 	bool ndev_set = false;
 	int port = 0;
-	bool run_test = false;
 
 	char board_addr[32];
 	char board_addr_set = false;
 
+	struct test_option *test_option = NULL;
+
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "m:p:d:b:t",
+		c = getopt_long(argc, argv, "m:p:d:b:t:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -652,7 +358,12 @@ int main(int argc, char **argv)
 			board_addr_set = true;
 			break;
 		case 't':
-			run_test = true;
+			test_option = find_test_option(optarg);
+			if (!test_option) {
+				printf("Invalid --test option\n");
+				print_usage();
+				exit(-1);
+			}
 			break;
 		default:
 			print_usage();
@@ -692,15 +403,19 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	/*
-	 * Mainly init spinlocks
-	 * This must take place before any init operations
-	 * invovling boards, session, etc.
-	 */
-	init_board_subsys();
-	init_context_subsys();
-	init_net_session_subsys();
+	/* Open the local mgmt session */
+	ret = init_local_management_session();
+	if (ret) {
+		printf("Fail to init local mgmt session\n");
+		exit(-1);
+	}
 
+	/*
+	 * Add a special localhost board_info
+	 * and a special localhost session_net
+	 */
+	add_localhost_bi(&default_local_ei);
+ 
 	/*
 	 * Create a local session for remote monitor's mgmt session
 	 * A special monitor board_info is added as well
@@ -708,19 +423,6 @@ int main(int argc, char **argv)
 	ret = init_monitor_session(ndev, monitor_addr, &default_local_ei);
 	if (ret) {
 		printf("Fail to init monitor session\n");
-		exit(-1);
-	}
-
-	/* Add the special localhost board_info */
-	add_localhost_bi(&default_local_ei);
- 
-	inc_stat(STAT_NET_NR_RX);
-	dump_stats();
-
-	/* Open the local mgmt session */
-	ret = init_local_management_session();
-	if (ret) {
-		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
 
@@ -732,12 +434,16 @@ int main(int argc, char **argv)
 	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
 			   default_thpool_buffer_alloc_cb);
 
+	create_watchdog_thread();
+
 	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
 	if (ret) {
 		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
 		exit(-1);
 	}
 
+	dprintf_INFO("gbn_header: %zu B, lego_header: %zu B, eth/ip/udp/gbn/lego: %zu B\n",
+		GBN_HEADER_SIZE, LEGO_HEADER_SIZE, sizeof(struct legomem_common_headers));
 	/*
 	 * We only contact monitor if the --skip_join flag is NOT passed.
 	 * This special flag is for testing purpose.
@@ -763,13 +469,27 @@ int main(int argc, char **argv)
 	/*
 	 * Run predefined testing if there is any.
 	 */
-	if (run_test) {
-		if (board_addr_set)
-			ret = test_legomem_board(board_addr);
+	if (test_option) {
+		int cpu, node;
 
-		//ret = test_raw_net();
-		//ret = test_legomem_session();
-		//ret = test_legomem_migration();
+		legomem_getcpu(&cpu, &node);
+		dprintf_INFO("\n**\n"
+			     "**\n"
+			     "** Start running test cases...\n"
+			     "** (on cpu %d node %d)\n"
+			     "**\n"
+			     "**\n", cpu, node);
+
+
+		if (board_addr_set) {
+			test_option->func(board_addr);
+
+			//ret = test_legomem_board(board_addr);
+			//ret = test_raw_net(board_addr);
+			//ret = test_legomem_soc(board_addr);
+		} else {
+			test_option->func(NULL);
+		}
 	}
 
 	pthread_join(mgmt_session->thread, NULL);

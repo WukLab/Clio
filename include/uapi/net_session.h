@@ -1,14 +1,26 @@
+/*
+ * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ */
+
 #ifndef _LEGOMEM_UAPI_NET_SESSION_H_
 #define _LEGOMEM_UAPI_NET_SESSION_H_
 
 #include <errno.h>
 #include <stdio.h>
+#include <pthread.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 #include <uapi/net_header.h>
 #include <uapi/hashtable.h>
+
+#define SESSION_NET_FLAGS_ALLOCATED		(0x1)
+#define SESSION_NET_FLAGS_THREAD_CREATED	(0x2)
 
 /*
  * This structure describes a specific network connection
  * between an application and the LegoMem board.
+ *
+ * HACK: if you add anything, do not forget to update init_net_session().
  */
 struct session_net {
 	unsigned int		board_ip;
@@ -19,7 +31,23 @@ struct session_net {
 
 	unsigned long		flags;
 
+	/*
+	 * This is the client side polling thread, if any.
+	 * Mgmt session's polling thread is created during startup.
+	 * User session's polling thread is created when this node
+	 * receives a open_session request. See handle_open_session() for details.
+	 */
 	pthread_t		thread;
+	bool			thread_should_stop;
+
+	/*
+	 * Used by threads wishing to use the mgmt session of a board.
+	 * We have to do this because all threads share one single mgmt session,
+	 * thus there is only one set of buffers, impossible to do RPC.
+	 *
+	 * You can see this used across api.c
+	 */
+	pthread_spinlock_t	lock;
 
 	/*
 	 * Session is by default a per-thread object.
@@ -36,16 +64,42 @@ struct session_net {
 	/* The Ethernet/IP/UDP header info, 44 bytes */
 	struct routing_info	route;
 
-	struct hlist_node	ht_link_host;
+	/*
+	 * We have various hlist_nodes for various hashtables.
+	 * Each board_info wants to maintain a list of open sessions
+	 * Each user context wants to maintain a list of open sessions
+	 * Each vRegion as well
+	 */
+
+	/* for board_info, used in sched.h */
 	struct hlist_node	ht_link_board;
+
+	/* for legomem_context, used in context.c */
 	struct hlist_node	ht_link_context;
+
+	/* for legomem_vregion */
+	struct hlist_node	ht_link_vregion;
 
 	/* Private data used by transport layer */
 	void			*transport_private;
 
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
-};
+} __aligned(64);
+
+static inline void init_session_net(struct session_net *p)
+{
+	memset(p, 0, sizeof(*p));
+	pthread_spin_init(&p->lock, PTHREAD_PROCESS_PRIVATE);
+	INIT_HLIST_NODE(&p->ht_link_board);
+	INIT_HLIST_NODE(&p->ht_link_context);
+	INIT_HLIST_NODE(&p->ht_link_vregion);
+}
+
+static inline bool ses_thread_should_stop(struct session_net *ses)
+{
+	return READ_ONCE(ses->thread_should_stop);
+}
 
 static inline void set_local_session_id(struct session_net *ses, unsigned int id)
 {
@@ -69,6 +123,12 @@ get_remote_session_id(struct session_net *ses)
 	return ses->remote_session_id;
 }
 
+struct msg_buf {
+	void *buf;
+	size_t max_buf_size;
+	void *private;
+} __aligned(64);
+
 struct transport_net_ops {
 	char *name;
 
@@ -83,6 +143,8 @@ struct transport_net_ops {
 	 * Blocking call, return when there is packet.
 	 */
 	int (*receive_one)(struct session_net *, void *, size_t);
+	int (*receive_one_zerocopy)(struct session_net *, void **, size_t *);
+	int (*receive_one_zerocopy_nb)(struct session_net *, void **, size_t *);
 
 	/*
 	 * Receive one packet
@@ -92,6 +154,10 @@ struct transport_net_ops {
 
 	int (*open_session)(struct session_net *, struct endpoint_info *, struct endpoint_info *);
 	int (*close_session)(struct session_net *);
+
+	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
+	struct msg_buf *(*reg_msg_buf)(struct session_net *, void *buf, size_t buf_size);
+	int (*dereg_msg_buf)(struct session_net *, struct msg_buf *);
 };
 
 /*
@@ -111,6 +177,7 @@ struct raw_net_ops {
 
 	/* Send one packet */
 	int (*send_one)(struct session_net *, void *, size_t, void *);
+	int (*send_one_msg_buf)(struct session_net *, struct msg_buf *, size_t, void *);
 
 	/*
 	 * Receive one packet
@@ -133,6 +200,15 @@ struct raw_net_ops {
 	int (*open_session)(struct session_net *, struct endpoint_info *, struct endpoint_info *);
 	int (*close_session)(struct session_net *);
 
+	/*
+	 * TODO
+	 * I should really unify send_buf and msg_buf
+	 * its really ugly to have these interfaces, it makes things complex.
+	 * We should remove reg_send_buf.
+	 */
+	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
+	struct msg_buf *(*reg_msg_buf)(struct session_net *, void *buf, size_t buf_size);
+	int (*dereg_msg_buf)(struct session_net *, struct msg_buf *);
 };
 
 extern struct raw_net_ops raw_verbs_ops;
@@ -144,6 +220,32 @@ extern struct transport_net_ops transport_gbn_ops;
 extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;
 
+static inline int
+raw_net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	if (raw_net_ops->reg_send_buf)
+		return raw_net_ops->reg_send_buf(ses, buf, buf_size);
+
+	/*
+	 * If the underlying raw network layer does not provide this interface,
+	 * we assume it does not require it (e.g., no DMA-able memory requirement),
+	 * thus return 0 to indicate success.
+	 */
+	return 0;
+}
+
+static inline int
+raw_net_dereg_msg_buf(struct session_net *ses, struct msg_buf *mb)
+{
+	return raw_net_ops->dereg_msg_buf(ses, mb);
+}
+
+static inline struct msg_buf *
+raw_net_reg_msg_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return raw_net_ops->reg_msg_buf(ses, buf, buf_size);
+}
+
 /*
  * From raw network layer's pespective, this no such concept
  * as session, which is a transport layer concept.
@@ -154,6 +256,12 @@ static inline int
 raw_net_send(struct session_net *net, void *buf, size_t buf_size, void *route)
 {
 	return raw_net_ops->send_one(net, buf, buf_size, route);
+}
+
+static inline int
+raw_net_send_msg_buf(struct session_net *net, struct msg_buf *buf, size_t buf_size, void *route)
+{
+	return raw_net_ops->send_one_msg_buf(net, buf, buf_size, route);
 }
 
 static inline int
@@ -179,24 +287,69 @@ raw_net_receive_nb(void *buf, size_t buf_size)
 }
 
 static inline int
+default_transport_reg_send_buf(struct session_net *net, void *buf, size_t buf_size)
+{
+	return raw_net_reg_send_buf(net, buf, buf_size);
+}
+
+/*
+ * Deprecated. DO NOT USE. Use reg_msg_buf.
+ *
+ * Register a per-session send_buf
+ * This is necessary for verbs-based users.
+ *
+ * 1. Each session can only have one registered send_buf.
+ * 2. Do not use a stack, use malloc'ed region.
+ */
+static __always_inline int
+net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return transport_net_ops->reg_send_buf(ses, buf, buf_size);
+}
+
+static inline int
+net_dereg_msg_buf(struct session_net *ses, struct msg_buf *mb)
+{
+	return raw_net_ops->dereg_msg_buf(ses, mb);
+}
+
+static inline struct msg_buf *
+net_reg_msg_buf(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return raw_net_ops->reg_msg_buf(ses, buf, buf_size);
+}
+
+static __always_inline int
 net_send_with_route(struct session_net *net, void *buf, size_t buf_size, void *route)
 {
 	return transport_net_ops->send_one(net, buf, buf_size, route);
 }
 
-static inline int
+static __always_inline int
 net_send(struct session_net *net, void *buf, size_t buf_size)
 {
 	return transport_net_ops->send_one(net, buf, buf_size, NULL);
 }
 
-static inline int
+static __always_inline int
+net_receive_zerocopy(struct session_net *net, void **buf, size_t *buf_size)
+{
+	return transport_net_ops->receive_one_zerocopy(net, buf, buf_size);
+}
+
+static __always_inline int
+net_receive_zerocopy_nb(struct session_net *net, void **buf, size_t *buf_size)
+{
+	return transport_net_ops->receive_one_zerocopy_nb(net, buf, buf_size);
+}
+
+static __always_inline int
 net_receive(struct session_net *net, void *buf, size_t buf_size)
 {
 	return transport_net_ops->receive_one(net, buf, buf_size);
 }
 
-static inline int
+static __always_inline int
 net_send_and_receive(struct session_net *net,
 		     void *tx_buf, size_t tx_buf_size,
 		     void *rx_buf, size_t rx_buf_size)
@@ -208,6 +361,28 @@ net_send_and_receive(struct session_net *net,
 		return ret;
 
 	return net_receive(net, rx_buf, rx_buf_size);
+}
+
+/*
+ * This is specifically designed for any APIs wishing to
+ * use remote board's mgmt session.
+ *
+ * Because there is only one single set of buffers for a single mgmt session,
+ * there is no easy way to support RPC among concurrent threads.
+ *
+ * Mgmt session is for control path, thus having a sync lock should be ok.
+ */
+static __always_inline int
+net_send_and_receive_lock(struct session_net *net,
+			  void *tx_buf, size_t tx_buf_size,
+			  void *rx_buf, size_t rx_buf_size)
+{
+	int ret;
+
+	pthread_spin_lock(&net->lock);
+	ret = net_send_and_receive(net, tx_buf, tx_buf_size, rx_buf, rx_buf_size);
+	pthread_spin_unlock(&net->lock);
+	return ret;
 }
 
 /*
@@ -258,6 +433,19 @@ static inline bool test_management_session(struct session_net *ses)
 	if (get_remote_session_id(ses) == LEGOMEM_MGMT_SESSION_ID)
 		return true;
 	return false;
+}
+
+/*
+ * Given the host order @ip, fill in the @ip_str
+ * @ip_str must be INET_ADDRSTRLEN bytes long.
+ */
+static inline int get_ip_str(unsigned int ip, char *ip_str)
+{
+	struct in_addr in_addr;
+
+	in_addr.s_addr = htonl(ip);
+	inet_ntop(AF_INET, &in_addr, ip_str, INET_ADDRSTRLEN);
+	return 0;
 }
 
 #endif /* _LEGOMEM_UAPI_NET_SESSION_H_ */

@@ -32,13 +32,6 @@ static struct ifreq raw_if_idx;
 static struct ifreq raw_if_mac;
 static struct sockaddr_ll raw_saddr;
 
-struct session_raw_socket {
-	int sockfd;
-	struct ifreq if_idx;
-	struct ifreq if_mac;
-	struct sockaddr_ll saddr;
-};
-
 /*
  * Return number of bytes sent out
  * Return -1 if error 
@@ -73,6 +66,13 @@ static int raw_socket_send(struct session_net *ses_net,
 	ret = sendto(sockfd, buf, buf_size, 0,
 		     (struct sockaddr *)saddr, sizeof(*saddr));
 	return ret;
+}
+
+static int
+raw_socket_send_msg_buf(struct session_net *ses_net,
+			struct msg_buf *mb, size_t buf_size, void *route)
+{
+	return raw_socket_send(ses_net, mb->buf, buf_size, route);
 }
 
 static int raw_socket_receive(void *buf, size_t buf_size)
@@ -166,6 +166,34 @@ static int raw_socket_open(char *if_name, struct ifreq *if_idx,
 	return sockfd;
 }
 
+/*
+ * We do not need to do anything special regarding the buffer
+ * Just follow the protocol and create the msg_buf structure.
+ */
+static struct msg_buf *
+raw_socket_reg_msg_buf(struct session_net *net, void *buf, size_t buf_size)
+{
+	struct msg_buf *mb;
+
+	mb = malloc(sizeof(*mb));
+	if (!mb)
+		return NULL;
+
+	mb->buf = buf;
+	mb->max_buf_size = buf_size;
+	mb->private = NULL;
+	return mb;
+}
+
+static int raw_socket_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
+{
+	if (mb) {
+		free(mb);
+		return 0;
+	}
+	return -EINVAL;
+}
+
 static int raw_socket_init_once(struct endpoint_info *local_ei)
 {
 	int fd;
@@ -207,7 +235,11 @@ struct raw_net_ops raw_socket_ops = {
 	.close_session		= raw_socket_close_session,
 
 	.send_one		= raw_socket_send,
+	.send_one_msg_buf	= raw_socket_send_msg_buf,
 	.receive_one		= raw_socket_receive,
 	.receive_one_nb		= NULL,
 	.receive_one_zerocopy	= NULL,
+
+	.reg_msg_buf		= raw_socket_reg_msg_buf,
+	.dereg_msg_buf		= raw_socket_dereg_msg_buf,
 };

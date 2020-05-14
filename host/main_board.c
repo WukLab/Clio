@@ -20,6 +20,7 @@
 #include <uapi/net_header.h>
 
 #include "core.h"
+#include "board_emulator/external.h"
 
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	32
@@ -89,23 +90,6 @@ free_thpool_buffer(struct thpool_buffer *tb)
 	barrier();
 }
 
-static void handle_test(struct thpool_buffer *tb)
-{
-	struct reply {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} *reply, *req;
-	static int nr_rx = 0;
-
-	reply = (struct reply *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*reply));
-
-	nr_rx++;
-
-	req = (struct reply *)tb->rx;
-	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
-}
-
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -117,11 +101,48 @@ static void worker_handle_request(struct thpool_worker *tw,
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
+	if (0) {
+		dprintf_INFO("received opcode: %u (%s)\n",
+			opcode, legomem_opcode_str(opcode));
+	}
+
 	switch (opcode) {
-	case OP_REQ_TEST:
-		handle_test(tb);
+	case OP_REQ_MEMBERSHIP_NEW_NODE:
+		handle_new_node(tb);
+		break;
+	case OP_OPEN_SESSION:
+		handle_open_session(tb);
+		break;
+	case OP_CLOSE_SESSION:
+		handle_close_session(tb);
+		break;
+
+	/* Migration */
+	case OP_REQ_MIGRATION_M2B_SEND:
+		board_soc_handle_migration_send(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV:
+		board_soc_handle_migration_recv(tb);
+		break;
+	case OP_REQ_MIGRATION_M2B_RECV_CANCEL:
+		board_soc_handle_migration_recv_cancel(tb);
+		break;
+
+	/* VM */
+	case OP_REQ_ALLOC:
+		board_soc_handle_alloc_free(tb, true);
+		break;
+	case OP_REQ_FREE:
+		board_soc_handle_alloc_free(tb, false);
+		break;
+
+	case OP_REQ_PINGPONG:
+		handle_pingpong(tb);
 		break;
 	default:
+		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
+			      opcode, legomem_opcode_str(opcode));
+		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
 		break;
 	};
 
@@ -159,14 +180,26 @@ static void *dispatcher(void *_unused)
 	struct thpool_worker *tw;
 	int ret;
 
-	while (1) {
-		tb = alloc_thpool_buffer();
-		tw = select_thpool_worker_rr();
+	tb = thpool_buffer_map;
+	tw = thpool_worker_map;
 
+	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
+	if (ret) {
+		dprintf_ERROR("Fail to register TX buffer %d\n", ret);
+		return NULL;
+	}
+
+	while (1) {
+#if 1
+		ret = net_receive_zerocopy_nb(mgmt_session, &tb->rx, &tb->rx_size);
+		if (ret <= 0)
+			continue;
+#else
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
 		tb->rx_size = ret;
+#endif
 
 		/*
 		 * Inline handling for now
@@ -177,11 +210,42 @@ static void *dispatcher(void *_unused)
 	return NULL;
 }
 
+static int join_cluster(void)
+{
+	struct legomem_membership_join_cluster_req req;
+	struct legomem_membership_join_cluster_resp resp;
+	struct lego_header *lego_header;
+	int ret;
+
+	lego_header = to_lego_header(&req);
+	lego_header->opcode = OP_REQ_MEMBERSHIP_JOIN_CLUSTER;
+
+	req.op.mem_size_bytes = 0;
+	req.op.type = BOARD_INFO_FLAGS_BOARD;
+	req.op.ei = default_local_ei;
+
+	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
+				   &resp, sizeof(resp));
+	if (ret <= 0) {
+		dprintf_ERROR("net error %d\n", ret);
+		return -1;
+	}
+
+	if (resp.ret == 0)
+		dprintf_INFO("Succefully joined cluster! (monitor: %s)\n",
+			monitor_bi->name);
+	else
+		dprintf_ERROR("Fail to join cluster, monitor error %d\n",
+			resp.ret);
+	return resp.ret;
+}
+
 static void print_usage(void)
 {
 	printf("Usage ./board_emulator.o [Options]\n"
 	       "\n"
 	       "Options:\n"
+	       "  --monitor=<ip:port>         Specify monitor addr in IP:Port format (Required)\n"
 	       "  --dev=<name>                Specify the local network device (Required)\n"
 	       "  --port=<port>               Specify the local UDP port we listen to (Required)\n"
 	       "  --net_raw_ops=[options]     Select the raw network layer implementation (Optional)\n"
@@ -196,28 +260,35 @@ static void print_usage(void)
 }
 
 static struct option long_options[] = {
-	{ "port",	required_argument,	NULL,	'p'},
-	{ "dev",	required_argument,	NULL,	'd'},
-	{ "net_raw_ops", required_argument,	NULL,	'n'},
-	{ 0,		0,			0,	0  }
+	{ "monitor",		required_argument,	NULL,	'm'},
+	{ "port",		required_argument,	NULL,	'p'},
+	{ "dev",		required_argument,	NULL,	'd'},
+	{ "net_raw_ops",	required_argument,	NULL,	'n'},
+	{ 0,			0,			0,	0  }
 };
 
 int main(int argc, char **argv)
 {
 	int ret;
 	int c, option_index = 0;
+	char monitor_addr[32];
+	bool monitor_addr_set = false;
 	char ndev[32];
 	bool ndev_set = false;
 	int port = 0;
 
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "p:d:",
+		c = getopt_long(argc, argv, "m:p:d:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
+		case 'm':
+			strncpy(monitor_addr, optarg, sizeof(monitor_addr));
+			monitor_addr_set = true;
+			break;
 		case 'p':
 			port = atoi(optarg);
 			break;
@@ -255,6 +326,13 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	if (!monitor_addr_set) {
+		printf("ERROR: Please specify the monitor address\n\n");
+		print_usage();
+		return 0;
+	}
+	printf("monitor: %s ndev: %s port: %d\n", monitor_addr, ndev, port);
+
 	/*
 	 * Init the local endpoint info
 	 * - mac, ip, port
@@ -273,19 +351,25 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	/* Same as host side init */
-	init_board_subsys();
-	init_context_subsys();
-	init_net_session_subsys();
-
-	/*
-	 * add the special localhost board_info
-	 */
-	add_localhost_bi(&default_local_ei);
-
 	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
+		exit(-1);
+	}
+
+	/*
+	 * Add a special localhost board_info
+	 * and a special localhost session_net
+	 */
+	add_localhost_bi(&default_local_ei);
+
+	/*
+	 * Create a local session for remote monitor's mgmt session
+	 * A special monitor board_info is added as well
+	 */
+	ret = init_monitor_session(ndev, monitor_addr, &default_local_ei);
+	if (ret) {
+		printf("Fail to init monitor session\n");
 		exit(-1);
 	}
 
@@ -297,11 +381,15 @@ int main(int argc, char **argv)
 	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
 			   default_thpool_buffer_alloc_cb);
 
+	create_watchdog_thread();
+
 	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
 	if (ret) {
 		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
 		exit(-1);
 	}
+
+	join_cluster();
 	pthread_join(mgmt_session->thread, NULL);
 	return 0;
 }

@@ -17,6 +17,7 @@
 #include <pthread.h>
 
 #include "core.h"
+#include "pgtable.h"
 
 /*
  * For each board, the valid process address spaces are linked
@@ -52,43 +53,13 @@ void dump_procs(void)
 	pthread_spin_unlock(&proc_lock);
 }
 
-static void init_vregion(struct vregion_info *v)
-{
-	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
-	v->mmap = NULL;
-	v->mm_rb = RB_ROOT;
-	v->nr_vmas = 0;
-	v->highest_vm_end = 0;
-	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
-}
-
-static void init_proc_info(struct proc_info *pi)
-{
-	int j;
-	struct vregion_info *v;
-
-	pi->flags = 0;
-
-	INIT_HLIST_NODE(&pi->link);
-	pi->pid = 0;
-	pi->node = 0;
-
-	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
-	atomic_init(&pi->refcount, 1);
-
-	pi->nr_vmas = 0;
-	for (j = 0; j < NR_VREGIONS; j++) {
-		v = pi->vregion + j;
-		init_vregion(v);
-	}
-}
-
 /*
  * This is a public API to allocate a new process address space.
  * proc_name and host_ip are optional.
  * @pid is a globally unique id allocated by monitor.
  */
-struct proc_info *alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
+struct proc_info *
+alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 {
 	struct proc_info *new;
 	struct proc_info *old;
@@ -121,7 +92,9 @@ struct proc_info *alloc_proc(unsigned int pid, char *proc_name, unsigned int hos
 	hash_add(proc_hash_array, &new->link, key);
 	pthread_spin_unlock(&proc_lock);
 
-	printf("alloc_proc: new proc pid %u\n", pid);
+	setup_proc_fpga_pgtable(new);
+
+	dprintf_DEBUG("alloc proc_info for PID=%d\n", pid);
 	return new;
 }
 
@@ -183,8 +156,10 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	return NULL;
 }
 
-int init_proc_subsystem(void)
+__constructor
+static int init_proc_subsystem(void)
 {
+	printf("%s here\n", __func__);
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	return 0;
 }

@@ -1,7 +1,11 @@
 /*
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
+ * 
+ * Some misc helper functions used by everyone, anywhere they want.
  */
 
+#define _GNU_SOURCE
+#include <sched.h>
 #include <uapi/vregion.h>
 #include <uapi/compiler.h>
 #include <uapi/sched.h>
@@ -24,6 +28,15 @@
  * This is passed by command line during startup
  */
 char global_net_dev[32];
+
+int pin_cpu(int cpu_id)
+{
+	cpu_set_t cpu_set;
+
+	CPU_ZERO(&cpu_set);
+	CPU_SET(cpu_id, &cpu_set);
+	return sched_setaffinity(0, sizeof(cpu_set), &cpu_set);
+}
 
 /*
  * Given the @ibvdev name, we will try to fill the @ndev.
@@ -63,19 +76,6 @@ int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size)
 }
 
 /*
- * Given the host order @ip, fill in the @ip_str
- * @ip_str must be INET_ADDRSTRLEN bytes long.
- */
-int get_ip_str(unsigned int ip, char *ip_str)
-{
-	struct in_addr in_addr;
-
-	in_addr.s_addr = htonl(ip);
-	inet_ntop(AF_INET, &in_addr, ip_str, INET_ADDRSTRLEN);
-	return 0;
-}
-
-/*
  * Given a network-order @ip, find what's the MAC we should use to reach it.
  * - If it is directly connected, it would be remote NIC's mac
  * - If it is behind switches, it would be the directly attached switch
@@ -88,7 +88,7 @@ int get_ip_str(unsigned int ip, char *ip_str)
  * otherwire it's a failure.
  */
 int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
-			 unsigned char *mac)
+		unsigned char *mac)
 {
 	FILE *fp;
 	char ping_cmd[128];
@@ -112,7 +112,7 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	 * In case arp cache was empty,
 	 * we run ping to get it discovred.
 	 */
-	sprintf(ping_cmd, "ping -c 1 %s", ip_str);
+	sprintf(ping_cmd, "arping -w 3 -c 1 -I %s %s", global_net_dev, ip_str);
 	fp = popen(ping_cmd, "r");
 	if (!fp) {
 		perror("popen ping");
@@ -137,11 +137,11 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 		     t_status[8];
 
 		sscanf(line, "%s %s %s %s %x:%x:%x:%x:%x:%x %s\n",
-			t_ip, t_d, t_name, t_a,
-			(unsigned int *)&mac[0], (unsigned int *)&mac[1],
-			(unsigned int *)&mac[2], (unsigned int *)&mac[3],
-			(unsigned int *)&mac[4], (unsigned int *)&mac[5],
-			t_status);
+		       t_ip, t_d, t_name, t_a,
+		       (unsigned int *)&mac[0], (unsigned int *)&mac[1],
+		       (unsigned int *)&mac[2], (unsigned int *)&mac[3],
+		       (unsigned int *)&mac[4], (unsigned int *)&mac[5],
+		       t_status);
 
 		ret = 0;
 		break;
@@ -205,7 +205,7 @@ out:
  * @ip will be host order.
  */
 int get_interface_mac_and_ip(const char *dev, unsigned char *mac,
-			     char *ip_str, int *ip)
+		char *ip_str, int *ip)
 {
 	int fd, ret;
 	struct ifreq ifr;
@@ -260,7 +260,7 @@ struct board_info *default_local_bi;
  * Mac, IP, port, we will take care of them.
  */
 int init_default_local_ei(const char *dev, unsigned int port,
-			  struct endpoint_info *ei)
+		struct endpoint_info *ei)
 {
 	unsigned char mac[6];
 	char ip_str[INET_ADDRSTRLEN];
@@ -279,7 +279,7 @@ int init_default_local_ei(const char *dev, unsigned int port,
 	ei->udp_port = port;
 
 	printf("\033\[34m[%s:%d]: Local Endpoint dev: %s IP: %s %x Port: %d MAC: ",
-		__func__, __LINE__, dev, ip_str, ip, port);
+			__func__, __LINE__, dev, ip_str, ip, port);
 	for (i = 0; i < 6; i++)
 		printf("%x ", mac[i]);
 	printf("\033[0m\n");
@@ -314,12 +314,146 @@ int init_local_management_session(void)
 	 * thus using a dummy_ei is fine.
 	 */
 	mgmt_dummy_board = add_board("special_local_mgmt", 0,
-				     &dummy_ei, &dummy_ei, true);
+			&dummy_ei, &dummy_ei, true);
 	if (!mgmt_dummy_board)
 		return -ENOMEM;
 	mgmt_dummy_board->flags |= BOARD_INFO_FLAGS_DUMMY;
 
 	/* This is our LOCAL mgmt session */
 	mgmt_session = get_board_mgmt_session(mgmt_dummy_board);
+
+	/*
+	 * If this is happening.. adjust your code, put
+	 * this function before all other functions that might create sessions.
+	 */
+	if (get_local_session_id(mgmt_session) !=  LEGOMEM_MGMT_SESSION_ID) {
+		dprintf_ERROR("mgmt_session id is %d, not 0.\n",
+				get_local_session_id(mgmt_session));
+		return -EINVAL;
+	}
 	return 0;
+}
+
+/*
+ * Use input @monitor_addr to create a local network session with the monitor.
+ * Note we just create local data structures for monitor's management session.
+ * We do not need to contact monitor for this particular creation.
+ */
+int init_monitor_session(char *ndev, char *monitor_addr,
+			 struct endpoint_info *local_ei)
+{
+	char ip_str[INET_ADDRSTRLEN];
+	int ip, port;
+	int ip1, ip2, ip3, ip4;
+	struct in_addr in_addr;
+	unsigned char mac[6];
+	struct endpoint_info monitor_ei;
+	int ret, i;
+
+	sscanf(monitor_addr, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+
+	in_addr.s_addr = htonl(ip);
+	inet_ntop(AF_INET, &in_addr, ip_str, sizeof(ip_str));
+
+	ret = get_mac_of_remote_ip(ip, ip_str, ndev, mac);
+	if (ret) {
+		dprintf_ERROR("cannot get mac of ip %s\n", ip_str);
+		return ret;
+	}
+
+	/*
+	 * Now let's save the info
+	 * into the global variables
+	 */
+	memcpy(monitor_ip_str, ip_str, INET_ADDRSTRLEN);
+	monitor_ip_h = ip;
+
+	/* EI needs host order ip */
+	monitor_ei.ip = ip;
+	monitor_ei.udp_port = port;
+	memcpy(monitor_ei.mac, mac, 6);
+
+	/* monitor_bi defined in api.c */
+	monitor_bi = add_board("monitor", 0,
+			       &monitor_ei, local_ei,
+			       false);
+	if (!monitor_bi)
+		return -ENOMEM;
+
+	monitor_bi->flags |= BOARD_INFO_FLAGS_MONITOR;
+
+	monitor_session = get_board_mgmt_session(monitor_bi);
+
+	/* Debugging info */
+	printf("%s(): monitor IP: %s Port: %d MAC: ",
+		__func__, monitor_ip_str, port);
+	for (i = 0; i < 6; i++)
+		printf("%x ", mac[i]);
+	printf("\n");
+	return 0;
+}
+
+
+/*
+ * Manually add a new remote node.
+ * Since this is not broadcast from monitor, this information is local only.
+ * This interface is mainly designed for testing purpose.
+ */
+int manually_add_new_node(unsigned int ip, unsigned int udp_port,
+			  unsigned int node_type)
+{
+	struct thpool_buffer tb;
+	struct legomem_membership_new_node_req *req;
+	struct endpoint_info *ei;
+	char ip_str[INET_ADDRSTRLEN];
+	char new_name[BOARD_NAME_LEN];
+
+	/* Cook the name */
+	get_ip_str(ip, ip_str);
+	if (node_type == BOARD_INFO_FLAGS_BOARD) {
+		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
+	} else {
+		dprintf_ERROR("Manual adding only supports _board_ for now. (%s)\n",
+			board_info_type_str(node_type));
+		return -EINVAL;
+	}
+
+	tb.rx = malloc(THPOOL_BUFFER_SIZE);
+	tb.tx = malloc(THPOOL_BUFFER_SIZE);
+	if (!tb.rx || !tb.rx)
+		return -ENOMEM;
+
+	req = (struct legomem_membership_new_node_req *)tb.rx;
+
+	/*
+	 * We do not need to fill the mac addr
+	 * let the handler figure it out
+	 */
+	ei = &req->op.ei;
+	memcpy(ei->ip_str, ip_str, INET_ADDRSTRLEN);
+	ei->ip = ip;
+	ei->udp_port = udp_port;
+
+	/* Fill in the fake request */
+	req->op.type = node_type;
+	req->op.mem_size_bytes = 0;
+	memcpy(req->op.name, new_name, BOARD_NAME_LEN);
+
+	/* Invoke handler locally */
+	handle_new_node(&tb);
+
+	free(tb.rx);
+	free(tb.tx);
+	return 0;
+}
+
+int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
+{
+	int ip, port;
+	int ip1, ip2, ip3, ip4;
+
+	sscanf(ip_port_str, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
+	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
+	return manually_add_new_node(ip, port, node_type);
 }

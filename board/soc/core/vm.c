@@ -10,6 +10,7 @@
 #include <uapi/vregion.h>
 #include <uapi/sched.h>
 #include <uapi/rbtree.h>
+#include <uapi/compiler.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,7 @@
 #include <limits.h>
 
 #include "core.h"
+#include "pgtable.h"
 
 #define VM_WARN_ON(cond)                                                       \
 	do {                                                                   \
@@ -747,24 +749,7 @@ struct vm_area_struct *vma_merge(struct vregion_info *vi,
 	return NULL;
 }
 
-/*
- * TODO: Send requests to FPGA side
- * to invalidate a) TLB, b) pgtable entries in DRAM.
- */
-static void notify_fpga_unmap_page_range(struct vm_area_struct *vma,
-					 unsigned long start_addr,
-					 unsigned long end_addr)
-{
-}
-
-/*
- * TODO
- */
-static void notify_fpga_new_page_range(void)
-{
-}
-
-static void unmap_single_vma(struct vm_area_struct *vma,
+static void unmap_single_vma(struct proc_info *proc, struct vm_area_struct *vma,
 			     unsigned long start_addr, unsigned long end_addr)
 {
 	unsigned long start = max(vma->vm_start, start_addr);
@@ -777,15 +762,21 @@ static void unmap_single_vma(struct vm_area_struct *vma,
 	if (end <= vma->vm_start)
 		return;
 
-	if (start != end)
-		notify_fpga_unmap_page_range(vma, start, end);
+	/*
+	 * CONFLICT VMAs are not real VMAs mapped to pgtables.
+	 * They are created during __alloc_va.
+	 * They should not call into pgtable code now.
+	 */
+	if ((start != end) && (vma->vm_flags != LEGOMEM_VM_FLAGS_CONFLICT))
+		free_fpga_pte_range(proc, start, end, PAGE_SIZE);
 }
 
-static void unmap_region(struct vregion_info *vi, struct vm_area_struct *vma,
+static void unmap_region(struct proc_info *proc,
+			 struct vregion_info *vi, struct vm_area_struct *vma,
 			 unsigned long start, unsigned long end)
 {
 	for (; vma && vma->vm_start < end; vma = vma->vm_next)
-		unmap_single_vma(vma, start, end);
+		unmap_single_vma(proc, vma, start, end);
 }
 
 /*
@@ -824,8 +815,8 @@ static void detach_vmas_to_be_unmapped(struct vregion_info *vi,
 /*
  * Lock is already held upon entry.
  */
-static int __free_va(struct proc_info *proc, struct vregion_info *vi,
-		     unsigned long start, unsigned long len)
+int __free_va(struct proc_info *proc, struct vregion_info *vi,
+	      unsigned long start, unsigned long len)
 {
 	unsigned long end;
 	struct vm_area_struct *vma, *prev, *last;
@@ -884,7 +875,7 @@ static int __free_va(struct proc_info *proc, struct vregion_info *vi,
 	 * Notify FPGA side to invalidate
 	 * TLB and free PTE entries..
 	 */
-	unmap_region(vi, vma, start, end);
+	unmap_region(proc, vi, vma, start, end);
 
 	/*
 	 * Last step, free the VMAs
@@ -1040,12 +1031,16 @@ static unsigned long __find_va_range_topdown(struct proc_info *proc,
 
 	length = info->length;
 	gap_end = info->high_limit;
-	if (gap_end < length)
+	if (gap_end < length) {
+		dprintf_DEBUG("%#lx %#lx\n", gap_end, length);
 		return -ENOMEM;
+	}
 	high_limit = gap_end - length;
 
-	if (info->low_limit > high_limit)
+	if (info->low_limit > high_limit) {
+		dprintf_DEBUG("%#lx %#lx\n", info->low_limit, high_limit);
 		return -ENOMEM;
+	}
 	low_limit = info->low_limit + length;
 
 	/* Check highest gap, which does not precede any rbtree node */
@@ -1054,11 +1049,15 @@ static unsigned long __find_va_range_topdown(struct proc_info *proc,
 		goto found_highest;
 
 	/* Check if rbtree root looks promising */
-	if (RB_EMPTY_ROOT(&vi->mm_rb))
+	if (RB_EMPTY_ROOT(&vi->mm_rb)) {
+		dprintf_DEBUG("empty mm_rb root %d\n", 0);
 		return -ENOMEM;
+	}
 	vma = rb_entry(vi->mm_rb.rb_node, struct vm_area_struct, vm_rb);
-	if (vma->rb_subtree_gap < length)
+	if (vma->rb_subtree_gap < length) {
+		dprintf_DEBUG("%#lx %#lx\n", vma->rb_subtree_gap, length);
 		return -ENOMEM;
+	}
 
 	while (true) {
 		/* Visit right subtree if it looks promising */
@@ -1145,7 +1144,10 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 	info.low_limit = low_limit;
 	info.high_limit = high_limit;
 
-	if (vi->flags == VM_UNMAPPED_AREA_TOPDOWN)
+	/*
+	 * Default is topdown, set by init_vregion().
+	 */
+	if (vi->flags & VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN)
 		addr = __find_va_range_topdown(proc, vi, &info);
 	else
 		addr = __find_va_range_bottomup(proc, vi, &info);
@@ -1166,15 +1168,55 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 				unsigned long len, unsigned long vm_flags)
 {
 	unsigned long addr;
+	bool has_conflict;
+	int nr_retry = 0;
 
-	if (unlikely(len > VREGION_SIZE)) {
-		BUG();
-		return -EINVAL;
+	/*
+	 * All length must be page aligned
+	 * to cover a whole PTE range.
+	 */
+	len = PAGE_ALIGN(len);
+	BUG_ON(len > VREGION_SIZE);
+
+retry:
+	/*
+	 * Step 1:
+	 * Go through the current VMA tree, find a range.
+	 * Nothing will be updated during this one.
+	 */
+	addr = __find_va_range(proc, vi, len);
+	if (IS_ERR_VALUE(addr)) {
+		dprintf_ERROR("nr_retry: %d\n", nr_retry);
+		return 0;
 	}
 
-	addr = __find_va_range(proc, vi, len);
-	if (IS_ERR_VALUE(addr))
-		return addr;
+	if (unlikely(!IS_ALIGNED(addr, PAGE_SIZE))) {
+		dprintf_ERROR("addr %#lx not page aligned. why??\n", addr);
+		return 0;
+	}
+
+	/*
+	 * Step 2:
+	 * Check if above [addr, addr+len] mapped PTEs
+	 * can be allocated from the shadow pgtable.
+	 */
+	has_conflict = check_and_insert_shadow_conflicts(proc, vi, addr,
+							 PAGE_SIZE, PAGE_SHIFT, /* XXX User defined? */
+							 len);
+	if (has_conflict) {
+		nr_retry++;
+
+		/*
+		 * XXX
+		 * which range?
+		 * only a page, or the whole?? Maybe a page is enough?
+		 */
+		vma_tree_new(proc, vi, addr, len, LEGOMEM_VM_FLAGS_CONFLICT);
+
+		dprintf_DEBUG("va alloc conflict [%#lx-%#lx] nr_retry: %d\n",
+			addr, addr + len, nr_retry);
+		goto retry;
+	}
 
 	/*
 	 * Try to update the VMA tree with [addr, addr+len]
@@ -1182,16 +1224,9 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	 */
 	addr = vma_tree_new(proc, vi, addr, len, vm_flags);
 	if (IS_ERR_VALUE(addr))
-		return addr;
+		return 0;
 
-	/*
-	 * TODO
-	 *
-	 * We should tell FPGA the new mapping
-	 * FPGA side would create a cached copy of the VA mapping
-	 */
-	notify_fpga_new_page_range();
-
+	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags, PAGE_SIZE);
 	return addr;
 }
 
@@ -1293,55 +1328,4 @@ int free_va(struct proc_info *proc, unsigned long start, unsigned long len)
 		start += vlen;
 	}
 	return ret;
-}
-
-void test_vm(void)
-{
-	unsigned long addr;
-	struct vregion_info *vi;
-	struct proc_info *pi;
-	unsigned int pid;
-
-	pid = 100;
-
-	pi = alloc_proc(pid, "proc_1", 123);
-	if (!pi) {
-		printf("fail to create the test pi\n");
-		return;
-	} 
-	dump_procs();
-
-	printf("From vregion 0\n");
-	vi = pi->vregion + 0;
-	addr = alloc_va_vregion(pi, vi, 0x1000, 0);
-	printf("%#lx\n", addr);
-	addr = alloc_va_vregion(pi, vi, 0x1000, 0);
-	printf("%#lx\n", addr);
-
-	printf("From vregion 1\n");
-
-	vi = pi->vregion + 1;
-	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
-	printf("1 %#lx\n", addr);
-
-	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
-	printf("2 %#lx\n", addr);
-
-	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
-	printf("3 %#lx\n", addr);
-
-	addr = alloc_va_vregion(pi, vi, 0x10000000, 0);
-	printf("4 %#lx\n", addr);
-
-	free_va(pi, addr, 0x10000000);
-	printf("free %#lx\n", addr);
-
-	addr = alloc_va_vregion(pi, vi, 0x2000, 0);
-	printf("5 %#lx\n", addr);
-
-	addr = alloc_va_vregion(pi, vi, 0x2000, 0);
-	printf("6 %#lx\n", addr);
-
-	addr = alloc_va(pi, 0x2000, 0);
-	printf("7 %#lx\n", addr);
 }

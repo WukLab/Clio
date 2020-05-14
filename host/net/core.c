@@ -30,18 +30,21 @@ struct session_net *net_open_session(struct endpoint_info *local_ei,
 	struct session_net *ses;
 	int ret;
 
-	ses = malloc(sizeof(struct session_net));
+	ses = alloc_session();
 	if (!ses)
 		return NULL;
-	memset(ses, 0, sizeof(*ses));
+
+	/*
+	 * Open raw net layer before open transport layer
+	 * as the latter one might start calling raw net APIs right away
+	 */
+	ret = raw_net_ops->open_session(ses, local_ei, remote_ei);
+	if (ret)
+		goto free;
 
 	ret = transport_net_ops->open_session(ses, local_ei, remote_ei);
 	if (ret)
-		goto free;	
-
-	ret = raw_net_ops->open_session(ses, local_ei, remote_ei);
-	if (ret)
-		goto close_transport;
+		goto close_raw;	
 
 	/* Prepare the session info */
 	prepare_routing_info(&ses->route, local_ei, remote_ei);
@@ -50,35 +53,37 @@ struct session_net *net_open_session(struct endpoint_info *local_ei,
 
 	return ses;
 
-close_transport:
-	transport_net_ops->close_session(ses);
+close_raw:
+	raw_net_ops->close_session(ses);
 free:
-	free(ses);
+	free_session(ses);
 	return NULL;
 }
 
 /*
  * Close a network session, free all associated memory.
+ * This is an internal function call, thus @ses should not never be NULL.
  */
 int net_close_session(struct session_net *ses)
 {
-	if (!ses)
-		return -EINVAL;
+	BUG_ON(!ses);
 
 	transport_net_ops->close_session(ses);
 	raw_net_ops->close_session(ses);
-	free(ses);
+	free_session(ses);
 
 	return 0;
 }
 
 static pthread_spinlock_t dump_lock;
 
-static void __dump_packet_headers(void *packet, char *str_buf)
+void __dump_packet_headers(void *packet, char *str_buf)
 {
 	struct eth_hdr *eth;
 	struct ipv4_hdr *ipv4;
 	struct udp_hdr *udp;
+	struct gbn_header *gbn;
+	struct lego_header *lego;
 	int i;
 	char src_ip[INET_ADDRSTRLEN];
 	char dst_ip[INET_ADDRSTRLEN];
@@ -97,6 +102,8 @@ static void __dump_packet_headers(void *packet, char *str_buf)
 	eth = packet;
 	ipv4 = packet + sizeof(*eth);
 	udp = packet + sizeof(*eth) + sizeof(*ipv4);
+	gbn = to_gbn_header(packet);
+	lego = to_lego_header(packet);
 
 	for (i = 0; i < 6; i++) {
 		if (i < 5)
@@ -121,8 +128,15 @@ static void __dump_packet_headers(void *packet, char *str_buf)
 	inet_ntop(AF_INET, &src_addr, src_ip, sizeof(src_ip));
 	inet_ntop(AF_INET, &dst_addr, dst_ip, sizeof(dst_ip));
 
-	DUMP_PR("ip:port %s:%u->%s:%u",
-		src_ip, ntohs(udp->src_port), dst_ip, ntohs(udp->dst_port));
+	DUMP_PR("ip:port:gbn %s:%u:%u->%s:%u:%u (%s) ",
+		src_ip, ntohs(udp->src_port), get_gbn_src_session(gbn),
+		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),
+		gbn_pkt_type_str(gbn->type));
+
+	DUMP_PR("lego pid=%u tag=%#x opcode=%u (%s)",
+		lego->pid, lego->tag, lego->opcode,
+		legomem_opcode_str(lego->opcode));
+
 	if (!str_buf)
 		printf("\n");
 }

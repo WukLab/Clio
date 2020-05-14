@@ -19,12 +19,12 @@
  * it has information about all remote accessible boards.
  */
 DEFINE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
-pthread_spinlock_t board_lock;
+pthread_rwlock_t board_lock ____cacheline_aligned;
 
-int init_board_subsys(void)
+__constructor
+static void init_board_subsys(void)
 {
-	pthread_spin_init(&board_lock, PTHREAD_PROCESS_PRIVATE);
-	return 0;
+	pthread_rwlock_init(&board_lock, NULL);
 }
 
 /*
@@ -91,9 +91,10 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	 * and it will be visible across this node.
 	 */
 	key = get_key(bi->board_ip, bi->udp_port);
-	pthread_spin_lock(&board_lock);
+
+	pthread_rwlock_wrlock(&board_lock);
 	hash_add(board_list, &bi->link, key);
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 
 	return bi;
 }
@@ -105,15 +106,15 @@ void remove_board(struct board_info *bi)
 
 	key = get_key(bi->board_ip, bi->udp_port);
 
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_wrlock(&board_lock);
 	hash_for_each_possible(board_list, _bi, link, key) {
 		if (_bi->board_ip == bi->board_ip) {
 			hash_del(&bi->link);
-			pthread_spin_unlock(&board_lock);
+			pthread_rwlock_unlock(&board_lock);
 			return;
 		}
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 }
 
 struct board_info *
@@ -124,14 +125,18 @@ find_board(unsigned int ip, unsigned int port)
 
 	key = get_key(ip, port);
 
-	pthread_spin_lock(&board_lock);
-	if (ip == ANY_BOARD) {
+	pthread_rwlock_rdlock(&board_lock);
+	if (ip == ANY_BOARD || ip == ANY_NODE) {
 		hash_for_each(board_list, bkt, bi, link) {
 			if (special_board_info_type(bi->flags))
 				continue;
 
-			/* Return the first board encountered*/
-			pthread_spin_unlock(&board_lock);
+			if (ip == ANY_BOARD) {
+				if (!(bi->flags & BOARD_INFO_FLAGS_BOARD))
+					continue;
+			}
+
+			pthread_rwlock_unlock(&board_lock);
 			return bi;
 		}
 	} else {
@@ -141,12 +146,12 @@ find_board(unsigned int ip, unsigned int port)
 
 			if (bi->board_ip == ip &&
 			    bi->udp_port == port) {
-				pthread_spin_unlock(&board_lock);
+				pthread_rwlock_unlock(&board_lock);
 				return bi;
 			}
 		}
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 	return NULL;
 }
 
@@ -157,16 +162,17 @@ void dump_boards(void)
 	char ip_port_str[20];
 	int bkt = 0;
 
-	printf("  bucket                     board_name              ip:port       type\n");
+	printf("bucket   board_name                     ip:port              type\n");
 	printf("-------- ------------------------------ -------------------- ----------\n");
-	pthread_spin_lock(&board_lock);
+
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, bkt, bi, link) {
 		get_ip_str(bi->board_ip, ip_str);
 		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
 
-		printf("%8d %30s %20s %10s\n",
+		printf("%-8d %-30s %-20s %-10s\n",
 			bkt, bi->name, ip_port_str,
 			board_info_type_str(bi->flags));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 }

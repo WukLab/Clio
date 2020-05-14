@@ -1,0 +1,1 @@
+../../board/soc/core/core.h

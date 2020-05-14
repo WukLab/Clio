@@ -26,8 +26,14 @@
 
 /*
  * The maximum PID space in a distributed legomem system.
+ *   0                       MAX_USER               MAX_SYSTEM
+ *   |-------------------------| ---------------------|
+ *   ^                         ^                      ^
+ *       global unique             per-board
+ *       managed by monitor        private pid space
  */
-#define NR_MAX_PID		(65535)
+#define NR_MAX_SYSTEM_PID	(65535)
+#define NR_MAX_USER_PID		(60000)
 
 typedef atomic_int atomic_t;
 
@@ -50,7 +56,7 @@ struct vm_area_struct;
 
 struct board_info {
 	char			name[BOARD_NAME_LEN];
-	unsigned int		board_ip;
+	int			board_ip;
 	unsigned int		udp_port;
 	unsigned long		flags;
 
@@ -78,7 +84,10 @@ struct board_info {
 	unsigned long		mem_avail;
 
 	unsigned long		*stat;
-};
+} ____cacheline_aligned;
+
+#define ANY_BOARD	(UINT_MAX)	/* return the first real board */
+#define ANY_NODE	(UINT_MAX-1)	/* return anything except special BIs */
 
 /*
  * Special board_info types are created by the system, for special usages.
@@ -201,11 +210,14 @@ board_find_session(struct board_info *p, int session_id)
  *   will succeed, futher it may tweak the tree in a way
  *   that no allocation will be possible further more.
  */
-#define VREGION_INFO_FLAG_ALLOCATED	(0x1)
+#define VREGION_INFO_FLAG_ALLOCATED		(0x1)
+#define VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN	(0x2)
 struct vregion_info {
 	unsigned int		flags;
-	unsigned int		board_ip;
+	int			board_ip;
 	unsigned int		udp_port;
+
+	struct list_head	list;
 
 	/*
 	 * List of VMAs
@@ -233,6 +245,14 @@ struct proc_info {
 	unsigned long		flags;
 
 	/*
+	 * Used by SoC code only
+	 * fpga_pgtable points to the real pgtbale in FPGA
+	 * soc_shadow_pgtable points the shadow copy in DRAM
+	 */
+	void 			*fpga_pgtable;
+	void			*soc_shadow_pgtable;
+
+	/*
 	 * For hashtable usage
 	 * pid and host node id uniquely identify a proc
 	 */
@@ -243,19 +263,101 @@ struct proc_info {
 	pthread_spinlock_t	lock;
 	atomic_t		refcount;
 
+	struct vregion_info	vregion[NR_VREGIONS];
+	struct list_head	free_list_head;
+	int			nr_vmas;
+
+	/*
+	 * Only used by SoC's handle_ctrl_alloc
+	 * which is self-managing vRegion array without monitor.
+	 */
+	int			cached_vregion_index;
+
 	/* For debugging purpose */
 	unsigned int		host_ip;
+	char			host_ip_str[INET_ADDRSTRLEN];
 	char			proc_name[PROC_NAME_LEN];
+} ____cacheline_aligned;
 
-	struct vregion_info	vregion[NR_VREGIONS];
-	struct vregion_info	*cached_vregion;
-	int			nr_vmas;
-};
+static inline struct vregion_info * 
+__vregion_freelist_dequeue_head(struct proc_info *ctx)
+{
+	struct vregion_info *v;
 
-#define PROC_INFO_FLAGS_ALLOCATED	0x1
+	v = list_entry(ctx->free_list_head.next, struct vregion_info, list);
+	list_del(&v->list);
+	return v;
+}
+
+static inline struct vregion_info * 
+vregion_freelist_dequeue_head(struct proc_info *ctx)
+{
+	struct vregion_info *v = NULL;
+
+	pthread_spin_lock(&ctx->lock);
+	if (!list_empty(&ctx->free_list_head))
+		v = __vregion_freelist_dequeue_head(ctx);
+	pthread_spin_unlock(&ctx->lock);
+	return v;
+}
+
+static inline void
+__vregion_freelist_enqueue_tail(struct proc_info *ctx,
+			      struct vregion_info *v)
+{
+	list_add_tail(&v->list, &ctx->free_list_head);
+}
+
+static inline void
+vregion_freelist_enqueue_tail(struct proc_info *ctx,
+			      struct vregion_info *v)
+{
+	pthread_spin_lock(&ctx->lock);
+	__vregion_freelist_enqueue_tail(ctx, v);
+	pthread_spin_unlock(&ctx->lock);
+}
+
+static inline void init_vregion(struct vregion_info *v)
+{
+	v->flags = VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN;
+	v->mmap = NULL;
+	v->mm_rb = RB_ROOT;
+	v->nr_vmas = 0;
+	v->highest_vm_end = 0;
+	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline void init_proc_info(struct proc_info *pi)
+{
+	int j;
+	struct vregion_info *v;
+
+	pi->flags = 0;
+
+	INIT_HLIST_NODE(&pi->link);
+	pi->pid = 0;
+	pi->node = 0;
+
+	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
+	atomic_init(&pi->refcount, 1);
+
+	/* Vregion Related */
+	INIT_LIST_HEAD(&pi->free_list_head);
+	pi->nr_vmas = 0;
+	for (j = 0; j < NR_VREGIONS; j++) {
+		v = pi->vregion + j;
+		init_vregion(v);
+
+		if (j != 0)
+			__vregion_freelist_enqueue_tail(pi, v);
+	}
+}
 
 struct vm_unmapped_area_info {
-#define VM_UNMAPPED_AREA_TOPDOWN 1
+	/*
+	 * Use VREGION_INFO flags
+	 * VREGION_INFO_FLAG_UNMAPPED_AREA_TOPDOWN
+	 */
 	unsigned long flags;
 	unsigned long length;
 	unsigned long low_limit;
@@ -280,14 +382,24 @@ struct vm_area_struct {
 	/* Second cache line */
 	struct vregion_info *vi;
 	unsigned long vm_flags;
+
+	/*
+	 * Used by shadow pgtables
+	 * to chain all the conflicting VMAs..
+	 */
+	struct list_head conflict_list;
 };
+
+static inline unsigned long __remote
+vregion_index_to_va(unsigned int idx)
+{
+	return (unsigned long)idx << VREGION_SIZE_SHIFT;
+}
 
 static inline unsigned int
 va_to_vregion_index(unsigned long __remote va)
 {
-	unsigned long idx;
-	idx = va >> VREGION_SIZE_SHIFT;
-	return idx;
+	return (unsigned int)(va >> VREGION_SIZE_SHIFT);
 }
 
 static inline struct vregion_info *
@@ -307,11 +419,11 @@ index_to_vregion(struct proc_info *p, unsigned int index)
 	return p->vregion + index;
 }
 
-static inline unsigned int
+static inline unsigned long
 vregion_to_index(struct proc_info *p, struct vregion_info *v)
 {
 	struct vregion_info *head = p->vregion;
-	unsigned int idx;
+	unsigned long idx;
 
 	idx = v - head;
 	if (unlikely(idx >= NR_VREGIONS)) {
@@ -326,7 +438,7 @@ vregion_to_index(struct proc_info *p, struct vregion_info *v)
 static inline unsigned long
 vregion_to_start_va(struct proc_info *p, struct vregion_info *v)
 {
-	unsigned int idx;
+	unsigned long idx;
 
 	idx = vregion_to_index(p, v);
 

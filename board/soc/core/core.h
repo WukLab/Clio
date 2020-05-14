@@ -7,6 +7,31 @@
 
 #include <uapi/sched.h>
 #include <uapi/thpool.h>
+#include <fpga/zynq_regmap.h>
+#include <fpga/lego_mem_ctrl.h>
+#include "external.h"
+#include "buddy.h"
+
+#if 1
+# define LEGOMEM_DEBUG
+#endif
+
+#ifdef LEGOMEM_DEBUG
+# define dprintf_DEBUG(fmt, ...) \
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
+#else
+# define dprintf_DEBUG(fmt, ...)  do { } while (0)
+#endif
+
+/* General info, always on */
+#define dprintf_INFO(fmt, ...) \
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
+
+/* ERROR/WARNING info, always on */
+#define dprintf_ERROR(fmt, ...) \
+	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
+extern int devmem_fd;
 
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
@@ -15,7 +40,8 @@ int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 	    unsigned long start, unsigned long len);
 unsigned long alloc_va(struct proc_info *proc, unsigned long len, unsigned long vm_flags);
 int free_va(struct proc_info *proc, unsigned long start, unsigned long len);
-void test_vm(void);
+int __free_va(struct proc_info *proc, struct vregion_info *vi,
+	      unsigned long start, unsigned long len);
 
 /*
  * SCHED APIs
@@ -29,7 +55,6 @@ void test_vm(void);
  * Developers should use get_proc_by_pid, and put_proc_info in a pair
  * whenever you are using the proc_info. Never use free_proc directly.
  */
-int init_proc_subsystem(void);
 struct proc_info *alloc_proc(unsigned int pid,
 			     char *proc_name, unsigned int host_ip);
 void free_proc(struct proc_info *pi);
@@ -38,8 +63,41 @@ void dump_proc(struct proc_info *pi);
 void dump_procs(void);
 
 /* Session */
-void init_session_subsys(void);
-int alloc_session_id(void);
-void free_session_id(unsigned int session_id);
+struct session_net *alloc_session(void);
+void free_session_by_id(unsigned int id);
+void dump_net_sessions(void);
+
+/* Buddy */
+int init_buddy(void);
+struct page *alloc_page(unsigned int order);
+void free_page(struct page *page, unsigned int order);
+unsigned long alloc_pfn(unsigned int order);
+void free_pfn(unsigned long pfn, unsigned int order);
+
+int pin_cpu(int cpu_id);
+void legomem_getcpu(int *cpu, int *node);
+int parse_ip_str(const char *ip_str);
+
+int init_shadow_pgtable(void);
+int init_freepage_fifo(void);
+void init_stat_mapping(void);
+void init_migration_setup(void);
+int init_ctrl_polling(void);
+
+void handle_test_pte(struct thpool_buffer *tb);
+
+/* Test */
+void test_buddy(void);
+void test_vm(void);
+void test_pgtable_access(void);
+void test_clear_page(void);
+
+/* board.c */
+struct board_info *add_board(char *board_name, int board_ip, int udp_port);
+struct board_info *find_board(int ip, unsigned int port);
+void dump_boards(void);
+
+void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
+			      struct lego_mem_ctrl *tx);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

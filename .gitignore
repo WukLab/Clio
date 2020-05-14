@@ -62,6 +62,8 @@ tmp/
 # Listed in template file as well
 generated_hls_project/
 generated_vivado_project/
+relnet_512/
+sdk_project/
 *.backup/
 
 # Generated IP repositories

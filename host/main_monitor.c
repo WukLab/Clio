@@ -39,95 +39,15 @@ static atomic_int nr_boards;
  *
  * The thpool buffer is using a simple ring-based design.
  */
-static int TW_HEAD = 0;
-static int TB_HEAD = 0;
 static struct thpool_worker *thpool_worker_map;
 static struct thpool_buffer *thpool_buffer_map;
 
-/*
- * Select a worker to handle the next request
- * in a round-robin fashion.
- */
-static __always_inline struct thpool_worker *
-select_thpool_worker_rr(void)
-{
-	struct thpool_worker *tw;
-	int idx;
-
-	idx = TW_HEAD % NR_THPOOL_WORKERS;
-	tw = thpool_worker_map + idx;
-	TW_HEAD++;
-	return tw;
-}
-
-static __always_inline struct thpool_buffer *
-alloc_thpool_buffer(void)
-{
-	struct thpool_buffer *tb;
-	int idx;
-
-	idx = TB_HEAD % NR_THPOOL_BUFFER;
-	tb = thpool_buffer_map + idx;
-	TB_HEAD++;
-
-	/*
-	 * If this happens during runtime, it means:
-	 * - ring buffer is not large enough
-	 * - some previous handlers are too slow
-	 */
-	while (unlikely(ThpoolBufferUsed(tb))) {
-		;
-	}
-
-	SetThpoolBufferUsed(tb);
-	barrier();
-	return tb;
-}
-
-static __always_inline void
-free_thpool_buffer(struct thpool_buffer *tb)
-{
-	tb->flags = 0;
-	barrier();
-}
-
-static DECLARE_BITMAP(pid_map, NR_MAX_PID);
+static DECLARE_BITMAP(pid_map, NR_MAX_USER_PID);
 static pthread_spinlock_t(pid_lock);
 
 #define PID_ARRAY_HASH_BITS	(10)
 static DEFINE_HASHTABLE(proc_hash_array, PID_ARRAY_HASH_BITS);
 static pthread_spinlock_t proc_lock;
-
-static void init_vregion(struct vregion_info *v)
-{
-	v->flags = VM_UNMAPPED_AREA_TOPDOWN;
-	v->mmap = NULL;
-	v->mm_rb = RB_ROOT;
-	v->nr_vmas = 0;
-	v->highest_vm_end = 0;
-	pthread_spin_init(&v->lock, PTHREAD_PROCESS_PRIVATE);
-}
-
-static void init_proc_info(struct proc_info *pi)
-{
-	int j;
-	struct vregion_info *v;
-
-	pi->flags = 0;
-
-	INIT_HLIST_NODE(&pi->link);
-	pi->pid = 0;
-	pi->node = 0;
-
-	pthread_spin_init(&pi->lock, PTHREAD_PROCESS_PRIVATE);
-	atomic_init(&pi->refcount, 1);
-
-	pi->nr_vmas = 0;
-	for (j = 0; j < NR_VREGIONS; j++) {
-		v = pi->vregion + j;
-		init_vregion(v);
-	}
-}
 
 int alloc_pid(void)
 {
@@ -140,8 +60,8 @@ int alloc_pid(void)
 	 * use lock will do harm here.
 	 */
 	pthread_spin_lock(&pid_lock);
-	bit = find_next_zero_bit(pid_map, NR_MAX_PID, 1);
-	if (bit >= NR_MAX_PID) {
+	bit = find_next_zero_bit(pid_map, NR_MAX_USER_PID, 1);
+	if (bit >= NR_MAX_USER_PID) {
 		bit = -1;
 		goto unlock;
 	}
@@ -154,7 +74,7 @@ unlock:
 
 void free_pid(unsigned int pid)
 {
-	BUG_ON(pid >= NR_MAX_PID);
+	BUG_ON(pid >= NR_MAX_USER_PID);
 
 	pthread_spin_lock(&pid_lock);
 	if (!test_and_clear_bit(pid, pid_map))
@@ -174,6 +94,7 @@ alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 	init_proc_info(new);
 	new->pid = pid;
 	new->host_ip = host_ip;
+	get_ip_str(host_ip, new->host_ip_str);
 
 	if (proc_name)
 		strncpy(new->proc_name, proc_name, PROC_NAME_LEN);
@@ -190,7 +111,7 @@ alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
  * The refcount is incremented by 1 if found.
  * The caller must call put_proc() afterwards.
  */
-struct proc_info *get_proc_by_pid(unsigned int pid)
+static struct proc_info *get_proc_by_pid(unsigned int pid)
 {
 	struct proc_info *pi;
 	unsigned int key;
@@ -198,7 +119,6 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	key = pid;
 	pthread_spin_lock(&proc_lock);
 	hash_for_each_possible(proc_hash_array, pi, link, key) {
-		dprintf_INFO("pid %d\n", pi->pid);
 		if (likely(pi->pid == pid)) {
 			get_proc_info(pi);
 			pthread_spin_unlock(&proc_lock);
@@ -207,6 +127,20 @@ struct proc_info *get_proc_by_pid(unsigned int pid)
 	}
 	pthread_spin_unlock(&proc_lock);
 	return NULL;
+}
+
+static void dump_procs(void)
+{
+	struct proc_info *pi;
+	int bkt = 0;
+
+	printf("  bucket      pid              host_ip\n");
+	printf("-------- -------- --------------------\n");
+	pthread_spin_lock(&proc_lock);
+	hash_for_each(proc_hash_array, bkt, pi, link) {
+		printf("%8d %8d %20s\n", bkt, pi->pid, pi->host_ip_str);
+	}
+	pthread_spin_unlock(&proc_lock);
 }
 
 /*
@@ -317,38 +251,27 @@ static void handle_free_proc(struct thpool_buffer *tb)
 
 	resp->ret = 0;
 
-	dprintf_DEBUG("free context pid: %u\n", pid);
+	if (0) {
+		dprintf_DEBUG("free context pid %u\n", pid);
+		dump_procs();
+	}
 }
 
 static inline struct vregion_info *
 alloc_vregion(struct proc_info *p)
 {
 	struct vregion_info *v;
-	int i;
 
-	pthread_spin_lock(&p->lock);
-	for (i = 0; i < NR_VREGIONS; i++) {
-		v = p->vregion + i;
-		if (!(v->flags & VREGION_INFO_FLAG_ALLOCATED)) {
-			v->flags |= VREGION_INFO_FLAG_ALLOCATED;
-			pthread_spin_unlock(&p->lock);
-			return v;
-		}
-	}
-	pthread_spin_unlock(&p->lock);
-	return NULL;
+	v = vregion_freelist_dequeue_head(p);
+	if (v)
+		init_vregion(v);
+	return v;
 }
 
 static inline void free_vregion(struct proc_info *p,
 				struct vregion_info *v)
 {
-	pthread_spin_lock(&p->lock);
-	if (v->flags & VREGION_INFO_FLAG_ALLOCATED) {
-		v->flags &=  ~VREGION_INFO_FLAG_ALLOCATED;
-	} else {
-		BUG();
-	}
-	pthread_spin_unlock(&p->lock);
+	vregion_freelist_enqueue_tail(p, v);
 }
 
 /*
@@ -359,6 +282,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 {
 	struct legomem_alloc_free_req *req;
 	struct legomem_alloc_free_resp *resp;
+	struct lego_header *lego_header;
 	unsigned int pid;
 	struct proc_info *pi;
 	unsigned long len;
@@ -369,9 +293,12 @@ static void handle_alloc(struct thpool_buffer *tb)
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	req = (struct legomem_alloc_free_req *)tb->rx;
-	pid = 0;
+	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
+
 	pi = get_proc_by_pid(pid);
 	if (!pi) {
+		dprintf_ERROR("fail to find pid %d\n", pid);
 		resp->op.ret = -ESRCH;
 		return;
 	}
@@ -383,8 +310,11 @@ static void handle_alloc(struct thpool_buffer *tb)
 		goto out;
 	}
 
+	/* Find an available vregion */
 	vi = alloc_vregion(pi);
 	if (!vi) {
+		dprintf_ERROR("Fail to alloc a new vRegion for pid %d. "
+			      "The vRegion free list is empty!\n", pid);
 		resp->op.ret = -ENOMEM;
 		goto out;
 	}
@@ -398,9 +328,8 @@ static void handle_alloc(struct thpool_buffer *tb)
 	if (!bi) {
 		free_vregion(pi, vi);
 
-		resp->op.ret = -EPERM;
-		printf("%s(): WARN. No board available. Requester: %d\n",
-			__func__, pid);
+		resp->op.ret = -ENODEV;
+		dprintf_ERROR("No board available for this alloc req. pid %d\n", pid);
 		goto out;
 	}
 
@@ -420,23 +349,6 @@ out:
 static void handle_free(struct thpool_buffer *tb)
 {
 
-}
-
-static void handle_test(struct thpool_buffer *tb)
-{
-	struct reply {
-		struct legomem_common_headers comm_headers;
-		int cnt;
-	} *reply, *req;
-	static int nr_rx = 0;
-
-	reply = (struct reply *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*reply));
-
-	nr_rx++;
-
-	req = (struct reply *)tb->rx;
-	printf("%s: cnt: %5d nr_rx: %5d\n", __func__, req->cnt, nr_rx);
 }
 
 static int migration_notify_cancel_recv(struct board_info *dst_bi,
@@ -484,7 +396,7 @@ static int migration_notify_recv(struct board_info *dst_bi,
 	ses = get_board_mgmt_session(dst_bi);
 	ret = net_send_and_receive(ses, &req, sizeof(req), &resp, sizeof(resp));
 	if (ret <= 0) {
-		dprintf_DEBUG("net error: %d board: %s\n", ret, dst_bi->name);
+		dprintf_ERROR("net error: %d board: %s\n", ret, dst_bi->name);
 		return -EIO;
 	}
 	return resp.op.ret;
@@ -513,6 +425,23 @@ static int migration_notify_send(struct board_info *src_bi,
 	return resp.op.ret;
 }
 
+#if 1
+#define dump_migration_req(pid, op)						\
+	do {									\
+		char ip_src[INET_ADDRSTRLEN], ip_dst[INET_ADDRSTRLEN];		\
+		get_ip_str((op)->src_board_ip, ip_src);				\
+		get_ip_str((op)->dst_board_ip, ip_dst);				\
+		dprintf_DEBUG("pid=%d vregion_idx=%u [%s:%d -> %s:%d]\n",	\
+			pid, (op)->vregion_index,				\
+			ip_src, (op)->src_udp_port,				\
+			ip_dst, (op)->dst_udp_port);				\
+	} while (0)
+#else
+#define dump_migration_req(pid, op)						\
+	do {									\
+	} while (0)
+#endif
+
 /*
  * Handle the case where a host application explicitly asking
  * for data migration. The requester has already choosed the new board.
@@ -535,40 +464,49 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	struct vregion_info *v;
 	unsigned int vregion_index;
 	unsigned int pid, ret;
+	char ip_str[INET_ADDRSTRLEN];
 
 	resp = (struct legomem_migration_resp *)tb->tx;
 	set_tb_tx_size(tb, sizeof(*resp));
 
 	req = (struct legomem_migration_req *)tb->rx;
 	lego_header = to_lego_header(req);
+	pid = lego_header->pid;
 
 	/* Found those two involved boards */
 	src_bi = find_board(req->op.src_board_ip, req->op.src_udp_port);
 	if (!src_bi) {
-		dprintf_DEBUG("src board %s not found\n", src_bi->name);
+		get_ip_str(req->op.src_board_ip, ip_str);
+		dprintf_DEBUG("src board %s:%d not found\n",
+			ip_str, req->op.src_udp_port);
 		goto error;
 	}
+
 	dst_bi = find_board(req->op.dst_board_ip, req->op.dst_udp_port);
 	if (!dst_bi) {
-		dprintf_DEBUG("dst board %s not found\n", dst_bi->name);
+		get_ip_str(req->op.dst_board_ip, ip_str);
+		dprintf_DEBUG("dst board %s:%d not found\n",
+			ip_str, req->op.dst_udp_port);
 		goto error;
 	}
+	dump_migration_req(pid, &req->op);
 
-	/* First notify the new board to let it prepare */
+	/* Step 1: notify new board to prepare */
 	ret = migration_notify_recv(dst_bi, req);
 	if (ret) {
-		dprintf_DEBUG("dst board %s does not accept migration. Error %d\n",
-			dst_bi->name, ret);
+		dprintf_ERROR("New dst board %s did not accept migration! "
+			      "Error %d\n", dst_bi->name, ret);
 		goto error;
 	}
 
-	/* Then notify the old board to start migration */
+	/* Step 2: notify old board to start migration */
 	ret = migration_notify_send(src_bi, req);
 	if (ret) {
-		/* Tell new board to cancel the party */
+		dprintf_ERROR("Old src board %s cannot start migration. "
+			      "Error %d\n", src_bi->name, ret);
+
+		/* Tell new board to cancel */
 		migration_notify_cancel_recv(dst_bi, req);
-		dprintf_DEBUG("src board %s cannot start migration. Error %d\n",
-			src_bi->name, ret);
 		goto error;
 	}
 
@@ -576,7 +514,6 @@ static void handle_migration_h2m(struct thpool_buffer *tb)
 	 * Update monitor local vRegion info
 	 * to the latest board
 	 */
-	pid = lego_header->pid;
 	vregion_index = req->op.vregion_index;
 
 	p = get_proc_by_pid(pid);
@@ -596,7 +533,7 @@ error:
  */
 static void handle_migration_b2m(struct thpool_buffer *tb)
 {
-
+	dprintf_ERROR("This is not implemented yet! %d\n", 0);
 }
 
 /*
@@ -680,6 +617,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	new_bi = add_board(new_name, req->op.mem_size_bytes,
 		       ei, &default_local_ei, false);
 	if (!new_bi) {
+		dprintf_ERROR("Fail to add new board/node for %s\n", new_name);
 		resp->ret = -ENOMEM;
 		return;
 	}
@@ -688,24 +626,28 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	    req->op.type == BOARD_INFO_FLAGS_BOARD) {
 		new_bi->flags |= req->op.type;
 	} else {
-		printf("%s(): unknown remote type: %lu",
-			__func__, req->op.type);
+		dprintf_ERROR("unknown remote type: %lu", req->op.type);
 		remove_board(new_bi);
 		resp->ret = -EINVAL;
 		return;
 	}
 
-	/* Debugging info */
-	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
-		ip_str, ei->udp_port, new_name, board_info_type_str(new_bi->flags));
-	dump_boards();
-	dump_net_sessions();
-
+	/*
+	 * XXX Apr 30, 2020 Yizhou Shan
+	 * When monitor.o wants to notify board,
+	 * the board soc will get the request, send out reply
+	 * but the monitor will never get the reply.
+	 * I have tried to use OPEN_SESSION opcode, same thing.
+	 * I think there is probably sth wrong about monitor
+	 * side network stack or sth.. need to compare monitor/host
+	 * difference.
+	 */
+#if 1
 	/*
 	 * Step 2:
 	 * Notify all other online nodes about this new born
 	 */
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
 		struct legomem_membership_new_node_resp new_resp;
@@ -733,7 +675,8 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		net_send_and_receive(ses, &new_req, sizeof(new_req),
 					  &new_resp, sizeof(new_resp));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
+#endif
 
 	/*
 	 * Step 3:
@@ -741,7 +684,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 * send a bunch of requests to the original sender
 	 * for each existing node in the cluster
 	 */
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		struct legomem_membership_new_node_req new_req;
 		struct legomem_membership_new_node_resp new_resp;
@@ -769,10 +712,16 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 		net_send_and_receive(ses, &new_req, sizeof(new_req),
 					  &new_resp, sizeof(new_resp));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 
 	/* success */
 	resp->ret = 0;
+
+	/* Debugging info */
+	dprintf_INFO("new node added: %s:%d name: %s type: %s\n",
+		ip_str, ei->udp_port, new_name, board_info_type_str(new_bi->flags));
+	dump_boards();
+	dump_net_sessions();
 }
 
 static void handle_query_stat(struct thpool_buffer *tb)
@@ -794,13 +743,7 @@ static void handle_query_stat(struct thpool_buffer *tb)
 	resp->nr_items = NR_STAT_TYPES;
 }
 
-static void handle_pingpong(struct thpool_buffer *tb)
-{
-	struct legomem_pingpong_resp *resp;
-
-	resp = (struct legomem_pingpong_resp *)tb->tx;
-	set_tb_tx_size(tb, sizeof(*resp));
-}
+extern int nr_recv_pkt;
 
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
@@ -814,14 +757,11 @@ static void worker_handle_request(struct thpool_worker *tw,
 	opcode = lego_hdr->opcode;
 
 	if (0) {
-		dprintf_INFO("received opcode: %u (%s)\n",
-			opcode, legomem_opcode_str(opcode));
+		dprintf_INFO("received opcode: %u (%s) pkt_size: %zu B\n",
+			opcode, legomem_opcode_str(opcode), tb->rx_size);
 	}
 
 	switch (opcode) {
-	case OP_REQ_TEST:
-		handle_test(tb);
-		break;
 	case OP_REQ_ALLOC:
 		handle_alloc(tb);
 		break;
@@ -835,6 +775,13 @@ static void worker_handle_request(struct thpool_worker *tw,
 		break;
 	case OP_FREE_PROC:
 		handle_free_proc(tb);
+		break;
+
+	case OP_OPEN_SESSION:
+		handle_open_session(tb);
+		break;
+	case OP_CLOSE_SESSION:
+		handle_close_session(tb);
 		break;
 
 	/* Handle migration requests */
@@ -863,9 +810,16 @@ static void worker_handle_request(struct thpool_worker *tw,
 		handle_query_stat(tb);
 		break;
 	default:
-		dprintf_ERROR("received unknown or un-implemented opcode: %u (%s)\n",
-			opcode, legomem_opcode_str(opcode));
-		goto free;
+		if (1) {
+			char err_msg[128];
+			dump_packet_headers(tb->rx, err_msg);
+			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s) packet dump: \n"
+				      "%s pkt_size: %zu B nr_recv_pkt: %d\n", opcode, legomem_opcode_str(opcode), err_msg,
+				      tb->rx_size, nr_recv_pkt- 1);
+			dump_gbn_session(mgmt_session, true);
+		}
+		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
+		return;
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
@@ -888,8 +842,6 @@ static void worker_handle_request(struct thpool_worker *tw,
 
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	}
-free:
-	free_thpool_buffer(tb);
 }
 
 /*
@@ -903,14 +855,26 @@ static void *dispatcher(void *_unused)
 	struct thpool_worker *tw;
 	int ret;
 
-	while (1) {
-		tb = alloc_thpool_buffer();
-		tw = select_thpool_worker_rr();
+	tb = thpool_buffer_map;
+	tw = thpool_worker_map;
 
+	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
+	if (ret) {
+		dprintf_ERROR("Fail to register TX buffer %d\n", ret);
+		return NULL;
+	}
+
+	while (1) {
+#if 1
+		ret = net_receive_zerocopy_nb(mgmt_session, &tb->rx, &tb->rx_size);
+		if (ret <= 0)
+			continue;
+#else
 		ret = net_receive(mgmt_session, tb->rx, THPOOL_BUFFER_SIZE);
 		if (ret <= 0)
 			continue;
 		tb->rx_size = ret;
+#endif
 
 		/*
 		 * Inline handling for now
@@ -922,7 +886,7 @@ static void *dispatcher(void *_unused)
 }
 
 /* Gather stats from all online nodes. */
-static void monitor_gather_stats(void)
+__used static void monitor_gather_stats(void)
 {
 	struct legomem_query_stat_req *req;
 	struct legomem_query_stat_resp *resp;
@@ -939,7 +903,7 @@ static void monitor_gather_stats(void)
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_QUERY_STAT;
 
-	pthread_spin_lock(&board_lock);
+	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, i, bi, link) {
 		if (special_board_info_type(bi->flags))
 			continue;
@@ -956,7 +920,7 @@ static void monitor_gather_stats(void)
 		/* Copy to per-node stat list */
 		memcpy(bi->stat, resp->stat, NR_STAT_TYPES * sizeof(unsigned long));
 	}
-	pthread_spin_unlock(&board_lock);
+	pthread_rwlock_unlock(&board_lock);
 
 	free(req);
 	free(resp);
@@ -970,10 +934,12 @@ static void monitor_gather_stats(void)
  */
 static void *daemon_thread_func(void *_unused)
 {
+#if 0
 	while (1) {
 		sleep(5);
 		monitor_gather_stats();
 	}
+#endif
 	return NULL;
 }
 
@@ -1009,6 +975,7 @@ static void print_usage(void)
 	       "                              Available Options are:\n"
 	       "                                1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
 	       "                                2. bypass (simple bypass transport layer, unreliable)\n"
+	       "  --add_board=<ip:port>       Manually add a remote board (Optional)\n"
 	       "\n"
 	       "Examples:\n"
 	       "  ./monitor.o --port 8888 --dev=\"lo\" \n"
@@ -1021,6 +988,7 @@ static struct option long_options[] = {
 	{ "dev",		required_argument,	NULL,	'd'},
 	{ "net_raw_ops",	required_argument,	NULL,	'n'},
 	{ "net_trans_ops",	required_argument,	NULL,	OPT_NET_TRANS_OPS},
+	{ "add_board",		required_argument,	NULL,	'b'},
 	{ 0,			0,			0,	0  }
 };
 
@@ -1032,9 +1000,12 @@ int main(int argc, char **argv)
 	bool ndev_set = false;
 	int port = 0;
 
+	char board_addr[32];
+	char board_addr_set = false;
+
 	/* Parse arguments */
 	while (1) {
-		c = getopt_long(argc, argv, "p:d:",
+		c = getopt_long(argc, argv, "p:d:n:b:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -1077,6 +1048,10 @@ int main(int argc, char **argv)
 				exit(-1);
 			}
 			break;
+		case 'b':
+			strncpy(board_addr, optarg, sizeof(board_addr));
+			board_addr_set = true;
+			break;
 		default:
 			print_usage();
 			exit(-1);
@@ -1115,21 +1090,17 @@ int main(int argc, char **argv)
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&join_cluster_lock, PTHREAD_PROCESS_PRIVATE);
 
-	/* Same as host side init */
-	init_board_subsys();
-	init_context_subsys();
-	init_net_session_subsys();
-
-	/*
-	 * add the special localhost board_info
-	 */
-	add_localhost_bi(&default_local_ei);
-
 	ret = init_local_management_session();
 	if (ret) {
 		printf("Fail to init local mgmt session\n");
 		exit(-1);
 	}
+
+	/*
+	 * Add a special localhost board_info
+	 * and a special localhost session_net
+	 */
+	add_localhost_bi(&default_local_ei);
 
 	create_daemon_thread();
 
@@ -1140,6 +1111,12 @@ int main(int argc, char **argv)
 	init_thpool(NR_THPOOL_WORKERS, &thpool_worker_map);
 	init_thpool_buffer(NR_THPOOL_BUFFER, &thpool_buffer_map,
 			   default_thpool_buffer_alloc_cb);
+
+	create_watchdog_thread();
+
+	if (board_addr_set) {
+		manually_add_new_node_str(board_addr, BOARD_INFO_FLAGS_BOARD);
+	}
 
 	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
 	if (ret) {

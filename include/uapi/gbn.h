@@ -43,10 +43,10 @@
 #define DEST_SLOT_OFFSET	(SES_ID_OFFSET + SLOT_ID_WIDTH)
 
 /*
- * subnet: 192.168.1.0/24
+ * subnet: 192.168.0.0/48
  */
-#define SUBNET			(0xc0a80100)
-#define SUBNET_MASK		(0xffffff00)
+#define SUBNET			(0xc0a80000)
+#define SUBNET_MASK		(0xffff0000)
 
 /*
  * attention: don't make retrans_timeout_cycle less than 1
@@ -57,7 +57,7 @@
 #define RETRANS_TIMEOUT_CYCLE	(DIV_ROUND_UP(RETRANS_TIMEOUT_US * 1000, CYCLE_TIME_NS))
 
 // buff starts at 1GB
-#define BUFF_ADDRESS_START	(0x40000000)
+#define BUFF_ADDRESS_START	(0x504000000)
 
 enum gbn_pkt_type {
 	GBN_PKT_ACK = 1,

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 #include <uapi/list.h>
 #include <uapi/err.h>
@@ -47,6 +48,8 @@
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
 #define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
 
+#define NR_MAX_OUTSTANDING_SEND_WR	(NR_BUFFER_DEPTH / 2)
+
 int ib_port = 1;
 
 /*
@@ -56,52 +59,23 @@ int ib_port = 1;
  */
 #define DEFAULT_MAX_INLINE_SIZE (128)
 
-struct session_raw_verbs {
-	struct ibv_pd *pd;
-	struct ibv_qp *qp;
-	struct ibv_cq *send_cq;
-
-	struct ibv_cq *recv_cq;
-	struct ibv_mr *recv_mr;
-	void *recv_buf;
-
-	struct ibv_flow *eth_flow;
-
-	pthread_spinlock_t *lock;
-};
-
 static struct session_raw_verbs cached_session_raw_verbs;
 static pthread_spinlock_t raw_verbs_lock;
 
-/*
- * TODO
- * 1) Instead of reg/dereg mr every time, we could use
- *    a preallocated/register hugepage ring buffer.
- * 2) Add timeout to poll_cq
- */
-static int raw_verbs_send(struct session_net *ses_net,
-			  void *buf, size_t buf_size, void *_route)
+static int raw_verbs_reg_send_buf(struct session_net *ses_net,
+				  void *buf, size_t buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
-	struct ibv_sge sge;
-	struct ibv_send_wr wr, *bad_wr;
 	struct ibv_mr *mr;
 	struct ibv_pd *pd;
-	struct ibv_qp *qp;
-	struct ibv_cq *send_cq;
-	int ret;
-	struct routing_info *route;
-
-	if (unlikely(!ses_net || !buf || buf_size > sysctl_link_mtu))
-		return -EINVAL;
 
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
-	qp = ses_verbs->qp;
-	send_cq = ses_verbs->send_cq;
 
-	if (unlikely(!ses_verbs || !pd || !qp || !send_cq))
-		return -EINVAL;
+	if (unlikely(ses_verbs->send_mr)) {
+		dprintf_INFO("Override session %d registered send_buf\n",
+			get_local_session_id(ses_net));
+	}
 
 	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!mr) {
@@ -109,12 +83,83 @@ static int raw_verbs_send(struct session_net *ses_net,
 		return errno;
 	}
 
+	ses_verbs->send_mr = mr;
+	ses_verbs->send_buf = buf;
+	ses_verbs->send_buf_size = buf_size;
+	return 0;
+}
+
+static struct msg_buf *
+raw_verbs_reg_msg_buf(struct session_net *ses_net, void *buf, size_t buf_size)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct msg_buf *mb;
+	struct ibv_mr *mr;
+	struct ibv_pd *pd;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	if (!ses_verbs) {
+		dprintf_ERROR("no ses_verbs installed %d\n", 0);
+		return NULL;
+	}
+	pd = ses_verbs->pd;
+
+	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
+	if (!mr) {
+		perror("reg mr:");
+		return NULL;
+	}
+
+	mb = malloc(sizeof(*mb));
+	if (!mb) {
+		ibv_dereg_mr(mr);
+		return NULL;
+	}
+
+	mb->buf = buf;
+	mb->max_buf_size = buf_size;
+	mb->private = mr;
+	return mb;
+}
+
+static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
+{
+	struct ibv_mr *mr;
+
+	if (!mb)
+		return -EINVAL;
+
+	mr = (struct ibv_mr *)mb->private;
+	ibv_dereg_mr(mr);
+	free(mb);
+	return 0;
+}
+
+atomic_long nr_post_send;
+
+static int
+__raw_verbs_send(struct session_net *ses_net,
+		 void *buf, size_t buf_size, struct ibv_mr *send_mr, void *_route)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_sge sge;
+	struct ibv_send_wr wr, *bad_wr;
+	struct ibv_qp *qp;
+	struct ibv_cq *send_cq;
+	bool signaled;
+	int ret;
+	struct routing_info *route;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	qp = ses_verbs->qp;
+	send_cq = ses_verbs->send_cq;
+
 	/*
 	 * Cook the L2-L4 layer headers
 	 * If users provide their own ri, we use it.
-	 * Otherwise use the session ri.
+	 * Otherwise use the saved session ri.
 	 */
-	if (_route)
+	if (unlikely(_route))
 		route = (struct routing_info *)_route;
 	else
 		route = &ses_net->route;
@@ -122,66 +167,148 @@ static int raw_verbs_send(struct session_net *ses_net,
 
 	sge.addr = (uint64_t)buf;
 	sge.length = buf_size;
-	sge.lkey = mr->lkey;
+	sge.lkey = send_mr->lkey;
 
-	memset(&wr, 0, sizeof(wr));
-	wr.wr_id = 0;
 	wr.num_sge = 1;
 	wr.sg_list = &sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
+
+	wr.send_flags = 0;
 	if (buf_size <= DEFAULT_MAX_INLINE_SIZE)
 		wr.send_flags |= IBV_SEND_INLINE;
 
 	/*
-	 * TODO
-	 * We could do batch signaling.
-	 * There are probably two ways to implement that
-	 * 1. have SIGNALED every N requests
-	 * 2. have SIGNALED for every request, but poll every N requests
+	 * RDMAmojo:
+	 * https://www.rdmamojo.com/2014/06/30/working-unsignaled-completions/
+	 * All posted Send Requested, Signaled and Unsignaled,
+	 * are considered outstanding until a Work Completion that they,
+	 * or Send Requests that were posted after them, was polled from
+	 * the Completion Queue associated with the Send Queue. 
 	 *
-	 * We should aware that each CQE is a DMA-write from RNIC to DRAM.
-	 * I know LegoOS's LITE is doing the second way, but I don't think
-	 * that's the best way. Investigate more and come back optimize.
-	 * eRPC's code is using the second way.
+	 * We must occasionally post a Send Request that generates Work Completion.
 	 */
-	wr.send_flags |= IBV_SEND_SIGNALED;
+	if (unlikely(!(atomic_fetch_add(&nr_post_send, 1) % NR_MAX_OUTSTANDING_SEND_WR))) {
+		wr.send_flags |= IBV_SEND_SIGNALED;
+		signaled = true;
+	} else
+		signaled = false;
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (ret < 0) {
-		perror("Post Send:");
+	if (unlikely(ret < 0)) {
+		dprintf_ERROR("Fail to post send WQE %d\n", errno);
 		goto out;
 	}
 
-	while (1) {
-		struct ibv_wc wc;
+	if (unlikely(signaled)) {
+		while (1) {
+			struct ibv_wc wc;
 
-		ret = ibv_poll_cq(send_cq, 1, &wc);
-		if (!ret)
-			continue;
-		else if (ret < 0) {
-			perror("poll cq:");
-			goto out;
+			ret = ibv_poll_cq(send_cq, 1, &wc);
+			if (unlikely(!ret))
+				continue;
+			else if (unlikely(ret < 0)) {
+				dprintf_ERROR("Fail to poll CQ %d\n", errno);
+				goto out;
+			}
+			break;
 		}
-
-		/* Finished */
-		break;
 	}
 
+	inc_stat(STAT_NET_RAW_VERBS_NR_TX);
 	ret = buf_size;
 out:
-	ibv_dereg_mr(mr);
+	return ret;
+}
+
+static int
+raw_verbs_send_msg_buf(struct session_net *ses_net,
+		       struct msg_buf *mb, size_t buf_size, void *route)
+{
+	struct ibv_mr *send_mr;
+	void *buf;
+
+	send_mr = (struct ibv_mr *)mb->private;
+	buf = mb->buf;
+	return __raw_verbs_send(ses_net, buf, buf_size, send_mr, route);
+}
+
+static int
+raw_verbs_send(struct session_net *ses_net,
+	       void *buf, size_t buf_size, void *route)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_mr *send_mr;
+	bool new_mr;
+	int ret;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+
+	/*
+	 * There are 3 cases
+	 * 1. Buffer not registered.
+	 * 2. Buffer registered, but caller is NOT using that.
+	 * 3. Buffer registered, and caller is using that.
+	 * Case 3 is the normal case.
+	 */
+	if (unlikely(!ses_verbs->send_mr)) {
+		/*
+		 * Case 1:
+		 * Buffer not registered.
+		 * We need to reg/dereg this buffer just of this send event.
+		 * Caller should avoid this behavior on critical datapath.
+		 */
+		send_mr = ibv_reg_mr(ses_verbs->pd, buf, buf_size,
+				     IBV_ACCESS_LOCAL_WRITE);
+		if (!send_mr) {
+			dprintf_ERROR("Fail to register memory. %d\n", errno);
+			return errno;
+		}
+		new_mr = true;
+
+		dprintf_INFO("    Created a new MR for this particular send. Check if this is on datapath! %d\n", 0);
+	} else {
+		new_mr = false;
+		send_mr = ses_verbs->send_mr;
+
+		if (unlikely(ses_verbs->send_buf_size < buf_size)) {
+			dprintf_ERROR("Buffer too small. reg buf size: %zu, "
+				      "new msg size: %zu\n",
+				      ses_verbs->send_buf_size, buf_size);
+			return -EINVAL;
+		}
+
+		/*
+		 * Case 2:
+		 * Caller used a different buffer
+		 * and we do not need to anything for case 3
+		 */
+		if (unlikely(buf < ses_verbs->send_buf ||
+			     buf > (ses_verbs->send_buf + ses_verbs->send_buf_size))) {
+			dprintf_INFO("You have registered buffer but now "
+				     "are using a different one. "
+				     "There are perf penalties. (o %lx n %lx) "
+				     "Session local_id=%u remote_id=%u\n",
+				     (unsigned long)ses_verbs->send_buf,
+				     (unsigned long)buf,
+				     get_local_session_id(ses_net),
+				     get_remote_session_id(ses_net));
+			memcpy(ses_verbs->send_buf, buf, buf_size);
+			buf = ses_verbs->send_buf;
+		}
+	}
+
+	ret = __raw_verbs_send(ses_net, buf, buf_size, send_mr, route);
+
+	if (unlikely(new_mr))
+		ibv_dereg_mr(send_mr);
 	return ret;
 }
 
 /*
- * TODO
- *
- * This function can be optimized. Now we are doing individual post,
- * which is a single CPU-initiated MMIO write. If we chain all recv_wr
- * together, the driver will go for doorbell way, thus only one DMA read
- * from RNIC. Consider this function is sitting in data path, we should
- * optimize it. Reference: atc16, eRPC, and so on.
+ * This function is not used, there is nothing wrong about
+ * this function itself, but the moment it is called: recv_wr is empty.
+ * Thus some incoming packets will be dropped.
  */
 static inline void post_recvs(struct session_raw_verbs *ses)
 {
@@ -202,6 +329,28 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 			printf("Fail to post recv wr\n");
 			exit(1);
 		}
+	}
+}
+
+static __always_inline void
+post_recv(struct session_raw_verbs *ses, unsigned int id)
+{
+	struct ibv_sge sge;
+	struct ibv_recv_wr recv_wr, *bad_recv_wr;
+
+	sge.lkey = ses->recv_mr->lkey;
+	sge.length = BUFFER_SIZE;
+	recv_wr.num_sge = 1;
+	recv_wr.sg_list = &sge;
+	recv_wr.next = NULL;
+
+	sge.addr = (uint64_t)(ses->recv_buf + BUFFER_SIZE * id);
+	recv_wr.wr_id = id;
+	if (unlikely(ibv_post_recv(ses->qp, &recv_wr, &bad_recv_wr) < 0)) {
+		dprintf_ERROR("Fail to post a new recv_wr %d\n", errno);
+		dump_stats();
+		dump_legomem_contexts();
+		dump_net_sessions();
 	}
 }
 
@@ -234,6 +383,7 @@ static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 			perror("Poll CQ:");
 			return ret;
 		}
+		inc_stat(STAT_NET_RAW_VERBS_NR_RX_ZEROCOPY);
 
 		/* Get its position in the ring buffer */
 		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
@@ -241,8 +391,14 @@ static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 		*buf = buf_p;
 		*buf_size = wc.byte_len;
 
-		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1)))
+#if 0
+		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1))) {
+			inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
 			post_recvs(ses_verbs);
+		}
+#else
+		post_recv(ses_verbs, (unsigned int)(wc.wr_id));
+#endif
 		break;
 	}
 
@@ -272,13 +428,15 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 			perror("Poll CQ:");
 			return ret;
 		}
+		inc_stat(STAT_NET_RAW_VERBS_NR_RX);
 
 		/* Get its position in the ring buffer */
 		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
 
 		if (unlikely(wc.byte_len > buf_size)) {
-			printf("%s(): buf too small (%u %zu)\n",
-				__func__, wc.byte_len, buf_size);
+			dprintf_ERROR("Buf too small (received_size: %u "
+				      "user_buf_size: %zu)\n",
+				      wc.byte_len, buf_size);
 			return -EIO;
 		}
 
@@ -286,8 +444,14 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 		buf_size = wc.byte_len;
 		memcpy(buf, buf_p, buf_size);
 
-		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1)))
+#if 0
+		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1))) {
+			inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
 			post_recvs(ses_verbs);
+		}
+#else
+		post_recv(ses_verbs, (unsigned int)(wc.wr_id));
+#endif
 		break;
 	}
 
@@ -339,6 +503,14 @@ raw_verbs_open_session(struct session_net *ses_net,
 
 	/* Copy the whole thing */
 	*ses_verbs = cached_session_raw_verbs;
+
+	/*
+	 * Make sure the per-session local variables
+	 * are initiated right
+	 */
+	ses_verbs->send_mr = NULL;
+	ses_verbs->send_buf = NULL;
+	ses_verbs->send_buf_size = 0;
 	return 0;
 }
 
@@ -509,6 +681,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		 * We are using RAW PACKET QPs.
 		 */
 		.qp_type = IBV_QPT_RAW_PACKET,
+		.sq_sig_all = 0
 	};
 
 	qp = ibv_create_qp(pd, &qp_init_attr);
@@ -593,7 +766,13 @@ struct raw_net_ops raw_verbs_ops = {
 	.close_session		= raw_verbs_close_session,
 
 	.send_one		= raw_verbs_send,
+	.send_one_msg_buf	= raw_verbs_send_msg_buf,
 	.receive_one		= raw_verbs_receive,
 	.receive_one_zerocopy	= raw_verbs_receive_zerocopy,
 	.receive_one_nb		= NULL,
+
+	.reg_send_buf		= raw_verbs_reg_send_buf,
+
+	.reg_msg_buf		= raw_verbs_reg_msg_buf,
+	.dereg_msg_buf		= raw_verbs_dereg_msg_buf,
 };

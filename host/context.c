@@ -17,14 +17,14 @@
  * This is a per-node global legomem context hashtable.
  * One context per process.
  */
-#define CONTEXT_HASH_ARRAY_BITS	(5)
+#define CONTEXT_HASH_ARRAY_BITS	(4)
 static DEFINE_HASHTABLE(context_list, CONTEXT_HASH_ARRAY_BITS);
-static pthread_spinlock_t context_lock;
+static pthread_spinlock_t context_lock ____cacheline_aligned;
 
-int init_context_subsys(void)
+__constructor
+static void init_context_subsys(void)
 {
 	pthread_spin_init(&context_lock, PTHREAD_PROCESS_PRIVATE);
-	return 0;
 }
 
 int add_legomem_context(struct legomem_context *p)
@@ -76,7 +76,7 @@ struct legomem_context *find_legomem_context(unsigned int pid)
 	return NULL;
 }
 
-void dump_legomem_context(void)
+void dump_legomem_contexts(void)
 {
 	struct legomem_context *p;
 	int bkt = 0;
@@ -91,22 +91,32 @@ void dump_legomem_context(void)
 }
 
 /*
- * Ways to identify a session
+ * Note about context_add_session/search/remove
  *
- * Combo 1: board_ip + session_id
- * Combo 2: board_ip + tid
+ * This per-context hashtable is used to cache per-context open-sessions.
+ * It's specifically used to check if a certain thread has already open a
+ * network session with a certain board. Thus the key for this hashtable
+ * is tid (local thread PID), and boar ID (ip+udp_port).
  */
 
+static inline int __get_key(pid_t tid, int board_ip, unsigned int port)
+{
+	return tid + board_ip + port;
+}
+
+static inline int get_key(struct session_net *ses)
+{
+	return __get_key(ses->tid, ses->board_ip, ses->udp_port);
+}
+
 /*
- * Add an open session to the per-context cached list.
- * Caller needs to make sure the ses is fully cooked,
- * i.e., thread id, board info are filled.
+ * This is invoked when a new session is open.
  */
 int context_add_session(struct legomem_context *p, struct session_net *ses)
 {
 	int key;
 
-	key = get_session_key(ses);
+	key = get_key(ses);
 
 	pthread_spin_lock(&p->lock);
 	hash_add(p->ht_sessions, &ses->ht_link_context, key);
@@ -120,15 +130,12 @@ int context_remove_session(struct legomem_context *p, struct session_net *ses)
 	struct session_net *_ses;
 	int key;
 
-	key = get_session_key(ses);
+	key = get_key(ses);
 
 	pthread_spin_lock(&p->lock);
 	hash_for_each_possible(p->ht_sessions, _ses, ht_link_context, key) {
-		/*
-		 * We do not need to check tid here,
-		 * session_id+board_ip are sufficient.
-		 */
-		if (likely(_ses->session_id == ses->session_id &&
+		if (likely(_ses->tid == ses->tid &&
+			   _ses->udp_port == ses->udp_port &&
 			   _ses->board_ip == ses->board_ip)) {
 			hash_del(&ses->ht_link_context);
 			pthread_spin_unlock(&p->lock);
@@ -141,32 +148,57 @@ int context_remove_session(struct legomem_context *p, struct session_net *ses)
 }
 
 /*
- * Caller only knows @tid and @board_ip, and try to find out if there
- * was already an established session.
+ * Caller only knows @tid and @board_ip+@udp_port,
+ * and try to find out if there was already an established session between them.
+ *
+ * This is called during legomem_alloc.
  */
-struct session_net *context_find_session_by_ip(struct legomem_context *p,
-					       pid_t tid,
-					       unsigned int board_ip)
+struct session_net *
+context_find_session(struct legomem_context *p, pid_t tid,
+		     int board_ip, unsigned udp_port)
 {
-	int bkt;
-	struct session_net *ses;
+	struct session_net *_ses;
+	int key;
+
+	key = __get_key(tid, board_ip, udp_port);
 
 	pthread_spin_lock(&p->lock);
-	hash_for_each(p->ht_sessions, bkt, ses, ht_link_context) {
-		if (ses->board_ip == board_ip &&
-		    ses->tid == tid) {
+	hash_for_each_possible(p->ht_sessions, _ses, ht_link_context, key) {
+		if (likely(_ses->tid == tid &&
+			   _ses->udp_port == udp_port &&
+			   _ses->board_ip == board_ip)) {
 			pthread_spin_unlock(&p->lock);
-			return ses;
+			return _ses;
 		}
 	}
 	pthread_spin_unlock(&p->lock);
 	return NULL;
 }
 
-/* Check comments on context_find_session_by_ip() */
 struct session_net *context_find_session_by_board(struct legomem_context *p,
 						  pid_t tid,
 						  struct board_info *bi)
 {
-	return context_find_session_by_ip(p, tid, bi->board_ip);
+	return context_find_session(p, tid, bi->board_ip, bi->udp_port);
+}
+
+/*
+ * Dump the sessions associated
+ */
+void dump_legomem_context_sessions(struct legomem_context *p)
+{
+	struct session_net *ses;
+	int bkt;
+	char ip_str[INET_ADDRSTRLEN];
+
+	printf("Dump sessions with context (pid %d)\n", p->pid);
+	printf("bkt      tid      ip                   port\n");
+	printf("-------- -------- -------------------- --------\n");
+	pthread_spin_lock(&p->lock);
+	hash_for_each(p->ht_sessions, bkt, ses, ht_link_context) {
+		get_ip_str(ses->board_ip, ip_str);
+		printf("%-8d %-8u %-20s %-8u\n",
+			bkt, ses->tid, ip_str, ses->udp_port);
+	}
+	pthread_spin_unlock(&p->lock);
 }
