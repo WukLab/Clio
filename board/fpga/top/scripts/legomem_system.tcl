@@ -405,6 +405,13 @@ proc create_root_design { parentCell } {
    CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
  ] $ila_data_to_net
 
+  # Create instance: ila_data_to_udp, and set properties
+  set ila_data_to_udp [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_data_to_udp ]
+  set_property -dict [ list \
+   CONFIG.C_NUM_OF_PROBES {9} \
+   CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
+ ] $ila_data_to_udp
+
   # Create instance: ila_header_to_net, and set properties
   set ila_header_to_net [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_header_to_net ]
   set_property -dict [ list \
@@ -412,6 +419,14 @@ proc create_root_design { parentCell } {
    CONFIG.C_SLOT_0_AXIS_TDATA_WIDTH {128} \
    CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
  ] $ila_header_to_net
+
+  # Create instance: ila_header_to_udp, and set properties
+  set ila_header_to_udp [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_header_to_udp ]
+  set_property -dict [ list \
+   CONFIG.C_NUM_OF_PROBES {9} \
+   CONFIG.C_SLOT_0_AXIS_TDATA_WIDTH {128} \
+   CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
+ ] $ila_header_to_udp
 
   # Create instance: m_usr_data_fifo, and set properties
   set m_usr_data_fifo [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 m_usr_data_fifo ]
@@ -859,10 +874,10 @@ proc create_root_design { parentCell } {
    CONFIG.PSU__CRL_APB__PCAP_CTRL__DIVISOR0 {8} \
    CONFIG.PSU__CRL_APB__PCAP_CTRL__FREQMHZ {200} \
    CONFIG.PSU__CRL_APB__PCAP_CTRL__SRCSEL {IOPLL} \
-   CONFIG.PSU__CRL_APB__PL0_REF_CTRL__ACT_FREQMHZ {214.264297} \
-   CONFIG.PSU__CRL_APB__PL0_REF_CTRL__DIVISOR0 {7} \
+   CONFIG.PSU__CRL_APB__PL0_REF_CTRL__ACT_FREQMHZ {187.481262} \
+   CONFIG.PSU__CRL_APB__PL0_REF_CTRL__DIVISOR0 {8} \
    CONFIG.PSU__CRL_APB__PL0_REF_CTRL__DIVISOR1 {1} \
-   CONFIG.PSU__CRL_APB__PL0_REF_CTRL__FREQMHZ {230} \
+   CONFIG.PSU__CRL_APB__PL0_REF_CTRL__FREQMHZ {200} \
    CONFIG.PSU__CRL_APB__PL0_REF_CTRL__SRCSEL {IOPLL} \
    CONFIG.PSU__CRL_APB__PL1_REF_CTRL__DIVISOR0 {4} \
    CONFIG.PSU__CRL_APB__PL1_REF_CTRL__DIVISOR1 {1} \
@@ -1209,7 +1224,9 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axis_data_fifo_3_M_AXIS] [get_bd
   connect_bd_intf_net -intf_net ddr4_0_C0_DDR4 [get_bd_intf_ports ddr4_sdram] [get_bd_intf_pins ddr4_0/C0_DDR4]
   connect_bd_intf_net -intf_net relnet_0_M_AXI [get_bd_intf_pins axi_interconnect_1/S03_AXI] [get_bd_intf_pins relnet_0/M_AXI]
   connect_bd_intf_net -intf_net relnet_0_out_header [get_bd_intf_ports udp_out_header] [get_bd_intf_pins relnet_0/out_header]
+connect_bd_intf_net -intf_net [get_bd_intf_nets relnet_0_out_header] [get_bd_intf_ports udp_out_header] [get_bd_intf_pins ila_header_to_udp/SLOT_0_AXIS]
   connect_bd_intf_net -intf_net relnet_0_out_payload [get_bd_intf_ports udp_out_payload] [get_bd_intf_pins relnet_0/out_payload]
+connect_bd_intf_net -intf_net [get_bd_intf_nets relnet_0_out_payload] [get_bd_intf_ports udp_out_payload] [get_bd_intf_pins ila_data_to_udp/SLOT_0_AXIS]
   connect_bd_intf_net -intf_net relnet_0_usr_rx_header [get_bd_intf_pins m_usr_header_fifo/S_AXIS] [get_bd_intf_pins relnet_0/usr_rx_header]
 connect_bd_intf_net -intf_net [get_bd_intf_nets relnet_0_usr_rx_header] [get_bd_intf_pins ila_1/SLOT_0_AXIS] [get_bd_intf_pins m_usr_header_fifo/S_AXIS]
   connect_bd_intf_net -intf_net relnet_0_usr_rx_payload [get_bd_intf_pins m_usr_data_fifo/S_AXIS] [get_bd_intf_pins relnet_0/usr_rx_payload]
@@ -1243,7 +1260,7 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets s_usr_sess_fifo_M_AXIS] [get_bd_
   connect_bd_net -net relnet_0_wr_cnt [get_bd_pins MonitorRegisters_0/inputRegs_10] [get_bd_pins relnet_0/wr_cnt]
   connect_bd_net -net reset_1 [get_bd_ports reset] [get_bd_pins ddr4_0/sys_rst]
   connect_bd_net -net rst_ddr4_0_300M_peripheral_aresetn [get_bd_pins axi_interconnect_1/M00_ARESETN] [get_bd_pins ddr4_0/c0_ddr4_aresetn] [get_bd_pins rst_ddr4_0_300M/peripheral_aresetn]
-  connect_bd_net -net s_axis_aclk_0_1 [get_bd_ports rel_net_clk] [get_bd_pins MonitorRegisters_0/clk] [get_bd_pins axi_interconnect_0/M03_ACLK] [get_bd_pins axi_interconnect_1/S03_ACLK] [get_bd_pins ila_0/clk] [get_bd_pins ila_1/clk] [get_bd_pins ila_7/clk] [get_bd_pins ila_data_to_net/clk] [get_bd_pins ila_header_to_net/clk] [get_bd_pins m_usr_data_fifo/s_axis_aclk] [get_bd_pins m_usr_header_fifo/s_axis_aclk] [get_bd_pins relnet_0/ap_clk] [get_bd_pins s_usr_data_fifo/m_axis_aclk] [get_bd_pins s_usr_header_fifo/m_axis_aclk] [get_bd_pins s_usr_sess_fifo/m_axis_aclk]
+  connect_bd_net -net s_axis_aclk_0_1 [get_bd_ports rel_net_clk] [get_bd_pins MonitorRegisters_0/clk] [get_bd_pins axi_interconnect_0/M03_ACLK] [get_bd_pins axi_interconnect_1/S03_ACLK] [get_bd_pins ila_0/clk] [get_bd_pins ila_1/clk] [get_bd_pins ila_7/clk] [get_bd_pins ila_data_to_net/clk] [get_bd_pins ila_data_to_udp/clk] [get_bd_pins ila_header_to_net/clk] [get_bd_pins ila_header_to_udp/clk] [get_bd_pins m_usr_data_fifo/s_axis_aclk] [get_bd_pins m_usr_header_fifo/s_axis_aclk] [get_bd_pins relnet_0/ap_clk] [get_bd_pins s_usr_data_fifo/m_axis_aclk] [get_bd_pins s_usr_header_fifo/m_axis_aclk] [get_bd_pins s_usr_sess_fifo/m_axis_aclk]
   connect_bd_net -net s_axis_aresetn_0_1 [get_bd_ports rel_net_resetn] [get_bd_pins MonitorRegisters_0/resetn] [get_bd_pins axi_interconnect_0/M03_ARESETN] [get_bd_pins axi_interconnect_1/S03_ARESETN] [get_bd_pins m_usr_data_fifo/s_axis_aresetn] [get_bd_pins m_usr_header_fifo/s_axis_aresetn] [get_bd_pins relnet_0/ap_rst_n]
   connect_bd_net -net xlconcat_0_dout [get_bd_pins xlconcat_0/dout] [get_bd_pins zynq_ultra_ps_e_0/pl_ps_irq0]
   connect_bd_net -net xlconcat_1_dout [get_bd_ports monitor_config_mac] [get_bd_pins xlconcat_1/dout]
