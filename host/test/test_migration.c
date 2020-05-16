@@ -26,7 +26,7 @@
 
 #include "../core.h"
 
-#define NR_TESTS	100
+#define NR_TESTS	1
 
 int test_legomem_migration(char *_unused)
 {
@@ -57,16 +57,15 @@ int test_legomem_migration(char *_unused)
 	alloc_size = VREGION_SIZE - 1;
 
 	for (i = 0; i < NR_TESTS; i++) {
-#if 0
-		dprintf_INFO(" alloc i=%3d addr=%#18lx vregion_idx=%u\n",
-			i, addr[i], va_to_vregion_index(addr[i]));
-#endif
-
 		addr[i] = legomem_alloc(ctx, alloc_size, 0);
 		if (!addr[i]) {
 			dprintf_ERROR("alloc failed %d\n", 0);
 			goto close;
 		}
+#if 1
+		dprintf_INFO(" alloc i=%3d addr=%#18lx vregion_idx=%u\n",
+			i, addr[i], va_to_vregion_index(addr[i]));
+#endif
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &s);
@@ -74,8 +73,8 @@ int test_legomem_migration(char *_unused)
 	 * leave the first one open, we want to reuse its session
 	 * if we happen to use only one board.
 	 */
-	for (i = 1; i < NR_TESTS; i++) {
-#if 0
+	for (i = 0; i < NR_TESTS; i++) {
+#if 1
 		dprintf_INFO(" migrate i=%3d addr=%#18lx vregion_idx=%u\n",
 			i, addr[i], va_to_vregion_index(addr[i]));
 #endif
@@ -86,7 +85,7 @@ int test_legomem_migration(char *_unused)
 
 	lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 		 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-	lat_ns /= (NR_TESTS - 1);
+	lat_ns /= (NR_TESTS);
 
 	dprintf_INFO("#nr_migration: %d, #avg_latency_ns: %lf\n",
 		NR_TESTS, lat_ns);

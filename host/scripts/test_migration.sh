@@ -3,11 +3,10 @@
 
 set -x
 
-board_ip="192.168.1.31:1234"
+board_ip="192.168.1.9:1234"
 
 if [ "$1" == "1" ]; then
-	./monitor.o -d ens4 -p 1234 --add_board=$board_ip --net_raw_ops=raw_verbs
-	#./monitor.o -d p4p1 -p 9999
+	./monitor.o -d ens4 -p 1234 --add_board=$board_ip
 elif [ "$1" == "2" ]; then
 	#
 	# We need at least two board instances to test migration.
@@ -21,7 +20,6 @@ elif [ "$1" == "3" ]; then
 		-d p4p1 \
 		-p 1234 \
 		-m 192.168.1.3:1234 \
-		--net_raw_ops=raw_verbs \
 		--run_test=migration
 elif [ "$1" == "4" ]; then
 	pkill -f monitor.o
