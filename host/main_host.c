@@ -222,6 +222,11 @@ struct test_option test_options[] = {
 		.desc	= "test legomem pte directly",
 		.func	= test_legomem_pte,
 	},
+	{
+		.name	= "rw_seq",
+		.desc	= "test legomem_rw_seq",
+		.func	= test_legomem_rw_seq,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)

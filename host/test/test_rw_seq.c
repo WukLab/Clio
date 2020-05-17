@@ -7,6 +7,8 @@
 #include <uapi/sched.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
+#include <uapi/page.h>
+#include <uapi/tlb.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +31,8 @@ static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
 static double latency_write_ns[NR_MAX][NR_MAX];
+
+static int NR_PAGES;
 
 static inline void die(const char * str, ...)
 {
@@ -59,8 +63,6 @@ static void *thread_func_read(void *_ti)
 	int cpu, node;
 	int ret;
 	struct session_net *ses;
-	struct session_net *mgmt_ses;
-	struct board_info *bi;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
@@ -72,15 +74,6 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
-		/*
-		 * This is tunable
-		 *
-		 * Either 1) all threads use same addr
-		 * 2) each thread use their own addr
-		 *
-		 * Of course, for best perf, each thread should use
-		 * their own vregion, to avoid the hashtable search.
-		 */
 #if 0
 		addr = legomem_alloc(ctx, 4 * OneM, 0);
 #else
@@ -89,41 +82,28 @@ static void *thread_func_read(void *_ti)
 		ses = find_or_alloc_vregion_session(ctx, addr);
 		BUG_ON(!ses);
 
-#if 0
-		bi = ses->board_info;
-		ses = legomem_open_session_remote_mgmt(bi);
-#endif
-
 		/* Prepare the send buf */
 		send_buf = malloc(VREGION_SIZE);
 		recv_buf = malloc(VREGION_SIZE);
 		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
-#if 0
-		mgmt_ses = get_board_mgmt_session(ses->board_info);
-		net_reg_send_buf(mgmt_ses, send_buf, 4096);
-#endif
-
 		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
 				ti->id, get_local_session_id(ses),
 				addr, addr + 16 * OneM);
 
-		//sleep(5);
-
 		pthread_barrier_wait(&thread_barrier);
-
 #if 1
-		legomem_write_sync(ctx, send_buf, addr, 0x10);
-
-		/* Run bunch sync write */
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_write_sync(ctx, send_buf, addr, size);
+			unsigned long _addr;
+			_addr = (j % NR_PAGES) * PAGE_SIZE + addr;
+			//printf("%d %#lx\n", j, _addr);
+			ret = legomem_write_sync(ctx, send_buf, _addr, size);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
 					ti->id, j, ret);
-				break;
+				exit(0);
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
@@ -140,19 +120,12 @@ static void *thread_func_read(void *_ti)
 #endif
 		pthread_barrier_wait(&thread_barrier);
 
-		//sleep(10);
-		//printf("after sleep..\n");
-		//printf("thread %d use ses %u %u\n",
-		//	ti->id, get_local_session_id(ses), get_remote_session_id(ses));
-
 #if 1
-		//ret = legomem_read(ctx, send_buf, recv_buf, addr, 0x10);
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
-
-			//ret = legomem_read_with_session(ctx, ses,
-			//				send_buf, recv_buf, addr, size);
+			unsigned long _addr;
+			_addr = (j % NR_PAGES) * PAGE_SIZE + addr;
+			ret = legomem_read(ctx, send_buf, recv_buf, _addr, size);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -161,14 +134,6 @@ static void *thread_func_read(void *_ti)
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
-
-#if 0
-		char *pp = recv_buf + sizeof(struct legomem_read_write_resp);
-		for (int k = 0; k < size; k++) {
-			printf("%x ", pp[k]);
-		}
-		printf("\n");
-#endif
 
 		latency_read_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
@@ -194,7 +159,7 @@ static void *thread_func_read(void *_ti)
  * 3) Collect latency numbers
  * 4) Change number of concurrent threads, repeat 1-3 steps.
  */
-int test_legomem_read_write(char *_unused)
+int test_legomem_rw_seq(char *_unused)
 {
 	int k, i, j, ret;
 	int nr_threads;
@@ -206,7 +171,13 @@ int test_legomem_read_write(char *_unused)
 		return -1;
 	dump_legomem_contexts();
 
-	global_base_addr = legomem_alloc(ctx, 16 * OneM, 0);
+	/*
+	 * Make a working set larger than tlb.
+	 */
+	NR_PAGES = LEGOMEM_NR_TLB_ENTRIES + 100;
+	global_base_addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, 0);
+
+	printf("nr_pages %d  total size %#lx\n", NR_PAGES, NR_PAGES * PAGE_SIZE);
 
 	ti = malloc(sizeof(*ti) * NR_MAX);
 	tid = malloc(sizeof(*tid) * NR_MAX);
@@ -257,8 +228,6 @@ int test_legomem_read_write(char *_unused)
 		}
 	}
 	legomem_close_context(ctx);
-
-	//while (1);
 
 	return 0;
 }

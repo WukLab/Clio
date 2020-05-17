@@ -18,7 +18,7 @@
 
 #include "api.h"
 
-#if 0
+#if 1
 # define LEGOMEM_DEBUG
 #endif
 
@@ -424,6 +424,7 @@ int test_legomem_read_write(char *);
 int test_legomem_soc(char *);
 int test_pingpong_soc(char *board_ip_port_str);
 int test_legomem_pte(char *board_ip_port_str);
+int test_legomem_rw_seq(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

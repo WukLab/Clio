@@ -40,7 +40,7 @@ int test_legomem_migration(char *_unused)
 	double lat_ns;
 	unsigned int alloc_size;
 
-	char board_ip_port_str[] = "192.168.1.31:1234";
+	char board_ip_port_str[] = "192.168.1.22:1234";
 	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
 
@@ -50,11 +50,11 @@ int test_legomem_migration(char *_unused)
 		return 0;
 	}
 
-	dprintf_INFO("Running migration test. %d\n", 0);
+	dprintf_INFO("Running migration test. Migration dest board: %s\n", dst_bi->name);
 
 	ctx = legomem_open_context();
 
-	alloc_size = VREGION_SIZE - 1;
+	alloc_size = VREGION_SIZE;
 
 	for (i = 0; i < NR_TESTS; i++) {
 		addr[i] = legomem_alloc(ctx, alloc_size, 0);
@@ -67,6 +67,21 @@ int test_legomem_migration(char *_unused)
 			i, addr[i], va_to_vregion_index(addr[i]));
 #endif
 	}
+
+	/* write something into the original owner's memory */
+	void *buf = malloc(alloc_size + 100);
+	if (!buf) {
+		printf("OOM\n");
+		exit(0);
+	}
+	memset(buf, 0x6, alloc_size);
+	
+	dprintf_INFO("buf %#lx\n", (u64)buf);
+	struct session_net *ses = find_or_alloc_vregion_session(ctx, addr[0]);
+	net_reg_send_buf(ses, buf, alloc_size + 100);
+
+	legomem_write_sync(ctx, buf, addr[0], alloc_size);
+	printf("After write...\n");
 
 	clock_gettime(CLOCK_MONOTONIC, &s);
 	/* 

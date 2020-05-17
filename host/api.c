@@ -1090,7 +1090,7 @@ int __legomem_write(struct legomem_context *ctx, void *send_buf,
 		ret = net_send(ses, req, sz + sizeof(*req));
 		if (unlikely(ret < 0)) {
 			dprintf_ERROR("Fail to send write at nr_sent: %d\n", nr_sent);
-			break;
+			return -1;
 		}
 		nr_sent++;
 
@@ -1100,17 +1100,17 @@ int __legomem_write(struct legomem_context *ctx, void *send_buf,
 		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
 		if (unlikely(ret <= 0)) {
 			dprintf_ERROR("Fail to recv write at %dth reply\n", nr_sent);
-			continue;
+			return -1;
 		}
 		rx_lego = to_lego_header(resp);
 		if (unlikely(rx_lego->req_status != 0)) {
 			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
-			continue;
+			return -1;
 		}
 		if (unlikely(rx_lego->opcode != OP_REQ_WRITE_RESP)) {
 			dprintf_ERROR("errnor: invalid resp msg %s. at %dth reply\n",
 				legomem_opcode_str(rx_lego->opcode), nr_sent);
-			continue;
+			return -1;
 		}
 	} while (total_size);
 	return 0;

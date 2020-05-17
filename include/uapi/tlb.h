@@ -2,8 +2,8 @@
  * Copyright (c) 2020. Wuklab. All rights reserved.
  */
 
-#ifndef _LEGOFPGA_UAPI_H_
-#define _LEGOFPGA_UAPI_H_
+#ifndef _LEGOFPGA_UAPI_TLB_H_
+#define _LEGOFPGA_UAPI_TLB_H_
 
 #include <uapi/page.h>
 
@@ -18,4 +18,4 @@ enum tlb_eviction_policy {
 	LEGOMEM_TLB_EVICTION_LRU,
 };
 
-#endif /* _LEGOFPGA_UAPI_H_ */
+#endif /* _LEGOFPGA_UAPI_TLB_H_ */
