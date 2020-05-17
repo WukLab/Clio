@@ -72,17 +72,13 @@ static void *thread_func_read(void *_ti)
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
-		nr_tests = NR_RUN_PER_THREAD;
 
-#if 0
-		addr = legomem_alloc(ctx, 4 * OneM, 0);
-#else
+		nr_tests = NR_PAGES;
+
 		addr = global_base_addr;
-#endif
 		ses = find_or_alloc_vregion_session(ctx, addr);
 		BUG_ON(!ses);
 
-		/* Prepare the send buf */
 		send_buf = malloc(VREGION_SIZE);
 		recv_buf = malloc(VREGION_SIZE);
 		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
@@ -91,7 +87,6 @@ static void *thread_func_read(void *_ti)
 				ti->id, get_local_session_id(ses),
 				addr, addr + 16 * OneM);
 
-		pthread_barrier_wait(&thread_barrier);
 #if 1
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
@@ -118,7 +113,6 @@ static void *thread_func_read(void *_ti)
 			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000)
 			);
 #endif
-		pthread_barrier_wait(&thread_barrier);
 
 #if 1
 		clock_gettime(CLOCK_MONOTONIC, &s);
@@ -145,9 +139,6 @@ static void *thread_func_read(void *_ti)
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000)
 			);
 #endif
-
-		free(send_buf);
-		free(recv_buf);
 	}
 	return NULL;
 }
@@ -175,7 +166,9 @@ int test_legomem_rw_seq(char *_unused)
 	 * Make a working set larger than tlb.
 	 */
 	NR_PAGES = LEGOMEM_NR_TLB_ENTRIES + 100;
-	global_base_addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, 0);
+
+	global_base_addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, LEGOMEM_VM_FLAGS_POPULATE);
+	//global_base_addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, 0);
 
 	printf("nr_pages %d  total size %#lx\n", NR_PAGES, NR_PAGES * PAGE_SIZE);
 
@@ -227,6 +220,8 @@ int test_legomem_rw_seq(char *_unused)
 					NR_RUN_PER_THREAD, nr_threads, send_size, avg_read, avg_write);
 		}
 	}
+
+	legomem_free(ctx, global_base_addr, NR_PAGES * PAGE_SIZE);
 	legomem_close_context(ctx);
 
 	return 0;

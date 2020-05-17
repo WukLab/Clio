@@ -59,8 +59,8 @@ static void *thread_func_read(void *_ti)
 	int cpu, node;
 	int ret;
 	struct session_net *ses;
-	struct session_net *mgmt_ses;
-	struct board_info *bi;
+	struct session_net *mgmt_ses __maybe_unused;
+	struct board_info *bi __maybe_unused;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
@@ -206,7 +206,7 @@ int test_legomem_read_write(char *_unused)
 		return -1;
 	dump_legomem_contexts();
 
-	global_base_addr = legomem_alloc(ctx, 16 * OneM, 0);
+	global_base_addr = legomem_alloc(ctx, 16 * OneM, LEGOMEM_VM_FLAGS_POPULATE);
 
 	ti = malloc(sizeof(*ti) * NR_MAX);
 	tid = malloc(sizeof(*tid) * NR_MAX);

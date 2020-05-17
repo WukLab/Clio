@@ -146,6 +146,10 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 
 void *global_migration_req;
 
+/*
+ * This is not SMP safe.
+ * But we are using INLINE handling now, its okay.
+ */
 static inline void *get_migration_req(void)
 {
 	BUG_ON(!global_migration_req);
@@ -193,8 +197,8 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	req->lego_header.dst_sesid = 0;
 	req->lego_header.size = sizeof(*req);
 
-	// XXX 192.168.1.8 1234
-	req->lego_header.dest_ip = 0x010804d2;
+	// XXX 192.168.1.22 1234
+	req->lego_header.dest_ip = 0x011604d2;
 
 	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
 	dprintf_DEBUG("nr_rounds: %d\n", nr_rounds);
@@ -206,7 +210,7 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 
 		dprintf_DEBUG("migrationr req %5d len %u va %lx\n",
 			i, req->op.size, req->op.va);
-		//sleep(5);
+		sleep(10);
 	}
 	dprintf_DEBUG("Finished sending %d REQs to COREMEM...\n", i);
 }

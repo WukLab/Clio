@@ -16,7 +16,8 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_pingpong_soc.c \
 	     $(TP)/test_legomem_pte.c \
 	     $(TP)/test_read_write.c \
-	     $(TP)/test_rw_seq.c 
+	     $(TP)/test_rw_seq.c \
+	     $(TP)/test_rw_fault.c
 
 # Board emulator files linked to soc files
 BP := board_emulator

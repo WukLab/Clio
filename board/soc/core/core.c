@@ -767,6 +767,7 @@ int main(int argc, char **argv)
 	}
 	init_stat_mapping();
 	init_migration_setup();
+	init_tlbflush_setup();
 
 	/* Init buddy allocator for FPGA physical memory. */
 	init_buddy();

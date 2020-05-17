@@ -45,13 +45,14 @@ shadow_to_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte)
 static inline void dump_pte(struct lego_mem_pte *pte, unsigned long va, bool shadow)
 {
 	dprintf_DEBUG("Dump %s PTE(%#lx) va=%#lx ppa=%#lx alloc=%d valid=%d tag=%#lx\n",
-		shadow ? "Shadow" : "FPGA", va,
-		(u64)pte, (u64)pte->ppa, pte->allocated, pte->valid, pte->tag);
+		shadow ? "Shadow" : "FPGA",
+		(u64)pte, (u64)va, (u64)pte->ppa, pte->allocated, pte->valid, pte->tag);
 }
 
 /* Free a PTE entry */
 static void zap_pte(struct proc_info *pi, 
-		    struct lego_mem_pte *soc_shadow_pte, unsigned long page_size)
+		    struct lego_mem_pte *soc_shadow_pte, unsigned long page_size,
+		    unsigned long addr)
 {
 	unsigned long phys = 0;
 	int order;
@@ -64,9 +65,13 @@ static void zap_pte(struct proc_info *pi,
 	if (unlikely(!fpga_pte->allocated)) {
 		dprintf_ERROR("fpga pte %#lx invalid\n",
 			(unsigned long)fpga_pte);
-		dump_pte(fpga_pte, 0, false);
+		dump_pte(fpga_pte, addr, false);
 		return;
 	}
+
+#ifdef LEGOMEM_DEBUG
+	dump_pte(fpga_pte, addr, false);
+#endif
 
 	/*
 	 * Valid means a page fault has ocurred on this page,
@@ -79,33 +84,10 @@ static void zap_pte(struct proc_info *pi,
 		free_pfn(PHYS_PFN(phys), order);
 
 		fpga_pte->valid = 0;
+		fpga_pte->ppa = 0;
 	}
 	fpga_pte->allocated = 0;
 	fpga_pte->tag = 0;
-}
-
-/*
- * Send a TLB cache flush to coremem cached BRAM pgtable.
- * Simple semantic, just as you know it.
- */
-void tlb_flush(struct proc_info *pi, unsigned long va, unsigned long size)
-{
-#if 0
-	struct {
-		struct lego_header lego_header;
-		struct op_cache_flush op;
-	} req __packed;
-
-	req.lego_header.pid = pi->pid;
-	req.lego_header.opcode = OP_REQ_CACHE_INVALID;
-	req.lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM, LEGOMEM_CONT_NONE,
-					 LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
-
-	req.op.va = va;
-	req.op.size = size;
-
-	dma_send(&req, sizeof(req));
-#endif
 }
 
 /*
@@ -120,6 +102,7 @@ void free_fpga_pte_range(struct proc_info *pi,
 			 unsigned long page_size)
 {
 	struct lego_mem_pte *pte;
+	unsigned long orig_start = start;
 
 	dprintf_DEBUG("PID: %u Free VA @[%#lx - %#lx]\n",
 		pi->pid, start, end);
@@ -134,10 +117,10 @@ void free_fpga_pte_range(struct proc_info *pi,
 		}
 
 		zap_shadow_pte(pi, pte, page_size);
-		zap_pte(pi, pte, page_size);
+		zap_pte(pi, pte, page_size, start);
 	}
 
-	tlb_flush(pi, start, end - start);
+	tlb_flush(pi, orig_start, end - orig_start);
 }
 
 static inline struct lego_mem_pte *
@@ -171,7 +154,7 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 		pfn = alloc_pfn(order);
 		if (!pfn) {
 			dprintf_ERROR("User asked to prepopulate pgtables. \n"
-				      "But we are running out of memory! %d\n", 0);
+				      "But we are OOM! order %d. va %#lx\n", order, addr);
 			return NULL;
 		}
 
@@ -193,10 +176,15 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 		if (vm_flags & LEGOMEM_VM_FLAGS_ZERO)
 			clear_fpga_page(soc_va, PAGE_SIZE);
 
-	} else
+	} else {
 		fpga_pte->valid = 0;
+		fpga_pte->ppa = 0;
+	}
 
+#ifdef LEGOMEM_DEBUG
 	dump_pte(fpga_pte, addr, false);
+#endif
+
 	return fpga_pte;
 }
 
@@ -217,15 +205,16 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
  * Inputs:
  * Both @start and @end are page aligned, ensured by caller.
  * @vm_flags came from legomem_alloc(), specificed by user.
+ * #define LEGOMEM_VM_FLAGS_WRITE	(0x1)
+ * #define LEGOMEM_VM_FLAGS_POPULATE	(0x2)
+ * #define LEGOMEM_VM_FLAGS_ZERO	(0x4)
+ * #define LEGOMEM_VM_FLAGS_CONFLICT	(0x8)
  */
 void alloc_fpga_pte_range(struct proc_info *pi,
 			  unsigned long start, unsigned long end,
 			  unsigned long vm_flags, unsigned long page_size)
 {
 	struct lego_mem_pte *pte;
-
-	/* TODO */
-	vm_flags = LEGOMEM_VM_FLAGS_POPULATE;
 
 	dprintf_DEBUG("PID: %u New VA @[%#lx - %#lx] vm_flags: %#lx\n",
 		pi->pid, start, end, vm_flags);

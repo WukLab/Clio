@@ -751,7 +751,6 @@ struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
 	struct session_net *ses;
 	pid_t tid;
 
-	// XXX Will gettid be an issue?
 	tid = gettid();
 	ses = find_vregion_session(v, tid);
 	if (likely(ses))
@@ -782,9 +781,11 @@ struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
 	}
 	add_vregion_session(v, ses);
 
-	dprintf_DEBUG("new session %d enqueued into vregion %d, pid %u\n",
+#ifdef LEGOMEM_DEBUG
+	dprintf_INFO("new session %d enqueued into vregion %d, pid %u\n",
 		get_local_session_id(ses), legomem_vregion_to_index(ctx, v), tid);
 	dump_legomem_vregion(ctx, v);
+#endif
 	return ses;
 }
 

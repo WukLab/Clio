@@ -1226,7 +1226,6 @@ retry:
 	if (IS_ERR_VALUE(addr))
 		return 0;
 
-	dprintf_DEBUG("new range [%#lx - %#lx]\n", addr, addr + len);
 	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags, PAGE_SIZE);
 	return addr;
 }
