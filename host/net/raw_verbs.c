@@ -83,6 +83,9 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		return errno;
 	}
 
+	dprintf_INFO("Registered buf: [%#lx - %#lx] len=%#lx\n",
+			(u64)buf, (u64)buf + buf_size, (u64)buf_size);
+
 	ses_verbs->send_mr = mr;
 	ses_verbs->send_buf = buf;
 	ses_verbs->send_buf_size = buf_size;
@@ -287,9 +290,10 @@ raw_verbs_send(struct session_net *ses_net,
 			     buf > (ses_verbs->send_buf + ses_verbs->send_buf_size))) {
 			dprintf_INFO("You have registered buffer but now "
 				     "are using a different one. "
-				     "There are perf penalties. (o %lx n %lx) "
+				     "There are perf penalties. (range [%lx-%#lx] current: %lx) "
 				     "Session local_id=%u remote_id=%u\n",
-				     (unsigned long)ses_verbs->send_buf,
+				     (u64)ses_verbs->send_buf,
+				     (u64)ses_verbs->send_buf + ses_verbs->send_buf_size,
 				     (unsigned long)buf,
 				     get_local_session_id(ses_net),
 				     get_remote_session_id(ses_net));

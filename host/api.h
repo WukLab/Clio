@@ -53,4 +53,8 @@ struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
 struct session_net *find_or_alloc_vregion_session(struct legomem_context *ctx,
 						  unsigned long __remote addr);
 
+int legomem_read_with_session(struct legomem_context *ctx, struct session_net *ses,
+			      void *send_buf, void *recv_buf,
+			      unsigned long __remote addr, size_t total_size);
+
 #endif /* _LEGOMEM_PUBLIC_APIS_ */
