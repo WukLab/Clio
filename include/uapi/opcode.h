@@ -361,9 +361,35 @@ struct op_test_pte {
 	unsigned long start;
 	unsigned long end;
 };
+
 struct legomem_test_pte {
 	struct legomem_common_headers comm_headers;
 	struct op_test_pte op;
+};
+
+struct op_kvs_req {
+	uint8_t user;
+	uint8_t key_size;
+	uint16_t value_size;
+	uint64_t key;
+	char value[0];
+} __packed;
+
+struct op_kvs_resp {
+	uint8_t user;
+	uint8_t key_size;
+	uint16_t value_size;
+	char value[0];
+} __packed;
+
+struct legomem_kvs_req {
+	struct legomem_common_headers comm_headers;
+	struct op_kvs_req op;
+};
+
+struct legomem_kvs_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_kvs_resp op;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

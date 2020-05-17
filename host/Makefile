@@ -41,7 +41,8 @@ C_SRCS := board.c \
 	net/raw_socket.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
-	net/transport_gbn.c
+	net/transport_gbn.c \
+	api_kvs.c
 
 SRCS := $(C_SRCS)
 
@@ -58,7 +59,7 @@ EXTRA_CFLAGS += -rdynamic
 #
 #EXTRA_CFLAGS += -DCONFIG_DEBUG_STAT -DCONFIG_DEBUG_WATCHDOG
 
-CFLAG_DISABLE_WARN := -Wno-stringop-truncation
+CFLAG_DISABLE_WARN := -Wno-stringop-truncation -Wno-unused-but-set-variable
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g
