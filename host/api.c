@@ -969,6 +969,85 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 	}
 	return 0;
 }
+#else
+/*
+ * Non-burst version.
+ */
+int __legomem_write(struct legomem_context *ctx, void *send_buf,
+		    unsigned long __remote addr, size_t total_size,
+		    enum legomem_write_flag flag)
+{
+	struct legomem_vregion *v;
+	struct session_net *ses;
+	struct legomem_read_write_req *req;
+	struct legomem_read_write_resp *resp;
+	size_t recv_size, sz; 
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego;
+	int ret, nr_sent;
+
+	v = va_to_legomem_vregion(ctx, addr);
+	ses = __find_or_alloc_vregion_session(ctx, v);
+	if (!ses) {
+		dump_legomem_vregion(ctx, v);
+		dprintf_ERROR("Cannot get or alloc session %#lx\n", addr);
+		return -EIO;
+	}
+
+	nr_sent = 0;
+	do {
+		u64 shift;
+
+		if (total_size >= max_lego_payload)
+			sz = max_lego_payload;
+		else
+			sz = total_size;
+		total_size -= sz;
+
+		/*
+		 * Shift to next pkt start
+		 * We will override portion of already-sent user data
+		 */
+		shift = (u64)(nr_sent * max_lego_payload);
+		req = (struct legomem_read_write_req *)((u64)send_buf + shift);
+		req->op.va = addr + shift;
+		req->op.size = sz;
+		tx_lego = to_lego_header(req);
+		tx_lego->pid = ctx->pid;
+		if (flag == LEGOMEM_WRITE_SYNC)
+			tx_lego->opcode = OP_REQ_WRITE;
+		else if (flag == LEGOMEM_WRITE_ASYNC)
+			tx_lego->opcode = OP_REQ_WRITE_NOREPLY;
+
+		ret = net_send(ses, req, sz + sizeof(*req));
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to send write at nr_sent: %d\n", nr_sent);
+			break;
+		}
+		nr_sent++;
+
+		if (flag == LEGOMEM_WRITE_ASYNC)
+			continue;
+
+		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+		if (unlikely(ret <= 0)) {
+			dprintf_ERROR("Fail to recv write at %dth reply\n", nr_sent);
+			continue;
+		}
+		rx_lego = to_lego_header(resp);
+		if (unlikely(rx_lego->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
+			continue;
+		}
+		if (unlikely(rx_lego->opcode != OP_REQ_WRITE_RESP)) {
+			dprintf_ERROR("errnor: invalid resp msg %s. at %dth reply\n",
+				legomem_opcode_str(rx_lego->opcode), nr_sent);
+			continue;
+		}
+	} while (total_size);
+	return 0;
+}
+#endif
 
 static __always_inline int
 __legomem_write(struct legomem_context *ctx, void *send_buf,
