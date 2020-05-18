@@ -3,6 +3,7 @@
  */
 
 #include "arbiter_64.hpp"
+#include <uapi/gbn.h>
 #define MAX_CYCLE 50
 
 struct net_axis_64 build_gbn_header(ap_uint<8> type, ap_uint<SEQ_WIDTH> seqnum,
@@ -39,22 +40,22 @@ int main() {
 	test_payload.user = 0;
 
 	rt_header.write(test_header);
-	for (int j = 0; j < 2; j++) {
+	for (int j = 0; j < 10; j++) {
 		test_payload.data = 0x0f0f0f0f0f0f0f0f;
 		test_payload.last = 0;
 		rt_payload.write(test_payload);
 	}
-	test_payload.data = 0x01;
+	test_payload.data = 0x0f0f0f0f0f0f0f0f;
 	test_payload.last = 1;
 	rt_payload.write(test_payload);
 
 	tx_header.write(test_header);
-	for (int j = 0; j < 2; j++) {
+	for (int j = 0; j < 10; j++) {
 		test_payload.data = 0x0101010101010101;
 		test_payload.last = 0;
 		tx_payload.write(test_payload);
 	}
-	test_payload.data = 0x01;
+	test_payload.data = 0x0101010101010101;
 	test_payload.last = 1;
 	tx_payload.write(test_payload);
 
@@ -65,8 +66,7 @@ int main() {
 		struct udp_info recv_hd;
 		struct net_axis_64 recv_data;
 
-		if (!out_header.empty()) {
-			recv_hd = out_header.read();
+		if (out_header.read_nb(recv_hd)) {
 			dph("[cycle %2d] send data to net %x:%d -> %x:%d\n",
 			    cycle, recv_hd.src_ip.to_uint(),
 			    recv_hd.src_port.to_uint(),
@@ -74,8 +74,7 @@ int main() {
 			    recv_hd.dest_port.to_uint());
 		}
 
-		if (!out_payload.empty()) {
-			recv_data = out_payload.read();
+		if (out_payload.read_nb(recv_data)) {
 			dph("[cycle %2d] send data to net %llx, ", cycle,
 			    recv_data.data.to_uint64());
 			ap_uint<8> type = recv_data.data(7, 0);

@@ -2,7 +2,7 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
-//#define ENABLE_PROBE
+#define ENABLE_PROBE
 
 #include <stdio.h>
 #include "rx_64.hpp"
@@ -11,12 +11,6 @@ enum udp_recv_status {
 	RX_STATE_UDP_HEADER,
 	RX_STATE_WAIT_RSP,
 	RX_STATE_DELIVER_DATA
-};
-
-enum probe_status{
-	PROBE_RSP,
-	PROBE_DELIVER,
-	PROBE_NO_DELIVER
 };
 
 /**
@@ -34,8 +28,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	   stream<struct udp_info>	*usr_rx_header,
 	   stream<struct net_axis_64>	*usr_rx_payload
 #ifdef ENABLE_PROBE
-	   ,enum udp_recv_status	*recv_state,
-	   enum probe_status		*prb_state
+	   ,volatile enum udp_recv_status	*recv_state
 #endif
 )
 {
@@ -52,7 +45,6 @@ void rx_64(stream<struct udp_info>	*rx_header,
 
 #ifdef ENABLE_PROBE
 #pragma HLS INTERFACE ap_none port=recv_state
-#pragma HLS INTERFACE ap_none port=prb_state
 #endif
 
 #pragma HLS INTERFACE ap_ctrl_none port=return
@@ -87,8 +79,6 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		   recv_pkt.data(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 				 DEST_SLOT_OFFSET).to_uint());
 
-		recv_udp_info.src_ip = (recv_udp_info.src_ip << 16) | recv_udp_info.src_port;
-
 		/*
 		 * src/dest ip are reversed in state table
 		 */
@@ -110,25 +100,17 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		recv_udp_info.length -= 16;
 
 		state = RX_STATE_WAIT_RSP;
-#ifdef ENABLE_PROBE
-		*prb_state = PROBE_RSP;
-#endif
 		break;
 	case RX_STATE_WAIT_RSP:
 		if (state_query_rsp->empty())
 			break;
 		deliver_data = state_query_rsp->read();
 
-		if (recv_pkt.last == 1)
+		if (recv_pkt.last == 1) {
 			state = RX_STATE_UDP_HEADER;
-		else {
+		} else {
 			if (deliver_data) {
 				usr_rx_header->write(recv_udp_info);
-#ifdef ENABLE_PROBE
-				*prb_state = PROBE_DELIVER;
-			} else {
-				*prb_state = PROBE_NO_DELIVER;
-#endif
 			}
 			state = RX_STATE_DELIVER_DATA;
 		}

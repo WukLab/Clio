@@ -2,19 +2,16 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
+#define ENABLE_PROBE
 
 #include "arbiter_64.hpp"
 
 enum udp_arbiter_status {
 	udp_arbiter_arb,
-	udp_arbiter_send_head,
-	udp_arbiter_send_payload
-};
-
-enum arb_result {
-	arb_rsp,
-	arb_rt,
-	arb_tx
+	udp_arb_send_payload_rsp,
+	udp_arb_send_payload_rsp_tail,
+	udp_arb_send_payload_rt,
+	udp_arb_send_payload_tx
 };
 
 /**
@@ -39,7 +36,14 @@ void arbiter_64(stream<struct udp_info>		*rsp_header,
 		stream<struct udp_info>		*rt_header,
 		stream<struct net_axis_64>	*rt_payload,
 		stream<struct udp_info>		*out_header,
-		stream<struct net_axis_64>	*out_payload)
+		stream<struct net_axis_64>	*out_payload
+#ifdef ENABLE_PROBE
+		,volatile unsigned int 		*send_cnt
+		,volatile unsigned int		*rsp_cnt
+		,volatile unsigned int		*rt_cnt
+		,volatile enum udp_arbiter_status *arb_state
+#endif
+)
 {
 #pragma HLS INTERFACE axis both port=rsp_header
 #pragma HLS INTERFACE axis both port=rsp_payload
@@ -50,6 +54,13 @@ void arbiter_64(stream<struct udp_info>		*rsp_header,
 #pragma HLS INTERFACE axis both port=out_header
 #pragma HLS INTERFACE axis both port=out_payload
 
+#ifdef ENABLE_PROBE
+#pragma HLS INTERFACE ap_none port=send_cnt
+#pragma HLS INTERFACE ap_none port=rsp_cnt
+#pragma HLS INTERFACE ap_none port=rt_cnt
+#pragma HLS INTERFACE ap_none port=arb_state
+#endif
+
 #pragma HLS DATA_PACK variable=rsp_header
 #pragma HLS DATA_PACK variable=tx_header
 #pragma HLS DATA_PACK variable=rt_header
@@ -59,57 +70,84 @@ void arbiter_64(stream<struct udp_info>		*rsp_header,
 #pragma HLS PIPELINE
 
 	static enum udp_arbiter_status state = udp_arbiter_arb;
-	static enum arb_result result = arb_rsp;
 
 	struct udp_info send_udp_info;
-	struct net_axis_64 send_pkt;
-	
+	struct net_axis_64 send_pkt, ack_tail;
+
+#ifdef ENABLE_PROBE
+	static unsigned int nr_send = 0;
+	static unsigned int nr_rt = 0;
+	static unsigned int nr_rsp = 0;
+#endif
+
 	switch (state) {
 	case udp_arbiter_arb:
 		if (!rsp_header->empty()) {
-			result = arb_rsp;
-			state = udp_arbiter_send_head;
+			send_udp_info = rsp_header->read();
+			out_header->write(send_udp_info);
+			state = udp_arb_send_payload_rsp;
 			break;
 		} else if (!rt_header->empty()) {
-			result = arb_rt;
-			state = udp_arbiter_send_head;
+			send_udp_info = rt_header->read();
+			out_header->write(send_udp_info);
+			state = udp_arb_send_payload_rt;
 			break;
 		} else if (!tx_header->empty()) {
-			result = arb_tx;
-			state = udp_arbiter_send_head;
+			send_udp_info = tx_header->read();
+			out_header->write(send_udp_info);
+			state = udp_arb_send_payload_tx;
 			break;
 		} else {
 			break;
 		}
-	case udp_arbiter_send_head:
-		if (result == arb_rsp) {
-			send_udp_info = rsp_header->read();
-		} else if (result == arb_rt) {
-			send_udp_info = rt_header->read();
-		} else if (result == arb_tx) {
-			send_udp_info = tx_header->read();
-		}
-		send_udp_info.dest_port = send_udp_info.dest_ip(15, 0);
-		send_udp_info.dest_ip = send_udp_info.dest_ip(31, 16) | SUBNET;
-		out_header->write(send_udp_info);
-		state = udp_arbiter_send_payload;
-		break;
-	case udp_arbiter_send_payload:
-		if (result == arb_rsp) {
-			if (rsp_payload->empty())
-				break;
-			send_pkt = rsp_payload->read();
-		} else if (result == arb_rt) {
-			if (rt_payload->empty())
-				break;
-			send_pkt = rt_payload->read();
-		} else if (result == arb_tx) {
-			if (tx_payload->empty())
-				break;
-			send_pkt = tx_payload->read();
-		}
+	case udp_arb_send_payload_rsp:
+		if (rsp_payload->empty())
+			break;
+		send_pkt = rsp_payload->read();
 		out_payload->write(send_pkt);
-		if (send_pkt.last == 1) state = udp_arbiter_arb;
+		state = udp_arb_send_payload_rsp_tail;
+		break;
+	case udp_arb_send_payload_rsp_tail:
+		ack_tail.data = 0;
+		ack_tail.keep = 0xff;
+		ack_tail.last = 1;
+		out_payload->write(ack_tail);
+#ifdef ENABLE_PROBE
+		nr_rsp++;
+#endif
+		state = udp_arbiter_arb;
+		break;
+	case udp_arb_send_payload_rt:
+		if (rt_payload->empty())
+			break;
+		send_pkt = rt_payload->read();
+		out_payload->write(send_pkt);
+		if (send_pkt.last == 1) {
+#ifdef ENABLE_PROBE
+			nr_rt++;
+#endif
+			state = udp_arbiter_arb;
+		}
+		break;
+	case udp_arb_send_payload_tx:
+		if (tx_payload->empty())
+			break;
+		send_pkt = tx_payload->read();
+		out_payload->write(send_pkt);
+		if (send_pkt.last == 1) {
+#ifdef ENABLE_PROBE
+			nr_send++;
+#endif
+			state = udp_arbiter_arb;
+		}
+		break;
+	default:
 		break;
 	}
+#ifdef ENABLE_PROBE
+	*send_cnt = nr_send;
+	*rt_cnt = nr_rt;
+	*rsp_cnt = nr_rsp;
+	*arb_state = state;
+#endif
 }

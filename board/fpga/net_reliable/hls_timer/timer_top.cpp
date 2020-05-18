@@ -41,6 +41,7 @@ void retrans_timer(stream<struct timer_req>		*timer_rst_req,
 	struct rt_timer_entry current_entry;
 #pragma HLS DATA_PACK variable=timeout_array
 #pragma HLS DEPENDENCE variable=timeout_array inter false
+#pragma HLS DEPENDENCE variable=timeout_array intra false
 #pragma HLS RESOURCE variable=timeout_array core=RAM_T2P_BRAM
 
 	struct timer_req rst_req;

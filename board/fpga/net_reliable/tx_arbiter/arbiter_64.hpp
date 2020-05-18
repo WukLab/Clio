@@ -1,7 +1,7 @@
 #ifndef _RELNET_ARBITER64_H_
 #define _RELNET_ARBITER64_H_
 
-#include <uapi/gbn.h>
+// #include <uapi/gbn.h>
 #include <fpga/axis_net.h>
 #include <hls_stream.h>
 #include <fpga/kernel.h>
