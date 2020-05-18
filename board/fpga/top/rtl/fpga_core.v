@@ -455,9 +455,9 @@ udp_complete_inst (
     .s_udp_ip_ecn               (tx_udp_ip_ecn),
     .s_udp_ip_ttl               (tx_udp_ip_ttl),
     .s_udp_ip_source_ip         (local_ip),
-    .s_udp_ip_dest_ip           (tx_udp_ip_dest_ip),
+    .s_udp_ip_dest_ip           ({8'd192, 8'd168, tx_udp_ip_dest_ip[31: 16]}),
     .s_udp_source_port          (tx_udp_source_port),
-    .s_udp_dest_port            (tx_udp_dest_port),
+    .s_udp_dest_port            (tx_udp_ip_dest_ip[15: 0]),
     .s_udp_length               (tx_udp_length),
     .s_udp_checksum             (tx_udp_checksum),
     .s_udp_payload_axis_tdata   (s_udp_payload_axis_tdata),
@@ -527,7 +527,7 @@ assign m_udp_hdr_data = {
     rx_udp_dest_port,
     rx_udp_source_port,
     rx_udp_ip_dest_ip,
-    rx_udp_ip_source_ip
+    {rx_udp_ip_source_ip[15: 0], rx_udp_source_port}
 };
 // bundle output UDP header info
 assign {
