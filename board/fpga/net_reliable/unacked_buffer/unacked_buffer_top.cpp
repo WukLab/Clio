@@ -1,5 +1,5 @@
 #define ENABLE_PR
-// #define ENABLE_PROBE
+#define ENABLE_PROBE
 
 #include "unacked_buffer.hpp"
 

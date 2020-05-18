@@ -2,7 +2,7 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
-// #define ENABLE_PROBE
+#define ENABLE_PROBE
 
 #include <stdio.h>
 #include "rx_64.hpp"

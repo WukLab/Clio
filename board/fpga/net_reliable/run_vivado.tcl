@@ -214,6 +214,7 @@ set files [list \
  [file normalize "${origin_dir}/rtl/tb/tb_intg.sv"] \
  [file normalize "${origin_dir}/rtl/tb/host_stack.v"] \
  [file normalize "${origin_dir}/rtl/tb/tb_rx.sv"] \
+ [file normalize "${origin_dir}/rtl/tb/tb_tx.sv"] \
 ]
 add_files -norecurse -fileset $obj $files
 
@@ -233,6 +234,10 @@ set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
+set file "$origin_dir/rtl/tb/tb_tx.sv"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
+set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
 # Set 'sim_1' fileset file properties for local files
 # None
@@ -240,7 +245,7 @@ set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 # Set 'sim_1' fileset properties
 set obj [get_filesets sim_1]
 set_property -name "nl.mode" -value "funcsim" -objects $obj
-set_property -name "top" -value "testbench_netstack_3" -objects $obj
+set_property -name "top" -value "testbench_tx" -objects $obj
 set_property -name "top_auto_set" -value "0" -objects $obj
 set_property -name "top_lib" -value "xil_defaultlib" -objects $obj
 
@@ -355,6 +360,8 @@ proc create_hier_cell_unacked_buffer_controller { parentCell nameHier } {
   # Create pins
   create_bd_pin -dir I -type clk ap_clk
   create_bd_pin -dir I -type rst ap_rst_n
+  create_bd_pin -dir O -from 31 -to 0 -type data rd_cnt_0
+  create_bd_pin -dir O -from 31 -to 0 -type data wr_cnt_0
 
   # Create instance: axi_datamover_0, and set properties
   set axi_datamover_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_datamover:5.1 axi_datamover_0 ]
@@ -401,6 +408,8 @@ proc create_hier_cell_unacked_buffer_controller { parentCell nameHier } {
   # Create port connections
   connect_bd_net -net ap_clk_0_1 [get_bd_pins ap_clk] [get_bd_pins axi_datamover_0/m_axi_mm2s_aclk] [get_bd_pins axi_datamover_0/m_axi_s2mm_aclk] [get_bd_pins axi_datamover_0/m_axis_mm2s_cmdsts_aclk] [get_bd_pins axi_datamover_0/m_axis_s2mm_cmdsts_awclk] [get_bd_pins axis_interconnect_0/ACLK] [get_bd_pins axis_interconnect_0/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S01_AXIS_ACLK] [get_bd_pins unacked_buffer_0/ap_clk]
   connect_bd_net -net ap_rst_n_1 [get_bd_pins ap_rst_n] [get_bd_pins axi_datamover_0/m_axi_mm2s_aresetn] [get_bd_pins axi_datamover_0/m_axi_s2mm_aresetn] [get_bd_pins axi_datamover_0/m_axis_mm2s_cmdsts_aresetn] [get_bd_pins axi_datamover_0/m_axis_s2mm_cmdsts_aresetn] [get_bd_pins axis_interconnect_0/ARESETN] [get_bd_pins axis_interconnect_0/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S01_AXIS_ARESETN] [get_bd_pins unacked_buffer_0/ap_rst_n]
+  connect_bd_net -net unacked_buffer_0_rd_cnt [get_bd_pins rd_cnt_0] [get_bd_pins unacked_buffer_0/rd_cnt]
+  connect_bd_net -net unacked_buffer_0_wr_cnt [get_bd_pins wr_cnt_0] [get_bd_pins unacked_buffer_0/wr_cnt]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -463,8 +472,12 @@ proc create_hier_cell_state_table { parentCell nameHier } {
 
 
   # Create pins
+  create_bd_pin -dir O -from 31 -to 0 -type data ack_cnt_0
   create_bd_pin -dir I -type clk ap_clk
   create_bd_pin -dir I -type rst ap_rst_n
+  create_bd_pin -dir O -from 31 -to 0 -type data data_cnt_0
+  create_bd_pin -dir O -from 1 -to 0 -type data rx_state_0
+  create_bd_pin -dir O -from 1 -to 0 -type data tx_state_0
 
   # Create instance: axis_interconnect_0, and set properties
   set axis_interconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_interconnect:2.1 axis_interconnect_0 ]
@@ -505,6 +518,10 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   # Create port connections
   connect_bd_net -net ap_clk_0_1 [get_bd_pins ap_clk] [get_bd_pins axis_interconnect_0/ACLK] [get_bd_pins axis_interconnect_0/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S02_AXIS_ACLK] [get_bd_pins retrans_timer_0/ap_clk] [get_bd_pins setup_manager_0/ap_clk] [get_bd_pins state_table_64_0/ap_clk]
   connect_bd_net -net ap_rst_n_1 [get_bd_pins ap_rst_n] [get_bd_pins axis_interconnect_0/ARESETN] [get_bd_pins axis_interconnect_0/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S02_AXIS_ARESETN] [get_bd_pins retrans_timer_0/ap_rst_n] [get_bd_pins setup_manager_0/ap_rst_n] [get_bd_pins state_table_64_0/ap_rst_n]
+  connect_bd_net -net state_table_64_0_ack_cnt [get_bd_pins ack_cnt_0] [get_bd_pins state_table_64_0/ack_cnt]
+  connect_bd_net -net state_table_64_0_data_cnt [get_bd_pins data_cnt_0] [get_bd_pins state_table_64_0/data_cnt]
+  connect_bd_net -net state_table_64_0_rx_state [get_bd_pins rx_state_0] [get_bd_pins state_table_64_0/rx_state]
+  connect_bd_net -net state_table_64_0_tx_state [get_bd_pins tx_state_0] [get_bd_pins state_table_64_0/tx_state]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -625,11 +642,24 @@ proc create_hier_cell_state_table { parentCell nameHier } {
 
 
   # Create ports
+  set ack_cnt [ create_bd_port -dir O -from 31 -to 0 -type data ack_cnt ]
   set ap_clk [ create_bd_port -dir I -type clk ap_clk ]
   set_property -dict [ list \
    CONFIG.ASSOCIATED_BUSIF {usr_tx_header:usr_tx_payload:usr_rx_header:usr_rx_payload:in_header:in_payload:out_header:out_payload:conn_set_req:M_AXI} \
  ] $ap_clk
   set ap_rst_n [ create_bd_port -dir I -type rst ap_rst_n ]
+  set arb_state [ create_bd_port -dir O -from 2 -to 0 -type data arb_state ]
+  set data_cnt [ create_bd_port -dir O -from 31 -to 0 -type data data_cnt ]
+  set rd_cnt [ create_bd_port -dir O -from 31 -to 0 -type data rd_cnt ]
+  set recv_state [ create_bd_port -dir O -from 1 -to 0 -type data recv_state ]
+  set rsp_cnt [ create_bd_port -dir O -from 31 -to 0 -type data rsp_cnt ]
+  set rt_cnt [ create_bd_port -dir O -from 31 -to 0 -type data rt_cnt ]
+  set rx_state [ create_bd_port -dir O -from 1 -to 0 -type data rx_state ]
+  set send_cnt [ create_bd_port -dir O -from 31 -to 0 -type data send_cnt ]
+  set send_state [ create_bd_port -dir O -from 1 -to 0 -type data send_state ]
+  set tx_cnt [ create_bd_port -dir O -from 31 -to 0 -type data tx_cnt ]
+  set tx_state [ create_bd_port -dir O -from 1 -to 0 -type data tx_state ]
+  set wr_cnt [ create_bd_port -dir O -from 31 -to 0 -type data wr_cnt ]
 
   # Create instance: arbiter_64_0, and set properties
   set arbiter_64_0 [ create_bd_cell -type ip -vlnv Wuklab.UCSD:hls:arbiter_64:1.0 arbiter_64_0 ]
@@ -663,13 +693,13 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   connect_bd_intf_net -intf_net arbiter_64_0_out_payload [get_bd_intf_ports out_payload] [get_bd_intf_pins arbiter_64_0/out_payload]
   connect_bd_intf_net -intf_net axis_data_fifo_1_M_AXIS [get_bd_intf_pins axis_data_fifo_1/M_AXIS] [get_bd_intf_pins unacked_buffer_controller/tx_buff_route_info_V]
   connect_bd_intf_net -intf_net conn_set_req_V_0_1 [get_bd_intf_ports conn_set_req] [get_bd_intf_pins state_table/conn_set_req]
+  connect_bd_intf_net -intf_net in_header_1 [get_bd_intf_ports in_header] [get_bd_intf_pins rx_64_0/rx_header_V]
+  connect_bd_intf_net -intf_net in_payload_1 [get_bd_intf_ports in_payload] [get_bd_intf_pins rx_64_0/rx_payload]
   connect_bd_intf_net -intf_net rx_64_0_rsp_header_V [get_bd_intf_pins arbiter_64_0/rsp_header_V] [get_bd_intf_pins state_table/rsp_header_V]
   connect_bd_intf_net -intf_net rx_64_0_rsp_payload [get_bd_intf_pins arbiter_64_0/rsp_payload] [get_bd_intf_pins state_table/rsp_payload]
   connect_bd_intf_net -intf_net rx_64_0_state_query_req_V [get_bd_intf_pins rx_64_0/state_query_req_V] [get_bd_intf_pins state_table/state_query_req_V]
   connect_bd_intf_net -intf_net rx_64_0_usr_rx_header_V [get_bd_intf_ports usr_rx_header] [get_bd_intf_pins rx_64_0/usr_rx_header_V]
   connect_bd_intf_net -intf_net rx_64_0_usr_rx_payload [get_bd_intf_ports usr_rx_payload] [get_bd_intf_pins rx_64_0/usr_rx_payload]
-  connect_bd_intf_net -intf_net rx_header_V_0_1 [get_bd_intf_ports in_header] [get_bd_intf_pins rx_64_0/rx_header_V]
-  connect_bd_intf_net -intf_net rx_payload_0_1 [get_bd_intf_ports in_payload] [get_bd_intf_pins rx_64_0/rx_payload]
   connect_bd_intf_net -intf_net state_table_64_0_check_full_rsp_V_V [get_bd_intf_pins state_table/check_full_rsp_V_V] [get_bd_intf_pins tx_64_0/check_full_rsp_V_V]
   connect_bd_intf_net -intf_net state_table_64_0_state_query_rsp_V [get_bd_intf_pins rx_64_0/state_query_rsp_V] [get_bd_intf_pins state_table/state_query_rsp_V]
   connect_bd_intf_net -intf_net state_table_gbn_retrans_req_V [get_bd_intf_pins state_table/gbn_retrans_req_V] [get_bd_intf_pins unacked_buffer_controller/gbn_retrans_req_V]
@@ -690,6 +720,19 @@ proc create_hier_cell_state_table { parentCell nameHier } {
   # Create port connections
   connect_bd_net -net ap_clk_0_1 [get_bd_ports ap_clk] [get_bd_pins arbiter_64_0/ap_clk] [get_bd_pins axis_data_fifo_0/s_axis_aclk] [get_bd_pins axis_data_fifo_1/s_axis_aclk] [get_bd_pins rx_64_0/ap_clk] [get_bd_pins state_table/ap_clk] [get_bd_pins tx_64_0/ap_clk] [get_bd_pins unacked_buffer_controller/ap_clk]
   connect_bd_net -net ap_rst_n_1 [get_bd_ports ap_rst_n] [get_bd_pins arbiter_64_0/ap_rst_n] [get_bd_pins axis_data_fifo_0/s_axis_aresetn] [get_bd_pins axis_data_fifo_1/s_axis_aresetn] [get_bd_pins rx_64_0/ap_rst_n] [get_bd_pins state_table/ap_rst_n] [get_bd_pins tx_64_0/ap_rst_n] [get_bd_pins unacked_buffer_controller/ap_rst_n]
+  connect_bd_net -net arbiter_64_0_arb_state [get_bd_ports arb_state] [get_bd_pins arbiter_64_0/arb_state]
+  connect_bd_net -net arbiter_64_0_cnt [get_bd_ports send_cnt] [get_bd_pins arbiter_64_0/send_cnt]
+  connect_bd_net -net arbiter_64_0_rsp_cnt [get_bd_ports rsp_cnt] [get_bd_pins arbiter_64_0/rsp_cnt]
+  connect_bd_net -net arbiter_64_0_rt_cnt [get_bd_ports rt_cnt] [get_bd_pins arbiter_64_0/rt_cnt]
+  connect_bd_net -net rx_64_0_recv_state [get_bd_ports recv_state] [get_bd_pins rx_64_0/recv_state]
+  connect_bd_net -net state_table_ack_cnt_0 [get_bd_ports ack_cnt] [get_bd_pins state_table/ack_cnt_0]
+  connect_bd_net -net state_table_data_cnt_0 [get_bd_ports data_cnt] [get_bd_pins state_table/data_cnt_0]
+  connect_bd_net -net state_table_rx_state_0 [get_bd_ports rx_state] [get_bd_pins state_table/rx_state_0]
+  connect_bd_net -net state_table_tx_state_0 [get_bd_ports tx_state] [get_bd_pins state_table/tx_state_0]
+  connect_bd_net -net tx_64_0_send_state [get_bd_ports send_state] [get_bd_pins tx_64_0/send_state]
+  connect_bd_net -net tx_64_0_tx_cnt [get_bd_ports tx_cnt] [get_bd_pins tx_64_0/tx_cnt]
+  connect_bd_net -net unacked_buffer_controller_rd_cnt_0 [get_bd_ports rd_cnt] [get_bd_pins unacked_buffer_controller/rd_cnt_0]
+  connect_bd_net -net unacked_buffer_controller_wr_cnt_0 [get_bd_ports wr_cnt] [get_bd_pins unacked_buffer_controller/wr_cnt_0]
 
   # Create address segments
   create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces unacked_buffer_controller/axi_datamover_0/Data] [get_bd_addr_segs M_AXI/Reg] SEG_M_AXI_Reg
@@ -784,6 +827,10 @@ proc cr_bd_ex_sim { parentCell } {
 
   set M_AXIS_setconn [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 M_AXIS_setconn ]
 
+  set M_AXIS_usr_hdr [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 M_AXIS_usr_hdr ]
+
+  set M_AXIS_usr_payload [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 M_AXIS_usr_payload ]
+
 
   # Create ports
   set aclk [ create_bd_port -dir I -type clk aclk ]
@@ -831,14 +878,44 @@ proc cr_bd_ex_sim { parentCell } {
    CONFIG.TUSER_WIDTH {0} \
  ] $axi4stream_vip_tx_setconn
 
+  # Create instance: axi4stream_vip_usr_hdr, and set properties
+  set axi4stream_vip_usr_hdr [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi4stream_vip:1.1 axi4stream_vip_usr_hdr ]
+  set_property -dict [ list \
+   CONFIG.HAS_TKEEP {0} \
+   CONFIG.HAS_TLAST {0} \
+   CONFIG.HAS_TREADY {1} \
+   CONFIG.HAS_TSTRB {0} \
+   CONFIG.INTERFACE_MODE {MASTER} \
+   CONFIG.TDATA_NUM_BYTES {14} \
+   CONFIG.TDEST_WIDTH {0} \
+   CONFIG.TID_WIDTH {0} \
+   CONFIG.TUSER_WIDTH {0} \
+ ] $axi4stream_vip_usr_hdr
+
+  # Create instance: axi4stream_vip_usr_payload, and set properties
+  set axi4stream_vip_usr_payload [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi4stream_vip:1.1 axi4stream_vip_usr_payload ]
+  set_property -dict [ list \
+   CONFIG.HAS_TKEEP {1} \
+   CONFIG.HAS_TLAST {1} \
+   CONFIG.HAS_TREADY {1} \
+   CONFIG.HAS_TSTRB {0} \
+   CONFIG.INTERFACE_MODE {MASTER} \
+   CONFIG.TDATA_NUM_BYTES {8} \
+   CONFIG.TDEST_WIDTH {0} \
+   CONFIG.TID_WIDTH {0} \
+   CONFIG.TUSER_WIDTH {0} \
+ ] $axi4stream_vip_usr_payload
+
   # Create interface connections
   connect_bd_intf_net -intf_net axi4stream_vip_tx_hdr_M_AXIS [get_bd_intf_ports M_AXIS_hdr] [get_bd_intf_pins axi4stream_vip_tx_hdr/M_AXIS]
   connect_bd_intf_net -intf_net axi4stream_vip_tx_payload_M_AXIS [get_bd_intf_ports M_AXIS_payload] [get_bd_intf_pins axi4stream_vip_tx_payload/M_AXIS]
   connect_bd_intf_net -intf_net axi4stream_vip_tx_setconn_M_AXIS [get_bd_intf_ports M_AXIS_setconn] [get_bd_intf_pins axi4stream_vip_tx_setconn/M_AXIS]
+  connect_bd_intf_net -intf_net axi4stream_vip_usr_hdr_M_AXIS [get_bd_intf_ports M_AXIS_usr_hdr] [get_bd_intf_pins axi4stream_vip_usr_hdr/M_AXIS]
+  connect_bd_intf_net -intf_net axi4stream_vip_usr_payload_M_AXIS [get_bd_intf_ports M_AXIS_usr_payload] [get_bd_intf_pins axi4stream_vip_usr_payload/M_AXIS]
 
   # Create port connections
-  connect_bd_net -net aclk_0_1 [get_bd_ports aclk] [get_bd_pins axi4stream_vip_tx_hdr/aclk] [get_bd_pins axi4stream_vip_tx_payload/aclk] [get_bd_pins axi4stream_vip_tx_setconn/aclk]
-  connect_bd_net -net aresetn_0_1 [get_bd_ports aresetn] [get_bd_pins axi4stream_vip_tx_hdr/aresetn] [get_bd_pins axi4stream_vip_tx_payload/aresetn] [get_bd_pins axi4stream_vip_tx_setconn/aresetn]
+  connect_bd_net -net aclk_0_1 [get_bd_ports aclk] [get_bd_pins axi4stream_vip_tx_hdr/aclk] [get_bd_pins axi4stream_vip_tx_payload/aclk] [get_bd_pins axi4stream_vip_tx_setconn/aclk] [get_bd_pins axi4stream_vip_usr_hdr/aclk] [get_bd_pins axi4stream_vip_usr_payload/aclk]
+  connect_bd_net -net aresetn_0_1 [get_bd_ports aresetn] [get_bd_pins axi4stream_vip_tx_hdr/aresetn] [get_bd_pins axi4stream_vip_tx_payload/aresetn] [get_bd_pins axi4stream_vip_tx_setconn/aresetn] [get_bd_pins axi4stream_vip_usr_hdr/aresetn] [get_bd_pins axi4stream_vip_usr_payload/aresetn]
 
   # Create address segments
 
