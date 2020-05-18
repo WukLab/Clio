@@ -1,4 +1,5 @@
 #define ENABLE_PR
+// #define ENABLE_PROBE
 
 #include "unacked_buffer.hpp"
 
@@ -25,7 +26,12 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		    stream<struct dm_cmd>	*dm_rd_cmd_2,
 		    stream<struct net_axis_64>	*dm_rd_data,
 		    stream<struct dm_cmd>	*dm_wr_cmd,
-		    stream<struct net_axis_64>	*dm_wr_data)
+		    stream<struct net_axis_64>	*dm_wr_data
+#ifdef ENABLE_PROBE
+		    ,volatile unsigned int	*wr_cnt
+		    ,volatile unsigned int	*rd_cnt
+#endif
+)
 {
 #pragma HLS INTERFACE axis both port=timer_rst_req
 #pragma HLS INTERFACE axis both port=tx_buff_payload
@@ -38,6 +44,11 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 #pragma HLS INTERFACE axis both port=dm_rd_data
 #pragma HLS INTERFACE axis both port=dm_wr_cmd
 #pragma HLS INTERFACE axis both port=dm_wr_data
+
+#ifdef ENABLE_PROBE
+#pragma HLS INTERFACE ap_none port=wr_cnt
+#pragma HLS INTERFACE ap_none port=rd_cnt
+#endif
 
 #pragma HLS DATA_PACK variable=timer_rst_req
 #pragma HLS DATA_PACK variable=tx_buff_route_info
@@ -59,7 +70,9 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 	 * need to take care of it at GBN layer
 	 */
 	static ap_uint<32> dest_ip_array[NR_MAX_SESSIONS_PER_NODE];
+#pragma HLS RESOURCE variable=dest_ip_array core=RAM_T2P_BRAM
 #pragma HLS DEPENDENCE variable=dest_ip_array inter false
+#pragma HLS DEPENDENCE variable=dest_ip_array intra false
 
 	static struct net_axis_64 buff_packet;
 	static struct route_info buff_route_info;
@@ -71,6 +84,11 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 	struct timer_req rst_timer_req;
 	static struct retrans_req gbn_rt_req;
+
+#ifdef ENABLE_PROBE
+	static unsigned int nr_wr = 0;
+	static unsigned int nr_rd = 0;
+#endif
 
 	switch (recv_state) {
 	case BUF_STATE_RECV_INFO:
@@ -96,9 +114,11 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 			/*
 			 * write packet length in the first 8 bytes
-			 * total write length is packet length + 8
+			 * total write length is packet length - 8 + 8
+			 * (subtract length of udp header and add length of
+			 * udp packet size)
 			 */
-			out_cmd.btt = buff_route_info.length + 8;
+			out_cmd.btt = buff_route_info.length - 8 + 8;
 			out_cmd.type = DM_CMD_TYPE_INCR;
 			out_cmd.dsa = 0;
 			out_cmd.eof = 1;
@@ -125,6 +145,9 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 		
 		dm_wr_data->write(buff_packet);
 		if (buff_packet.last == 1) {
+#ifdef ENABLE_PROBE
+			nr_wr++;
+#endif
 			recv_state = BUF_STATE_RECV_INFO;
 		}
 		break;
@@ -182,7 +205,7 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 
 		rd_length = dm_rd_data->read();
 
-		in_cmd.btt = rd_length.data(15, 0);
+		in_cmd.btt = rd_length.data(15, 0) - 8;
 		in_cmd.type = DM_CMD_TYPE_INCR;
 		in_cmd.dsa = 0;
 		in_cmd.eof = 1;
@@ -207,12 +230,15 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 	case BUF_STATE_RETRANS_PAYLOAD:
 		if (dm_rd_data->empty())
 			break;
-
+		
 		retrans_pkt = dm_rd_data->read();
 		rt_payload->write(retrans_pkt);
 
 		if (retrans_pkt.last == 1) {
 			rt_seq++;
+#ifdef ENABLE_PROBE
+			nr_rd++;
+#endif
 			if (rt_seq > gbn_rt_req.seq_end) {
 				/* retrans finish, reset timeout */
 				rst_timer_req.rst_type = timer_rst_type_reset;
@@ -228,4 +254,9 @@ void unacked_buffer(stream<struct timer_req>	*timer_rst_req,
 	default:
 		break;
 	}
+
+#ifdef ENABLE_PROBE
+	*wr_cnt = nr_wr;
+	*rd_cnt = nr_rd;
+#endif
 }

@@ -2,7 +2,7 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
-//#define ENABLE_PROBE
+// #define ENABLE_PROBE
 
 #include <stdio.h>
 #include "statetable_64.hpp"
@@ -60,8 +60,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		    stream<ap_uint<SEQ_WIDTH> >		*check_full_rsp,
 		    stream<struct conn_mgmt_req>	*init_req
 #ifdef ENABLE_PROBE
-		    ,enum table_handle_tx_status	*tx_state,
-		    enum table_handle_rx_status		*rx_state
+		    ,volatile enum table_handle_tx_status	*tx_state
+		    ,volatile enum table_handle_rx_status	*rx_state
+		    ,volatile unsigned int		*data_cnt
+		    ,volatile unsigned int		*ack_cnt
 #endif
 )
 {
@@ -83,6 +85,8 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 #ifdef ENABLE_PROBE
 #pragma HLS INTERFACE ap_none port=tx_state
 #pragma HLS INTERFACE ap_none port=rx_state
+#pragma HLS INTERFACE ap_none port=data_cnt
+#pragma HLS INTERFACE ap_none port=ack_cnt
 #endif
 
 #pragma HLS DATA_PACK variable=gbn_retrans_req
@@ -122,6 +126,11 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	static enum table_handle_tx_status handle_tx_state =
 		TAB_STATE_RECV_TX_REQ;
 
+#ifdef ENABLE_PROBE
+	static unsigned int nr_data = 0;
+	static unsigned int nr_ack = 0;
+#endif
+
 	/*
 	 * These are connection states
 	 * Need to be initialized when a connection is setup
@@ -130,10 +139,21 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	static ap_uint<SEQ_WIDTH> expected_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
 	static ap_uint<SEQ_WIDTH> last_ackd_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
 	static ap_uint<SEQ_WIDTH> last_sent_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
-#pragma HLS DEPENDENCE variable=ack_enable_bitmap false
-#pragma HLS DEPENDENCE variable=expected_seqnum_array false
-#pragma HLS DEPENDENCE variable=last_acked_seqnum_array false
-#pragma HLS DEPENDENCE variable=last_sent_seqnum_array false
+#pragma HLS RESOURCE variable=ack_enable_bitmap core=RAM_T2P_BRAM
+#pragma HLS DEPENDENCE variable=ack_enable_bitmap inter false
+#pragma HLS DEPENDENCE variable=ack_enable_bitmap intra false
+
+#pragma HLS RESOURCE variable=expected_seqnum_array core=RAM_T2P_BRAM
+#pragma HLS DEPENDENCE variable=expected_seqnum_array inter false
+#pragma HLS DEPENDENCE variable=expected_seqnum_array intra false
+
+#pragma HLS RESOURCE variable=last_acked_seqnum_array core=RAM_T2P_BRAM
+#pragma HLS DEPENDENCE variable=last_acked_seqnum_array inter false
+#pragma HLS DEPENDENCE variable=last_acked_seqnum_array intra false
+
+#pragma HLS RESOURCE variable=last_sent_seqnum_array core=RAM_T2P_BRAM
+#pragma HLS DEPENDENCE variable=last_sent_seqnum_array inter false
+#pragma HLS DEPENDENCE variable=last_sent_seqnum_array intra false
 
 	/*
 	 * state machine for handling receive packet
@@ -171,7 +191,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		rsp_udp_info.src_ip = 0;
 		rsp_udp_info.src_port = LEGOMEM_PORT;
 		rsp_udp_info.dest_port = LEGOMEM_PORT;
-		rsp_udp_info.length = 8;
+		rsp_udp_info.length = 24;
 
 		/*
 		 * in response payload, src slot id and dest slot id is exchanged
@@ -184,7 +204,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			     DEST_SLOT_OFFSET) =
 			gbn_query_req.gbn_header(SRC_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
 						 SRC_SLOT_OFFSET);
-		rsp_pkt.last = 1;
+		rsp_pkt.last = 0;
 		rsp_pkt.keep = 0xff;
 
 		if (gbn_query_req.gbn_header(DEST_SLOT_OFFSET + SLOT_ID_WIDTH - 1,
@@ -205,6 +225,9 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				    PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
 				    PKT_TYPE_OFFSET) == GBN_PKT_DATA) {
 				expt_seqnum = expected_seqnum_array[rx_slot_id];
+#ifdef ENABLE_PROBE
+				nr_data++;
+#endif
 				handle_rx_state = TAB_STATE_HANDLE_DATA;
 			} else if (gbn_query_req.gbn_header(
 					   PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
@@ -216,7 +239,9 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 					last_ackd_seqnum_array[rx_slot_id];
 				rx_last_sent_seqnum =
 					last_sent_seqnum_array[rx_slot_id];
-
+#ifdef ENABLE_PROBE
+				nr_ack++;
+#endif
 				handle_rx_state = TAB_STATE_HANDLE_ACK;
 			} else {
 				/* unknown packet type */
@@ -358,6 +383,8 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 
 #ifdef ENABLE_PROBE
 	*rx_state = handle_rx_state;
+	*data_cnt = nr_data;
+	*ack_cnt = nr_ack;
 #endif
 
 	static ap_uint<SEQ_WIDTH> tx_last_ackd_seqnum, tx_last_sent_seqnum;
@@ -380,6 +407,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		if (tx_last_ackd_seqnum + WINDOW_SIZE > tx_last_sent_seqnum) {
 			tx_ck_rsp = tx_last_sent_seqnum + 1;
 			check_full_rsp->write(tx_ck_rsp);
+			last_sent_seqnum_array[tx_slot_id] = tx_ck_rsp;
 			handle_tx_state = TAB_STATE_UPD_TX_INFO;		
 		}
 		break;
@@ -398,7 +426,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			rst_timer_req.rst_type = timer_rst_type_reset;
 			timer_rst_req->write(rst_timer_req);
 		}
-		last_sent_seqnum_array[tx_slot_id] = tx_last_sent_seqnum + 1;
+		
 		handle_tx_state = TAB_STATE_RECV_TX_REQ;
 		break;
 	default:
