@@ -2,7 +2,7 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 #define ENABLE_PR
-//#define ENBALE_PROBE
+// #define ENABLE_PROBE
 
 #include "tx_64.hpp"
 
@@ -32,7 +32,8 @@ void tx_64(stream<struct udp_info>		*tx_header,
 	   stream<struct net_axis_64>		*tx_buff_payload,
 	   stream<struct route_info>		*tx_buff_route_info
 #ifdef ENABLE_PROBE
-	   ,enum udp_send_status		*send_state
+	   ,volatile enum udp_send_status	*send_state
+	   ,volatile unsigned int		*tx_cnt
 #endif
 )
 {
@@ -47,6 +48,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 #pragma HLS INTERFACE axis both port=tx_buff_route_info
 #ifdef ENABLE_PROBE
 #pragma HLS INTERFACE ap_none port=send_state
+#pragma HLS INTERFACE ap_none port=tx_cnt
 #endif
 
 #pragma HLS DATA_PACK variable=tx_header
@@ -66,6 +68,10 @@ void tx_64(stream<struct udp_info>		*tx_header,
 	static ap_uint<SLOT_ID_WIDTH> slot_id;
 	static ap_uint<SEQ_WIDTH> tx_ck_rsp;
 	static bool if_buffer = true;
+
+#ifdef ENABLE_PROBE
+	static unsigned int nr_tx = 0;
+#endif
 
 	switch (state) {
 	case TX_STATE_UDP_HEADER:
@@ -90,7 +96,7 @@ void tx_64(stream<struct udp_info>		*tx_header,
 			send_udp_info.dest_port(SLOT_ID_WIDTH - 1, 0);
 		gbn_header.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1, PKT_TYPE_OFFSET) = GBN_PKT_DATA;
 
-		send_udp_info.length += 8;  // add the length of gbn header
+		send_udp_info.length += 16;  // add the length of gbn header and udp header
 
 		if (send_udp_info.src_port > 0 && send_udp_info.dest_port > 0) {
 			slot_id = send_udp_info.src_port(SLOT_ID_WIDTH - 1, 0);
@@ -175,12 +181,16 @@ void tx_64(stream<struct udp_info>		*tx_header,
 
 		if (send_pkt.last == 1) {
 			state = TX_STATE_UDP_HEADER;
+#ifdef ENABLE_PROBE
+			nr_tx++;
+#endif
 			/*
 			 * send a signal to state table to
 			 * inform the completion of a packet transfer
 			 */
-			if (if_buffer)
+			if (if_buffer) {
 				tx_finish_sig->write(true);
+			}
 			if_buffer = true;
 		}
 
@@ -190,5 +200,6 @@ void tx_64(stream<struct udp_info>		*tx_header,
 	}
 #ifdef ENABLE_PROBE
 	*send_state = state;
+	*tx_cnt = nr_tx;
 #endif
 }
