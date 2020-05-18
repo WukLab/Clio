@@ -38,8 +38,9 @@ elif [ "$1" == "2" ]; then
 		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=p4p1 \
 		--port=1234 \
-		--run_test=rw_fault
+		--run_test=read_write
 
+		#--run_test=rw_fault
 		#--run_test=rw_seq
 		#--run_test=read_write
 

@@ -17,11 +17,12 @@
 
 #define NR_MAX 128
 
-#define OneM 1024*1024
+#define MB 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1
-static int test_size[] = { 8*OneM };
+#define NR_RUN_PER_THREAD 10000
+static int test_size[] = { 1020*MB };
+//static int test_size[] = { 4*MB, 16*MB, 64*MB, 256*MB, 1020*MB };
 static int test_nr_threads[] = { 1 };
 
 static double latency_alloc_ns[NR_MAX][NR_MAX];
@@ -46,7 +47,7 @@ static pthread_barrier_t thread_barrier;
 
 static void *thread_func(void *_ti)
 {
-	unsigned long __remote *addr;
+	unsigned long __remote addr;
 	unsigned long size;
 	int i, j, nr_tests;
 	struct timespec s, e;
@@ -56,55 +57,43 @@ static void *thread_func(void *_ti)
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 
-	addr = malloc(NR_RUN_PER_THREAD * sizeof(*addr));
-	if (!addr)
-		die("OOM");
-
 	legomem_getcpu(&cpu, &node);
 	printf("%s(): thread id %d running on CPU %d\n", __func__, ti->id, cpu);
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
 
-		memset(addr, 0, NR_RUN_PER_THREAD * sizeof(*addr));
 		nr_tests = NR_RUN_PER_THREAD;
 
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
 
-		/* Run bunch alloc */
-		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			addr[j] = legomem_alloc(ctx, size, 0);
-			if (unlikely(addr[j] == 0)) {
-				dprintf_ERROR("thread id %d failed at %d\n",
-					ti->id, j);
+			clock_gettime(CLOCK_MONOTONIC, &s);
+			//addr = legomem_alloc(ctx, size, 0);
+			addr = legomem_alloc(ctx, size, LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_ZERO);
+			if (unlikely(addr == 0)) {
+				dprintf_ERROR("thread id %d failed at %d\n", ti->id, j);
 				break;
 			}
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
+			clock_gettime(CLOCK_MONOTONIC, &e);
 
-		latency_alloc_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+			latency_alloc_ns[ti->id][i] +=
+				(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+				(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+
+			clock_gettime(CLOCK_MONOTONIC, &s);
+			legomem_free(ctx, addr, size);
+			clock_gettime(CLOCK_MONOTONIC, &e);
+
+			latency_free_ns[ti->id][i] +=
+				(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+				(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+		}
 
 #if 1
-		/* Run bunch free */
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		for (j = 0; j < nr_tests; j++) {
-			if (addr[j])
-				legomem_free(ctx, addr[j], size);
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
-#endif
-
-		latency_free_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
-#if 1
-		dprintf_INFO("thread id %d nr_tests: %d alloc_size: %lu avg_alloc: %lf ns avg_free: %lf ns\n",
-			ti->id, nr_tests, size,
+		dprintf_INFO("thread id %d nr_tests: %d alloc_size: %lu MB avg_alloc: %lf ns avg_free: %lf ns\n",
+			ti->id, nr_tests, size >> 20,
 			latency_alloc_ns[ti->id][i] / nr_tests,
 			latency_free_ns[ti->id][i] / nr_tests);
 #endif
@@ -174,12 +163,11 @@ int test_legomem_alloc_free(char *_unused)
 			}
 			avg_free = sum / nr_threads / NR_RUN_PER_THREAD;
 
-			dprintf_INFO("#tests_per_thread=%10d #nr_theads=%3d #alloc_size=%8d "
+			dprintf_INFO("#tests_per_thread=%10d #nr_theads=%3d #alloc_size=%8d MB"
 				     "avg_alloc_RTT: %10lf ns avg_free_RTT: %10lf ns\n",
-					NR_RUN_PER_THREAD, nr_threads, send_size, avg_alloc, avg_free);
+					NR_RUN_PER_THREAD, nr_threads, send_size >> 20, avg_alloc, avg_free);
 		}
 	}
 	legomem_close_context(ctx);
-
 	return 0;
 }

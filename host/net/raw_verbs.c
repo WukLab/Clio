@@ -72,9 +72,14 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
 
-	if (unlikely(ses_verbs->send_mr)) {
-		dprintf_INFO("Override session %d registered send_buf\n",
+	if (ses_verbs->send_mr) {
+		/*
+		 * We don't free the buffer.
+		 * Since we don't know if it could be freed.
+		 */
+		dprintf_INFO("NOTICE Overriding session %d registered send buf\n",
 			get_local_session_id(ses_net));
+		ibv_dereg_mr(ses_verbs->send_mr);
 	}
 
 	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
@@ -83,8 +88,9 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		return errno;
 	}
 
-	dprintf_INFO("Registered buf: [%#lx - %#lx] len=%#lx\n",
-			(u64)buf, (u64)buf + buf_size, (u64)buf_size);
+	dprintf_INFO("Registered buf: [%#lx - %#lx] len=%#lx session id %d\n",
+			(u64)buf, (u64)buf + buf_size, (u64)buf_size,
+			get_local_session_id(ses_net));
 
 	ses_verbs->send_mr = mr;
 	ses_verbs->send_buf = buf;
@@ -197,6 +203,12 @@ __raw_verbs_send(struct session_net *ses_net,
 	} else
 		signaled = false;
 
+#if 0
+	char packet_dump_str[256];
+	dump_packet_headers(buf, packet_dump_str);
+	dprintf_INFO("\033[32m sending: %s size %zu \033[0m\n", packet_dump_str, buf_size);
+#endif
+
 	ret = ibv_post_send(qp, &wr, &bad_wr);
 	if (unlikely(ret < 0)) {
 		dprintf_ERROR("Fail to post send WQE %d\n", errno);
@@ -269,7 +281,7 @@ raw_verbs_send(struct session_net *ses_net,
 		}
 		new_mr = true;
 
-		dprintf_INFO("    Created a new MR for this particular send. Check if this is on datapath! %d\n", 0);
+		dprintf_INFO("  Created a new MR for send. Check if this is on datapath!! %d\n", 0);
 	} else {
 		new_mr = false;
 		send_mr = ses_verbs->send_mr;

@@ -7,6 +7,7 @@
 #include <uapi/sched.h>
 #include <uapi/list.h>
 #include <uapi/err.h>
+#include <uapi/page.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -307,10 +308,28 @@ legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 	return __legomem_open_session(ctx, bi, tid, false, false);
 }
 
+/*
+ * We also register a send buffer for each mgmt session.
+ * This registered buffer will be used to send control msg etc.
+ */
 struct session_net *
 legomem_open_session_remote_mgmt(struct board_info *bi)
 {
-	return __legomem_open_session(NULL, bi, 0, false, true);
+	void *buf;
+	struct session_net *ses;
+
+	ses = __legomem_open_session(NULL, bi, 0, false, true);
+	if (!ses)
+		return NULL;
+
+	buf = malloc(PAGE_SIZE);
+	if (!buf) { 
+		legomem_close_session(NULL, ses);
+		return NULL;
+	}
+
+	net_reg_send_buf(ses, buf, PAGE_SIZE);
+	return ses;
 }
 
 struct session_net *
@@ -507,8 +526,6 @@ adjust_vregion_avail_size(struct legomem_context *ctx,
 	vregion_alloclist_move_to_tail(ctx, v);
 }
 
-#define CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
-
 /*
  * @ctx: the legomem context
  * @size: the allocation size
@@ -519,8 +536,9 @@ adjust_vregion_avail_size(struct legomem_context *ctx,
 unsigned long __remote
 legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 {
-	struct legomem_alloc_free_req req;
-	struct legomem_alloc_free_resp resp;
+	struct legomem_alloc_free_req *req;
+	struct legomem_alloc_free_resp *resp;
+	size_t resp_size;
 	struct lego_header *lego_header;
 	struct legomem_vregion *v;
 	struct board_info *bi;
@@ -647,29 +665,26 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 * All good, once we are here, it means
 	 * we have a valid vRegion and net session.
 	 */
-	lego_header = to_lego_header(&req);
+	req = net_get_send_buf(bi->mgmt_session);
+	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_ALLOC;
 	lego_header->pid = ctx->pid;
-	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
+	lego_header->size = sizeof(*req) - LEGO_HEADER_OFFSET;
 
-	req.op.len = size;
-	req.op.vregion_idx = vregion_idx;
-	req.op.vm_flags = vm_flags;
+	req->op.len = size;
+	req->op.vregion_idx = vregion_idx;
+	req->op.vm_flags = vm_flags;
 
-#ifndef CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
-	ret = net_send_and_receive_lock(bi->mgmt_session, &req, sizeof(req),
-					&resp, sizeof(resp));
-#else
-	ret = net_send_and_receive_lock(ses, &req, sizeof(req),
-					&resp, sizeof(resp));
-#endif
+	ret = net_send_and_receive_zerocopy_lock(bi->mgmt_session,
+						 req, sizeof(*req),
+						 (void **)&resp, &resp_size);
 	if (unlikely(ret <= 0)) {
 		dprintf_ERROR("net error %d\n", ret);
 		return ret;
 	}
 
 	/* Check response from the board */
-	if (resp.op.ret != 0) {
+	if (resp->op.ret != 0) {
 		/*
 		 * TODO
 		 *
@@ -679,11 +694,11 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 * monitor somehow decided to free the vRegion thus we need
 		 * to ask monitor again etc. Those are valid failures.
 		 */
-		dprintf_ERROR("remote alloc failure %d\n", resp.op.ret);
+		dprintf_ERROR("remote alloc failure %d\n", resp->op.ret);
 		return 0;
 	}
 
-	addr = resp.op.addr;
+	addr = resp->op.addr;
 
 	dprintf_DEBUG("allocated: addr [%#lx %#lx) size %#lx\n", addr, addr + size, size);
 	return addr;
@@ -694,8 +709,9 @@ int legomem_free(struct legomem_context *ctx,
 {
 	struct legomem_vregion *v;
 	struct session_net *ses;
-	struct legomem_alloc_free_req req;
-	struct legomem_alloc_free_resp resp;
+	struct legomem_alloc_free_req *req;
+	struct legomem_alloc_free_resp *resp;
+	size_t resp_size;
 	struct lego_header *lego_header;
 	struct board_info *bi;
 	int ret;
@@ -710,28 +726,19 @@ int legomem_free(struct legomem_context *ctx,
 		return -ENODEV;
 	}
 
-	lego_header = to_lego_header((void *)&req);
+	ses = get_board_mgmt_session(bi);
+	req = net_get_send_buf(ses);
+
+	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_FREE;
 	lego_header->pid = ctx->pid;
-	lego_header->size = sizeof(req) - LEGO_HEADER_OFFSET;
+	lego_header->size = sizeof(*req) - LEGO_HEADER_OFFSET;
 
-	req.op.addr = addr;
-	req.op.len = size;
+	req->op.addr = addr;
+	req->op.len = size;
 
-#ifndef CONFIG_LEGOMEM_ALLOC_FREE_USE_NORMAL_SESSION
-	ses = get_board_mgmt_session(bi);
-#else
-	ses = find_vregion_session(v, gettid());
-	if (unlikely(!ses)) {
-		dprintf_ERROR("BUG: addr %#lx vRegion does not have "
-			      "an associated net session. It should "
-			      "have been created by legomem_alloc.\n", addr);
-		return -EINVAL;
-	}
-#endif
-
-	ret = net_send_and_receive_lock(ses, &req, sizeof(req),
-					&resp, sizeof(resp));
+	ret = net_send_and_receive_zerocopy_lock(ses, req, sizeof(*req),
+						 (void **)&resp, &resp_size);
 	if (ret <= 0) {
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;

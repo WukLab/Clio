@@ -24,8 +24,8 @@
 //static int test_size[] = { 256 };
 //static int test_nr_threads[] = { 8 };
 
-static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
-static int test_nr_threads[] = { 1 };
+static int test_size[] = { 1400 };
+static int test_nr_threads[] = { 16 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
 static double latency_write_ns[NR_MAX][NR_MAX];
@@ -89,7 +89,7 @@ static void *thread_func_read(void *_ti)
 		ses = find_or_alloc_vregion_session(ctx, addr);
 		BUG_ON(!ses);
 
-#if 0
+#if 1
 		bi = ses->board_info;
 		ses = legomem_open_session_remote_mgmt(bi);
 #endif
@@ -112,7 +112,7 @@ static void *thread_func_read(void *_ti)
 
 		pthread_barrier_wait(&thread_barrier);
 
-#if 1
+#if 0
 		legomem_write_sync(ctx, send_buf, addr, 0x10);
 
 		/* Run bunch sync write */
@@ -140,8 +140,10 @@ static void *thread_func_read(void *_ti)
 #endif
 		pthread_barrier_wait(&thread_barrier);
 
-		//sleep(10);
-		//printf("after sleep..\n");
+
+		printf("before sleep..\n");
+		sleep(30);
+		printf("after sleep..\n");
 		//printf("thread %d use ses %u %u\n",
 		//	ti->id, get_local_session_id(ses), get_remote_session_id(ses));
 
@@ -149,10 +151,10 @@ static void *thread_func_read(void *_ti)
 		//ret = legomem_read(ctx, send_buf, recv_buf, addr, 0x10);
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
+			//ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
 
-			//ret = legomem_read_with_session(ctx, ses,
-			//				send_buf, recv_buf, addr, size);
+			ret = legomem_read_with_session(ctx, ses,
+							send_buf, recv_buf, addr, size);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -161,14 +163,6 @@ static void *thread_func_read(void *_ti)
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
-
-#if 0
-		char *pp = recv_buf + sizeof(struct legomem_read_write_resp);
-		for (int k = 0; k < size; k++) {
-			printf("%x ", pp[k]);
-		}
-		printf("\n");
-#endif
 
 		latency_read_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -

@@ -40,6 +40,8 @@ struct session_net {
 	pthread_t		thread;
 	bool			thread_should_stop;
 
+	void			*registered_send_buf;
+
 	/*
 	 * Used by threads wishing to use the mgmt session of a board.
 	 * We have to do this because all threads share one single mgmt session,
@@ -304,7 +306,20 @@ default_transport_reg_send_buf(struct session_net *net, void *buf, size_t buf_si
 static __always_inline int
 net_reg_send_buf(struct session_net *ses, void *buf, size_t buf_size)
 {
-	return transport_net_ops->reg_send_buf(ses, buf, buf_size);
+	int ret;
+	
+	ret = transport_net_ops->reg_send_buf(ses, buf, buf_size);
+	if (ret)
+		return ret;
+
+	ses->registered_send_buf = buf;
+	return 0;
+}
+
+static __always_inline void *
+net_get_send_buf(struct session_net *ses)
+{
+	return ses->registered_send_buf;
 }
 
 static inline int
@@ -359,8 +374,20 @@ net_send_and_receive(struct session_net *net,
 	ret = net_send(net, tx_buf, tx_buf_size);
 	if (ret <= 0)
 		return ret;
-
 	return net_receive(net, rx_buf, rx_buf_size);
+}
+
+static __always_inline int
+net_send_and_receive_zerocopy(struct session_net *net,
+			      void *tx_buf, size_t tx_buf_size,
+			      void **rx_buf, size_t *rx_buf_size)
+{
+	int ret;
+
+	ret = net_send(net, tx_buf, tx_buf_size);
+	if (ret <= 0)
+		return ret;
+	return net_receive_zerocopy(net, rx_buf, rx_buf_size);
 }
 
 /*
@@ -381,6 +408,21 @@ net_send_and_receive_lock(struct session_net *net,
 
 	pthread_spin_lock(&net->lock);
 	ret = net_send_and_receive(net, tx_buf, tx_buf_size, rx_buf, rx_buf_size);
+	pthread_spin_unlock(&net->lock);
+	return ret;
+}
+
+static __always_inline int
+net_send_and_receive_zerocopy_lock(struct session_net *net,
+				   void *tx_buf, size_t tx_buf_size,
+				   void **rx_buf, size_t *rx_buf_size)
+{
+	int ret;
+
+	pthread_spin_lock(&net->lock);
+	ret = net_send_and_receive_zerocopy(net,
+					    tx_buf, tx_buf_size,
+					    rx_buf, rx_buf_size);
 	pthread_spin_unlock(&net->lock);
 	return ret;
 }
