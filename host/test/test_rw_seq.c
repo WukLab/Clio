@@ -26,7 +26,7 @@
 //static int test_size[] = { 256 };
 //static int test_nr_threads[] = { 8 };
 
-static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
+static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -63,6 +63,7 @@ static void *thread_func_read(void *_ti)
 	int cpu, node;
 	int ret;
 	struct session_net *ses;
+	struct board_info *bi;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
@@ -74,19 +75,26 @@ static void *thread_func_read(void *_ti)
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
 
+#if 0
 	send_buf = malloc(VREGION_SIZE);
-	recv_buf = malloc(VREGION_SIZE);
 	net_reg_send_buf(ses, send_buf, VREGION_SIZE);
+#else
+	bi = ses->board_info;
+	ses = legomem_open_session_remote_mgmt(bi);
+	send_buf = net_get_send_buf(ses);
+#endif
+	recv_buf = malloc(VREGION_SIZE);
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
+		//nr_tests = NR_PAGES;
 
 		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
 				ti->id, get_local_session_id(ses),
 				addr, addr + 16 * OneM);
 
-#if 1
+#if 0
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			unsigned long _addr;
@@ -164,6 +172,7 @@ int test_legomem_rw_seq(char *_unused)
 	 * Make a working set larger than tlb.
 	 */
 	NR_PAGES = LEGOMEM_NR_TLB_ENTRIES + 100;
+	//NR_PAGES = LEGOMEM_NR_TLB_ENTRIES;
 
 	global_base_addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, LEGOMEM_VM_FLAGS_POPULATE);
 	//global_base_addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, 0);
