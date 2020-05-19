@@ -27,7 +27,7 @@
  * @value: value buffer to write.
  */
 static int
-__legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16_t opcode,
+__legomem_kvs_write(struct legomem_context *ctx, uint16_t opcode,
 		    uint16_t key_size, uint64_t key, uint16_t value_size, void *value)
 {
 	struct legomem_kvs_req *req;
@@ -37,8 +37,11 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	int ret;
 	size_t recv_size;
 
-	// TODO
+	// Find remote board
+	// find a session associated with this board
 	// find the pre-created memory region buffer
+	bi = NULL;
+	ses = NULL;
 	req = NULL;
 
 	/* Cook lego headers */
@@ -72,19 +75,19 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	return 0;
 }
 
-int legomem_kvs_create(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size, 
+int legomem_kvs_create(struct legomem_context *ctx, uint16_t key_size, 
 		      uint64_t key, uint16_t value_size, void *value)
 {
-	return __legomem_kvs_write(ctx, ses, OP_REQ_KVS_WRITE, key_size, key, value_size, value);
+	return __legomem_kvs_write(ctx, OP_REQ_KVS_WRITE, key_size, key, value_size, value);
 }
 
-int legomem_kvs_update(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size,
+int legomem_kvs_update(struct legomem_context *ctx, uint16_t key_size,
 		       uint64_t key, uint16_t value_size, void *value)
 {
-	return __legomem_kvs_write(ctx, ses, OP_REQ_KVS_UPDATE, key_size, key, value_size, value);
+	return __legomem_kvs_write(ctx, OP_REQ_KVS_UPDATE, key_size, key, value_size, value);
 }
 
-int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size,
+int legomem_kvs_read(struct legomem_context *ctx, uint16_t key_size,
 		     uint64_t key, uint16_t value_size, void *value)
 {
 	struct legomem_kvs_req *req;
@@ -132,8 +135,7 @@ int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint1
 	return 0;
 }
 
-int legomem_kvs_delete(struct legomem_context *ctx, struct session_net *ses, 
-		uint16_t key_size, uint64_t key)
+int legomem_kvs_delete(struct legomem_context *ctx, uint16_t key_size, uint64_t key)
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
