@@ -57,7 +57,7 @@ int test_legomem_migration(char *_unused)
 	alloc_size = VREGION_SIZE;
 
 	for (i = 0; i < NR_TESTS; i++) {
-		addr[i] = legomem_alloc(ctx, alloc_size, 0);
+		addr[i] = legomem_alloc(ctx, alloc_size, LEGOMEM_VM_FLAGS_POPULATE);
 		if (!addr[i]) {
 			dprintf_ERROR("alloc failed %d\n", 0);
 			goto close;

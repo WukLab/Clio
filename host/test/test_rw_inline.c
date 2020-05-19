@@ -63,6 +63,7 @@ static int inline_legomem_read_with_session(struct legomem_context *ctx, struct 
 	tx_lego = to_lego_header(req);
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
+	tx_lego->size = sizeof(*req) - LEGO_HEADER_OFFSET;
 
 	nr_sent = 0;
 	do {
@@ -89,12 +90,13 @@ static int inline_legomem_read_with_session(struct legomem_context *ctx, struct 
 	for (i = 0; i < nr_sent; i++) {
 		//ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
 
+retry:
 		ret = raw_net_receive_zerocopy((void **)&resp, &recv_size);
 		if (unlikely(ret < 0)) {
 			dprintf_ERROR("Fail to recv read at %dth reply\n", i);
 			break;
 		} else if (ret == 0)
-			continue;
+			goto retry;
 
 		/* Sanity Checks */
 		rx_lego = to_lego_header(resp);
@@ -140,19 +142,15 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
-		addr = legomem_alloc(ctx, 4 * OneM, 0);
+		addr = legomem_alloc(ctx, 4 * OneM, LEGOMEM_VM_FLAGS_POPULATE);
 		ses = find_or_alloc_vregion_session(ctx, addr);
 		BUG_ON(!ses);
 
-#if 1
 		bi = ses->board_info;
 		ses = legomem_open_session_remote_mgmt(bi);
-#endif
+		send_buf = net_get_send_buf(ses);
 
-		/* Prepare the send buf */
-		send_buf = malloc(VREGION_SIZE);
 		recv_buf = malloc(VREGION_SIZE);
-		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
 		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
 				ti->id, get_local_session_id(ses),
@@ -250,7 +248,6 @@ int test_legomem_rw_inline(char *_unused)
 					NR_RUN_PER_THREAD, nr_threads, send_size, avg_read, avg_write);
 		}
 	}
-	legomem_close_context(ctx);
 
 	return 0;
 }
