@@ -3,6 +3,7 @@
 #
 
 VIVADO = vivado
+FLAGS ?= release
 
 all:
 	$(VIVADO) -mode tcl -source scripts/run_vivado.tcl
