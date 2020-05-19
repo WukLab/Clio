@@ -21,7 +21,7 @@ static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 /* Tuning */
-#define NR_RUN_PER_THREAD 1
+#define NR_RUN_PER_THREAD 100000
 
 #if 0
 //int test_size[] = { 4, 16, 64, 256, 1024 };

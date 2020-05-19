@@ -20,11 +20,11 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 2000000
+#define NR_RUN_PER_THREAD 1000000
 //static int test_size[] = { 256 };
 //static int test_nr_threads[] = { 8 };
 
-static int test_size[] = { 256 };
+static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -68,57 +68,46 @@ static void *thread_func_read(void *_ti)
 	legomem_getcpu(&cpu, &node);
 	dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu);
 
+	/*
+	 * This is tunable
+	 *
+	 * Either 1) all threads use same addr
+	 * 2) each thread use their own addr
+	 *
+	 * Of course, for best perf, each thread should use
+	 * their own vregion, to avoid the hashtable search.
+	 */
+#if 0
+	addr = legomem_alloc(ctx, 4 * OneM, 0);
+#else
+	addr = global_base_addr;
+#endif
+
+	ses = find_or_alloc_vregion_session(ctx, addr);
+	BUG_ON(!ses);
+
+#if 0
+	send_buf = malloc(VREGION_SIZE);
+	net_reg_send_buf(ses, send_buf, VREGION_SIZE);
+#else
+	bi = ses->board_info;
+	ses = legomem_open_session_remote_mgmt(bi);
+	send_buf = net_get_send_buf(ses);
+#endif
+
+	recv_buf = malloc(VREGION_SIZE);
+
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
-		/*
-		 * This is tunable
-		 *
-		 * Either 1) all threads use same addr
-		 * 2) each thread use their own addr
-		 *
-		 * Of course, for best perf, each thread should use
-		 * their own vregion, to avoid the hashtable search.
-		 */
-#if 0
-		addr = legomem_alloc(ctx, 4 * OneM, 0);
-#else
-		addr = global_base_addr;
-#endif
-		ses = find_or_alloc_vregion_session(ctx, addr);
-		BUG_ON(!ses);
-
-#if 1
-		bi = ses->board_info;
-		ses = legomem_open_session_remote_mgmt(bi);
-#endif
-
-		/* Prepare the send buf */
-		send_buf = malloc(VREGION_SIZE);
-		recv_buf = malloc(VREGION_SIZE);
-		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
-
-#if 0
-		mgmt_ses = get_board_mgmt_session(ses->board_info);
-		net_reg_send_buf(mgmt_ses, send_buf, 4096);
-#endif
-
-		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
-				ti->id, get_local_session_id(ses),
-				addr, addr + 16 * OneM);
-
-		//sleep(5);
-
 		pthread_barrier_wait(&thread_barrier);
 
-#if 0
+#if 1
 		legomem_write_sync(ctx, send_buf, addr, 0x10);
-
-		/* Run bunch sync write */
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_write_sync(ctx, send_buf, addr, size);
+			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -131,18 +120,15 @@ static void *thread_func_read(void *_ti)
 		latency_write_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
 		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
 			latency_write_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000)
-			);
+			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
 		pthread_barrier_wait(&thread_barrier);
 
 
 #if 1
-		//ret = legomem_read(ctx, send_buf, recv_buf, addr, 0x10);
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			//ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
@@ -161,16 +147,11 @@ static void *thread_func_read(void *_ti)
 		latency_read_ns[ti->id][i] =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
 		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
 			latency_read_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000)
-			);
+			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
-
-		free(send_buf);
-		free(recv_buf);
 	}
 	return NULL;
 }
@@ -182,7 +163,7 @@ static void *thread_func_read(void *_ti)
  * 3) Collect latency numbers
  * 4) Change number of concurrent threads, repeat 1-3 steps.
  */
-int test_legomem_read_write(char *_unused)
+int test_legomem_rw_same(char *_unused)
 {
 	int k, i, j, ret;
 	int nr_threads;
@@ -195,6 +176,10 @@ int test_legomem_read_write(char *_unused)
 	dump_legomem_contexts();
 
 	global_base_addr = legomem_alloc(ctx, 16 * OneM, LEGOMEM_VM_FLAGS_POPULATE);
+	if (global_base_addr < 0) {
+		dprintf_ERROR("Fail to legomem alloc%d\n", 0);
+		exit(9);
+	}
 
 	ti = malloc(sizeof(*ti) * NR_MAX);
 	tid = malloc(sizeof(*tid) * NR_MAX);
@@ -211,7 +196,7 @@ int test_legomem_read_write(char *_unused)
 			 * cpu 0 is used for gbn polling now
 			 * in case
 			 */
-			ti[i].cpu = mgmt_dispatcher_thread_cpu + 1;
+			ti[i].cpu = mgmt_dispatcher_thread_cpu + 1 + i;
 			ti[i].id = i;
 			ret = pthread_create(&tid[i], NULL, thread_func_read, &ti[i]);
 			if (ret)

@@ -26,7 +26,7 @@
 //static int test_size[] = { 256 };
 //static int test_nr_threads[] = { 8 };
 
-static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
+static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -70,18 +70,17 @@ static void *thread_func_read(void *_ti)
 	legomem_getcpu(&cpu, &node);
 	printf("%s(): thread id %d running on CPU %d\n", __func__, ti->id, cpu);
 
+	addr = global_base_addr;
+	ses = find_or_alloc_vregion_session(ctx, addr);
+	BUG_ON(!ses);
+
+	send_buf = malloc(VREGION_SIZE);
+	recv_buf = malloc(VREGION_SIZE);
+	net_reg_send_buf(ses, send_buf, VREGION_SIZE);
+
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
-
-		nr_tests = NR_PAGES;
-
-		addr = global_base_addr;
-		ses = find_or_alloc_vregion_session(ctx, addr);
-		BUG_ON(!ses);
-
-		send_buf = malloc(VREGION_SIZE);
-		recv_buf = malloc(VREGION_SIZE);
-		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
+		nr_tests = NR_RUN_PER_THREAD;
 
 		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
 				ti->id, get_local_session_id(ses),
@@ -93,7 +92,7 @@ static void *thread_func_read(void *_ti)
 			unsigned long _addr;
 			_addr = (j % NR_PAGES) * PAGE_SIZE + addr;
 			//printf("%d %#lx\n", j, _addr);
-			ret = legomem_write_sync(ctx, send_buf, _addr, size);
+			ret = __legomem_write_with_session(ctx, ses, send_buf, _addr, size, LEGOMEM_WRITE_SYNC);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -110,8 +109,7 @@ static void *thread_func_read(void *_ti)
 		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
 			latency_write_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000)
-			);
+			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
 
 #if 1
@@ -119,7 +117,8 @@ static void *thread_func_read(void *_ti)
 		for (j = 0; j < nr_tests; j++) {
 			unsigned long _addr;
 			_addr = (j % NR_PAGES) * PAGE_SIZE + addr;
-			ret = legomem_read(ctx, send_buf, recv_buf, _addr, size);
+			ret = legomem_read_with_session(ctx, ses,
+							send_buf, recv_buf, _addr, size);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -136,8 +135,7 @@ static void *thread_func_read(void *_ti)
 		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
 			latency_read_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000)
-			);
+			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
 	}
 	return NULL;

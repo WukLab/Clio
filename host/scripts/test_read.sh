@@ -38,12 +38,12 @@ elif [ "$1" == "2" ]; then
 		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=ens4 \
 		--port=1234 \
-		--run_test=read_write
+		--run_test=rw_seq
 
 		#--run_test=rw_inline
 		#--run_test=rw_fault
 		#--run_test=rw_seq
-		#--run_test=read_write
+		#--run_test=rw_same
 
 elif [ "$1" == "3" ]; then
 	./board_emulator.o \

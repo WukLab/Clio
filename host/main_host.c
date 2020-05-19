@@ -224,28 +224,28 @@ struct test_option test_options[] = {
 		.func	= test_pingpong_soc,
 	},
 	{
-		.name	= "read_write",
-		.desc	= "test legomem_read/write (monitor required)",
-		.func	= test_legomem_read_write,
-	},
-	{
 		.name	= "test_pte",
 		.desc	= "test legomem pte directly",
 		.func	= test_legomem_pte,
 	},
 	{
+		.name	= "rw_same",
+		.desc	= "test legomem_read/write same pte",
+		.func	= test_legomem_rw_same,
+	},
+	{
 		.name	= "rw_seq",
-		.desc	= "test legomem_rw_seq",
+		.desc	= "test legomem_rw_seq a range of PTEs. For TLB misses.",
 		.func	= test_legomem_rw_seq,
 	},
 	{
 		.name	= "rw_fault",
-		.desc	= "test legomem_rw_fault",
+		.desc	= "test legomem_rw_fault. Non-present/populate cases",
 		.func	= test_legomem_rw_fault,
 	},
 	{
 		.name	= "rw_inline",
-		.desc	= "test legomem_rw_inline stopped polling threads",
+		.desc	= "test legomem_rw_inline w/ stopped polling threads",
 		.func	= test_legomem_rw_inline,
 	},
 };
