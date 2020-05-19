@@ -47,7 +47,8 @@ C_SRCS := board.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
-	api_kvs.c
+	api_kvs.c \
+	ycsb_client.c
 
 SRCS := $(C_SRCS)
 

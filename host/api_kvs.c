@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include "core.h"
 #include "net/net.h"
+#include "api_kvs.h"
 
 /*
  * Request/Response Packet Layout:
@@ -27,7 +28,7 @@
  */
 static int
 __legomem_kvs_write(struct legomem_context *ctx, uint16_t opcode,
-		    uint64_t key, uint16_t value_size, void *value)
+		    uint16_t key_size, uint64_t key, uint16_t value_size, void *value)
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
@@ -41,7 +42,7 @@ __legomem_kvs_write(struct legomem_context *ctx, uint16_t opcode,
 	// TODO
 	// Find remote board
 	// find a session associated with this board
-	// find the pre-created memory regiion buffer
+	// find the pre-created memory region buffer
 	bi = NULL;
 	ses = NULL;
 	req = NULL;
@@ -53,7 +54,7 @@ __legomem_kvs_write(struct legomem_context *ctx, uint16_t opcode,
 
 	/* Cook KVS-specific headers */
 	op = &req->op;
-	op->key_size = 8;
+	op->key_size = key_size;
 	op->key = key;
 	op->value_size = value_size;
 
@@ -77,19 +78,19 @@ __legomem_kvs_write(struct legomem_context *ctx, uint16_t opcode,
 	return 0;
 }
 
-int legomem_kvs_write(struct legomem_context *ctx,
+int legomem_kvs_create(struct legomem_context *ctx, uint16_t key_size, 
 		      uint64_t key, uint16_t value_size, void *value)
 {
-	return __legomem_kvs_write(ctx, OP_REQ_KVS_WRITE, key, value_size, value);
+	return __legomem_kvs_write(ctx, OP_REQ_KVS_WRITE, key_size, key, value_size, value);
 }
 
-int legomem_kvs_update(struct legomem_context *ctx,
+int legomem_kvs_update(struct legomem_context *ctx, uint16_t key_size,
 		       uint64_t key, uint16_t value_size, void *value)
 {
-	return __legomem_kvs_write(ctx, OP_REQ_KVS_UPDATE, key, value_size, value);
+	return __legomem_kvs_write(ctx, OP_REQ_KVS_UPDATE, key_size, key, value_size, value);
 }
 
-int legomem_kvs_read(struct legomem_context *ctx,
+int legomem_kvs_read(struct legomem_context *ctx, uint16_t key_size,
 		     uint64_t key, uint16_t value_size, void *value)
 {
 	struct legomem_kvs_req *req;
@@ -112,7 +113,7 @@ int legomem_kvs_read(struct legomem_context *ctx,
 	tx_lego->opcode = OP_REQ_KVS_READ;
 
 	op = &req->op;
-	op->key_size = 8;
+	op->key_size = key_size;
 	op->key = key;
 	op->value_size = value_size;
 
@@ -142,7 +143,7 @@ int legomem_kvs_read(struct legomem_context *ctx,
 	return 0;
 }
 
-int legomem_kvs_delete(struct legomem_context *ctx, uint64_t key)
+int legomem_kvs_delete(struct legomem_context *ctx, uint16_t key_size, uint64_t key)
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
@@ -163,7 +164,7 @@ int legomem_kvs_delete(struct legomem_context *ctx, uint64_t key)
 	tx_lego->opcode = OP_REQ_KVS_DELETE;
 
 	op = &req->op;
-	op->key_size = 8;
+	op->key_size = key_size;
 	op->key = key;
 
 	ret = net_send(ses, req, sizeof(*req));
