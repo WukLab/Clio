@@ -24,6 +24,8 @@
 #define CONFIG_GBN_DEBUG
 #endif
 
+bool stop_gbn_poll_thread = false;
+
 /*
  * This option controls whether host side GBN stack will maintain
  * a per-session timer. If enabled, every packet TX/RX will involve
@@ -58,7 +60,6 @@
 
 static int polling_thread_created = 0;
 static pthread_t polling_thread;
-int gbn_polling_thread_cpu = 0;
 
 /*
  * This is a global variable controlling the buffer mgmt behavior.
@@ -127,10 +128,6 @@ struct session_gbn {
 	
 	atomic_int			seqnum_expect;
 	bool				ack_enable;
-
-#ifdef CONFIG_GBN_ENABLE_TIMER
-	timer_t				rt_timer;
-#endif
 
 	struct msg_buf			*mb_ack_reply;
 
@@ -395,19 +392,6 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 			free_unack_buffer_info(info);
 		}
 		atomic_store(&ses_gbn->seqnum_last, seq);
-
-#ifdef CONFIG_GBN_ENABLE_TIMER
-		/*
-		 * If unack buffer is empty after dequeue, then we do not need to take
-		 * care of timeout anymore. If it's ack packet, reset timeout.
-		 * If it's nack packet, reset after finish retransmission
-	 	 */
-		if (!nr_unack_buffer(ses_gbn))
-			disable_timeout(ses_gbn);
-		else if (hdr->type == GBN_PKT_ACK)
-			set_next_timeout(ses_gbn);
-#endif
-
 		return true;
 	} else if (seq == seqnum_last) {
 		/*
@@ -454,16 +438,6 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 			break;
 		}
 	}
-
-#ifdef CONFIG_GBN_ENABLE_TIMER
-	/*
-	 * if unack buffer is not empty after dequeue,
-	 * reset timeout after retrans.
-	 * This case should always happen
-	 */
-	if (likely(retrans_end - retrans_start > 0))
-		set_next_timeout(ses_gbn);
-#endif
 }
 
 static void handle_ack_packet(struct session_net *ses_net, void *packet)
@@ -702,9 +676,14 @@ static void *gbn_poll_func(void *_unused)
 	}
 
 	legomem_getcpu(&cpu, &node);
-	dprintf_INFO("Running on CPU=%d NODE=%d\n", cpu, node);
+	dprintf_CRIT("Global Polling Thread Running on CPU=%d NODE=%d\n", cpu, node);
 
 	while (1) {
+		if (unlikely(READ_ONCE(stop_gbn_poll_thread))) {
+			dprintf_CRIT("Global Polling Thread Exit %d\n", 0);
+			return NULL;
+		}
+
 		if (likely(raw_net_has_zerocopy)) {
 			ret = raw_net_receive_zerocopy(&recv_buf, &buf_size);
 			if (unlikely(ret < 0)) {
@@ -844,15 +823,6 @@ static inline int gbn_send_one(struct session_net *net,
 	ses = (struct session_gbn *)net->transport_private;
 	BUG_ON(!ses);
 
-#ifdef CONFIG_GBN_ENABLE_TIMER
-	/*
-	 * We check if unacked buffer is empty before grabbing a slot,
-	 * since grabing a slot will increase seqnum_cur and the 
-	 * buffer can never be empty if the seqnum_cur is increased
-	 */
-	unacked_buffer_empty = !nr_unack_buffer(ses);
-#endif
-
 	/* Try to alloc a new unack buffer and seqnum */
 	info = alloc_unack_buffer_info(ses, &seqnum);
 	if (!info)
@@ -863,16 +833,6 @@ static inline int gbn_send_one(struct session_net *net,
 
 	info->buf = buf;
 	info->buf_size = buf_size;
-
-#ifdef CONFIG_GBN_ENABLE_TIMER
-	/*
-	 * We do not reset timeout for every packet sent out.
-	 * Timeout is only (re)set when the unack buffer is originally empty
-	 */
-	if (unacked_buffer_empty) {
-		set_next_timeout(ses);
-	}
-#endif
 
 send:
 	inc_stat(STAT_NET_GBN_NR_TX_DATA);

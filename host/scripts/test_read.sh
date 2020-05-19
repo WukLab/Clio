@@ -19,7 +19,7 @@ set -e
 board_ip="192.168.1.23:1234"
 
 monitor_port=1234
-monitor_ip="192.168.1.3"
+monitor_ip="192.168.1.2"
 
 if [ "$1" == "1" ]; then
 	if true; then
@@ -36,10 +36,11 @@ if [ "$1" == "1" ]; then
 elif [ "$1" == "2" ]; then
 	./host.o \
 		--monitor=$monitor_ip:$monitor_port \
-	 	--dev=p4p1 \
+	 	--dev=ens4 \
 		--port=1234 \
-		--run_test=read_write
+		--run_test=rw_inline
 
+		#--run_test=rw_inline
 		#--run_test=rw_fault
 		#--run_test=rw_seq
 		#--run_test=read_write

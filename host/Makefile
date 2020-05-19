@@ -31,6 +31,7 @@ BOARD_SRCS := $(BP)/core.h \
 
 # General sources used by everyone
 C_SRCS := board.c \
+	cpu.c \
 	util.c \
 	api.c \
 	context.c \

@@ -37,6 +37,17 @@
 #define dprintf_ERROR(fmt, ...) \
 	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
+#define dprintf_CRIT(fmt, ...) \
+	printf("\033[1;33m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
+extern int gbn_polling_thread_cpu;
+extern int mgmt_dispatcher_thread_cpu;
+
+extern bool stop_gbn_poll_thread;
+extern bool stop_mgmt_dispatcher_thread;
+
+extern int max_lego_payload;
+
 /*
  * pthread_rwlock_t is a big structure, around 50-60B.
  * Thus it's impossible to tame whole structure with one cacheline.
@@ -426,6 +437,7 @@ int test_pingpong_soc(char *board_ip_port_str);
 int test_legomem_pte(char *board_ip_port_str);
 int test_legomem_rw_seq(char *_unused);
 int test_legomem_rw_fault(char *_unused);
+int test_legomem_rw_inline(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

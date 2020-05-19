@@ -20,9 +20,7 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 2000000
-//static int test_size[] = { 256 };
-//static int test_nr_threads[] = { 8 };
+#define NR_RUN_PER_THREAD 1000000
 
 static int test_size[] = { 256 };
 static int test_nr_threads[] = { 1 };
@@ -45,8 +43,78 @@ struct thread_info {
 };
 
 static struct legomem_context *ctx;
-unsigned long global_base_addr;
 static pthread_barrier_t thread_barrier;
+
+/*
+ * Basically a copy of legomem_read.
+ */
+static int inline_legomem_read_with_session(struct legomem_context *ctx, struct session_net *ses,
+			      void *send_buf, void *recv_buf,
+			      unsigned long __remote addr, size_t total_size)
+{
+	struct legomem_read_write_req *req;
+	struct legomem_read_write_resp *resp;
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego;
+	int nr_sent, ret, i;
+	size_t sz, recv_size;
+
+	req = send_buf;
+	tx_lego = to_lego_header(req);
+	tx_lego->pid = ctx->pid;
+	tx_lego->opcode = OP_REQ_READ;
+
+	nr_sent = 0;
+	do {
+		if (total_size >= max_lego_payload)
+			sz = max_lego_payload;
+		else
+			sz = total_size;
+		total_size -= sz;
+
+		tx_lego->tag = nr_sent;
+		req->op.va = addr + nr_sent * max_lego_payload;
+		req->op.size = sz;
+
+		ret = net_send(ses, req, sizeof(*req));
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
+			break;
+		}
+		nr_sent++;
+	} while (total_size);
+
+	/* Shift to start of payload */
+	recv_buf += sizeof(*resp);
+	for (i = 0; i < nr_sent; i++) {
+		//ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+
+		ret = raw_net_receive_zerocopy((void **)&resp, &recv_size);
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to recv read at %dth reply\n", i);
+			break;
+		} else if (ret == 0)
+			continue;
+
+		/* Sanity Checks */
+		rx_lego = to_lego_header(resp);
+		if (unlikely(rx_lego->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
+			continue;
+		}
+		if (unlikely(rx_lego->opcode != OP_REQ_READ_RESP)) {
+			dprintf_ERROR("errnor: invalid resp msg %s\n",
+				legomem_opcode_str(rx_lego->opcode));
+			continue;
+		}
+
+		/* Minus header to get lego payload size */
+		recv_size -= sizeof(*resp);
+		memcpy(recv_buf, resp->ret.data, recv_size);
+		recv_buf += recv_size;
+	}
+	return 0;
+}
 
 static void *thread_func_read(void *_ti)
 {
@@ -72,20 +140,7 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
-		/*
-		 * This is tunable
-		 *
-		 * Either 1) all threads use same addr
-		 * 2) each thread use their own addr
-		 *
-		 * Of course, for best perf, each thread should use
-		 * their own vregion, to avoid the hashtable search.
-		 */
-#if 0
 		addr = legomem_alloc(ctx, 4 * OneM, 0);
-#else
-		addr = global_base_addr;
-#endif
 		ses = find_or_alloc_vregion_session(ctx, addr);
 		BUG_ON(!ses);
 
@@ -99,55 +154,19 @@ static void *thread_func_read(void *_ti)
 		recv_buf = malloc(VREGION_SIZE);
 		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
-#if 0
-		mgmt_ses = get_board_mgmt_session(ses->board_info);
-		net_reg_send_buf(mgmt_ses, send_buf, 4096);
-#endif
-
 		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx]\n",
 				ti->id, get_local_session_id(ses),
 				addr, addr + 16 * OneM);
 
-		//sleep(5);
+		sleep(1);
+		WRITE_ONCE(stop_gbn_poll_thread, true);
+		WRITE_ONCE(stop_mgmt_dispatcher_thread, true);
+		sleep(1);
+		dprintf_INFO("Both threads should have stopped now.. %d\n", 0);
 
-		pthread_barrier_wait(&thread_barrier);
-
-#if 0
-		legomem_write_sync(ctx, send_buf, addr, 0x10);
-
-		/* Run bunch sync write */
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_write_sync(ctx, send_buf, addr, size);
-			if (unlikely(ret < 0)) {
-				dprintf_ERROR(
-					"thread id %d fail at %d, error code %d\n",
-					ti->id, j, ret);
-				break;
-			}
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
-
-		latency_write_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
-		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
-			latency_write_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000)
-			);
-#endif
-		pthread_barrier_wait(&thread_barrier);
-
-
-#if 1
-		//ret = legomem_read(ctx, send_buf, recv_buf, addr, 0x10);
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		for (j = 0; j < nr_tests; j++) {
-			//ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
-
-			ret = legomem_read_with_session(ctx, ses,
+			ret = inline_legomem_read_with_session(ctx, ses,
 							send_buf, recv_buf, addr, size);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
@@ -167,22 +186,11 @@ static void *thread_func_read(void *_ti)
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000)
 			);
-#endif
-
-		free(send_buf);
-		free(recv_buf);
 	}
 	return NULL;
 }
 
-/*
- * Flow:
- * 1) Create N threads
- * 2) Within each thread, repeatly run read or write for 1 million times, respectively
- * 3) Collect latency numbers
- * 4) Change number of concurrent threads, repeat 1-3 steps.
- */
-int test_legomem_read_write(char *_unused)
+int test_legomem_rw_inline(char *_unused)
 {
 	int k, i, j, ret;
 	int nr_threads;
@@ -193,8 +201,6 @@ int test_legomem_read_write(char *_unused)
 	if (!ctx)
 		return -1;
 	dump_legomem_contexts();
-
-	global_base_addr = legomem_alloc(ctx, 16 * OneM, LEGOMEM_VM_FLAGS_POPULATE);
 
 	ti = malloc(sizeof(*ti) * NR_MAX);
 	tid = malloc(sizeof(*tid) * NR_MAX);
@@ -245,8 +251,6 @@ int test_legomem_read_write(char *_unused)
 		}
 	}
 	legomem_close_context(ctx);
-
-	//while (1);
 
 	return 0;
 }

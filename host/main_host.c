@@ -111,14 +111,24 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 	}
 }
 
+bool stop_mgmt_dispatcher_thread = false;
+
 static void *dispatcher(void *_unused)
 {
 	struct thpool_buffer *tb;
 	struct thpool_worker *tw;
-	int ret;
+	int ret, cpu, node;
 
 	tb = thpool_buffer_map;
 	tw = thpool_worker_map;
+
+	ret = pin_cpu(mgmt_dispatcher_thread_cpu);
+	if (ret) {
+		dprintf_ERROR("fail to pin thread to CPU %d\n", mgmt_dispatcher_thread_cpu);
+		return NULL;
+	}
+	legomem_getcpu(&cpu, &node);
+	dprintf_CRIT("Mgmt Dispatcher Polling Thread runs on CPU=%d NODE=%d\n", cpu, node);
 
 	ret = net_reg_send_buf(mgmt_session, tb->tx, THPOOL_BUFFER_SIZE);
 	if (ret) {
@@ -127,14 +137,15 @@ static void *dispatcher(void *_unused)
 	}
 
 	while (1) {
-#if 1
+		if (unlikely(stop_mgmt_dispatcher_thread)) {
+			dprintf_CRIT("Mgmt Dispatcher Polling Thread Exit %d\n", 0);
+			return NULL;
+		}
+
 		ret = net_receive_zerocopy_nb(mgmt_session, &tb->rx, &tb->rx_size);
 		if (ret <= 0)
 			continue;
-
-		/* We only have one thread, thus inline handling */
 		worker_handle_request_inline(tw, tb);
-#endif
 	}
 	return NULL;
 }
@@ -231,6 +242,11 @@ struct test_option test_options[] = {
 		.name	= "rw_fault",
 		.desc	= "test legomem_rw_fault",
 		.func	= test_legomem_rw_fault,
+	},
+	{
+		.name	= "rw_inline",
+		.desc	= "test legomem_rw_inline stopped polling threads",
+		.func	= test_legomem_rw_inline,
 	},
 };
 

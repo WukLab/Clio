@@ -326,7 +326,7 @@ raw_verbs_send(struct session_net *ses_net,
  * this function itself, but the moment it is called: recv_wr is empty.
  * Thus some incoming packets will be dropped.
  */
-static inline void post_recvs(struct session_raw_verbs *ses)
+static void post_recvs(struct session_raw_verbs *ses)
 {
 	struct ibv_sge sge;
 	struct ibv_recv_wr recv_wr, *bad_recv_wr;
@@ -348,7 +348,7 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 	}
 }
 
-static __always_inline void
+static void
 post_recv(struct session_raw_verbs *ses, unsigned int id)
 {
 	struct ibv_sge sge;
@@ -393,12 +393,12 @@ static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 		void *buf_p;
 
 		ret = ibv_poll_cq(recv_cq, 1, &wc);
-		if (!ret)
-			continue;
-		else if (ret < 0) {
+		if (unlikely(ret < 0)) {
 			perror("Poll CQ:");
 			return ret;
-		}
+		} else if (ret == 0)
+			return 0;
+
 		inc_stat(STAT_NET_RAW_VERBS_NR_RX_ZEROCOPY);
 
 		/* Get its position in the ring buffer */
@@ -438,12 +438,11 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 		void *buf_p;
 
 		ret = ibv_poll_cq(recv_cq, 1, &wc);
-		if (!ret)
-			continue;
-		else if (ret < 0) {
+		if (unlikely(ret < 0)) {
 			perror("Poll CQ:");
 			return ret;
-		}
+		} else if (ret == 0)
+			return 0;
 		inc_stat(STAT_NET_RAW_VERBS_NR_RX);
 
 		/* Get its position in the ring buffer */
