@@ -14,6 +14,7 @@
 #define READ 1
 #define UPDATE 2
 #define DELETE 3
+#define MAX_LINE_SIZE 102400
 
 #define MAX_LINE_SIZE 102400
 
@@ -37,13 +38,13 @@ int total_num_boards;
 
 uint16_t threads_ready_cnt;
 int thread_can_start;
-int total_num_load_reqs;
-int total_num_run_reqs;
+uint64_t total_num_load_reqs;
+uint64_t total_num_run_reqs;
 int total_num_thread;
-int *load_reqs;
+char **load_reqs;
 struct ycsb_run_req_struct {
 	int op;
-	int key;
+	char *key;
 };
 struct ycsb_run_req_struct *run_reqs;
 
@@ -71,13 +72,17 @@ struct run_thread_input {
 
 void ycsb_workload_run_phase(void *input) 
 {
-	int i, id;
+	int i;
 	int my_thread_id;
 	char *value_buf;
 	int key_size, value_size;
 	struct legomem_context legomem_ctx;
+	struct run_thread_input input_val;
 
-	my_thread_id = *(()input);
+	input_val = *((struct run_thread_input *)input);
+	my_thread_id = input_val.thread_id;
+	value_size = input_val.value_size;
+	key_size = input_val.key_size;
 	value_buf = malloc(value_size);
 	assert(value_buf);
 
@@ -129,24 +134,30 @@ int ycsb_workload_load_phase()
 	for (i = 0; i < total_num_run_reqs / total_num_thread; i++) {
 		id = i / total_num_thread + my_thread_id;
 		switch (run_reqs[id].op) {
+=======
+	for (i = 0; i < total_num_run_reqs; i++) {
+		if (i % total_num_thread != my_thread_id)
+			continue;
+		switch (run_reqs[i].op) {
+>>>>>>> tested parsing and running fake ycsb with 100K reqs
 			case UPDATE:
-				legomem_kvs_update(&legomem_ctx, key_size, run_reqs[id].key, 
+				legomem_kvs_update(&legomem_ctx, key_size, run_reqs[i].key, 
 						value_size, value_buf);
 				break;
 			case READ:
-				legomem_kvs_read(&legomem_ctx, key_size, run_reqs[id].key, 
+				legomem_kvs_read(&legomem_ctx, key_size, run_reqs[i].key, 
 						value_size, value_buf);
 				break;
 			case DELETE:
-				legomem_kvs_delete(&legomem_ctx, key_size, run_reqs[id].key); 
+				legomem_kvs_delete(&legomem_ctx, key_size, run_reqs[i].key); 
 				break;
 			default:
-				print("error op code in input file %d\n", i);
+				printf("error op code in input file %d\n", i);
 		}
 	}
 
 	free(value_buf);
-	return;
+	return NULL;
 }
 
 int ycsb_workload_load_phase(int key_size, int value_size)
@@ -171,7 +182,7 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 	return 0;
 }
 
-int ycsb_prepare_workload_from_trace(char* filename)
+int ycsb_prepare_workload_from_trace(char* filename, int key_size)
 {
 	char line[MAX_LINE_SIZE];
 	FILE *fp;
@@ -180,7 +191,7 @@ int ycsb_prepare_workload_from_trace(char* filename)
 	char line[1024];
 	FILE *fp;
 	int op_code;
-	int key;
+	char *key;
 	int load_req_count = 0;
 	int run_req_count = 0;
 
@@ -202,13 +213,16 @@ int ycsb_prepare_workload_from_trace(char* filename)
 	while (fgets(line, sizeof(line), fd)) {
 		sscanf(line, "%llu %llu\n", &op_code, &key);
 		if (op_code == INSERT) {
-			load_reqs[load_req_count] = key;
+			memcpy(load_reqs[load_req_count], key, key_size);
 			load_req_count++;
 		}
 		else {
 			run_reqs[run_req_count].op = op_code;
 			memcpy(run_reqs[run_req_count].key, key, strlen(key));
 			run_reqs[run_req_count].key = key;
+=======
+			memcpy(run_reqs[run_req_count].key, key, key_size);
+>>>>>>> tested parsing and running fake ycsb with 100K reqs
 			run_req_count++;
 		}
 	}
@@ -235,13 +249,16 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 	value_size = input_value_size;
 
 	fclose(fp);
+	free(key);
 	return 0;
 }
 
-void run_ycsb(char* filename, int thread_num)
+void run_ycsb(char* filename, int thread_num, int key_size, int value_size,
+			uint64_t total_loads, uint64_t total_reqs)
 {
 	int i;
 	pthread_t *thread_job;
+	struct run_thread_input *thread_input;
 
 	total_num_thread = thread_num;
 	thread_job = malloc(sizeof(pthread_t) * thread_num);
@@ -284,16 +301,27 @@ void run_ycsb(char* filename, int thread_num)
 	//sleep(1);
 
 	ycsb_prepare_workload_from_trace(filename);
+=======
+		load_reqs[i] = (char *)malloc(key_size);
+		assert(load_reqs[i]);
+	}
+	for (i = 0; i < total_num_run_reqs; i++) {
+		run_reqs[i].key = (char *)malloc(key_size);
+		assert(run_reqs[i].key);
+	}
+>>>>>>> tested parsing and running fake ycsb with 100K reqs
 
-	load_reqs = (int*)malloc(total_num_load_reqs * sizeof(int));
-	run_reqs = (ycsb_run_req_struct *)maloc(total_num_run_reqs * sizeof(ycsb_run_req_struct));
-	assert(!load_reqs || !run_reqs);
+	ycsb_prepare_workload_from_trace(filename, key_size);
 
-	ycsb_workload_load_phase();
+	ycsb_workload_load_phase(key_size, value_size);
 
 	thread_can_start = 0;
 	for (i = 0; i < thread_num; i++) {
-		pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &i);
+		thread_input[i].thread_id = i;
+		thread_input[i].key_size = key_size;
+		thread_input[i].value_size = value_size;
+		printf("creating thread %d\n", i);
+		pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &thread_input[i]);
 	}
 	while (threads_ready_cnt < thread_num)
 		;
