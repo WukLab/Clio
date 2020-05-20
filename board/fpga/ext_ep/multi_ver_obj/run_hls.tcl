@@ -71,7 +71,7 @@ config_rtl -reset all -reset_level low
 csynth_design
 
 # Export IP block
-export_design -format ip_catalog -display_name "deref_ptr_hls" -description "extended API dereference pointer HLS" -vendor "Wuklab.UCSD" -version "1.0"
+export_design -format ip_catalog -display_name "multi_ver_obj_hls" -description "extended API multiversion object HLS" -vendor "Wuklab.UCSD" -version "1.0"
 
 # Do not perform any other steps
 # - The basic project will be opened in the GUI
