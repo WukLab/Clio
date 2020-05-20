@@ -9,8 +9,8 @@
 
 using namespace hls;
 
-void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
-		stream<struct lego_mem_ctrl> &ctrl_in, stream<struct lego_mem_ctrl> &ctrl_out,
+void dispatcher(stream<struct data_if> &data_in,
+		stream<struct ctrl_if> &ctrl_in, stream<struct ctrl_if> &ctrl_out,
 		stream<struct record_out_if> &soc_records, stream<struct record_out_if> &mem_records,
 		stream<struct data_if> &to_parser, stream<struct data_if> &to_wq1,
 		stream<struct data_if> &to_wq2, stream<struct data_if> &to_sq)
@@ -28,7 +28,6 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 	/* stateful variables */
 	static fsm state					= PID_ALLOC;
 	static component to_where				= DROP;
-	static uint32_t data_remain				= 0;
 	static unsigned int CREATE_mem_seqid			= 0;
 	static unsigned int CREATE_soc_seqid			= 0;
 
@@ -40,12 +39,12 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 	static struct delay<struct data_if> to_wq1_delay	= {0,0};
 	static struct delay<struct data_if> to_wq2_delay	= {0,0};
 	static struct delay<struct data_if> to_sq_delay		= {0,0};
-	static struct delay<struct lego_mem_ctrl> ctrlout_delay	= {0,0};
+	static struct delay<struct ctrl_if> ctrlout_delay	= {0,0};
 
 	/* temporary variables */
-	ap_uint<DATAWIDTH> in_pkt				= 0;
-	struct lego_mem_ctrl ctrl_pkt				= {0,0,0,0,0,0};
+	struct data_if in_pkt					= {0,0};
 	struct data_if out_pkt					= {0,0};
+	struct ctrl_if ctrl_pkt					= {0,0};
 	struct record_out_if record				= {0,0,0};
 
 	/* release delayed packet */
@@ -61,35 +60,26 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 		in_pkt = data_in.read();
 
-		switch (field(in_pkt, hdr_opcode)) {
+		switch (field(in_pkt.pkt, hdr_opcode)) {
 		case OP_REQ_VEROBJ_CREATE:
 		case OP_REQ_VEROBJ_DELETE:
 		case OP_REQ_VEROBJ_READ:
-
-			out_pkt.pkt = in_pkt;
-			out_pkt.last = 1;
+			out_pkt = in_pkt;
 			delay_pkt(to_parser_delay, out_pkt);
 			break;
 
 		case OP_REQ_VEROBJ_WRITE:
-			out_pkt.pkt = in_pkt;
-			data_remain = field(in_pkt, hdr_size);
-			if (data_remain > DATASIZE) {
-				out_pkt.last = 0;
-				data_remain -= DATASIZE;
+			out_pkt = in_pkt;
+			if (out_pkt.last == 0) {
 				state = DATA;
 				to_where = PARSER;
-			} else {
-				out_pkt.last = 1;
-				data_remain = 0;
 			}
 			delay_pkt(to_parser_delay, out_pkt);
 			break;
 
 		case OP_REQ_ALLOC_RESP:
+			out_pkt = in_pkt;
 			assert(!soc_records.empty());
-			out_pkt.pkt = in_pkt;
-			out_pkt.last = 1;
 			record = soc_records.read();
 			CREATE_soc_seqid++;
 			if (after(CREATE_soc_seqid, CREATE_mem_seqid)) {
@@ -107,12 +97,10 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 
 		case OP_REQ_READ_RESP:
-			out_pkt.pkt = in_pkt;
-
+			out_pkt = in_pkt;
 			assert(!mem_records.empty());
 			record = mem_records.read();
 			if (record.opcode == OP_REQ_VEROBJ_CREATE) {
-				out_pkt.last = 1;
 				CREATE_mem_seqid++;
 				if (after(CREATE_mem_seqid, CREATE_soc_seqid)) {
 					/* waiting request is in waitqueue1 */
@@ -131,15 +119,9 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 					field(out_pkt.pkt, hdr_cont) = LEGOMEM_CONT_NET;
 					field(out_pkt.pkt, hdr_req_status) = 0;
 
-					data_remain = field(in_pkt, hdr_size);
-					if (data_remain > DATASIZE) {
-						out_pkt.last = 0;
-						data_remain -= DATASIZE;
+					if (out_pkt.last == 0) {
 						state = DATA;
 						to_where = SQ;
-					} else {
-						out_pkt.last = 1;
-						data_remain = 0;
 					}
 					delay_pkt(to_sq_delay, out_pkt);
 					break;
@@ -155,8 +137,7 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 
 		case OP_REQ_WRITE_RESP:
-			out_pkt.pkt = in_pkt;
-			out_pkt.last = 1;
+			out_pkt = in_pkt;
 			assert(!mem_records.empty());
 			record = mem_records.read();
 			switch (record.dest_comp) {
@@ -190,16 +171,9 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 		if (data_in.empty())
 			break;
 		in_pkt = data_in.read();
-		out_pkt.pkt = in_pkt;
-
-		if (data_remain > DATASIZE) {
-			out_pkt.last = 0;
-			data_remain -= DATASIZE;
-		} else {
-			out_pkt.last = 1;
+		out_pkt = in_pkt;
+		if (out_pkt.last == 1)
 			state = HEADER;
-			data_remain = 0;
-		}
 
 		switch (to_where) {
 		case PARSER:
@@ -214,10 +188,12 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 		}
 		break;
 
+
+	/* below are initialization path */
 	case PID_ALLOC:
-		ctrl_pkt.cmd = CMD_LEGOMEM_CTRL_CREATE_PROC;
-		ctrl_pkt.epid = SOC_XBAR_EPID;
-		ctrl_pkt.addr = SOC_XBAR_ADDR;
+		ctrl_pkt.pkt.cmd = CMD_LEGOMEM_CTRL_CREATE_PROC;
+		ctrl_pkt.pkt.epid = SOC_XBAR_EPID;
+		ctrl_pkt.pkt.addr = SOC_XBAR_ADDR;
 		delay_pkt(ctrlout_delay, ctrl_pkt);
 
 		state = PID_ALLOC_WAIT;
@@ -228,21 +204,21 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 		ctrl_pkt = ctrl_in.read();
 
-		if (ctrl_pkt.cmd != CMD_LEGOMEM_CTRL_CREATE_PROC  ||
-		    ctrl_pkt.param32 == 0) {
+		if (ctrl_pkt.pkt.cmd != CMD_LEGOMEM_CTRL_CREATE_PROC  ||
+		    ctrl_pkt.pkt.param32 == 0) {
 			state = PID_ALLOC;			// retry
 		} else {
-			verobj_data.pid = ctrl_pkt.param32;
+			verobj_data.pid = ctrl_pkt.pkt.param32;
 			state = OBJ_ALLOC;
 		}
 		break;
 
 	case OBJ_ALLOC:
-		ctrl_pkt.cmd = CMD_LEGOMEM_CTRL_ALLOC;
-		ctrl_pkt.epid = SOC_XBAR_EPID;
-		ctrl_pkt.addr = SOC_XBAR_ADDR;
-		ctrl_pkt.param32 = OBJ_ARRAY_SIZE;
-		ctrl_pkt.param8 = verobj_data.pid;
+		ctrl_pkt.pkt.cmd = CMD_LEGOMEM_CTRL_ALLOC;
+		ctrl_pkt.pkt.epid = SOC_XBAR_EPID;
+		ctrl_pkt.pkt.addr = SOC_XBAR_ADDR;
+		ctrl_pkt.pkt.param32 = OBJ_ARRAY_SIZE;
+		ctrl_pkt.pkt.param8 = verobj_data.pid;
 		delay_pkt(ctrlout_delay, ctrl_pkt);
 
 		state = OBJ_ALLOC_WAIT;
@@ -253,22 +229,22 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 		ctrl_pkt = ctrl_in.read();
 
-		if (ctrl_pkt.cmd != CMD_LEGOMEM_CTRL_ALLOC  ||
-		    ctrl_pkt.param32 == 0) {
+		if (ctrl_pkt.pkt.cmd != CMD_LEGOMEM_CTRL_ALLOC  ||
+		    ctrl_pkt.pkt.param32 == 0) {
 			state = OBJ_ALLOC;			// retry
 		} else {
-			verobj_data.objarray_ptr = ctrl_pkt.param32;
+			verobj_data.objarray_ptr = ctrl_pkt.pkt.param32;
 			state = FLIST_ALLOC;
 		}
 
 		break;
 
 	case FLIST_ALLOC:
-		ctrl_pkt.cmd = CMD_LEGOMEM_CTRL_ALLOC;
-		ctrl_pkt.epid = SOC_XBAR_EPID;
-		ctrl_pkt.addr = SOC_XBAR_ADDR;
-		ctrl_pkt.param32 = FREELIST_SIZE;
-		ctrl_pkt.param8 = verobj_data.pid;
+		ctrl_pkt.pkt.cmd = CMD_LEGOMEM_CTRL_ALLOC;
+		ctrl_pkt.pkt.epid = SOC_XBAR_EPID;
+		ctrl_pkt.pkt.addr = SOC_XBAR_ADDR;
+		ctrl_pkt.pkt.param32 = FREELIST_SIZE;
+		ctrl_pkt.pkt.param8 = verobj_data.pid;
 		delay_pkt(ctrlout_delay, ctrl_pkt);
 
 		state = FLIST_ALLOC_WAIT;
@@ -279,11 +255,11 @@ void dispatcher(stream<ap_uint<DATAWIDTH> > &data_in,
 			break;
 		ctrl_pkt = ctrl_in.read();
 
-		if (ctrl_pkt.cmd != CMD_LEGOMEM_CTRL_ALLOC  ||
-		    ctrl_pkt.param32 == 0) {
+		if (ctrl_pkt.pkt.cmd != CMD_LEGOMEM_CTRL_ALLOC  ||
+		    ctrl_pkt.pkt.param32 == 0) {
 			state = FLIST_ALLOC;			// retry
 		} else {
-			verobj_data.freelist_ptr = ctrl_pkt.param32;
+			verobj_data.freelist_ptr = ctrl_pkt.pkt.param32;
 			state = HEADER;
 		}
 

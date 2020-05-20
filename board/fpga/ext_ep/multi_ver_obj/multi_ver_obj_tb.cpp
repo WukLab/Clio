@@ -36,12 +36,12 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	XbarSim xbar;
 
 	// fifos, naming helps cosim
-	stream<ap_uint<DATAWIDTH> > net2xbar("net2xbar"), xbar2net("xbar2net");
-	stream<ap_uint<DATAWIDTH> > mem2xbar("mem2xbar"), xbar2mem("xbar2mem");
-	stream<ap_uint<DATAWIDTH> > soc2xbar_data("soc2xbar_data"), xbar2soc_data("xbar2soc_data");
-	stream<ap_uint<DATAWIDTH> > extep2xbar_data("extep2xbar_data"), xbar2extep_data("xbar2extep_data");
-	stream<struct lego_mem_ctrl> soc2xbar_ctrl, xbar2soc_ctrl;
-	stream<struct lego_mem_ctrl> extep2xbar_ctrl, xbar2extep_ctrl;
+	stream<struct data_if> net2xbar("net2xbar"), xbar2net("xbar2net");
+	stream<struct data_if> mem2xbar("mem2xbar"), xbar2mem("xbar2mem");
+	stream<struct data_if> soc2xbar_data("soc2xbar_data"), xbar2soc_data("xbar2soc_data");
+	stream<struct data_if> extep2xbar_data("extep2xbar_data"), xbar2extep_data("xbar2extep_data");
+	stream<struct ctrl_if> soc2xbar_ctrl, xbar2soc_ctrl;
+	stream<struct ctrl_if> extep2xbar_ctrl, xbar2extep_ctrl;
 	bool phase_done = false, delay_done = false;
 	int counter = 0;
 
@@ -50,7 +50,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	net.state_reset();
 	do {
 		phase_done = net.net_sim_proc_create(net2xbar, xbar2net);
-		multi_ver_obj2(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
+		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
 		mem.mem_sim(xbar2mem, mem2xbar);
 		soc.soc_sim(xbar2soc_ctrl, soc2xbar_ctrl, xbar2soc_data, soc2xbar_data);
 		xbar.xbar_sim(xbar2extep_ctrl, extep2xbar_ctrl, xbar2soc_ctrl, soc2xbar_ctrl,
@@ -63,7 +63,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	phase_done = false;
 	net.state_reset();
 	do {
-		multi_ver_obj2(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
+		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
 		if (counter++ % tb_slowdowm == 0) {
 		phase_done = net.net_sim_obj_create(net2xbar, xbar2net);
 		mem.mem_sim(xbar2mem, mem2xbar);
@@ -79,7 +79,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	phase_done = false;
 	net.state_reset();
 	do {
-		multi_ver_obj2(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
+		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
 		if (counter++ % tb_slowdowm == 0) {
 		phase_done = net.net_sim_write_once(net2xbar, xbar2net);
 		mem.mem_sim(xbar2mem, mem2xbar);
@@ -95,7 +95,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	phase_done = false;
 	net.state_reset();
 	do {
-		multi_ver_obj2(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
+		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
 		if (counter++ % tb_slowdowm == 0) {
 		phase_done = net.net_sim(net2xbar, xbar2net);
 		mem.mem_sim(xbar2mem, mem2xbar);

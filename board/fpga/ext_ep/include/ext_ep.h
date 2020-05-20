@@ -28,6 +28,15 @@
 #define COREMEMDATASIZE			(DATASIZE - sizeof(struct legomem_rw_fpgamsg))
 #define COREMEMRETDATASIZE		(DATASIZE - sizeof(struct legomem_rw_fpgamsg_resp))
 
+/* external interface */
+struct data_if {
+	ap_uint<DATAWIDTH>	pkt;
+	ap_uint<1> 		last;
+};
+
+struct ctrl_if {
+	struct lego_mem_ctrl	pkt;
+};
 
 /**
  * naming scheme:

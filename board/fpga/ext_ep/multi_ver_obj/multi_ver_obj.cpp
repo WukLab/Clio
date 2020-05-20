@@ -1,30 +1,22 @@
 /*
  * Copyright (c) 2020，Wuklab, UCSD.
  */
-#ifdef __SYNTHESIZE__
-#define NDEBUG
-#endif
 
-#include <assert.h>
 #include "multi_ver_obj.h"
 #include "multi_ver_obj_ops.h"
 #include "multi_ver_obj_bramdata.h"
 
 using namespace hls;
 
-void multi_ver_obj2(stream<struct lego_mem_ctrl> &ctrl_in, stream<struct lego_mem_ctrl> &ctrl_out,
-		   stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDTH> > &data_out)
+void multiver_obj(stream<struct ctrl_if> &ctrl_in, stream<struct ctrl_if> &ctrl_out,
+		  stream<struct data_if> &data_in, stream<struct data_if> &data_out)
 {
 // remove ap_ctrl_none before doing cosim test
-//#ifdef __SYNTHESIZE__
 #pragma HLS INTERFACE ap_ctrl_none port=return
-//#endif
 #pragma HLS INTERFACE port=ctrl_in axis
 #pragma HLS INTERFACE port=ctrl_out axis
 #pragma HLS INTERFACE port=data_in axis
 #pragma HLS INTERFACE port=data_out axis
-#pragma HLS DATA_PACK variable=ctrl_in
-#pragma HLS DATA_PACK variable=ctrl_out
 #pragma HLS DATAFLOW
 
 	static stream<struct record_out_if> soc_wip("soc_wip");

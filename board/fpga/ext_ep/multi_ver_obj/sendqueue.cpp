@@ -33,7 +33,7 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 	       stream<struct data_record_if> &from_wq1_mem, stream<struct data_if> &from_wq2_net,
 	       stream<struct data_record_if> &from_wq2_mem, stream<struct data_if> &from_dispatch,
 	       stream<struct record_out_if> &soc_wip, stream<struct record_out_if> &mem_wip,
-	       stream<ap_uint<DATAWIDTH> > &data_out)
+	       stream<struct data_if> &data_out)
 {
 #pragma HLS PIPELINE
 #pragma HLS INLINE off
@@ -47,6 +47,7 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 	Source decision					= NONE;
 	struct data_record_if data_record_pkt		= {0,0};
 	struct data_if data_pkt				= {0,0};
+	struct data_if out_pkt				= {0,0};
 	struct record_out_if record			= {0,0,0};
 
 	switch (state) {
@@ -81,7 +82,9 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 			default:
 				assert(false);
 			}
-			data_out.write(data_record_pkt.pkt);
+			out_pkt.pkt = data_record_pkt.pkt;
+			out_pkt.last = data_record_pkt.last;
+			data_out.write(out_pkt);
 			break;
 
 		case WQ1:
@@ -109,7 +112,9 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 			default:
 				assert(false);
 			}
-			data_out.write(data_record_pkt.pkt);
+			out_pkt.pkt = data_record_pkt.pkt;
+			out_pkt.last = data_record_pkt.last;
+			data_out.write(out_pkt);
 			break;
 
 		case WQ2:
@@ -127,7 +132,9 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 			default:
 				assert(false);
 			}
-			data_out.write(data_record_pkt.pkt);
+			out_pkt.pkt = data_record_pkt.pkt;
+			out_pkt.last = data_record_pkt.last;
+			data_out.write(out_pkt);
 			break;
 
 		case DISPATCHER:
@@ -138,7 +145,7 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 			if (data_pkt.last == 0)
 				state = DISPATCHER_DATA;
 
-			data_out.write(data_pkt.pkt);
+			data_out.write(data_pkt);
 			break;
 
 		default:
@@ -164,7 +171,9 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 		default:
 			assert(false);
 		}
-		data_out.write(data_record_pkt.pkt);
+		out_pkt.pkt = data_record_pkt.pkt;
+		out_pkt.last = data_record_pkt.last;
+		data_out.write(out_pkt);
 		break;
 
 	case WQ1_MEM_DATA:
@@ -181,8 +190,9 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 			else
 				state = READY;
 		}
-
-		data_out.write(data_record_pkt.pkt);
+		out_pkt.pkt = data_record_pkt.pkt;
+		out_pkt.last = data_record_pkt.last;
+		data_out.write(out_pkt);
 		break;
 
 	case WQ1_SOC:
@@ -205,7 +215,9 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 		default:
 			assert(false);
 		}
-		data_out.write(data_record_pkt.pkt);
+		out_pkt.pkt = data_record_pkt.pkt;
+		out_pkt.last = data_record_pkt.last;
+		data_out.write(out_pkt);
 		break;
 
 	case WQ1_NET:
@@ -217,7 +229,7 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 		port_mask[2] = 0;
 		state = READY;
 
-		data_out.write(data_pkt.pkt);
+		data_out.write(data_pkt);
 		break;
 
 	case WQ2_NET:
@@ -228,7 +240,7 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 		if (data_pkt.last == 1)
 			state = READY;
 
-		data_out.write(data_pkt.pkt);
+		data_out.write(data_pkt);
 		break;
 
 	case DISPATCHER_DATA:
@@ -241,7 +253,7 @@ void sendqueue(stream<struct data_record_if> &from_parser1, stream<struct data_r
 
 		if (data_pkt.last == 1)
 			state = READY;
-		data_out.write(data_pkt.pkt);
+		data_out.write(data_pkt);
 		break;
 
 	default:

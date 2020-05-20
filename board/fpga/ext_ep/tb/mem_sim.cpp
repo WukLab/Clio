@@ -15,7 +15,8 @@ using namespace std;
 
 MemSim::MemSim(unsigned long size, unsigned int latency)
 	: mem_size(size),
-	  latency(latency)
+	  latency(latency),
+	  parse2delay("parse2delay")
 {
 	delay_fifo.resize(latency);
 	memory.resize(size);
@@ -26,10 +27,8 @@ MemSim::MemSim(unsigned long size, unsigned int latency)
 	cout << "Simulated Memory Initialized" << endl;
 }
 
-void MemSim::mem_sim(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDTH> > &data_out)
+void MemSim::mem_sim(stream<struct data_if> &data_in, stream<struct data_if> &data_out)
 {
-	static stream<ap_uint<DATAWIDTH> > parse2delay("parse2delay");
-
 	parse(data_in, parse2delay);
 	delay(parse2delay, data_out);
 }
@@ -37,21 +36,21 @@ void MemSim::mem_sim(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWI
 struct coremem_data {
 	uint8_t				data[DATASIZE];
 };
-void MemSim::parse(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDTH> > &to_delay)
+void MemSim::parse(stream<struct data_if> &data_in, stream<struct data_if> &to_delay)
 {
-	ap_uint<DATAWIDTH> in_pkt 				= 0;
-	ap_uint<DATAWIDTH> out_pkt 				= 0;
+	struct data_if in_pkt 				= {0};
+	struct data_if out_pkt 				= {0};
 	struct legomem_rw_fpgamsg *req;
-	struct legomem_rw_fpgamsg_resp resp 			= {0};
+	struct legomem_rw_fpgamsg_resp resp 		= {0};
 	struct coremem_data *rep_data;
-	struct coremem_data resp_data				= {0};
+	struct coremem_data resp_data			= {0};
 
 	switch (state) {
 	case MEM_HEADER:
 		if (data_in.empty())
 			break;
 		in_pkt = data_in.read();
-		req = (struct legomem_rw_fpgamsg *)&in_pkt;
+		req = (struct legomem_rw_fpgamsg *)&in_pkt.pkt;
 
 #ifdef SIM_MEM_PRINT
 		std::cout << "MEM HDR:   " << std::hex << in_pkt << std::endl;
@@ -81,8 +80,10 @@ void MemSim::parse(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDT
 			resp.hdr.req_status = 0;
 			if (rw_size <= COREMEMRETDATASIZE) {
 				rwmem(0, rw_addr, rw_size, (char*)resp.op.data);
+				out_pkt.last = 1;
 			} else {
 				rwmem(0, rw_addr, COREMEMRETDATASIZE, (char*)resp.op.data);
+				out_pkt.last = 0;
 				rw_addr += COREMEMRETDATASIZE;
 				rw_size -= COREMEMRETDATASIZE;
 				state = MEM_READDATA;
@@ -113,10 +114,13 @@ void MemSim::parse(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDT
 
 			resp.hdr.req_status = 0;
 			if (rw_size <= COREMEMDATASIZE) {
+				assert(in_pkt.last == 1);
 				rwmem(1, rw_addr, rw_size, (char*)req->op.data);
 				memcpy(&out_pkt, &resp, DATASIZE);
+				out_pkt.last = 1;
 				to_delay.write(out_pkt);
 			} else {
+				assert(in_pkt.last == 0);
 				rwmem(1, rw_addr, COREMEMDATASIZE, (char*)req->op.data);
 				memcpy(&write_resp_wait, &resp, sizeof(struct legomem_rw_fpgamsg_resp));
 				rw_addr += COREMEMDATASIZE;
@@ -135,19 +139,22 @@ void MemSim::parse(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDT
 		if (data_in.empty())
 			break;
 		in_pkt = data_in.read();
-		rep_data = (struct coremem_data *)&in_pkt;
+		rep_data = (struct coremem_data *)&in_pkt.pkt;
 
 #ifdef SIM_MEM_PRINT
 		std::cout << "MEM WRITE: " << std::hex << in_pkt << std::endl;
 #endif
 		if (rw_size <= DATASIZE) {
+			assert(in_pkt.last == 1);
 			rwmem(1, rw_addr, rw_size, (char*)rep_data->data);
 			memcpy(&out_pkt, &write_resp_wait, sizeof(struct legomem_rw_fpgamsg_resp));
+			out_pkt.last = 1;
 			to_delay.write(out_pkt);
 			rw_addr = 0;
 			rw_size = 0;
 			state = MEM_HEADER;
 		} else {
+			assert(in_pkt.last == 0);
 			rwmem(1, rw_addr, DATASIZE, (char*)rep_data->data);
 			rw_addr += DATASIZE;
 			rw_size -= DATASIZE;
@@ -157,9 +164,11 @@ void MemSim::parse(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDT
 	case MEM_READDATA:
 		if (rw_size <= DATASIZE) {
 			rwmem(0, rw_addr, rw_size, (char*)resp_data.data);
+			out_pkt.last = 1;
 			state = MEM_HEADER;
 		} else {
 			rwmem(0, rw_addr, DATASIZE, (char*)resp_data.data);
+			out_pkt.last = 0;
 			rw_addr += DATASIZE;
 			rw_size -= DATASIZE;
 		}
@@ -175,7 +184,7 @@ void MemSim::parse(stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDT
 	}
 }
 
-void MemSim::delay(stream<ap_uint<DATAWIDTH> > &from_parse, stream<ap_uint<DATAWIDTH> > &data_out)
+void MemSim::delay(stream<struct data_if> &from_parse, stream<struct data_if> &data_out)
 {
 	for (int i = latency - 1; i >= 1; i--) {
 		if (i == latency - 1 && delay_fifo[i].vld) {
@@ -185,7 +194,7 @@ void MemSim::delay(stream<ap_uint<DATAWIDTH> > &from_parse, stream<ap_uint<DATAW
 	}
 
 	if (from_parse.empty()) {
-		delay_fifo[0].pkt = 0;
+		delay_fifo[0].pkt = {0};
 		delay_fifo[0].vld = 0;
 	} else {
 		delay_fifo[0].pkt = from_parse.read();

@@ -15,11 +15,6 @@
 #include "multi_ver_obj_config.h"
 
 /* internal interface */
-struct data_if {
-	ap_uint<DATAWIDTH>	pkt;
-	ap_uint<1> 		last;
-};
-
 enum obj_op {
 	OBJ_CREATE,
 	OBJ_DELETE,
@@ -68,14 +63,11 @@ struct record_out_if {
 	ap_uint<2>		endpoint;	// filled with enum endpoint
 };
 
-void multi_ver_obj1(hls::stream<struct lego_mem_ctrl> &ctrl_in, hls::stream<struct lego_mem_ctrl> &ctrl_out,
-		hls::stream<ap_uint<DATAWIDTH> > &data_in, hls::stream<ap_uint<DATAWIDTH> > &data_out);
+void multiver_obj(hls::stream<struct ctrl_if> &ctrl_in, hls::stream<struct ctrl_if> &ctrl_out,
+		  hls::stream<struct data_if> &data_in, hls::stream<struct data_if> &data_out);
 
-void multi_ver_obj2(hls::stream<struct lego_mem_ctrl> &ctrl_in, hls::stream<struct lego_mem_ctrl> &ctrl_out,
-		hls::stream<ap_uint<DATAWIDTH> > &data_in, hls::stream<ap_uint<DATAWIDTH> > &data_out);
-
-void dispatcher(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-		hls::stream<struct lego_mem_ctrl> &ctrl_in, hls::stream<struct lego_mem_ctrl> &ctrl_out,
+void dispatcher(hls::stream<struct data_if> &data_in,
+		hls::stream<struct ctrl_if> &ctrl_in, hls::stream<struct ctrl_if> &ctrl_out,
 		hls::stream<struct record_out_if> &soc_records, hls::stream<struct record_out_if> &mem_records,
 		hls::stream<struct data_if> &to_parser, hls::stream<struct data_if> &to_wq1,
 		hls::stream<struct data_if> &to_wq2, hls::stream<struct data_if> &to_sq);
@@ -100,7 +92,7 @@ void sendqueue(hls::stream<struct data_record_if> &from_parser1, hls::stream<str
 	       hls::stream<struct data_record_if> &from_wq1_mem, hls::stream<struct data_if> &from_wq2_net,
 	       hls::stream<struct data_record_if> &from_wq2_mem, hls::stream<struct data_if> &from_dispatch,
 	       hls::stream<struct record_out_if> &soc_wip, hls::stream<struct record_out_if> &mem_wip,
-	       hls::stream<ap_uint<DATAWIDTH> > &data_out);
+	       hls::stream<struct data_if> &data_out);
 
 
 /* flags */

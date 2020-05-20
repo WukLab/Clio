@@ -27,7 +27,7 @@ add_files -tb	../tb/xbar_sim.cpp		-cflags $CFLAGS
 add_files -tb	../tb/pattern_generator.cpp	-cflags $CFLAGS
 
 # Specify the top-level function for synthesis
-set_top		multi_ver_obj2
+set_top		multiver_obj
 
 ###########################
 # Solution settings

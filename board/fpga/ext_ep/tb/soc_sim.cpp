@@ -25,24 +25,24 @@ SocSim::SocSim(unsigned long mem_size,
 	cout << "Simulated SoC Initialized" << endl;
 }
 
-void SocSim::soc_sim(stream<struct lego_mem_ctrl> &ctrl_in,
-		     stream<struct lego_mem_ctrl> &ctrl_out,
-		     stream<ap_uint<DATAWIDTH> > &data_in,
-		     stream<ap_uint<DATAWIDTH> > &data_out)
+void SocSim::soc_sim(stream<struct ctrl_if> &ctrl_in,
+		     stream<struct ctrl_if> &ctrl_out,
+		     stream<struct data_if> &data_in,
+		     stream<struct data_if> &data_out)
 {
 	parse(ctrl_in, parse2ctrldelay, data_in, parse2datadelay);
 	ctrl_delay(parse2ctrldelay, ctrl_out);
 	data_delay(parse2datadelay, data_out);
 }
 
-void SocSim::parse(stream<struct lego_mem_ctrl> &ctrl_in,
-		   stream<struct lego_mem_ctrl> &ctrl_to_delay,
-		   stream<ap_uint<DATAWIDTH> > &data_in,
-		   stream<ap_uint<DATAWIDTH> > &data_to_delay)
+void SocSim::parse(stream<struct ctrl_if> &ctrl_in,
+		   stream<struct ctrl_if> &ctrl_to_delay,
+		   stream<struct data_if> &data_in,
+		   stream<struct data_if> &data_to_delay)
 {
 	// temporary variable
-	struct lego_mem_ctrl inctrl_pkt = {0}, outctrl_pkt = {0};
-	ap_uint<DATAWIDTH> indata_pkt = 0, outdata_pkt = 0;
+	struct ctrl_if inctrl_pkt = {0}, outctrl_pkt = {0};
+	struct data_if indata_pkt = {0}, outdata_pkt = {0};
 	struct legomem_alloc_free_fpgamsg *req;
 	struct legomem_alloc_free_fpgamsg_resp resp = {0};
 	struct sim_used_proc_create *create;
@@ -53,29 +53,29 @@ void SocSim::parse(stream<struct lego_mem_ctrl> &ctrl_in,
 		goto datapath;
 
 	inctrl_pkt = ctrl_in.read();
-	switch (inctrl_pkt.cmd) {
+	switch (inctrl_pkt.pkt.cmd) {
 	case CMD_LEGOMEM_CTRL_CREATE_PROC:
-		outctrl_pkt.param32 = pid;
-		outctrl_pkt.param8 = 0;
-		outctrl_pkt.beats = inctrl_pkt.beats;
-		outctrl_pkt.cmd = inctrl_pkt.cmd;
-		outctrl_pkt.addr = EXTAPI_XBAR_ADDR;
-		outctrl_pkt.epid = EXTAPI_XBAR_EPID;
+		outctrl_pkt.pkt.param32 = pid;
+		outctrl_pkt.pkt.param8 = 0;
+		outctrl_pkt.pkt.beats = inctrl_pkt.pkt.beats;
+		outctrl_pkt.pkt.cmd = inctrl_pkt.pkt.cmd;
+		outctrl_pkt.pkt.addr = EXTAPI_XBAR_ADDR;
+		outctrl_pkt.pkt.epid = EXTAPI_XBAR_EPID;
 		pid++;
 		ctrl_to_delay.write(outctrl_pkt);
 		break;
 
 	case CMD_LEGOMEM_CTRL_ALLOC:
-		outctrl_pkt.param32 = alloc_map;
-		outctrl_pkt.param8 = 0;
-		outctrl_pkt.beats = inctrl_pkt.beats;
-		outctrl_pkt.cmd = inctrl_pkt.cmd;
-		outctrl_pkt.addr = EXTAPI_XBAR_ADDR;
-		outctrl_pkt.epid = EXTAPI_XBAR_EPID;
+		outctrl_pkt.pkt.param32 = alloc_map;
+		outctrl_pkt.pkt.param8 = 0;
+		outctrl_pkt.pkt.beats = inctrl_pkt.pkt.beats;
+		outctrl_pkt.pkt.cmd = inctrl_pkt.pkt.cmd;
+		outctrl_pkt.pkt.addr = EXTAPI_XBAR_ADDR;
+		outctrl_pkt.pkt.epid = EXTAPI_XBAR_EPID;
 		// check overflow
-		if (alloc_map + inctrl_pkt.param32 >= mem_size)
+		if (alloc_map + inctrl_pkt.pkt.param32 >= mem_size)
 			throw overflow_error("memory overflow, please enlarge \"mem_size\"");
-		alloc_map += inctrl_pkt.param32;
+		alloc_map += inctrl_pkt.pkt.param32;
 		ctrl_to_delay.write(outctrl_pkt);
 		break;
 
@@ -93,9 +93,9 @@ datapath:
 	if (data_in.empty())
 		return;
 	indata_pkt = data_in.read();
-	switch (field(indata_pkt, hdr_opcode)) {
+	switch (field(indata_pkt.pkt, hdr_opcode)) {
 	case OP_REQ_ALLOC:
-		req = (struct legomem_alloc_free_fpgamsg *)&indata_pkt;
+		req = (struct legomem_alloc_free_fpgamsg *)&indata_pkt.pkt;
 		resp.hdr = req->hdr;
 		resp.hdr.opcode = OP_REQ_ALLOC_RESP;
 		resp.hdr.cont = LEGOMEM_CONT_EXTAPI;
@@ -109,25 +109,27 @@ datapath:
 			resp.op.addr = alloc_map;
 			alloc_map += req->op.len;
 		}
-		memcpy(&outdata_pkt, &resp, sizeof(struct legomem_alloc_free_fpgamsg_resp));
+		memcpy(&outdata_pkt.pkt, &resp, sizeof(struct legomem_alloc_free_fpgamsg_resp));
+		outdata_pkt.last = 1;
 		data_to_delay.write(outdata_pkt);
 		break;
 
 	case OP_REQ_FREE:
-		req = (struct legomem_alloc_free_fpgamsg *)&indata_pkt;
+		req = (struct legomem_alloc_free_fpgamsg *)&indata_pkt.pkt;
 		resp.hdr = req->hdr;
 		resp.hdr.opcode = OP_REQ_FREE_RESP;
 		resp.hdr.cont = LEGOMEM_CONT_EXTAPI;
 		resp.hdr.size = sizeof(struct legomem_alloc_free_fpgamsg_resp);
 		resp.hdr.req_status = 0;
 		resp.op.ret = 0;
-		memcpy(&outdata_pkt, &resp, sizeof(struct legomem_alloc_free_fpgamsg_resp));
+		memcpy(&outdata_pkt.pkt, &resp, sizeof(struct legomem_alloc_free_fpgamsg_resp));
+		outdata_pkt.last = 1;
 		data_to_delay.write(outdata_pkt);
 		break;
 
 	/* just to get an PID */
 	case OP_CREATE_PROC:
-		create = (struct sim_used_proc_create *)&indata_pkt;
+		create = (struct sim_used_proc_create *)&indata_pkt.pkt;
 		create_ret.hdr = create->hdr;
 		create_ret.hdr.opcode = OP_CREATE_PROC_RESP;
 		create_ret.hdr.cont = LEGOMEM_CONT_NET;
@@ -135,7 +137,8 @@ datapath:
 		create_ret.hdr.req_status = 0;
 		create_ret.op.ret = 0;
 		create_ret.op.pid = pid;
-		memcpy(&outdata_pkt, &create_ret, sizeof(struct sim_used_proc_create_ret));
+		memcpy(&outdata_pkt.pkt, &create_ret, sizeof(struct sim_used_proc_create_ret));
+		outdata_pkt.last = 1;
 		data_to_delay.write(outdata_pkt);
 		pid++;
 		break;
@@ -146,8 +149,8 @@ datapath:
 	}
 }
 
-void SocSim::data_delay(stream<ap_uint<DATAWIDTH> > &from_parse,
-			stream<ap_uint<DATAWIDTH> > &data_out)
+void SocSim::data_delay(stream<struct data_if> &from_parse,
+			stream<struct data_if> &data_out)
 {
 	for (int i = data_latency - 1; i >= 1; i--) {
 		if (i == data_latency - 1 && data_delay_fifo[i].vld) {
@@ -157,7 +160,7 @@ void SocSim::data_delay(stream<ap_uint<DATAWIDTH> > &from_parse,
 	}
 
 	if (from_parse.empty()) {
-		data_delay_fifo[0].pkt = 0;
+		data_delay_fifo[0].pkt = {0};
 		data_delay_fifo[0].vld = 0;
 	} else {
 		data_delay_fifo[0].pkt = from_parse.read();
@@ -165,8 +168,8 @@ void SocSim::data_delay(stream<ap_uint<DATAWIDTH> > &from_parse,
 	}
 }
 
-void SocSim::ctrl_delay(stream<struct lego_mem_ctrl> &from_parse,
-			stream<struct lego_mem_ctrl> &ctrl_out)
+void SocSim::ctrl_delay(stream<struct ctrl_if> &from_parse,
+			stream<struct ctrl_if> &ctrl_out)
 {
 	for (int i = ctrl_latency - 1; i >= 1; i--) {
 
@@ -177,7 +180,7 @@ void SocSim::ctrl_delay(stream<struct lego_mem_ctrl> &from_parse,
 	}
 
 	if (from_parse.empty()) {
-		ctrl_delay_fifo[0].pkt = {0,0,0,0,0,0};
+		ctrl_delay_fifo[0].pkt = {0};
 		ctrl_delay_fifo[0].vld = 0;
 	} else {
 		ctrl_delay_fifo[0].pkt = from_parse.read();

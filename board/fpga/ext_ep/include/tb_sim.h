@@ -14,12 +14,12 @@
 #include <ext_ep.h>
 
 struct ctrl {
-	struct lego_mem_ctrl	pkt;
+	struct ctrl_if		pkt;
 	bool			vld;
 } __packed;
 
 struct data {
-	ap_uint<DATAWIDTH>	pkt;
+	struct data_if		pkt;
 	bool 			vld;
 };
 
@@ -33,21 +33,22 @@ public:
 	~MemSim() {}
 
 	/* core_mem simulator run one cycle */
-	void mem_sim(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-		     hls::stream<ap_uint<DATAWIDTH> > &data_out);
+	void mem_sim(hls::stream<struct data_if> &data_in,
+		     hls::stream<struct data_if> &data_out);
 
 private:
 	const unsigned long mem_size;
 	const unsigned int latency;
+	hls::stream<struct data_if> parse2delay;
 	std::vector<struct data> delay_fifo;
 	mem_fsm state;
 	unsigned long rw_addr, rw_size;
 	struct legomem_rw_fpgamsg_resp write_resp_wait;
 
-	void parse(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-		   hls::stream<ap_uint<DATAWIDTH> > &to_delay);
-	void delay(hls::stream<ap_uint<DATAWIDTH> > &from_parse,
-		   hls::stream<ap_uint<DATAWIDTH> > &data_out);
+	void parse(hls::stream<struct data_if> &data_in,
+		   hls::stream<struct data_if> &to_delay);
+	void delay(hls::stream<struct data_if> &from_parse,
+		   hls::stream<struct data_if> &data_out);
 	void rwmem(bool rw, unsigned long addr,
 		   unsigned long size, char *data);
 };
@@ -67,10 +68,10 @@ public:
 	       unsigned int data_latency, unsigned int ctrl_latency);
 	~SocSim() {}
 
-	void soc_sim(hls::stream<struct lego_mem_ctrl> &ctrl_in,
-		     hls::stream<struct lego_mem_ctrl> &ctrl_out,
-		     hls::stream<ap_uint<DATAWIDTH> > &data_in,
-		     hls::stream<ap_uint<DATAWIDTH> > &data_out);
+	void soc_sim(hls::stream<struct ctrl_if> &ctrl_in,
+		     hls::stream<struct ctrl_if> &ctrl_out,
+		     hls::stream<struct data_if> &data_in,
+		     hls::stream<struct data_if> &data_out);
 
 private:
 	const unsigned long mem_size;
@@ -80,17 +81,17 @@ private:
 	unsigned long alloc_map;
 	std::vector<struct data> data_delay_fifo;
 	std::vector<struct ctrl> ctrl_delay_fifo;
-	hls::stream<ap_uint<DATAWIDTH> > parse2datadelay;
-	hls::stream<struct lego_mem_ctrl> parse2ctrldelay;
+	hls::stream<struct data_if> parse2datadelay;
+	hls::stream<struct ctrl_if> parse2ctrldelay;
 
-	void parse(hls::stream<struct lego_mem_ctrl> &ctrl_in,
-		   hls::stream<struct lego_mem_ctrl> &ctrl_to_delay,
-		   hls::stream<ap_uint<DATAWIDTH> > &data_in,
-		   hls::stream<ap_uint<DATAWIDTH> > &data_to_delay);
-	void ctrl_delay(hls::stream<struct lego_mem_ctrl> &from_parse,
-			hls::stream<struct lego_mem_ctrl> &ctrl_out);
-	void data_delay(hls::stream<ap_uint<DATAWIDTH> > &from_parse,
-			hls::stream<ap_uint<DATAWIDTH> > &data_out);
+	void parse(hls::stream<struct ctrl_if> &ctrl_in,
+		   hls::stream<struct ctrl_if> &ctrl_to_delay,
+		   hls::stream<struct data_if> &data_in,
+		   hls::stream<struct data_if> &data_to_delay);
+	void ctrl_delay(hls::stream<struct ctrl_if> &from_parse,
+			hls::stream<struct ctrl_if> &ctrl_out);
+	void data_delay(hls::stream<struct data_if> &from_parse,
+			hls::stream<struct data_if> &data_out);
 };
 
 // net simulation
@@ -106,14 +107,14 @@ public:
 	~NetSim() {}
 
 	void state_reset();
-	bool net_sim_proc_create(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-				 hls::stream<ap_uint<DATAWIDTH> > &data_out);
-	bool net_sim_obj_create(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-				hls::stream<ap_uint<DATAWIDTH> > &data_out);
-	bool net_sim_write_once(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-				hls::stream<ap_uint<DATAWIDTH> > &data_out);
-	bool net_sim(hls::stream<ap_uint<DATAWIDTH> > &data_in,
-		     hls::stream<ap_uint<DATAWIDTH> > &data_out);
+	bool net_sim_proc_create(hls::stream<struct data_if> &data_in,
+				 hls::stream<struct data_if> &data_out);
+	bool net_sim_obj_create(hls::stream<struct data_if> &data_in,
+				hls::stream<struct data_if> &data_out);
+	bool net_sim_write_once(hls::stream<struct data_if> &data_in,
+				hls::stream<struct data_if> &data_out);
+	bool net_sim(hls::stream<struct data_if> &data_in,
+		     hls::stream<struct data_if> &data_out);
 
 private:
 	const unsigned long pattern_len;
@@ -133,18 +134,18 @@ private:
 	char write_data_buffer[2*DATASIZE];
 	char read_data_buffer[3*DATASIZE];
 
-	void proc_create(hls::stream<ap_uint<DATAWIDTH> > &out);
-	long proc_create_getreply(hls::stream<ap_uint<DATAWIDTH> > &in);
+	void proc_create(hls::stream<struct data_if> &out);
+	long proc_create_getreply(hls::stream<struct data_if> &in);
 	void verobj_create(uint16_t pid, unsigned long size, unsigned long flags,
-			hls::stream<ap_uint<DATAWIDTH> > &out);
-	long verobj_create_getreply(hls::stream<ap_uint<DATAWIDTH> > &in);
+			hls::stream<struct data_if> &out);
+	long verobj_create_getreply(hls::stream<struct data_if> &in);
 	void verobj_delete(uint16_t pid, unsigned long obj_id,
-			hls::stream<ap_uint<DATAWIDTH> > &out);
+			hls::stream<struct data_if> &out);
 	void verobj_read(uint16_t pid, unsigned long obj_id, unsigned short version,
-			hls::stream<ap_uint<DATAWIDTH> > &out);
+			hls::stream<struct data_if> &out);
 	void verobj_write(uint16_t pid, unsigned long obj_id, int size,
-			hls::stream<ap_uint<DATAWIDTH> > &out);
-	int verobj_rw_getreply(hls::stream<ap_uint<DATAWIDTH> > &in);
+			hls::stream<struct data_if> &out);
+	int verobj_rw_getreply(hls::stream<struct data_if> &in);
 
 	// helper function
 	uint16_t new_obj_size();
@@ -160,22 +161,21 @@ public:
 	XbarSim();
 	~XbarSim() {}
 
-	void xbar_sim(hls::stream<struct lego_mem_ctrl> &to_extep_ctrl,
-		      hls::stream<struct lego_mem_ctrl> &from_extep_ctrl,
-		      hls::stream<struct lego_mem_ctrl> &to_soc_ctrl,
-		      hls::stream<struct lego_mem_ctrl> &from_soc_ctrl,
-		      hls::stream<ap_uint<DATAWIDTH> > &to_net_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &from_net_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &to_extep_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &from_extep_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &to_soc_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &from_soc_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &to_mem_data,
-		      hls::stream<ap_uint<DATAWIDTH> > &from_mem_data);
+	void xbar_sim(hls::stream<struct ctrl_if> &to_extep_ctrl,
+		      hls::stream<struct ctrl_if> &from_extep_ctrl,
+		      hls::stream<struct ctrl_if> &to_soc_ctrl,
+		      hls::stream<struct ctrl_if> &from_soc_ctrl,
+		      hls::stream<struct data_if> &to_net_data,
+		      hls::stream<struct data_if> &from_net_data,
+		      hls::stream<struct data_if> &to_extep_data,
+		      hls::stream<struct data_if> &from_extep_data,
+		      hls::stream<struct data_if> &to_soc_data,
+		      hls::stream<struct data_if> &from_soc_data,
+		      hls::stream<struct data_if> &to_mem_data,
+		      hls::stream<struct data_if> &from_mem_data);
 
 private:
 	xbar_fsm state;
-	unsigned int data_remain;
 	uint16_t dest;
 };
 

@@ -38,8 +38,7 @@ void NetSim::state_reset()
 	receiving_id = 0;
 }
 
-bool NetSim::net_sim_proc_create(stream<ap_uint<DATAWIDTH> > &to_xbar,
-		     stream<ap_uint<DATAWIDTH> > &from_xbar)
+bool NetSim::net_sim_proc_create(stream<struct data_if> &to_xbar, stream<struct data_if> &from_xbar)
 {
 	long pid = 0;
 
@@ -68,8 +67,7 @@ bool NetSim::net_sim_proc_create(stream<ap_uint<DATAWIDTH> > &to_xbar,
 	return false;
 }
 
-bool NetSim::net_sim_obj_create(stream<ap_uint<DATAWIDTH> > &to_xbar,
-			stream<ap_uint<DATAWIDTH> > &from_xbar)
+bool NetSim::net_sim_obj_create(stream<struct data_if> &to_xbar, stream<struct data_if> &from_xbar)
 {
 	long obj_id = 0;
 	switch (state) {
@@ -114,8 +112,7 @@ bool NetSim::net_sim_obj_create(stream<ap_uint<DATAWIDTH> > &to_xbar,
 	return false;
 }
 
-bool NetSim::net_sim_write_once(stream<ap_uint<DATAWIDTH> > &to_xbar,
-				stream<ap_uint<DATAWIDTH> > &from_xbar)
+bool NetSim::net_sim_write_once(stream<struct data_if> &to_xbar, stream<struct data_if> &from_xbar)
 {
 	int reply;
 	const uint16_t identifier = 1;
@@ -151,8 +148,8 @@ bool NetSim::net_sim_write_once(stream<ap_uint<DATAWIDTH> > &to_xbar,
 	return false;
 }
 
-bool NetSim::net_sim(stream<ap_uint<DATAWIDTH> > &to_xbar,
-		     stream<ap_uint<DATAWIDTH> > &from_xbar)
+bool NetSim::net_sim(stream<struct data_if> &to_xbar,
+		     stream<struct data_if> &from_xbar)
 {
 	int sequence_cnt = 0, reply = 0;
 	map<uint32_t, uint16_t> objid_identifier;
@@ -259,28 +256,30 @@ receive_done:
 	return false;
 }
 
-void NetSim::proc_create(stream<ap_uint<DATAWIDTH> > &out)
+void NetSim::proc_create(stream<struct data_if> &out)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
+	struct data_if data 		= {0};
 	struct sim_used_proc_create req = {0};
 
 	req.hdr.opcode = OP_CREATE_PROC;
 	req.hdr.size = sizeof(struct lego_header);
 	req.hdr.cont = LEGOMEM_CONT_SOC;
-	memcpy(&pkt, &req, sizeof(struct lego_header));
-	out.write(pkt);
+	memcpy(&data.pkt, &req, sizeof(struct lego_header));
+	data.last = 1;
+	out.write(data);
 }
 
-long NetSim::proc_create_getreply(stream<ap_uint<DATAWIDTH> > &in)
+long NetSim::proc_create_getreply(stream<struct data_if> &in)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
+	struct data_if data 		= {0};
 	struct sim_used_proc_create_ret *resp;
 
 	if (in.empty())
 		return -1;
 
-	pkt = in.read();
-	resp = (struct sim_used_proc_create_ret *)&pkt;
+	data = in.read();
+	assert(data.last == 1);
+	resp = (struct sim_used_proc_create_ret *)&data.pkt;
 	if (resp->hdr.opcode != OP_CREATE_PROC_RESP)
 		throw logic_error("CREATE_PROC: simulator error, wrong opcode");
 	if (resp->hdr.size != sizeof(struct sim_used_proc_create_ret))
@@ -292,10 +291,10 @@ long NetSim::proc_create_getreply(stream<ap_uint<DATAWIDTH> > &in)
 }
 
 void NetSim::verobj_create(uint16_t pid, unsigned long size, unsigned long flags,
-			  stream<ap_uint<DATAWIDTH> > &out)
+			  stream<struct data_if> &out)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
-	struct verobj_create_delete req= {0};
+	struct data_if data 		= {0};
+	struct verobj_create_delete req	= {0};
 
 	req.hdr.pid = pid;
 	req.hdr.opcode = OP_REQ_VEROBJ_CREATE;
@@ -305,20 +304,22 @@ void NetSim::verobj_create(uint16_t pid, unsigned long size, unsigned long flags
 	req.op.vregion_idx = 0;
 	req.op.vm_flags = flags;
 
-	memcpy(&pkt, &req, sizeof(struct verobj_create_delete));
-	out.write(pkt);
+	memcpy(&data.pkt, &req, sizeof(struct verobj_create_delete));
+	data.last = 1;
+	out.write(data);
 }
 
-long NetSim::verobj_create_getreply(hls::stream<ap_uint<DATAWIDTH> > &in)
+long NetSim::verobj_create_getreply(stream<struct data_if> &in)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
+	struct data_if data 		= {0};
 	struct verobj_create_delete_ret *resp;
 
 	if (in.empty())
 		return -1;
 
-	pkt = in.read();
-	resp = (struct verobj_create_delete_ret *)&pkt;
+	data = in.read();
+	assert(data.last == 1);
+	resp = (struct verobj_create_delete_ret *)&data.pkt;
 	if (resp->hdr.opcode != OP_REQ_VEROBJ_CREATE_RESP)
 		throw logic_error("CREATE: implementation error, wrong opcode");
 	if (resp->hdr.size != sizeof(struct verobj_create_delete_ret))
@@ -330,10 +331,10 @@ long NetSim::verobj_create_getreply(hls::stream<ap_uint<DATAWIDTH> > &in)
 }
 
 void NetSim::verobj_delete(uint16_t pid, unsigned long obj_id,
-			  stream<ap_uint<DATAWIDTH> > &out)
+			  stream<struct data_if> &out)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
-	struct verobj_create_delete req = {0};
+	struct data_if data		= {0};
+	struct verobj_create_delete req	= {0};
 
 	req.hdr.pid = pid;
 	req.hdr.opcode = OP_REQ_VEROBJ_DELETE;
@@ -343,15 +344,16 @@ void NetSim::verobj_delete(uint16_t pid, unsigned long obj_id,
 	req.op.vregion_idx = 0;
 	req.op.vm_flags = 0;
 
-	memcpy(&pkt, &req, sizeof(struct verobj_create_delete));
-	out.write(pkt);
+	memcpy(&data.pkt, &req, sizeof(struct verobj_create_delete));
+	data.last = 1;
+	out.write(data);
 }
 
 void NetSim::verobj_read(uint16_t pid, unsigned long obj_id, unsigned short version,
-			stream<ap_uint<DATAWIDTH> > &out)
+			stream<struct data_if> &out)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
-	struct verobj_read_write req = {0};
+	struct data_if data 		= {0};
+	struct verobj_read_write req 	= {0};
 
 	req.hdr.pid = pid;
 	req.hdr.opcode = OP_REQ_VEROBJ_READ;
@@ -360,25 +362,26 @@ void NetSim::verobj_read(uint16_t pid, unsigned long obj_id, unsigned short vers
 	req.op.obj_id = obj_id;
 	req.op.version = version;
 
-	memcpy(&pkt, &req, sizeof(struct verobj_read_write));
-	out.write(pkt);
+	memcpy(&data.pkt, &req, sizeof(struct verobj_read_write));
+	data.last = 1;
+	out.write(data);
 }
 
-int NetSim::verobj_rw_getreply(stream<ap_uint<DATAWIDTH> > &in)
+int NetSim::verobj_rw_getreply(stream<struct data_if> &in)
 {
-	static int data_remain = 0;
-	static int offset = 0;
-	ap_uint<DATAWIDTH> pkt = 0;
+	static int data_remain			= 0;
+	static int offset			= 0;
+	struct data_if data			= {0};
 	struct verobj_read_write_ret *resp;
-	int size = 0;
+	int size 				= 0;
 
 	if (in.empty())
 		return -1;
 
-	pkt = in.read();
+	data = in.read();
 	switch (read_state) {
 	case NET_RW_HEADER:
-		resp = (struct verobj_read_write_ret *)&pkt;
+		resp = (struct verobj_read_write_ret *)&data.pkt;
 		if (resp->hdr.opcode != OP_REQ_VEROBJ_WRITE_RESP &&
 				resp->hdr.opcode != OP_REQ_VEROBJ_READ_RESP)
 			throw logic_error("RW: implementation error, wrong opcode");
@@ -394,15 +397,20 @@ int NetSim::verobj_rw_getreply(stream<ap_uint<DATAWIDTH> > &in)
 		if (resp->hdr.req_status != 0)
 			throw logic_error("RW: object read bad reply status");
 
-		if (resp->hdr.opcode == OP_REQ_VEROBJ_WRITE_RESP)
+		if (resp->hdr.opcode == OP_REQ_VEROBJ_WRITE_RESP) {
+			assert(data.last == 1);
 			return 0;
+		}
 
+		/* read reply */
 		if (resp->hdr.size > DATASIZE) {
+			assert(data.last == 0);
 			size = DATASIZE - sizeof(struct verobj_read_write_ret);
 			read_state = NET_RW_DATA;
 			offset = size;
 			data_remain = resp->hdr.size - DATASIZE;
 		} else {
+			assert(data.last == 1);
 			offset = 0;
 			size = resp->hdr.size - sizeof(struct verobj_read_write_ret);
 		}
@@ -411,27 +419,29 @@ int NetSim::verobj_rw_getreply(stream<ap_uint<DATAWIDTH> > &in)
 
 	case NET_RW_DATA:
 		if (data_remain > DATASIZE) {
+			assert(data.last == 0);
 			size = DATASIZE;
 			data_remain -= DATASIZE;
 		} else {
+			assert(data.last == 1);
 			size = data_remain;
 			data_remain = 0;
 			read_state = NET_RW_HEADER;
 		}
 		assert(offset + size <= 2*DATASIZE);
-		memcpy(&read_data_buffer[offset], &pkt, size);
+		memcpy(&read_data_buffer[offset], &data.pkt, size);
 		offset += size;
 		break;
 	}
 	return size;
 }
 
-void NetSim::verobj_write(uint16_t pid, unsigned long obj_id, int size, stream<ap_uint<DATAWIDTH> > &out)
+void NetSim::verobj_write(uint16_t pid, unsigned long obj_id, int size, stream<struct data_if> &out)
 {
-	ap_uint<DATAWIDTH> pkt = 0;
-	char local_buffer[DATASIZE] = {0};
-	int offset = 0;
-	struct verobj_read_write req = {0};
+	struct data_if data 		= {0};
+	char local_buffer[DATASIZE]	= {0};
+	int offset 			= 0;
+	struct verobj_read_write req 	= {0};
 
 	req.hdr.pid = pid;
 	req.hdr.opcode = OP_REQ_VEROBJ_WRITE;
@@ -446,25 +456,29 @@ void NetSim::verobj_write(uint16_t pid, unsigned long obj_id, int size, stream<a
 			write_data_buffer, DATASIZE - sizeof(struct verobj_read_write));
 		size -= (DATASIZE - sizeof(struct verobj_read_write));
 		offset += (DATASIZE - sizeof(struct verobj_read_write));
+		data.last = 0;
 	} else {
 		memcpy(&local_buffer[sizeof(struct verobj_read_write)],
 				write_data_buffer, size);
 		size = 0;
+		data.last = 1;
 	}
-	memcpy(&pkt, &local_buffer, DATASIZE);
-	out.write(pkt);
+	memcpy(&data.pkt, &local_buffer, DATASIZE);
+	out.write(data);
 
 	while (size > 0) {
-		pkt = 0;
+		data = {0};
 		if (size > DATASIZE) {
-			memcpy(&pkt, &write_data_buffer[offset], DATASIZE);
+			memcpy(&data.pkt, &write_data_buffer[offset], DATASIZE);
+			data.last = 0;
 			size -= DATASIZE;
 			offset += DATASIZE;
 		} else {
-			memcpy(&pkt, &write_data_buffer[offset], size);
+			memcpy(&data.pkt, &write_data_buffer[offset], size);
+			data.last = 1;
 			size = 0;
 		}
-		out.write(pkt);
+		out.write(data);
 	}
 }
 

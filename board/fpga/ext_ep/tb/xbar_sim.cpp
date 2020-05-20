@@ -12,25 +12,24 @@ using namespace hls;
 XbarSim::XbarSim()
 {
 	state = XBAR_HEADER;
-	data_remain = 0;
 	dest = 0;
 	cout << "Simulated Crossbar Initialized" << endl;
 }
 
-void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
-		       stream<struct lego_mem_ctrl> &from_extep_ctrl,
-		       stream<struct lego_mem_ctrl> &to_soc_ctrl,
-		       stream<struct lego_mem_ctrl> &from_soc_ctrl,
-		       stream<ap_uint<DATAWIDTH> > &to_net_data,
-		       stream<ap_uint<DATAWIDTH> > &from_net_data,
-		       stream<ap_uint<DATAWIDTH> > &to_extep_data,
-		       stream<ap_uint<DATAWIDTH> > &from_extep_data,
-		       stream<ap_uint<DATAWIDTH> > &to_soc_data,
-		       stream<ap_uint<DATAWIDTH> > &from_soc_data,
-		       stream<ap_uint<DATAWIDTH> > &to_mem_data,
-		       stream<ap_uint<DATAWIDTH> > &from_mem_data)
+void XbarSim::xbar_sim(stream<struct ctrl_if> &to_extep_ctrl,
+		       stream<struct ctrl_if> &from_extep_ctrl,
+		       stream<struct ctrl_if> &to_soc_ctrl,
+		       stream<struct ctrl_if> &from_soc_ctrl,
+		       stream<struct data_if> &to_net_data,
+		       stream<struct data_if> &from_net_data,
+		       stream<struct data_if> &to_extep_data,
+		       stream<struct data_if> &from_extep_data,
+		       stream<struct data_if> &to_soc_data,
+		       stream<struct data_if> &from_soc_data,
+		       stream<struct data_if> &to_mem_data,
+		       stream<struct data_if> &from_mem_data)
 {
-	ap_uint<DATAWIDTH> data_pkt;
+	struct data_if data_pkt;
 
 	if (!from_extep_ctrl.empty()) {
 		to_soc_ctrl.write(from_extep_ctrl.read());
@@ -44,8 +43,8 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 	case XBAR_HEADER:
 		if (!from_soc_data.empty()) {
 			data_pkt = from_soc_data.read();
-			assert(field(data_pkt, hdr_size) <= DATASIZE);
-			switch (field(data_pkt, hdr_cont)) {
+			assert(data_pkt.last == 1);
+			switch (field(data_pkt.pkt, hdr_cont)) {
 			case LEGOMEM_CONT_NET:
 				to_net_data.write(data_pkt);
 				break;
@@ -64,12 +63,11 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 			}
 		} else if (!from_mem_data.empty()) {
 			data_pkt = from_mem_data.read();
-			if (field(data_pkt, hdr_size) > DATASIZE) {
+			if (data_pkt.last == 0) {
 				state = XBAR_MEM_DATA;
-				data_remain = field(data_pkt, hdr_size) - DATASIZE;
-				dest = field(data_pkt, hdr_cont);
+				dest = field(data_pkt.pkt, hdr_cont);
 			}
-			switch (field(data_pkt, hdr_cont)) {
+			switch (field(data_pkt.pkt, hdr_cont)) {
 			case LEGOMEM_CONT_NET:
 				to_net_data.write(data_pkt);
 				break;
@@ -88,12 +86,11 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 			}
 		} else if (!from_extep_data.empty()) {
 			data_pkt = from_extep_data.read();
-			if (field(data_pkt, hdr_size) > DATASIZE) {
+			if (data_pkt.last == 0) {
 				state = XBAR_EXTEP_DATA;
-				data_remain = field(data_pkt, hdr_size) - DATASIZE;
-				dest = field(data_pkt, hdr_cont);
+				dest = field(data_pkt.pkt, hdr_cont);
 			}
-			switch (field(data_pkt, hdr_cont)) {
+			switch (field(data_pkt.pkt, hdr_cont)) {
 			case LEGOMEM_CONT_NET:
 				to_net_data.write(data_pkt);
 				break;
@@ -112,12 +109,11 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 			}
 		} else if (!from_net_data.empty()) {
 			data_pkt = from_net_data.read();
-			if (field(data_pkt, hdr_size) > DATASIZE) {
+			if (data_pkt.last == 0) {
 				state = XBAR_NET_DATA;
-				data_remain = field(data_pkt, hdr_size) - DATASIZE;
-				dest = field(data_pkt, hdr_cont);
+				dest = field(data_pkt.pkt, hdr_cont);
 			}
-			switch (field(data_pkt, hdr_cont)) {
+			switch (field(data_pkt.pkt, hdr_cont)) {
 			case LEGOMEM_CONT_NET:
 				throw invalid_argument("bad cont: from net to net");
 				break;
@@ -140,12 +136,8 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 	case XBAR_NET_DATA:
 		if (!from_net_data.empty()) {
 			data_pkt = from_net_data.read();
-			if (data_remain > DATASIZE) {
-				data_remain -= DATASIZE;
-			} else {
-				data_remain = 0;
+			if (data_pkt.last == 1)
 				state = XBAR_HEADER;
-			}
 			switch (dest) {
 			case LEGOMEM_CONT_NET:
 				throw invalid_argument("bad cont: from net to net");
@@ -169,12 +161,8 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 	case XBAR_MEM_DATA:
 		if (!from_mem_data.empty()) {
 			data_pkt = from_mem_data.read();
-			if (data_remain > DATASIZE) {
-				data_remain -= DATASIZE;
-			} else {
-				data_remain = 0;
+			if (data_pkt.last == 1)
 				state = XBAR_HEADER;
-			}
 			switch (dest) {
 			case LEGOMEM_CONT_NET:
 				to_net_data.write(data_pkt);
@@ -198,12 +186,8 @@ void XbarSim::xbar_sim(stream<struct lego_mem_ctrl> &to_extep_ctrl,
 	case XBAR_EXTEP_DATA:
 		if (!from_extep_data.empty()) {
 			data_pkt = from_extep_data.read();
-			if (data_remain > DATASIZE) {
-				data_remain -= DATASIZE;
-			} else {
-				data_remain = 0;
+			if (data_pkt.last == 1)
 				state = XBAR_HEADER;
-			}
 			switch (dest) {
 			case LEGOMEM_CONT_NET:
 				to_net_data.write(data_pkt);

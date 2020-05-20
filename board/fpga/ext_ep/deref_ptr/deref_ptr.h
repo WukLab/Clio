@@ -7,6 +7,7 @@
 
 #include <hls_stream.h>
 #include <ap_int.h>
+#include <ext_ep_types.h>
 #include <ext_ep.h>
 
 
@@ -99,15 +100,9 @@ struct deref_req_rest {
 
 
 /* internal interface */
-struct data_if {
-	ap_uint<DATAWIDTH>	pkt;
-	ap_uint<1> 		last;
-};
-
 struct release_if {
 	ap_uint<4>  		status;
 	ap_uint<64>  		addr;
 };
-
 
 #endif /* _LEGO_MEM_DEREF_PTR_H_ */
