@@ -516,6 +516,18 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		break;
 	};
 
+#ifdef CONFIG_DEBUG_SOC
+	if (1) {
+		int cpu, node;
+		legomem_getcpu(&cpu, &node);
+
+		/* Session IDs were swapped already */
+		dprintf_DEBUG("Req src_sesid: %u to dst_sesid: %u Opcode: %s CPU: %d worker_%d DONE!\n",
+			  rx_lego_hdr->dst_sesid, rx_lego_hdr->src_sesid,
+			  legomem_opcode_str(opcode), cpu, tw->cpu);
+	}
+#endif
+
 	/*
 	 * To keep the handlers consistent, we skip the L2-L4 and GBN header
 	 * and only send the portion after GBN header
@@ -755,6 +767,7 @@ int main(int argc, char **argv)
 	}
 	init_stat_mapping();
 	init_migration_setup();
+	init_tlbflush_setup();
 
 	/* Init buddy allocator for FPGA physical memory. */
 	init_buddy();

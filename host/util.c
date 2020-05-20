@@ -112,10 +112,18 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	 * In case arp cache was empty,
 	 * we run ping to get it discovred.
 	 */
-	sprintf(ping_cmd, "arping -w 3 -c 1 -I %s %s", global_net_dev, ip_str);
+	sprintf(ping_cmd, "ping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
 	fp = popen(ping_cmd, "r");
 	if (!fp) {
 		perror("popen ping");
+		return -1;
+	}
+	pclose(fp);
+
+	sprintf(ping_cmd, "arping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
+	fp = popen(ping_cmd, "r");
+	if (!fp) {
+		perror("popen arping");
 		return -1;
 	}
 	pclose(fp);

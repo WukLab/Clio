@@ -819,7 +819,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 			dump_gbn_session(mgmt_session, true);
 		}
 		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
-		return;
+		break;
 	};
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
@@ -1000,8 +1000,8 @@ int main(int argc, char **argv)
 	bool ndev_set = false;
 	int port = 0;
 
-	char board_addr[32];
-	char board_addr_set = false;
+	char board_addr[16][32];
+	int nr_added_boards = 0;
 
 	/* Parse arguments */
 	while (1) {
@@ -1049,8 +1049,11 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'b':
-			strncpy(board_addr, optarg, sizeof(board_addr));
-			board_addr_set = true;
+			if (nr_added_boards == 16) {
+				printf("You have added too many boards (16).\n");
+				exit(0);
+			}
+			strncpy(board_addr[nr_added_boards++], optarg, 32);
 			break;
 		default:
 			print_usage();
@@ -1114,8 +1117,9 @@ int main(int argc, char **argv)
 
 	create_watchdog_thread();
 
-	if (board_addr_set) {
-		manually_add_new_node_str(board_addr, BOARD_INFO_FLAGS_BOARD);
+	for (int i = 0; i < nr_added_boards; i++) {
+		dprintf_INFO("new_board %d  %s\n", i, board_addr[i]);
+		manually_add_new_node_str(board_addr[i], BOARD_INFO_FLAGS_BOARD);
 	}
 
 	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);

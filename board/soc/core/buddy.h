@@ -39,7 +39,7 @@
 #define fpga_mem_start		_FPGA_MEMORY_MAP_DATA_START
 #define fpga_mem_end		_FPGA_MEMORY_MAP_DATA_END
 
-#define MAX_ORDER		(7)
+#define MAX_ORDER		(1)
 #define MAX_ORDER_NR_PAGES	(1 << (MAX_ORDER - 1))
 
 #define START_PFN		PHYS_PFN(fpga_mem_start)

@@ -32,7 +32,7 @@
  * This is dynamic, please make sure this is
  * smaller than the actual used FIFO depth.
  */
-#define FREEPAGE_FIFO_DEPTH	(2)
+#define FREEPAGE_FIFO_DEPTH	(30)
 
 struct fifo_info {
 	/* page allocation order */
@@ -44,6 +44,9 @@ struct fifo_info {
 
 	/* lego_mem_ctrl->addr */
 	u8 addr;
+
+	/* Stats */
+	int nr_refills;
 };
 
 /*
@@ -57,7 +60,7 @@ struct fifo_info freepage_fifos[] = {
 		.depth		= FREEPAGE_FIFO_DEPTH,
 		.addr		= LEGOMEM_CTRL_ADDR_FREEPAGE_0,
 	},
-
+#if 0
 	/* 16MB, order 2 */
 	[2] = {
 		.flags		= 1,
@@ -71,6 +74,7 @@ struct fifo_info freepage_fifos[] = {
 		.depth		= FREEPAGE_FIFO_DEPTH,
 		.addr		= LEGOMEM_CTRL_ADDR_FREEPAGE_2,
 	},
+#endif
 };
 
 #define for_each_fifo_info(i, fi, base) \
@@ -136,13 +140,17 @@ void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
 	struct fifo_info *fi;
 	unsigned long pfn, pa;
 
+#if 0
 	order = get_order_from_ctrl(rx);
+#else
+	order = 0;
+#endif
 	if (unlikely(order >= MAX_ORDER)) {
 		dprintf_ERROR("invalid size %#x\n", rx->param32);
 		return;
 	}
-	fi = order_to_fifo_info(order);
 
+	fi = order_to_fifo_info(order);
 	pfn = alloc_pfn(fi->order);
 	if (unlikely(!pfn)) {
 		dprintf_ERROR("OOM %d\n", 0);
@@ -152,6 +160,10 @@ void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
 	pa = PFN_PHYS(pfn);
 	prepare_send_ctrl(tx, fi, pa);
 	dma_ctrl_send(tx, sizeof(*tx));
+	fi->nr_refills++;
+
+	dprintf_DEBUG("order %d new pfn %lx nr_refill %d\n",
+		order, pfn, fi->nr_refills);
 }
 
 /*

@@ -160,6 +160,7 @@ free_one_page(struct fpga_zone *zone,
 	 * In case a bad page is being freed.
 	 */
 	if (unlikely(free_pages_prepare(page, order))) {
+		print_backtrace();
 		dprintf_ERROR("page_pfn %lu (order: %u) is in buddy when freed.\n",
 			pfn, order);
 		return;
@@ -270,8 +271,9 @@ struct page *alloc_page(unsigned int order)
 	page = rmqueue(zone, order);
 	if (page) {
 		set_page_private(page, 0);
-	} else
-		dump_buddy();
+	} else {
+		//dump_buddy();
+	}
 	return page;
 }
 

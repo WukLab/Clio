@@ -15,7 +15,10 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_soc.c \
 	     $(TP)/test_pingpong_soc.c \
 	     $(TP)/test_legomem_pte.c \
-	     $(TP)/test_read_write.c
+	     $(TP)/test_rw_same.c \
+	     $(TP)/test_rw_seq.c \
+	     $(TP)/test_rw_inline.c \
+	     $(TP)/test_rw_fault.c
 
 # Board emulator files linked to soc files
 BP := board_emulator
@@ -29,6 +32,7 @@ BOARD_SRCS := $(BP)/core.h \
 
 # General sources used by everyone
 C_SRCS := board.c \
+	cpu.c \
 	util.c \
 	api.c \
 	context.c \
@@ -41,7 +45,8 @@ C_SRCS := board.c \
 	net/raw_socket.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
-	net/transport_gbn.c
+	net/transport_gbn.c \
+	api_kvs.c
 
 SRCS := $(C_SRCS)
 
@@ -58,7 +63,7 @@ EXTRA_CFLAGS += -rdynamic
 #
 #EXTRA_CFLAGS += -DCONFIG_DEBUG_STAT -DCONFIG_DEBUG_WATCHDOG
 
-CFLAG_DISABLE_WARN := -Wno-stringop-truncation
+CFLAG_DISABLE_WARN := -Wno-stringop-truncation -Wno-unused-but-set-variable
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g

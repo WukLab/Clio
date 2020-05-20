@@ -82,9 +82,12 @@ int init_shadow_pgtable(void);
 int init_freepage_fifo(void);
 void init_stat_mapping(void);
 void init_migration_setup(void);
+void init_tlbflush_setup(void);
 int init_ctrl_polling(void);
 
 void handle_test_pte(struct thpool_buffer *tb);
+
+void tlb_flush(struct proc_info *pi, unsigned long va, unsigned long size);
 
 /* Test */
 void test_buddy(void);

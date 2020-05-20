@@ -146,6 +146,10 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 
 void *global_migration_req;
 
+/*
+ * This is not SMP safe.
+ * But we are using INLINE handling now, its okay.
+ */
 static inline void *get_migration_req(void)
 {
 	BUG_ON(!global_migration_req);
@@ -181,7 +185,7 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	 * Notify FPGA to start migration.
 	 * There is packet size limit, so we do multiple rounds.
 	 */
-#define READ_MIGRATION_SIZE	(2<<10)
+#define READ_MIGRATION_SIZE	(1<<10)
 	req->lego_header.pid = pid;
 	req->lego_header.opcode = OP_REQ_READ_MIGRATION;
 	req->lego_header.cont = MAKE_CONT(LEGOMEM_CONT_MEM,
@@ -191,15 +195,24 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	/* Use session 0? */
 	req->lego_header.src_sesid = 0;
 	req->lego_header.dst_sesid = 0;
-	req->lego_header.dest_ip = dst_board_ip;
 	req->lego_header.size = sizeof(*req);
 
+	// XXX 192.168.1.22 1234
+	req->lego_header.dest_ip = 0x011604d2;
+
 	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
+	dprintf_DEBUG("nr_rounds: %d\n", nr_rounds);
+
 	for (i = 0; i < nr_rounds; i++) {
 		req->op.size = READ_MIGRATION_SIZE;
 		req->op.va = vregion_index_to_va(vregion_index) + i * READ_MIGRATION_SIZE;
 		dma_send(req, sizeof(*req));
+
+		dprintf_DEBUG("migrationr req %5d len %u va %lx\n",
+			i, req->op.size, req->op.va);
+		sleep(10);
 	}
+	dprintf_DEBUG("Finished sending %d REQs to COREMEM...\n", i);
 }
 
 /*
@@ -242,10 +255,8 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 	}
 	dump_migration_req(pid, op);
 
-#ifdef CONFIG_ZCU106_SOC
 	/* Do the dirty work */
 	do_read_migration(pid, op->dst_board_ip, op->vregion_index);
-#endif
 
 	/* Reap all VMAs within this vRegion */
 	vi = index_to_vregion(pi, op->vregion_index);

@@ -72,9 +72,14 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	pd = ses_verbs->pd;
 
-	if (unlikely(ses_verbs->send_mr)) {
-		dprintf_INFO("Override session %d registered send_buf\n",
+	if (ses_verbs->send_mr) {
+		/*
+		 * We don't free the buffer.
+		 * Since we don't know if it could be freed.
+		 */
+		dprintf_INFO("NOTICE Overriding session %d registered send buf\n",
 			get_local_session_id(ses_net));
+		ibv_dereg_mr(ses_verbs->send_mr);
 	}
 
 	mr = ibv_reg_mr(pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
@@ -82,6 +87,10 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		perror("reg mr:");
 		return errno;
 	}
+
+	dprintf_INFO("Registered buf: [%#lx - %#lx] len=%#lx session id %d\n",
+			(u64)buf, (u64)buf + buf_size, (u64)buf_size,
+			get_local_session_id(ses_net));
 
 	ses_verbs->send_mr = mr;
 	ses_verbs->send_buf = buf;
@@ -194,6 +203,12 @@ __raw_verbs_send(struct session_net *ses_net,
 	} else
 		signaled = false;
 
+#if 0
+	char packet_dump_str[256];
+	dump_packet_headers(buf, packet_dump_str);
+	dprintf_INFO("\033[32m sending: %s size %zu \033[0m\n", packet_dump_str, buf_size);
+#endif
+
 	ret = ibv_post_send(qp, &wr, &bad_wr);
 	if (unlikely(ret < 0)) {
 		dprintf_ERROR("Fail to post send WQE %d\n", errno);
@@ -266,7 +281,7 @@ raw_verbs_send(struct session_net *ses_net,
 		}
 		new_mr = true;
 
-		dprintf_INFO("    Created a new MR for this particular send. Check if this is on datapath! %d\n", 0);
+		dprintf_INFO("  Created a new MR for send. Check if this is on datapath!! %d\n", 0);
 	} else {
 		new_mr = false;
 		send_mr = ses_verbs->send_mr;
@@ -287,9 +302,10 @@ raw_verbs_send(struct session_net *ses_net,
 			     buf > (ses_verbs->send_buf + ses_verbs->send_buf_size))) {
 			dprintf_INFO("You have registered buffer but now "
 				     "are using a different one. "
-				     "There are perf penalties. (o %lx n %lx) "
+				     "There are perf penalties. (range [%lx-%#lx] current: %lx) "
 				     "Session local_id=%u remote_id=%u\n",
-				     (unsigned long)ses_verbs->send_buf,
+				     (u64)ses_verbs->send_buf,
+				     (u64)ses_verbs->send_buf + ses_verbs->send_buf_size,
 				     (unsigned long)buf,
 				     get_local_session_id(ses_net),
 				     get_remote_session_id(ses_net));
@@ -310,7 +326,7 @@ raw_verbs_send(struct session_net *ses_net,
  * this function itself, but the moment it is called: recv_wr is empty.
  * Thus some incoming packets will be dropped.
  */
-static inline void post_recvs(struct session_raw_verbs *ses)
+static void post_recvs(struct session_raw_verbs *ses)
 {
 	struct ibv_sge sge;
 	struct ibv_recv_wr recv_wr, *bad_recv_wr;
@@ -332,7 +348,7 @@ static inline void post_recvs(struct session_raw_verbs *ses)
 	}
 }
 
-static __always_inline void
+static void
 post_recv(struct session_raw_verbs *ses, unsigned int id)
 {
 	struct ibv_sge sge;
@@ -377,12 +393,12 @@ static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
 		void *buf_p;
 
 		ret = ibv_poll_cq(recv_cq, 1, &wc);
-		if (!ret)
-			continue;
-		else if (ret < 0) {
+		if (unlikely(ret < 0)) {
 			perror("Poll CQ:");
 			return ret;
-		}
+		} else if (ret == 0)
+			return 0;
+
 		inc_stat(STAT_NET_RAW_VERBS_NR_RX_ZEROCOPY);
 
 		/* Get its position in the ring buffer */
@@ -422,12 +438,11 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 		void *buf_p;
 
 		ret = ibv_poll_cq(recv_cq, 1, &wc);
-		if (!ret)
-			continue;
-		else if (ret < 0) {
+		if (unlikely(ret < 0)) {
 			perror("Poll CQ:");
 			return ret;
-		}
+		} else if (ret == 0)
+			return 0;
 		inc_stat(STAT_NET_RAW_VERBS_NR_RX);
 
 		/* Get its position in the ring buffer */

@@ -202,8 +202,7 @@ static void *ctrl_poll_func(void *_unused)
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
 			;
-
-		dprintf_DEBUG("ADDR %x CMD %x\n", rx->addr, rx->cmd);
+		//dprintf_DEBUG("ADDR %x CMD %x\n", rx->addr, rx->cmd);
 
 		switch (rx->addr) {
 		case LEGOMEM_CTRL_ADDR_FREEPAGE_0:

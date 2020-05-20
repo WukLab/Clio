@@ -26,7 +26,7 @@
 
 #include "../core.h"
 
-#define NR_TESTS	100
+#define NR_TESTS	1
 
 int test_legomem_migration(char *_unused)
 {
@@ -40,7 +40,7 @@ int test_legomem_migration(char *_unused)
 	double lat_ns;
 	unsigned int alloc_size;
 
-	char board_ip_port_str[] = "192.168.1.31:1234";
+	char board_ip_port_str[] = "192.168.1.22:1234";
 	sscanf(board_ip_port_str, "%u.%u.%u.%u:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
 
@@ -50,32 +50,46 @@ int test_legomem_migration(char *_unused)
 		return 0;
 	}
 
-	dprintf_INFO("Running migration test. %d\n", 0);
+	dprintf_INFO("Running migration test. Migration dest board: %s\n", dst_bi->name);
 
 	ctx = legomem_open_context();
 
-	alloc_size = VREGION_SIZE - 1;
+	alloc_size = VREGION_SIZE;
 
 	for (i = 0; i < NR_TESTS; i++) {
-#if 0
-		dprintf_INFO(" alloc i=%3d addr=%#18lx vregion_idx=%u\n",
-			i, addr[i], va_to_vregion_index(addr[i]));
-#endif
-
-		addr[i] = legomem_alloc(ctx, alloc_size, 0);
+		addr[i] = legomem_alloc(ctx, alloc_size, LEGOMEM_VM_FLAGS_POPULATE);
 		if (!addr[i]) {
 			dprintf_ERROR("alloc failed %d\n", 0);
 			goto close;
 		}
+#if 1
+		dprintf_INFO(" alloc i=%3d addr=%#18lx vregion_idx=%u\n",
+			i, addr[i], va_to_vregion_index(addr[i]));
+#endif
 	}
+
+	/* write something into the original owner's memory */
+	void *buf = malloc(alloc_size + 100);
+	if (!buf) {
+		printf("OOM\n");
+		exit(0);
+	}
+	memset(buf, 0x6, alloc_size);
+	
+	dprintf_INFO("buf %#lx\n", (u64)buf);
+	struct session_net *ses = find_or_alloc_vregion_session(ctx, addr[0]);
+	net_reg_send_buf(ses, buf, alloc_size + 100);
+
+	legomem_write_sync(ctx, buf, addr[0], alloc_size);
+	printf("After write...\n");
 
 	clock_gettime(CLOCK_MONOTONIC, &s);
 	/* 
 	 * leave the first one open, we want to reuse its session
 	 * if we happen to use only one board.
 	 */
-	for (i = 1; i < NR_TESTS; i++) {
-#if 0
+	for (i = 0; i < NR_TESTS; i++) {
+#if 1
 		dprintf_INFO(" migrate i=%3d addr=%#18lx vregion_idx=%u\n",
 			i, addr[i], va_to_vregion_index(addr[i]));
 #endif
@@ -86,7 +100,7 @@ int test_legomem_migration(char *_unused)
 
 	lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 		 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-	lat_ns /= (NR_TESTS - 1);
+	lat_ns /= (NR_TESTS);
 
 	dprintf_INFO("#nr_migration: %d, #avg_latency_ns: %lf\n",
 		NR_TESTS, lat_ns);

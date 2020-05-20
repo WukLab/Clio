@@ -12,8 +12,8 @@ set -e
 if [ 1 ]; then
 
 ./host.o --monitor=127.0.0.1:8888 --skip_join \
-	 --port=1234 --dev=p4p1 \
-	 --run_test=relnet_normal --add_board="192.168.1.31:1234"
+	 --port=1234 --dev=ens4 \
+	 --run_test=relnet_normal --add_board="192.168.1.23:1234"
 
 else
 
