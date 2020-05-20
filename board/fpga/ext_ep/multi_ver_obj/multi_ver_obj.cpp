@@ -16,9 +16,9 @@ void multi_ver_obj2(stream<struct lego_mem_ctrl> &ctrl_in, stream<struct lego_me
 		   stream<ap_uint<DATAWIDTH> > &data_in, stream<ap_uint<DATAWIDTH> > &data_out)
 {
 // remove ap_ctrl_none before doing cosim test
-#ifdef __SYNTHESIZE__
+//#ifdef __SYNTHESIZE__
 #pragma HLS INTERFACE ap_ctrl_none port=return
-#endif
+//#endif
 #pragma HLS INTERFACE port=ctrl_in axis
 #pragma HLS INTERFACE port=ctrl_out axis
 #pragma HLS INTERFACE port=data_in axis
