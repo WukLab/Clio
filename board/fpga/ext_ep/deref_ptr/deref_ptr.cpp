@@ -376,7 +376,7 @@ sendqueue(stream<struct data_if> &from_decode,
 void deref_ptr(hls::stream<ap_uint<DATAWIDTH> > &data_in, hls::stream<ap_uint<DATAWIDTH> > &data_out)
 {
 // remove ap_ctrl_none before doing cosim test
-#pragma HLS INTERFACE ap_ctrl_none port=return
+//#pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS INTERFACE port=data_in axis
 #pragma HLS INTERFACE port=data_out axis
 #pragma HLS DATAFLOW

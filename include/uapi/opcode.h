@@ -226,21 +226,56 @@ struct op_migration_ret {
  * For Extended API
  * - OP_REQ_IREAD
  * - OP_REQ_IWRITE
+ * - OP_REQ_VEROBJ_CREATE
+ * - OP_REQ_VEROBJ_DELETE
+ * - OP_REQ_VEROBJ_READ
+ * - OP_REQ_VEROBJ_WRITE
  */
 struct op_deref {
-	uint64_t		addr;
-	uint32_t 		off1;	// offset of indirect address
-	uint32_t 		off2;	// offset of address
-	uint64_t		size;
+	unsigned long		addr;
+	unsigned int		off1;	// offset of indirect address
+	unsigned int 		off2;	// offset of address
+	unsigned long		size;
 
 	/* Hold write data, variable length */
 	char			data[0];
 } __packed;
 
 struct op_deref_ret {
-	unsigned char		ret;
-
 	/* Hold read read, variable length */
+	char			data[0];
+} __packed;
+
+struct op_verobj_create_delete {
+	/*
+	 * this field is dependent on opcode
+	 * - create: obj_size
+	 * - delete: obj_id
+	 */
+	unsigned long		obj_size_id;
+	unsigned long		vregion_idx;
+	unsigned long		vm_flags;
+} __packed;
+
+struct op_verobj_create_delete_ret {
+	unsigned long		obj_id;
+} __packed;
+
+struct op_verobj_read_write {
+	unsigned long		obj_id;
+	unsigned short		version;
+	unsigned short		reserved1;
+
+	/* Hold write data, variable length */
+	char			data[0];
+} __packed;
+
+struct op_verobj_read_write_ret {
+	unsigned long		obj_id;
+	unsigned short		version;
+	unsigned short		reserved1;
+
+	/* Hold write data, variable length */
 	char			data[0];
 } __packed;
 
@@ -310,6 +345,22 @@ struct legomem_deref_req {
 struct legomem_deref_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_deref_ret op;
+} __packed;
+struct legomem_verobj_create_delete_req {
+	struct legomem_common_headers comm_headers;
+	struct op_verobj_create_delete op;
+} __packed;
+struct legomem_verobj_create_delete_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_verobj_create_delete_ret op;
+} __packed;
+struct legomem_verobj_read_write_req {
+	struct legomem_common_headers comm_headers;
+	struct op_verobj_read_write op;
+} __packed;
+struct legomem_verobj_read_write_resp {
+	struct legomem_common_headers comm_headers;
+	struct op_verobj_read_write_ret op;
 } __packed;
 
 /*

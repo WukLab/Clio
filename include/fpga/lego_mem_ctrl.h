@@ -17,6 +17,7 @@ enum {
 	CMD_LEGOMEM_CTRL_FREE,
 };
 
+#ifndef __cplusplus
 struct lego_mem_ctrl {
     uint32_t param32;
     uint8_t param8;
@@ -25,6 +26,7 @@ struct lego_mem_ctrl {
     uint8_t addr;
     uint8_t epid;
 } __packed;
+#endif
 
 /*
  * On-chip ADDR distribution

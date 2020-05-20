@@ -31,7 +31,6 @@ struct legomem_deref_fpgamsg {
  * WIDTH: number in bits
  */
 #define DEREFDATASIZE		(DATASIZE - sizeof(struct legomem_deref_fpgamsg))
-#define COREMEMDATASIZE		(DATASIZE - sizeof(struct legomem_rw_fpgamsg))
 #define RESPDATASIZE		(DATASIZE - sizeof(struct lego_header))
 // assume deref header is larger
 #define MISMATCHSIZE		(COREMEMDATASIZE - DEREFDATASIZE)
@@ -69,13 +68,6 @@ struct deref_req_rest {
 	uint8_t				data1[MISMATCHSIZE];
 	uint8_t				data2[MISMATCHSIZECMPL];
 };
-
-
-// coremem field
-#define mem_va_lo		lowbound2(legomem_rw_fpgamsg, op, op_read_write, va)
-#define mem_va_up		upbound(mem_va_lo, op_read_write, va)
-#define mem_size_lo		lowbound2(legomem_rw_fpgamsg, op, op_read_write, size)
-#define mem_size_up		upbound(mem_size_lo, op_read_write, size)
 
 // deref pointer field
 #define deref_addr_lo		lowbound2(legomem_deref_fpgamsg, op, op_deref, addr)

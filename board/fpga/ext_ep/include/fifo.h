@@ -9,15 +9,12 @@
 
 template <typename T>
 class FIFO {
-
-protected:
+public:
 	T top;
 	bool top_vld;
 	hls::stream<T> rest;
 
-public:
 	FIFO() {
-		top = 0;
 		top_vld = 0;
 	}
 
@@ -25,15 +22,15 @@ public:
 		return top_vld == false;
 	}
 
+	/* check empty before calling front() */
 	T front() {
-		if (top_vld == 0)
-			return static_cast<T>(0);
-
 		return top;
 	}
 
 	// assume user check empty before pop
 	T pop() {
+#pragma HLS PIPELINE
+#pragma HLS INLINE off
 		T top_entry = top;
 		if (!rest.empty())
 			top = rest.read();
@@ -43,6 +40,8 @@ public:
 	}
 
 	void push(T input) {
+#pragma HLS PIPELINE
+#pragma HLS INLINE off
 		if (empty()) {
 			top = input;
 			top_vld = true;
