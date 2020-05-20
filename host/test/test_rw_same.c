@@ -86,7 +86,7 @@ static void *thread_func_read(void *_ti)
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
 
-#if 0
+#if 1
 	send_buf = malloc(VREGION_SIZE);
 	net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 #else
@@ -128,7 +128,7 @@ static void *thread_func_read(void *_ti)
 		pthread_barrier_wait(&thread_barrier);
 
 
-#if 1
+#if 0
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			//ret = legomem_read(ctx, send_buf, recv_buf, addr, size);

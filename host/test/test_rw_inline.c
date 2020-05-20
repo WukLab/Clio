@@ -22,7 +22,8 @@
 /* Knobs */
 #define NR_RUN_PER_THREAD 1000000
 
-static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
+//static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
+static int test_size[] = { 256 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -253,6 +254,7 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
+#if 1
 		/*
 		 * READ
 		 */
@@ -276,11 +278,12 @@ static void *thread_func_read(void *_ti)
 			ti->id, j, size,
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
+#endif
 
 		/*
 		 * WRITE
 		 */
-#if 1
+#if 0
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			ret = inline_legomem_write_with_session(ctx, ses,
