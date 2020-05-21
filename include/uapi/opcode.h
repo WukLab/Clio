@@ -253,7 +253,6 @@ struct op_verobj_create_delete {
 	 * - delete: obj_id
 	 */
 	unsigned long		obj_size_id;
-	unsigned long		vregion_idx;
 	unsigned long		vm_flags;
 } __packed;
 
