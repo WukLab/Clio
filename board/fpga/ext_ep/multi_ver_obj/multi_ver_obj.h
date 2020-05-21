@@ -56,11 +56,13 @@ struct data_record_if {
 	ap_uint<8>		opcode;
 	ap_uint<3>		dest_comp;	// filled with enum component
 	ap_uint<2>		endpoint;	// filled with enum endpoint
+	ap_uint<16>		usr_pid;
 };
 struct record_out_if {
 	ap_uint<8>		opcode;
 	ap_uint<3>		dest_comp;	// filled with enum component
 	ap_uint<2>		endpoint;	// filled with enum endpoint
+	ap_uint<16>		usr_pid;
 };
 
 void multiver_obj(hls::stream<struct ctrl_if> &ctrl_in, hls::stream<struct ctrl_if> &ctrl_out,
@@ -98,6 +100,8 @@ void sendqueue(hls::stream<struct data_record_if> &from_parser1, hls::stream<str
 /* flags */
 #define VEROBJ_PRIVATE		0
 #define VEROBJ_SHARE		1
+/* keep this the same as uapi/vregion.h */
+#define ENDPOINT_VREGION	(0xFFFFFFFFDEADBEEF)
 
 struct obj_array_metadata {
 	uint8_t			vld;
@@ -141,7 +145,6 @@ STATIC_ASSERT(FIELD_SIZEOF(version_bram_if, obj_id) == IDX_SIZE,
 // multi version object field
 // create/delete
 boundary2(verobjcd, verobj_create_delete, op, op_verobj_create_delete, obj_size_id)
-boundary2(verobjcd, verobj_create_delete, op, op_verobj_create_delete, vregion_idx)
 boundary2(verobjcd, verobj_create_delete, op, op_verobj_create_delete, vm_flags)
 boundary2(verobjcdret, verobj_create_delete, op, op_verobj_create_delete_ret, obj_id)
 

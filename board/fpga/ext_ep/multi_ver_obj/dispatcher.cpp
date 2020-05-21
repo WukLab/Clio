@@ -115,6 +115,7 @@ void dispatcher(stream<struct data_if> &data_in,
 					delay_pkt(to_wq1_delay, out_pkt);
 					break;
 				case SQ:
+					field(out_pkt.pkt, hdr_pid) = record.usr_pid;
 					field(out_pkt.pkt, hdr_opcode) = OP_REQ_VEROBJ_READ_RESP;
 					field(out_pkt.pkt, hdr_cont) = LEGOMEM_CONT_NET;
 					field(out_pkt.pkt, hdr_req_status) = 0;
@@ -145,6 +146,7 @@ void dispatcher(stream<struct data_if> &data_in,
 				delay_pkt(to_wq1_delay, out_pkt);
 				break;
 			case SQ:
+				field(out_pkt.pkt, hdr_pid) = record.usr_pid;
 				field(out_pkt.pkt, hdr_opcode) = OP_REQ_VEROBJ_WRITE_RESP;
 				field(out_pkt.pkt, hdr_size) = sizeof(struct verobj_read_write_ret);
 				field(out_pkt.pkt, hdr_cont) = LEGOMEM_CONT_NET;

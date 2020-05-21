@@ -27,11 +27,12 @@ bool delay_cycles(bool activate, int target)
 }
 
 void whole_design_loop(const int num_client, const int object_count, const int soc_datapath_latency,
-		const int soc_ctrlpath_latency, const int mem_datapath_latency, const int tb_slowdowm)
+		const int soc_ctrlpath_latency, const int mem_datapath_latency, const int tb_slowdown,
+		const int endpoint_pid)
 {
 	// simulated objects
-	SocSim soc(MEM_SIZE, soc_datapath_latency, soc_ctrlpath_latency);
-	MemSim mem(MEM_SIZE, mem_datapath_latency);
+	SocSim soc(MEM_SIZE, endpoint_pid, soc_datapath_latency, soc_ctrlpath_latency);
+	MemSim mem(MEM_SIZE, mem_datapath_latency, endpoint_pid);
 	NetSim net(object_count, num_client);
 	XbarSim xbar;
 
@@ -64,7 +65,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	net.state_reset();
 	do {
 		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
-		if (counter++ % tb_slowdowm == 0) {
+		if (counter++ % tb_slowdown == 0) {
 		phase_done = net.net_sim_obj_create(net2xbar, xbar2net);
 		mem.mem_sim(xbar2mem, mem2xbar);
 		soc.soc_sim(xbar2soc_ctrl, soc2xbar_ctrl, xbar2soc_data, soc2xbar_data);
@@ -80,7 +81,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	net.state_reset();
 	do {
 		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
-		if (counter++ % tb_slowdowm == 0) {
+		if (counter++ % tb_slowdown == 0) {
 		phase_done = net.net_sim_write_once(net2xbar, xbar2net);
 		mem.mem_sim(xbar2mem, mem2xbar);
 		soc.soc_sim(xbar2soc_ctrl, soc2xbar_ctrl, xbar2soc_data, soc2xbar_data);
@@ -96,7 +97,7 @@ void whole_design_loop(const int num_client, const int object_count, const int s
 	net.state_reset();
 	do {
 		multiver_obj(xbar2extep_ctrl, extep2xbar_ctrl, xbar2extep_data, extep2xbar_data);
-		if (counter++ % tb_slowdowm == 0) {
+		if (counter++ % tb_slowdown == 0) {
 		phase_done = net.net_sim(net2xbar, xbar2net);
 		mem.mem_sim(xbar2mem, mem2xbar);
 		soc.soc_sim(xbar2soc_ctrl, soc2xbar_ctrl, xbar2soc_data, soc2xbar_data);
@@ -118,13 +119,15 @@ int main() {
 #else
 	const int num_client = 2;
 	const int object_count = 6;
+	const int endpoint_pid = 0x40;
 	const int soc_datapath_latency = 8;
 	const int soc_ctrlpath_latency = 12;
 	const int mem_datapath_latency = 10;
 	/* co-sim have read while empty error without slowdown (maybe compiler bug?) */
-	const int tb_slowdowm = 8;
+	const int tb_slowdown = 8;
 	whole_design_loop(num_client, object_count, soc_datapath_latency,
-			soc_datapath_latency, mem_datapath_latency, tb_slowdowm);
+			soc_datapath_latency, mem_datapath_latency,
+			tb_slowdown, endpoint_pid);
 	return 0;
 #endif
 }

@@ -13,6 +13,7 @@ do {											\
 	record_pkt.opcode = in_pkt.opcode;						\
 	record_pkt.endpoint = in_pkt.endpoint;						\
 	record_pkt.dest_comp = in_pkt.dest_comp;					\
+	record_pkt.usr_pid = in_pkt.usr_pid;						\
 	recorder.write(record_pkt);							\
 } while(0)
 

@@ -9,11 +9,12 @@
 using namespace hls;
 using namespace std;
 
-SocSim::SocSim(unsigned long mem_size,
+SocSim::SocSim(unsigned long mem_size, uint8_t endpoint_pid,
 	       unsigned int data_latency, unsigned int ctrl_latency)
 	: mem_size(mem_size),
 	  data_latency(data_latency),
 	  ctrl_latency(ctrl_latency),
+	  endpoint_pid(endpoint_pid),
 	  parse2datadelay("parse2datadelay"),
 	  parse2ctrldelay("parse2ctrldelay")
 {
@@ -55,13 +56,12 @@ void SocSim::parse(stream<struct ctrl_if> &ctrl_in,
 	inctrl_pkt = ctrl_in.read();
 	switch (inctrl_pkt.pkt.cmd) {
 	case CMD_LEGOMEM_CTRL_CREATE_PROC:
-		outctrl_pkt.pkt.param32 = pid;
+		outctrl_pkt.pkt.param32 = endpoint_pid;
 		outctrl_pkt.pkt.param8 = 0;
 		outctrl_pkt.pkt.beats = inctrl_pkt.pkt.beats;
 		outctrl_pkt.pkt.cmd = inctrl_pkt.pkt.cmd;
 		outctrl_pkt.pkt.addr = EXTAPI_XBAR_ADDR;
 		outctrl_pkt.pkt.epid = EXTAPI_XBAR_EPID;
-		pid++;
 		ctrl_to_delay.write(outctrl_pkt);
 		break;
 
@@ -96,6 +96,7 @@ datapath:
 	switch (field(indata_pkt.pkt, hdr_opcode)) {
 	case OP_REQ_ALLOC:
 		req = (struct legomem_alloc_free_fpgamsg *)&indata_pkt.pkt;
+		assert(req->hdr.pid == endpoint_pid);
 		resp.hdr = req->hdr;
 		resp.hdr.opcode = OP_REQ_ALLOC_RESP;
 		resp.hdr.cont = LEGOMEM_CONT_EXTAPI;
@@ -116,6 +117,7 @@ datapath:
 
 	case OP_REQ_FREE:
 		req = (struct legomem_alloc_free_fpgamsg *)&indata_pkt.pkt;
+		assert(req->hdr.pid == endpoint_pid);
 		resp.hdr = req->hdr;
 		resp.hdr.opcode = OP_REQ_FREE_RESP;
 		resp.hdr.cont = LEGOMEM_CONT_EXTAPI;
@@ -129,6 +131,7 @@ datapath:
 
 	/* just to get an PID */
 	case OP_CREATE_PROC:
+		assert(endpoint_pid != pid);
 		create = (struct sim_used_proc_create *)&indata_pkt.pkt;
 		create_ret.hdr = create->hdr;
 		create_ret.hdr.opcode = OP_CREATE_PROC_RESP;

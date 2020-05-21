@@ -72,7 +72,7 @@ void parser(stream<struct data_if> &data_in, stream<struct version_bram_if> &to_
 		case OP_REQ_VEROBJ_CREATE:
 			if (!ep_data.empty()) {
 				// allocate version array address
-				soc_alloc_req(sq1_pkt, indata_pkt.pkt, tosq1_delay, WQ1);
+				soc_alloc_req(sq1_pkt, indata_pkt.pkt, tosq1_delay, WQ1, ep_data);
 
 				/*
 				 * if obj allocation in the first round, send memory request

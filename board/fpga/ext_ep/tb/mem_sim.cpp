@@ -13,9 +13,10 @@
 using namespace hls;
 using namespace std;
 
-MemSim::MemSim(unsigned long size, unsigned int latency)
+MemSim::MemSim(unsigned long size, unsigned int latency, uint8_t endpoint_pid)
 	: mem_size(size),
 	  latency(latency),
+	  endpoint_pid(endpoint_pid),
 	  parse2delay("parse2delay")
 {
 	delay_fifo.resize(latency);
@@ -51,6 +52,7 @@ void MemSim::parse(stream<struct data_if> &data_in, stream<struct data_if> &to_d
 			break;
 		in_pkt = data_in.read();
 		req = (struct legomem_rw_fpgamsg *)&in_pkt.pkt;
+		assert(req->hdr.pid == endpoint_pid);
 
 #ifdef SIM_MEM_PRINT
 		std::cout << "MEM HDR:   " << std::hex << in_pkt << std::endl;

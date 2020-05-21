@@ -29,7 +29,7 @@ class MemSim {
 public:
 	std::vector<uint8_t> memory;
 
-	MemSim(unsigned long size, unsigned int latency);
+	MemSim(unsigned long size, unsigned int latency, uint8_t endpoint_pid);
 	~MemSim() {}
 
 	/* core_mem simulator run one cycle */
@@ -39,6 +39,7 @@ public:
 private:
 	const unsigned long mem_size;
 	const unsigned int latency;
+	const uint8_t endpoint_pid;
 	hls::stream<struct data_if> parse2delay;
 	std::vector<struct data> delay_fifo;
 	mem_fsm state;
@@ -64,7 +65,7 @@ struct sim_used_proc_create_ret {
 
 class SocSim {
 public:
-	SocSim(unsigned long mem_size,
+	SocSim(unsigned long mem_size, uint8_t endpoint_pid,
 	       unsigned int data_latency, unsigned int ctrl_latency);
 	~SocSim() {}
 
@@ -77,6 +78,7 @@ private:
 	const unsigned long mem_size;
 	const unsigned int data_latency;
 	const unsigned int ctrl_latency;
+	const uint8_t endpoint_pid;
 	unsigned int pid;
 	unsigned long alloc_map;
 	std::vector<struct data> data_delay_fifo;
@@ -126,10 +128,11 @@ private:
 	std::map<uint32_t, uint16_t> objid_data;
 	std::queue<uint32_t> objid_recorded;
 	std::queue<std::vector<char>> expected_outcome;
-	std::queue<uint16_t> obj_create_sizes;
-	std::queue<uint16_t> obj_create_pids;
+	std::queue<uint16_t> req_size_sequence;
+	std::queue<uint16_t> req_pid_sequence;
 	int received, total_sent, bytes_read;
 	uint32_t receiving_id;
+	uint16_t receiving_pid;
 	char obj_specific_data;
 	char write_data_buffer[2*DATASIZE];
 	char read_data_buffer[3*DATASIZE];

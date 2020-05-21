@@ -32,11 +32,12 @@ do {											\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_MEM;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 
 // write metadata request, header only
-#define write_metadata_req_hdronly(out_pkt, in_pkt, delay_fifo)		\
+#define write_metadata_req_hdronly(out_pkt, in_pkt, delay_fifo)				\
 do {											\
 	field(out_pkt.pkt, hdr) = field(in_pkt, hdr);					\
 	field(out_pkt.pkt, hdr_opcode) = OP_REQ_WRITE;					\
@@ -69,30 +70,34 @@ do {											\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_MEM;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 
 // SoC alloc/free request
-#define soc_alloc_req(out_pkt, in_pkt, delay_fifo, _dest_comp)				\
+#define soc_alloc_req(out_pkt, in_pkt, delay_fifo, _dest_comp, _ep_data)		\
 do {											\
 	field(out_pkt.pkt, hdr) = field(in_pkt, hdr);					\
+	field(out_pkt.pkt, hdr_pid) = _ep_data.pid;					\
 	field(out_pkt.pkt, hdr_opcode) = OP_REQ_ALLOC;					\
 	field(out_pkt.pkt, hdr_size) = sizeof(struct legomem_alloc_free_fpgamsg);	\
 	field(out_pkt.pkt, hdr_cont) = LEGOMEM_CONT_SOC;				\
 	field(out_pkt.pkt, malloc_len) = 						\
 		field(in_pkt, verobjcd_obj_size_id) << LOG_VERSION_ARRAY_COUNT;		\
-	field(out_pkt.pkt, malloc_vregion_idx) = field(in_pkt, verobjcd_vregion_idx);	\
+	field(out_pkt.pkt, malloc_vregion_idx) = ENDPOINT_VREGION;			\
 	field(out_pkt.pkt, malloc_vm_flags) = field(in_pkt, verobjcd_vm_flags);		\
 	out_pkt.last = 1;								\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_SOC;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 
-#define soc_free_req(out_pkt, in_pkt, delay_fifo, addr, size, _dest_comp)		\
+#define soc_free_req(out_pkt, in_pkt, delay_fifo, addr, size, _dest_comp, _ep_data)	\
 do {											\
 	field(out_pkt.pkt, hdr) = field(in_pkt, hdr);					\
+	field(out_pkt.pkt, hdr_pid) = _ep_data.pid;					\
 	field(out_pkt.pkt, hdr_opcode) = OP_REQ_FREE;					\
 	field(out_pkt.pkt, hdr_size) = sizeof(struct legomem_alloc_free_fpgamsg);	\
 	field(out_pkt.pkt, hdr_cont) = LEGOMEM_CONT_SOC;				\
@@ -102,6 +107,7 @@ do {											\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_SOC;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 
@@ -125,6 +131,7 @@ do {											\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_MEM;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 
@@ -151,15 +158,17 @@ do {											\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_MEM;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 
 // convert multi_ver_obj request to mem r/w request
 #define verobj2mem_rw_req(out_pkt, in_pkt, delay_fifo, addr, 				\
-				size, _opcode, is_last, _dest_comp)			\
+				size, _opcode, is_last, _dest_comp, _ep_data)		\
 do {											\
 	out_pkt.pkt = in_pkt;								\
 	field(out_pkt.pkt, hdr_opcode) = (_opcode);					\
+	field(out_pkt.pkt, hdr_pid) = _ep_data.pid;					\
 	field(out_pkt.pkt, hdr_cont) = LEGOMEM_CONT_MEM;				\
 	field(out_pkt.pkt, mem_va) = (addr);						\
 	field(out_pkt.pkt, mem_size) = (size);						\
@@ -167,6 +176,7 @@ do {											\
 	out_pkt.opcode = field(in_pkt, hdr_opcode);					\
 	out_pkt.endpoint = EP_MEM;							\
 	out_pkt.dest_comp = _dest_comp;							\
+	out_pkt.usr_pid = field(in_pkt, hdr_pid);					\
 	delay_pkt(delay_fifo, out_pkt);							\
 } while(0)
 

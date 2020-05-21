@@ -94,7 +94,7 @@ void waitqueue1(stream<struct wait_if> &from_parser, stream<struct wait_if> &tow
 			// free version array address
 			soc_free_req(soc_pkt, wq1_pkt.pkt, tosq_soc_delay,
 				    field(disp_pkt.pkt, metadata_ret_objptr),
-				    field(disp_pkt.pkt, metadata_ret_size), DROP);
+				    field(disp_pkt.pkt, metadata_ret_size), DROP, ep_data_wqcopy);
 
 			// reply
 			send_resp_hdronly(net_pkt, wq1_pkt.pkt, tosq_net_delay,
@@ -120,7 +120,7 @@ void waitqueue1(stream<struct wait_if> &from_parser, stream<struct wait_if> &tow
 			}
 
 			verobj2mem_rw_req(mem_pkt, wq1_pkt.pkt, tosq_mem_delay, addr,
-				field(disp_pkt.pkt, metadata_ret_size), OP_REQ_READ, 1, SQ);
+				field(disp_pkt.pkt, metadata_ret_size), OP_REQ_READ, 1, SQ, ep_data_wqcopy);
 			break;
 
 		case OBJ_WRITE:
@@ -133,7 +133,7 @@ void waitqueue1(stream<struct wait_if> &from_parser, stream<struct wait_if> &tow
 			     + ((unsigned long)field(disp_pkt.pkt, metadata_ret_size)
 			     * (unsigned long)version.version);
 			verobj2mem_rw_req(mem_pkt, wq1_pkt.pkt, tosq_mem_delay, addr,
-				field(disp_pkt.pkt, metadata_ret_size), OP_REQ_WRITE, wq1_pkt.last, SQ);
+				field(disp_pkt.pkt, metadata_ret_size), OP_REQ_WRITE, wq1_pkt.last, SQ, ep_data_wqcopy);
 			break;
 
 		default:

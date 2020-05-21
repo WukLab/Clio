@@ -23,6 +23,7 @@ NetSim::NetSim(int pattern_len, int num_client)
 	total_sent = 0;
 	bytes_read = 0;
 	receiving_id = 0;
+	receiving_pid = 0;
 	obj_specific_data = 0xAA;
 	cout << "Simulated Network Initialized" << endl;
 }
@@ -75,8 +76,8 @@ bool NetSim::net_sim_obj_create(stream<struct data_if> &to_xbar, stream<struct d
 		for (int i = 0; i < pattern_len; i++) {
 			uint16_t size = new_obj_size();
 			uint16_t pid = client_pids[i % client_pids.size()];
-			obj_create_sizes.push(size);
-			obj_create_pids.push(pid);
+			req_size_sequence.push(size);
+			req_pid_sequence.push(pid);
 			verobj_create(pid, size, 0, to_xbar);
 		}
 		state = NET_RECV;
@@ -85,10 +86,10 @@ bool NetSim::net_sim_obj_create(stream<struct data_if> &to_xbar, stream<struct d
 	case NET_RECV:
 		obj_id = verobj_create_getreply(from_xbar);
 		if (obj_id > 0) {
-			uint16_t size = obj_create_sizes.front();
-			uint16_t pid = obj_create_pids.front();
-			obj_create_sizes.pop();
-			obj_create_pids.pop();
+			uint16_t size = req_size_sequence.front();
+			uint16_t pid = req_pid_sequence.front();
+			req_size_sequence.pop();
+			req_pid_sequence.pop();
 			objids.push_back(obj_id);
 			objid_sizes.insert(pair<uint32_t, uint16_t>(obj_id, size));
 			objid_pids.insert(pair<uint32_t, uint16_t>(obj_id, pid));
@@ -115,14 +116,17 @@ bool NetSim::net_sim_obj_create(stream<struct data_if> &to_xbar, stream<struct d
 bool NetSim::net_sim_write_once(stream<struct data_if> &to_xbar, stream<struct data_if> &from_xbar)
 {
 	int reply;
+	uint16_t pid;
 	const uint16_t identifier = 1;
 
 	switch (state) {
 	case NET_SEND:
+		assert(req_pid_sequence.size() == 0);
 		for (std::vector<uint32_t>::iterator it = objids.begin();
 			it != objids.end(); it++) {
 			uint16_t size = objid_sizes[(*it)];
-			uint16_t pid = objid_pids[(*it)];
+			pid = objid_pids[(*it)];
+			req_pid_sequence.push(pid);
 			prep_write_buffer(objid_data[(*it)], objid_sizes[(*it)], identifier);
 			verobj_write(pid, (*it), size, to_xbar);
 		}
@@ -155,6 +159,7 @@ bool NetSim::net_sim(stream<struct data_if> &to_xbar,
 	map<uint32_t, uint16_t> objid_identifier;
 	list<vector<int> > pattern;
 
+
 	switch (state) {
 	case NET_SEND:
 		pattern = objid_pattern.unlabeled_obj_to_boxes();
@@ -171,6 +176,8 @@ bool NetSim::net_sim(stream<struct data_if> &to_xbar,
 #endif
 					if (objid_identifier.count(id) == 0)
 						objid_identifier.insert(pair<uint32_t, uint16_t>(id, 1));
+
+					req_pid_sequence.push(objid_pids[id]);
 					if (rw_seq[idx] == 1) {
 						/* if write request, don't record write response,
 						 * identify correctness by checking subsequent read */
@@ -301,7 +308,6 @@ void NetSim::verobj_create(uint16_t pid, unsigned long size, unsigned long flags
 	req.hdr.size = sizeof(struct verobj_create_delete);
 	req.hdr.cont = LEGOMEM_CONT_EXTAPI;
 	req.op.obj_size_id = size;
-	req.op.vregion_idx = 0;
 	req.op.vm_flags = flags;
 
 	memcpy(&data.pkt, &req, sizeof(struct verobj_create_delete));
@@ -341,7 +347,6 @@ void NetSim::verobj_delete(uint16_t pid, unsigned long obj_id,
 	req.hdr.size = sizeof(struct verobj_create_delete);
 	req.hdr.cont = LEGOMEM_CONT_EXTAPI;
 	req.op.obj_size_id = obj_id;
-	req.op.vregion_idx = 0;
 	req.op.vm_flags = 0;
 
 	memcpy(&data.pkt, &req, sizeof(struct verobj_create_delete));
@@ -374,6 +379,7 @@ int NetSim::verobj_rw_getreply(stream<struct data_if> &in)
 	struct data_if data			= {0};
 	struct verobj_read_write_ret *resp;
 	int size 				= 0;
+	uint16_t pid;
 
 	if (in.empty())
 		return -1;
@@ -382,6 +388,13 @@ int NetSim::verobj_rw_getreply(stream<struct data_if> &in)
 	switch (read_state) {
 	case NET_RW_HEADER:
 		resp = (struct verobj_read_write_ret *)&data.pkt;
+		receiving_pid = req_pid_sequence.front();
+                req_pid_sequence.pop();
+		if (resp->hdr.pid != receiving_pid) {
+			cout << "expected pid: " << dec << receiving_pid
+				<< " actual pid: " << resp->hdr.pid << endl;
+			throw logic_error("RW: implementation error, wrong reply pid");
+		}
 		if (resp->hdr.opcode != OP_REQ_VEROBJ_WRITE_RESP &&
 				resp->hdr.opcode != OP_REQ_VEROBJ_READ_RESP)
 			throw logic_error("RW: implementation error, wrong opcode");
