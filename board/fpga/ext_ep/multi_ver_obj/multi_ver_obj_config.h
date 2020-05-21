@@ -9,7 +9,7 @@
  * Configuration: (needs to be power of 2)
  *
  * OBJ_ARRAY_COUNT:     max 2^32
- * VERSION_ARRAY_COUNT: max 2^16
+ * VERSION_ARRAY_COUNT: max 2^15
  */
 #define OBJ_ARRAY_COUNT		65536
 #define VERSION_ARRAY_COUNT	1024

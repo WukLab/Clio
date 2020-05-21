@@ -151,14 +151,23 @@ void version_idxs2(stream<struct version_bram_if> &in, stream<struct version_bra
 
 	if (!in.empty()) {
 		struct version_bram_if req, resp;
+		int version;
 		req = in.read();
 		if (req.rw == VERSION_READ) {
 			resp.rw = VERSION_READ;
 			resp.obj_id = req.obj_id;
-			resp.version = version_idxs[req.obj_id];
+			version = version_idxs[req.obj_id];
+			if (version < req.version)
+				resp.version = version + VERSION_ARRAY_COUNT - req.version;
+			else
+				resp.version = version - req.version;
 			out.write(resp);
 		} else if (req.rw == VERSION_INC) {
-			version_idxs[req.obj_id]++;
+			version = version_idxs[req.obj_id];
+			if (version == VERSION_ARRAY_COUNT - 1)
+				version_idxs[req.obj_id] = 0;
+			else
+				version_idxs[req.obj_id] = version + 1;
 			resp.rw = VERSION_INC;
 			resp.obj_id = req.obj_id;
 			resp.version = version_idxs[req.obj_id];

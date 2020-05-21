@@ -143,7 +143,7 @@ void parser(stream<struct data_if> &data_in, stream<struct version_bram_if> &to_
 			if (field(indata_pkt.pkt, verobjrw_version) == 0) {
 				to_bram_pkt.rw = VERSION_READ;
 				to_bram_pkt.obj_id = field(indata_pkt.pkt, verobjrw_obj_id);
-				to_bram_pkt.version = 0xFFFF;				// sanity check
+				to_bram_pkt.version = field(indata_pkt.pkt, verobjrw_version);
 				delay_pkt(to_bram_delay, to_bram_pkt);
 			}
 
