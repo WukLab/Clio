@@ -38,7 +38,7 @@ elif [ "$1" == "2" ]; then
 		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=ens4 \
 		--port=1234 \
-		--run_test=rw_inline
+		--run_test=rw_same
 
 		#--run_test=rw_inline
 		#--run_test=rw_fault

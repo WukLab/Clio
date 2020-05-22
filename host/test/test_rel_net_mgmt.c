@@ -15,15 +15,15 @@
 
 #include "../core.h"
 
-#define NR_RUN_PER_THREAD 1000
+#define NR_RUN_PER_THREAD 1000000
 
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 #define NR_MAX_THREADS	(128)
 /* Tuning */
-static int test_size[] = { 4, 16, 64, 256, 1024 };
-static int test_nr_threads[] = { 1, 2, 4, 8, 16};
+static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
+static int test_nr_threads[] = { 1};
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
@@ -53,6 +53,7 @@ static void *thread_func(void *_ti)
 	int cpu, node;
 
 	int max_buf_size = 1024*1024;
+	size_t recv_size;
 
 	/*
 	 * We will not contact remote for opening
@@ -71,12 +72,26 @@ static void *thread_func(void *_ti)
 		__func__,
 		ti->id, cpu, get_local_session_id(ses), get_remote_session_id(ses));
 
-	resp = malloc(max_buf_size);
 	req = malloc(max_buf_size);
 	net_reg_send_buf(ses, req, max_buf_size);
 
 	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_PINGPONG;
+
+
+#define INLINE_RECEIVE
+
+#ifdef INLINE_RECEIVE
+	/*
+	 * In order to run inline handling
+	 * we should stop polling threads
+	 */
+	sleep(1);
+	WRITE_ONCE(stop_gbn_poll_thread, true);
+	WRITE_ONCE(stop_mgmt_dispatcher_thread, true);
+	sleep(2);
+	dprintf_INFO("Both threads should have stopped now.. %d\n", 0);
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		int send_size = test_size[i];
@@ -91,25 +106,49 @@ static void *thread_func(void *_ti)
 
 		/* Do the work */
 		nr_tests = NR_RUN_PER_THREAD;
+
+#ifdef INLINE_RECEIVE
+
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			net_send_and_receive(ses, req, send_size, resp, max_buf_size);
+			int ret;
+
+			net_send(ses, req, send_size);
+
+retry:
+			ret = raw_net_receive_zerocopy((void **)&resp, &recv_size);
+			if (ret == 0)
+				goto retry;
+			if (0) {
+				char packet_dump_str[256];
+				dump_packet_headers(resp, packet_dump_str);
+				printf("%s\n", packet_dump_str);
+			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
+#else
+
+		clock_gettime(CLOCK_MONOTONIC, &s);
+		for (j = 0; j < nr_tests; j++) {
+			net_send_and_receive_zerocopy(ses, req, send_size, (void **)&resp, &recv_size);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &e);
+
+#endif
 
 		lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
 		latency_ns[ti->id][i] = lat_ns;
 
-#if 0
-		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
-			ti->id,
-			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
+#if 1
+		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns\n",
+			ti->id, nr_tests, send_size, test_size[i], lat_ns / nr_tests);
 #endif
 	}
 	legomem_close_session(NULL, ses);
-	return NULL;
+
+	while (1) ;
 }
 
 /*
@@ -162,7 +201,7 @@ int test_rel_net_mgmt(char *board_ip_port_str)
 			 * cpu 0 is used for gbn polling now
 			 * in case
 			 */
-			ti[i].cpu = i + 1;
+			ti[i].cpu = mgmt_dispatcher_thread_cpu + i + 1;
 			ti[i].id = i;
 			ret = pthread_create(&tid[i], NULL, thread_func, &ti[i]);
 			if (ret)

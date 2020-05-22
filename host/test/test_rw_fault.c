@@ -130,7 +130,7 @@ int test_legomem_rw_fault(char *_unused)
 		nr_threads = test_nr_threads[k];
 		pthread_barrier_init(&thread_barrier, NULL, nr_threads);
 		for (i = 0; i < nr_threads; i++) {
-			ti[i].cpu = i + 1;
+			ti[i].cpu = mgmt_dispatcher_thread_cpu + i + 1;
 			ti[i].id = i;
 			ret = pthread_create(&tid[i], NULL, thread_func_read, &ti[i]);
 			if (ret)

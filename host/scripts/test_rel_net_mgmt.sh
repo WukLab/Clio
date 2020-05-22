@@ -14,7 +14,14 @@ set -e
 #
 
 # monitor side
-./monitor.o --dev ens4 --port 8888
+#./monitor.o --dev ens4 --port 8888
 
-# host side
-./host.o -m 192.168.1.5:8888 -p 7777 -d p4p1  --run_test
+#
+# FAT NOTE
+#
+# If you are testing against a real board,
+# you do NOT need to start soc code.
+#
+./host.o --monitor=127.0.0.1:8888 --skip_join \
+	 --port=8888 --dev=ens4 \
+	 --run_test=relnet_mgmt --add_board="192.168.1.23:1234"

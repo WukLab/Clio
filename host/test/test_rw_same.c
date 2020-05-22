@@ -21,11 +21,11 @@
 
 /* Knobs */
 #define NR_RUN_PER_THREAD 1000000
-//static int test_size[] = { 256 };
-//static int test_nr_threads[] = { 8 };
-
-static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
+static int test_size[] = { 1024 };
 static int test_nr_threads[] = { 1 };
+
+//static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
+//static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
 static double latency_write_ns[NR_MAX][NR_MAX];
@@ -103,7 +103,7 @@ static void *thread_func_read(void *_ti)
 
 		pthread_barrier_wait(&thread_barrier);
 
-#if 1
+#if 0
 		legomem_write_sync(ctx, send_buf, addr, 0x10);
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
@@ -128,7 +128,7 @@ static void *thread_func_read(void *_ti)
 		pthread_barrier_wait(&thread_barrier);
 
 
-#if 0
+#if 1
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			//ret = legomem_read(ctx, send_buf, recv_buf, addr, size);

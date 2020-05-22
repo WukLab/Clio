@@ -194,7 +194,7 @@ int test_legomem_rw_seq(char *_unused)
 			 * cpu 0 is used for gbn polling now
 			 * in case
 			 */
-			ti[i].cpu = i + 1;
+			ti[i].cpu = i + 1 + mgmt_dispatcher_thread_cpu;
 			ti[i].id = i;
 			ret = pthread_create(&tid[i], NULL, thread_func_read, &ti[i]);
 			if (ret)

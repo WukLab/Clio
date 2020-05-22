@@ -21,15 +21,10 @@ static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 /* Tuning */
-#define NR_RUN_PER_THREAD 100000
+#define NR_RUN_PER_THREAD 1000000
 
-#if 0
-//int test_size[] = { 4, 16, 64, 256, 1024 };
-//int test_nr_threads[] = { 1, 2, 4, 8, 16};
-#else
-int test_size[] = { 2 };
-static int test_nr_threads[] = { 1 };
-#endif
+static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
+static int test_nr_threads[] = { 1};
 
 static double latency_ns[128][128];
 
@@ -47,8 +42,6 @@ struct thread_info {
 	int cpu;
 };
 
-pthread_spinlock_t _lock;
-
 static void *thread_func(void *_ti)
 {
 	struct legomem_pingpong_req *req;
@@ -62,25 +55,19 @@ static void *thread_func(void *_ti)
 	int cpu, node;
 
 	int max_buf_size = 1024*1024;
+	size_t recv_size;
 
-	/* Mgmt session itself is not locked.. */
-	pthread_spin_lock(&_lock);
 	ses = legomem_open_session(NULL, remote_board);
-	pthread_spin_unlock(&_lock);
-
-	if (!ses) {
+	if (!ses)
 		die("fail to open session. thread id %d\n", ti->id);
-	}
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 
 	legomem_getcpu(&cpu, &node);
-	printf("%s(): thread id %d running on CPU %d, local session id %d remote session id %d\n",
-		__func__,
-		ti->id, cpu, get_local_session_id(ses), get_remote_session_id(ses));
+	dprintf_CRIT("%s(): thread id %d running on CPU %d, local session id %d remote session id %d\n",
+		__func__, ti->id, cpu, get_local_session_id(ses), get_remote_session_id(ses));
 
-	resp = malloc(max_buf_size);
 	req = malloc(max_buf_size);
 	net_reg_send_buf(ses, req, max_buf_size);
 
@@ -103,7 +90,7 @@ static void *thread_func(void *_ti)
 		nr_tests = NR_RUN_PER_THREAD;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			net_send_and_receive(ses, req, send_size, resp, max_buf_size);
+			net_send_and_receive_zerocopy(ses, req, send_size, (void **)&resp, &recv_size);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 
@@ -113,7 +100,7 @@ static void *thread_func(void *_ti)
 		latency_ns[ti->id][i] = lat_ns;
 
 #if 1
-		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %lf ns\n",
+		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns\n",
 			ti->id,
 			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
 #endif
@@ -142,8 +129,6 @@ int test_rel_net_normal(char *board_ip_port_str)
 		       "Please restart the test and pass \"--net_trans_ops=gbn\" %d\n", 0);
 		return -1;
 	}
-
-	pthread_spin_init(&_lock, PTHREAD_PROCESS_PRIVATE);
 
 	if (board_ip_port_str) {
 		unsigned int ip, port;
@@ -180,7 +165,7 @@ int test_rel_net_normal(char *board_ip_port_str)
 			 * cpu 0 is used for gbn polling now
 			 * in case
 			 */
-			ti[i].cpu = i + 1;
+			ti[i].cpu = mgmt_dispatcher_thread_cpu + i + 1;
 			ti[i].id = i;
 			ret = pthread_create(&tid[i], NULL, thread_func, &ti[i]);
 			if (ret)
