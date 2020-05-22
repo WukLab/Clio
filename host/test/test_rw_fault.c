@@ -56,13 +56,15 @@ static void *thread_func_read(void *_ti)
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 	legomem_getcpu(&cpu, &node);
+	dprintf_CRIT("Runs on CPU %d\n", cpu);
 
 	size = 4;
 
-	NR_ROUNDS = 2;
+	NR_ROUNDS = 1000000;
 	for (i = 0; i < NR_ROUNDS; i++) {
 		/*
 		 * Allocate a bunch pages that are not pre-populated.
+		 * flag must be 0.
 		 */
 		addr = legomem_alloc(ctx, NR_PAGES * PAGE_SIZE, 0);
 
@@ -73,16 +75,20 @@ static void *thread_func_read(void *_ti)
 		recv_buf = malloc(VREGION_SIZE);
 		net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 
+#if 0
 		dprintf_INFO("thread id %d, ses_id %d region [%#lx - %#lx] ROUND %d \n",
 				ti->id, get_local_session_id(ses),
 				addr, addr + NR_PAGES * PAGE_SIZE, i);
+#endif
 
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < NR_PAGES; j++) {
 			unsigned long _addr;
 			_addr = j * PAGE_SIZE + addr;
 			dprintf_INFO(" %d \n", j);
-			ret = legomem_write_sync(ctx, send_buf, _addr, size);
+
+			ret = __legomem_write_with_session(ctx, ses, send_buf, _addr, size,
+							  LEGOMEM_WRITE_SYNC);
 			if (unlikely(ret < 0)) {
 				dprintf_ERROR(
 					"thread id %d fail at %d, error code %d\n",
@@ -92,16 +98,20 @@ static void *thread_func_read(void *_ti)
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 
+		/*
+		 * Now free those pages,
+		 * remote will flush tlb too.
+		 */
 		legomem_free(ctx, addr, NR_PAGES * PAGE_SIZE);
 
-		latency_write_ns[ti->id][i] +=
+		latency_write_ns[ti->id][0] +=
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 	}
 
 	dprintf_INFO("NR_ROUNDS %d NR_PAGES/round %d size: %lu avg: %lf ns\n",
 		NR_ROUNDS, NR_PAGES, size,
-		latency_write_ns[ti->id][i] / (NR_ROUNDS * NR_PAGES));
+		latency_write_ns[ti->id][0] / (NR_ROUNDS * NR_PAGES));
 
 	return NULL;
 }

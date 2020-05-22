@@ -6,6 +6,7 @@
 #include <uapi/compiler.h>
 #include <uapi/sched.h>
 #include <uapi/list.h>
+#include <uapi/page.h>
 #include <uapi/err.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -20,11 +21,10 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1000000
-static int test_size[] = { 1024 };
-static int test_nr_threads[] = { 1 };
+#define NR_RUN_PER_THREAD 100000
 
-//static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
+static int test_nr_threads[] = { 1};
+static int test_size[] = { 200*1024};
 //static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -87,15 +87,15 @@ static void *thread_func_read(void *_ti)
 	BUG_ON(!ses);
 
 #if 1
-	send_buf = malloc(VREGION_SIZE);
-	net_reg_send_buf(ses, send_buf, VREGION_SIZE);
+	send_buf = malloc(PAGE_SIZE);
+	net_reg_send_buf(ses, send_buf, PAGE_SIZE);
 #else
 	bi = ses->board_info;
 	ses = legomem_open_session_remote_mgmt(bi);
 	send_buf = net_get_send_buf(ses);
 #endif
 
-	recv_buf = malloc(VREGION_SIZE);
+	recv_buf = malloc(PAGE_SIZE);
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
@@ -103,8 +103,9 @@ static void *thread_func_read(void *_ti)
 
 		pthread_barrier_wait(&thread_barrier);
 
-#if 0
+#if 1
 		legomem_write_sync(ctx, send_buf, addr, 0x10);
+
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
@@ -131,8 +132,6 @@ static void *thread_func_read(void *_ti)
 #if 1
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			//ret = legomem_read(ctx, send_buf, recv_buf, addr, size);
-
 			ret = legomem_read_with_session(ctx, ses,
 							send_buf, recv_buf, addr, size);
 			if (unlikely(ret < 0)) {
@@ -229,9 +228,9 @@ int test_legomem_rw_same(char *_unused)
 					NR_RUN_PER_THREAD, nr_threads, send_size, avg_read, avg_write);
 		}
 	}
-	legomem_close_context(ctx);
 
-	//while (1);
+	while (1);
+	legomem_close_context(ctx);
 
 	return 0;
 }

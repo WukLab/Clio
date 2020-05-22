@@ -2,6 +2,23 @@
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
  */
 
+/*
+ * NOTES
+ *
+ * The trick is that we will allocate a range that is larger than remote board's
+ * TLB size. We have the NR_PAGES, which is  (LEGOMEM_NR_TLB_ENTRIES + 100).
+ *
+ * We will sequentially access the start of a page, in NR_RUN_PER_THREAD times.
+ *
+ * Compared to the case of rw_same benchmark, we can roughly calculate the overhead
+ * of remote board TLB eviction + refill.
+ *
+ * Flow:
+ * 1. Run this bench.
+ * 2. Run rw_same.
+ * 3. calculate diff, that's your TLB overhead.
+ */
+
 #include <uapi/vregion.h>
 #include <uapi/compiler.h>
 #include <uapi/sched.h>
@@ -26,7 +43,10 @@
 //static int test_size[] = { 256 };
 //static int test_nr_threads[] = { 8 };
 
-static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
+/*
+ * 4096 will not pass.
+ */
+static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048 };
 static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -63,19 +83,19 @@ static void *thread_func_read(void *_ti)
 	int cpu, node;
 	int ret;
 	struct session_net *ses;
-	struct board_info *bi;
+	struct board_info *bi __maybe_unused;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 
 	legomem_getcpu(&cpu, &node);
-	printf("%s(): thread id %d running on CPU %d\n", __func__, ti->id, cpu);
+	dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu);
 
 	addr = global_base_addr;
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
 
-#if 0
+#if 1
 	send_buf = malloc(VREGION_SIZE);
 	net_reg_send_buf(ses, send_buf, VREGION_SIZE);
 #else
@@ -156,7 +176,7 @@ static void *thread_func_read(void *_ti)
  * 3) Collect latency numbers
  * 4) Change number of concurrent threads, repeat 1-3 steps.
  */
-int test_legomem_rw_seq(char *_unused)
+int test_legomem_rw_tlb(char *_unused)
 {
 	int k, i, j, ret;
 	int nr_threads;

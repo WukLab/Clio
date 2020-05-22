@@ -234,9 +234,9 @@ struct test_option test_options[] = {
 		.func	= test_legomem_rw_same,
 	},
 	{
-		.name	= "rw_seq",
-		.desc	= "test legomem_rw_seq a range of PTEs. For TLB misses.",
-		.func	= test_legomem_rw_seq,
+		.name	= "rw_tlb",
+		.desc	= "test legomem_rw_tlb a range of PTEs. For TLB miss latency",
+		.func	= test_legomem_rw_tlb,
 	},
 	{
 		.name	= "rw_fault",

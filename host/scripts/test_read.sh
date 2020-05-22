@@ -43,7 +43,7 @@ elif [ "$1" == "2" ]; then
 
 		#--run_test=rw_inline
 		#--run_test=rw_fault
-		#--run_test=rw_seq
+		#--run_test=rw_tlb
 		#--run_test=rw_same
 
 elif [ "$1" == "3" ]; then
