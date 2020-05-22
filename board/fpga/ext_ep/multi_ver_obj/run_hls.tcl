@@ -56,7 +56,8 @@ switch $board {
 		exit
 	}
 }
-create_clock -period 5.00 -name default
+# we target 200Mhz, but use 250Mhz to have better timing
+create_clock -period 4.00 -name default
 set_clock_uncertainty 0.25
 
 # UG902: Resets all registers and memories in the design.
