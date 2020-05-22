@@ -48,6 +48,10 @@ struct ycsb_run_req_struct {
 };
 struct ycsb_run_req_struct *run_reqs;
 
+#define MAX_NUM_BOARD 5
+struct board_info **board;
+int num_board;
+
 void gen_random_value(char *buf, int size)
 {
 	int i;
@@ -378,4 +382,16 @@ void run_ycsb()
 
 	free(thread_job);
 	return;
+}
+
+int legomem_setup(int total_client_nodes, int total_boards)
+{
+	int i;
+
+	num_board = total_boards;
+	board = (struct board_info **)malloc(MAX_NUM_BOARD * sizeof(struct board_info*));
+	for (i = 0; i < total_boards; i++) {
+		board[i] = (struct board_info)malloc(sizeof(struct board_info));
+		//board[i] = find_board(ip, port);
+	}
 }
