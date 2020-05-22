@@ -14,12 +14,19 @@
 
 #include "core.h"
 
+#define NR_MAX_BOARDS	128
+
 /*
- * This is a per-node global list,
- * it has information about all remote accessible boards.
+ * This is legacy code. We keep it here because
+ * some code is still using this hashtable list.
  */
 DEFINE_HASHTABLE(board_list, BOARD_HASH_ARRAY_BITS);
 pthread_rwlock_t board_lock ____cacheline_aligned;
+
+static struct board_info board_info_map[NR_MAX_BOARDS];
+static DECLARE_BITMAP(board_id_map, NR_MAX_BOARDS);
+
+int nr_max_board_id ____cacheline_aligned;
 
 __constructor
 static void init_board_subsys(void)
@@ -37,6 +44,30 @@ get_key(int ip, unsigned int port)
 	return ip + port;
 }
 
+static struct board_info *alloc_board_info(void)
+{
+	int bit;
+	struct board_info *bi = NULL;
+
+	pthread_rwlock_wrlock(&board_lock);
+	bit = find_next_zero_bit(board_id_map, NR_MAX_BOARDS, 0);
+	if (bit >= NR_MAX_BOARDS)
+		goto unlock;
+
+	/* Claim the ID */
+	__set_bit(bit, board_id_map);
+	nr_max_board_id = bit;
+
+	bi = board_info_map + bit;
+	memset(bi, 0, sizeof(*bi));
+	bi->board_id = bit;
+	bi->flags = BOARD_INFO_FLAGS_ALLOCATED;
+
+unlock:
+	pthread_rwlock_unlock(&board_lock);
+	return bi;
+}
+
 /*
  * Add a board to the system.
  * We will open a local session to connect with remote party's mgmt session.
@@ -51,10 +82,9 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 	int key;
 	struct session_net *ses;
 
-	bi = malloc(sizeof(*bi));
+	bi = alloc_board_info();
 	if (!bi)
 		return NULL;
-
 	init_board_info(bi);
 
 	memcpy(&bi->remote_ei, remote_ei, sizeof(struct endpoint_info));
@@ -101,7 +131,7 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 
 void remove_board(struct board_info *bi)
 {
-	int key;
+	int key, id;
 	struct board_info *_bi;
 
 	key = get_key(bi->board_ip, bi->udp_port);
@@ -109,14 +139,42 @@ void remove_board(struct board_info *bi)
 	pthread_rwlock_wrlock(&board_lock);
 	hash_for_each_possible(board_list, _bi, link, key) {
 		if (_bi->board_ip == bi->board_ip) {
+			id = bi - board_info_map;
+			if (!__test_and_clear_bit(id, board_id_map))
+				BUG();
 			hash_del(&bi->link);
-			pthread_rwlock_unlock(&board_lock);
-			return;
+
+			if (id == nr_max_board_id)
+				nr_max_board_id--;
+			break;
 		}
 	}
 	pthread_rwlock_unlock(&board_lock);
 }
 
+struct board_info *find_board_by_id(unsigned int id)
+{
+	struct board_info *bi;
+
+	if (unlikely(id > NR_MAX_BOARDS)) {
+		dprintf_ERROR("board id %d not valid\n", id);
+		dump_boards();
+		return NULL;
+	}
+
+	bi = board_info_map + id;
+	if (!(bi->flags & BOARD_INFO_FLAGS_ALLOCATED)) {
+		dprintf_ERROR("board id %d not allocated\n", id);
+		dump_boards();
+		return NULL;
+	}
+	return bi;
+}
+
+/*
+ * This is DEPRECATED API.
+ * Use find_board_by_id instead.
+ */
 struct board_info *
 find_board(unsigned int ip, unsigned int port)
 {
@@ -162,17 +220,19 @@ void dump_boards(void)
 	char ip_port_str[20];
 	int bkt = 0;
 
-	printf("bucket   board_name                     ip:port              type\n");
-	printf("-------- ------------------------------ -------------------- ----------\n");
+	dprintf_CRIT("Dump All Boards (nr_max_board_id %d)\n", nr_max_board_id);
+	printf("  bucket   board_id   board_name                     ip:port              type\n");
+	printf("  -------- ---------- ------------------------------ -------------------- ----------\n");
 
 	pthread_rwlock_rdlock(&board_lock);
 	hash_for_each(board_list, bkt, bi, link) {
 		get_ip_str(bi->board_ip, ip_str);
 		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
 
-		printf("%-8d %-30s %-20s %-10s\n",
-			bkt, bi->name, ip_port_str,
+		printf("  %-8d %-10d %-30s %-20s %-10s\n",
+			bkt, bi->board_id, bi->name, ip_port_str,
 			board_info_type_str(bi->flags));
 	}
 	pthread_rwlock_unlock(&board_lock);
+	printf("\n");
 }

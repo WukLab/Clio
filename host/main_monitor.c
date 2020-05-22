@@ -23,8 +23,8 @@
 #define NR_THPOOL_WORKERS	1
 #define NR_THPOOL_BUFFER	32
 
-static atomic_int nr_hosts;
-static atomic_int nr_boards;
+static atomic_int sys_nr_hosts;
+static atomic_int sys_nr_boards;
 
 /*
  * Each thpool worker is described by struct thpool_worker,
@@ -275,6 +275,13 @@ static inline void free_vregion(struct proc_info *p,
 }
 
 /*
+ * All real board/host IDs start from 2 now.
+ * 0 is for mgmt bi
+ * 1 is for local bi
+ */
+static int nr_alloc_base_id = 2;
+
+/*
  * Handler for the case where hosts need to allocate
  * a new vRegion, i.e., ask_monitor_for_new_vregion.
  */
@@ -319,11 +326,6 @@ static void handle_alloc(struct thpool_buffer *tb)
 		goto out;
 	}
 
-	/*
-	 * TODO: Policy plug-in
-	 * We are randomly selecting a board now
-	 * During practice we should use nr_avail_space, load etc
-	 */
 	bi = find_board(ANY_BOARD, ANY_BOARD);
 	if (!bi) {
 		free_vregion(pi, vi);
@@ -571,10 +573,10 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 */
 	get_ip_str(ei->ip, ip_str);
 	if (req->op.type == BOARD_INFO_FLAGS_HOST) {
-		id = atomic_fetch_add(&nr_hosts, 1);
+		id = atomic_fetch_add(&sys_nr_hosts, 1);
 		sprintf(new_name, "host%d_%s:%u", id, ip_str, ei->udp_port);
 	} else if (req->op.type == BOARD_INFO_FLAGS_BOARD) {
-		id = atomic_fetch_add(&nr_boards, 1);
+		id = atomic_fetch_add(&sys_nr_boards, 1);
 		sprintf(new_name, "board%d_%s:%u", id, ip_str, ei->udp_port);
 	} else {
 		dprintf_ERROR("Unknown node type: %s\n",
@@ -1086,8 +1088,8 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 
-	atomic_init(&nr_hosts, 0);
-	atomic_init(&nr_boards, 0);
+	atomic_init(&sys_nr_hosts, 0);
+	atomic_init(&sys_nr_boards, 0);
 
 	pthread_spin_init(&proc_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&pid_lock, PTHREAD_PROCESS_PRIVATE);

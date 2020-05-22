@@ -378,7 +378,9 @@ struct board_info *add_board(char *board_name, unsigned long mem_total,
 			     bool is_local);
 void remove_board(struct board_info *bi);
 struct board_info *find_board(unsigned int ip, unsigned int port);
+struct board_info *find_board_by_id(unsigned int id);
 void dump_boards(void);
+extern int nr_max_board_id ____cacheline_aligned;
 
 /* Per-node session list */
 void dump_net_sessions(void);

@@ -149,6 +149,7 @@ retry:
 	legomem_close_session(NULL, ses);
 
 	while (1) ;
+	return NULL;
 }
 
 /*

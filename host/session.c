@@ -101,8 +101,9 @@ void dump_net_sessions(void)
 	char ip_str[INET_ADDRSTRLEN];
 	char ip_port_str[20];
 
-	printf("bucket   ses_local    ses_remote   ip:port_remote       remote_name\n"); 
-	printf("-------- ------------ ------------ -------------------- ------------------------------\n");
+	dprintf_CRIT("Dump All Sessions %d\n", 0);
+	printf("  bucket   ses_local    ses_remote   ip:port_remote       remote_name\n"); 
+	printf("  -------- ------------ ------------ -------------------- ------------------------------\n");
 
 	pthread_spin_lock(&session_lock);
 	for (bkt = 0; bkt < NR_MAX_SESSIONS_PER_NODE; bkt++) {
@@ -114,7 +115,7 @@ void dump_net_sessions(void)
 		get_ip_str(ses->board_ip, ip_str);
 		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
 
-		printf("%-8d %-12u %-12u %-20s %-30s\n",
+		printf("  %-8d %-12u %-12u %-20s %-30s\n",
 			bkt,
 			get_local_session_id(ses),
 			get_remote_session_id(ses),
@@ -122,4 +123,5 @@ void dump_net_sessions(void)
 			bi->name);
 	}
 	pthread_spin_unlock(&session_lock);
+	printf("\n");
 }

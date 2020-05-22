@@ -49,12 +49,15 @@ struct vm_area_struct;
 
 #define BOARD_INFO_FLAGS_BOARD		(0x1) /* represents a legomem board */
 #define BOARD_INFO_FLAGS_HOST		(0x2) /* represents a real host */
-#define BOARD_INFO_FLAGS_MONITOR	(0x3) /* represents the monitor */
-#define BOARD_INFO_FLAGS_DUMMY		(0x4) /* a dummy bi */
-#define BOARD_INFO_FLAGS_LOCALHOST	(0x5) /* localhost bi */
-#define BOARD_INFO_FLAGS_BITS_MASK	(0xf)
+#define BOARD_INFO_FLAGS_MONITOR	(0x4) /* represents the monitor */
+#define BOARD_INFO_FLAGS_DUMMY		(0x8) /* a dummy bi */
+#define BOARD_INFO_FLAGS_LOCALHOST	(0x10) /* localhost bi */
+#define BOARD_INFO_FLAGS_BITS_MASK	(0x1f)
+
+#define BOARD_INFO_FLAGS_ALLOCATED	(0x20)
 
 struct board_info {
+	int			board_id;
 	char			name[BOARD_NAME_LEN];
 	int			board_ip;
 	unsigned int		udp_port;
@@ -131,9 +134,6 @@ set_board_mgmt_session(struct board_info *bi, struct session_net *ses)
 
 static inline int init_board_info(struct board_info *bi)
 {
-	BUG_ON(!bi);
-
-	memset(bi, 0, sizeof(*bi));
 	INIT_LIST_HEAD(&bi->list);
 
 	hash_init(bi->ht_sessions);
