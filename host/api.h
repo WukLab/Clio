@@ -65,4 +65,15 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 				 void *send_buf, unsigned long __remote addr, size_t total_size,
 				 enum legomem_write_flag flag);
 
+/* multiversion object */
+int legomem_mv_write(struct legomem_context *ctx,
+		     uint32_t objid, uint16_t value_size, void *value);
+int legomem_mv_read_old(struct legomem_context *ctx, uint32_t objid,
+		        uint16_t version, uint16_t value_size, void *value);
+int legomem_mv_read_latest(struct legomem_context *ctx, uint32_t objid,
+		          uint16_t value_size, void *value);
+int legomem_mv_create(struct legomem_context *ctx,
+		      uint16_t value_size, uint64_t vm_flags, uint32_t* objid);
+int legomem_mv_delete(struct legomem_context *ctx, uint32_t objid);
+
 #endif /* _LEGOMEM_PUBLIC_APIS_ */

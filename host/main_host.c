@@ -248,6 +248,11 @@ struct test_option test_options[] = {
 		.desc	= "test legomem_rw_inline w/ stopped polling threads",
 		.func	= test_legomem_rw_inline,
 	},
+	{
+		.name	= "multiver_obj",
+		.desc	= "test legomem_multiver_obj",
+		.func	= test_legomem_multiver_obj,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)

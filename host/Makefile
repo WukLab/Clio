@@ -18,7 +18,8 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rw_same.c \
 	     $(TP)/test_rw_seq.c \
 	     $(TP)/test_rw_inline.c \
-	     $(TP)/test_rw_fault.c
+	     $(TP)/test_rw_fault.c \
+	     $(TP)/test_multiver_obj.c
 
 # Board emulator files linked to soc files
 BP := board_emulator
@@ -46,7 +47,8 @@ C_SRCS := board.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
-	api_kvs.c
+	api_kvs.c \
+	api_mv.c
 
 SRCS := $(C_SRCS)
 

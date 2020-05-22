@@ -61,7 +61,7 @@ int legomem_mv_write(struct legomem_context *ctx,
 	 * If user can provide a larger buffer (i.e., reserve
 	 * space for common_headers), we could avoid this.
 	 */
-	memcpy(op->value, value, value_size);
+	memcpy(op->data, value, value_size);
 
 	ret = net_send(ses, req, sizeof(*req) + value_size);
 	if (ret < 0) {
@@ -124,7 +124,7 @@ __legomem_mv_read(struct legomem_context *ctx,
 	 * Zerocopy is using low-level network ring-buffers,
 	 * which will be recycled soon. We should copy to user buffer.
 	 */
-	memcpy(value, resp->op.value, value_size);
+	memcpy(value, resp->op.data, value_size);
 
 	return 0;
 }
@@ -171,7 +171,7 @@ int legomem_mv_create(struct legomem_context *ctx,
 	op->obj_size_id = value_size;
 	op->vm_flags = vm_flags;
 
-	ret = net_send(ses, req, sizeof(*req) + value_size);
+	ret = net_send(ses, req, sizeof(*req));
 	if (ret < 0) {
 		dprintf_ERROR("Net send error %d\n", ret);
 		return ret;
@@ -215,7 +215,7 @@ int legomem_mv_delete(struct legomem_context *ctx, uint32_t objid)
 	op = &req->op;
 	op->obj_size_id = objid;
 
-	ret = net_send(ses, req, sizeof(*req) + value_size);
+	ret = net_send(ses, req, sizeof(*req));
 	if (ret < 0) {
 		dprintf_ERROR("Net send error %d\n", ret);
 		return ret;

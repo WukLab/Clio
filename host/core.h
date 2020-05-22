@@ -438,6 +438,7 @@ int test_legomem_rw_same(char *);
 int test_legomem_rw_seq(char *_unused);
 int test_legomem_rw_fault(char *_unused);
 int test_legomem_rw_inline(char *_unused);
+int test_legomem_multiver_obj(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
