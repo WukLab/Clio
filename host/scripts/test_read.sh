@@ -23,7 +23,11 @@ monitor_ip="192.168.1.2"
 
 if [ "$1" == "1" ]; then
 	if true; then
-	#if false; then
+		#
+		# FAT NOTE
+		#
+		# Please tune the nr of boards
+		#
 		./monitor.o \
 			--dev=p4p1 \
 			--port=$monitor_port \

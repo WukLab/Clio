@@ -279,7 +279,28 @@ static inline void free_vregion(struct proc_info *p,
  * 0 is for mgmt bi
  * 1 is for local bi
  */
-static int nr_alloc_base_id = 2;
+#define nr_alloc_board_base 2
+static int nr_alloc_board_index = nr_alloc_board_base;
+
+/*
+ * Not SMP safe. Simple Round-robin board selection.
+ */
+static struct board_info *handle_alloc_find_board(void)
+{
+	struct board_info *bi;
+
+	if (!atomic_load(&sys_nr_boards))
+		return NULL;
+
+	bi = find_board_by_id(nr_alloc_board_index);
+
+	if (nr_alloc_board_index == nr_max_board_id)
+		nr_alloc_board_index = nr_alloc_board_base;
+	else
+		nr_alloc_board_index++;
+
+	return bi;
+}
 
 /*
  * Handler for the case where hosts need to allocate
@@ -326,7 +347,7 @@ static void handle_alloc(struct thpool_buffer *tb)
 		goto out;
 	}
 
-	bi = find_board(ANY_BOARD, ANY_BOARD);
+	bi = handle_alloc_find_board();
 	if (!bi) {
 		free_vregion(pi, vi);
 
