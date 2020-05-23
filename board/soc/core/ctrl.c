@@ -66,6 +66,43 @@ static void free_sys_pid(int pid)
 }
 
 /*
+ * Used by both ctrl and data path alloc handlers.
+ * This is specially designed for multiverion on-chip modules.
+ */
+unsigned long __handle_ctrl_alloc(struct proc_info *pi, size_t size)
+{
+	unsigned int vregion_idx;
+	struct vregion_info *vi;
+	unsigned long addr;
+
+	/*
+	 * We are taking a shortcut here.
+	 * Should be okay, still O(1).
+	 */
+	vregion_idx = pi->cached_vregion_index;
+
+repeat:
+	vi = index_to_vregion(pi, vregion_idx);
+
+	/*
+	 * Always populate all the pgtables.
+	 * In case page fifo is not filled.
+	 */
+	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE);
+	if (unlikely(IS_ERR_VALUE(addr))) {
+		vregion_idx++;
+		if (vregion_idx == NR_VREGIONS) {
+			dprintf_ERROR("Well OOM%d\n", 0);
+			return 0;
+		}
+		goto repeat;
+	}
+
+	pi->cached_vregion_index = vregion_idx;
+	return addr;
+}
+
+/*
  * rx->param32: size in bytes
  * rx->param8: pid
  * tx->param32: va
@@ -79,8 +116,6 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 	pid_t pid;
 	unsigned int size;
 	struct proc_info *pi;
-	struct vregion_info *vi;
-	unsigned int vregion_idx;
 	unsigned long addr;
 
 	/* See comment at handle_ctrl_create_proc */
@@ -100,26 +135,7 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 		goto out;
 	}
 
-	/*
-	 * We are taking a shortcut here.
-	 * Should be okay, still O(1).
-	 */
-	vregion_idx = pi->cached_vregion_index;
-
-repeat:
-	vi = index_to_vregion(pi, vregion_idx);
-	addr = alloc_va_vregion(pi, vi, size, 0);
-	if (unlikely(IS_ERR_VALUE(addr))) {
-		vregion_idx++;
-		if (vregion_idx == NR_VREGIONS) {
-			dprintf_ERROR("Well OOM%d\n", 0);
-			tx->param32 = 0;
-			goto out;
-		}
-		goto repeat;
-	}
-
-	pi->cached_vregion_index = vregion_idx;
+	addr = __handle_ctrl_alloc(pi, size);
 	tx->param32 = (u32)addr;
 out:
 	dma_ctrl_send(tx, sizeof(*tx));

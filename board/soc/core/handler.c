@@ -94,15 +94,28 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 		vregion_idx = ops->vregion_idx;
 		vm_flags = ops->vm_flags;
 
-		vi = index_to_vregion(pi, vregion_idx);
-
-		addr = alloc_va_vregion(pi, vi, len, vm_flags);
-		if (unlikely(IS_ERR_VALUE(addr))) {
-			resp->op.ret = -ENOMEM;
-			resp->op.addr = 0xdeadbeef;
-		} else {
+		if (vregion_idx == 0xFFFFFFFFDEADBEEF) {
+			/*
+			 * Special case crafted for multiverion on-chip modules
+			 * It does not know vregion idx, we need to allocate here.
+			 * Thus calling the __handle_ctrl_alloc wrapper.
+			 */
+			addr = __handle_ctrl_alloc(pi, len);
 			resp->op.ret = 0;
 			resp->op.addr = addr;
+		} else {
+			/*
+			 * Normal case, requests came from hosts.
+			 */
+			vi = index_to_vregion(pi, vregion_idx);
+			addr = alloc_va_vregion(pi, vi, len, vm_flags);
+			if (unlikely(IS_ERR_VALUE(addr))) {
+				resp->op.ret = -ENOMEM;
+				resp->op.addr = 0xdeadbeef;
+			} else {
+				resp->op.ret = 0;
+				resp->op.addr = addr;
+			}
 		}
 	} else {
 		/* OP_REQ_FREE */
