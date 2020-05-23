@@ -39,16 +39,22 @@ if [ "$1" == "1" ]; then
 			--port=$monitor_port
 	fi
 elif [ "$1" == "2" ]; then
+	#
+	# FAT NOTE
+	#
+	# Choose your --run_test.
+	#
 	./host.o \
 		--monitor=$monitor_ip:$monitor_port \
 	 	--dev=ens4 \
 		--port=1234 \
-		--run_test=rw_same
+		--run_test=rw_multiboard
 
 		#--run_test=rw_inline
 		#--run_test=rw_fault
 		#--run_test=rw_tlb
 		#--run_test=rw_same
+		#--run_test=rw_multiboard
 
 elif [ "$1" == "3" ]; then
 	./board_emulator.o \

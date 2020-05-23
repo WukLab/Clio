@@ -248,6 +248,11 @@ struct test_option test_options[] = {
 		.desc	= "test legomem_rw_inline w/ stopped polling threads",
 		.func	= test_legomem_rw_inline,
 	},
+	{
+		.name	= "rw_multiboard",
+		.desc	= "test single host multiple boards case",
+		.func	= test_legomem_rw_multiboard,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)

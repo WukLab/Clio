@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <stdatomic.h>
 
 #include <uapi/list.h>
 #include <uapi/err.h>
@@ -48,9 +49,11 @@
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
 #define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
 
-#define NR_MAX_OUTSTANDING_SEND_WR	(NR_BUFFER_DEPTH / 2)
+#define NR_MAX_OUTSTANDING_SEND_WR	64
 
 int ib_port = 1;
+struct ibv_context *ib_context;
+struct ibv_pd *ib_pd;
 
 /*
  * TODO
@@ -60,7 +63,6 @@ int ib_port = 1;
 #define DEFAULT_MAX_INLINE_SIZE (128)
 
 static struct session_raw_verbs cached_session_raw_verbs;
-static pthread_spinlock_t raw_verbs_lock;
 
 static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 				  void *buf, size_t buf_size)
@@ -77,7 +79,7 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		 * We don't free the buffer.
 		 * Since we don't know if it could be freed.
 		 */
-		dprintf_INFO("NOTICE Overriding session %d registered send buf\n",
+		dprintf_DEBUG("NOTICE Overriding session %d registered send buf\n",
 			get_local_session_id(ses_net));
 		ibv_dereg_mr(ses_verbs->send_mr);
 	}
@@ -88,7 +90,7 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		return errno;
 	}
 
-	dprintf_INFO("Registered buf: [%#lx - %#lx] len=%#lx session id %d\n",
+	dprintf_DEBUG("Registered buf: [%#lx - %#lx] len=%#lx session id %d\n",
 			(u64)buf, (u64)buf + buf_size, (u64)buf_size,
 			get_local_session_id(ses_net));
 
@@ -144,8 +146,6 @@ static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
 	return 0;
 }
 
-atomic_long nr_post_send;
-
 static int
 __raw_verbs_send(struct session_net *ses_net,
 		 void *buf, size_t buf_size, struct ibv_mr *send_mr, void *_route)
@@ -197,7 +197,7 @@ __raw_verbs_send(struct session_net *ses_net,
 	 *
 	 * We must occasionally post a Send Request that generates Work Completion.
 	 */
-	if (unlikely(!(atomic_fetch_add(&nr_post_send, 1) % NR_MAX_OUTSTANDING_SEND_WR))) {
+	if (!(atomic_fetch_add(&ses_verbs->nr_post_send, 1) % NR_MAX_OUTSTANDING_SEND_WR)) {
 		wr.send_flags |= IBV_SEND_SIGNALED;
 		signaled = true;
 	} else
@@ -206,7 +206,8 @@ __raw_verbs_send(struct session_net *ses_net,
 #if 0
 	char packet_dump_str[256];
 	dump_packet_headers(buf, packet_dump_str);
-	dprintf_INFO("\033[32m sending: %s size %zu \033[0m\n", packet_dump_str, buf_size);
+	dprintf_INFO("\033[32m signaled %d qpn %u sending: %s size %zu \033[0m\n",
+		signaled, qp->qp_num, packet_dump_str, buf_size);
 #endif
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
@@ -219,7 +220,7 @@ __raw_verbs_send(struct session_net *ses_net,
 		while (1) {
 			struct ibv_wc wc;
 
-			ret = ibv_poll_cq(send_cq, 1, &wc);
+			ret = ibv_poll_cq(send_cq, NR_MAX_OUTSTANDING_SEND_WR, &wc);
 			if (unlikely(!ret))
 				continue;
 			else if (unlikely(ret < 0)) {
@@ -477,6 +478,8 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 /*
  * Internal function to prepare receving buffers.
  * Allocate buffer, register, then post recvs.
+ *
+ * TODO: use huge page
  */
 static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 {
@@ -502,40 +505,6 @@ static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 	ses_verbs->recv_buf = recv_buf;
 
 	post_recvs(ses_verbs);
-}
-
-static int
-raw_verbs_open_session(struct session_net *ses_net,
-		       struct endpoint_info *local_ei,
-		       struct endpoint_info *remote_ei)
-{
-	struct session_raw_verbs *ses_verbs;
-
-	ses_verbs = malloc(sizeof(struct session_raw_verbs));
-	if (!ses_verbs)
-		return -ENOMEM;
-	ses_net->raw_net_private = ses_verbs;
-
-	/* Copy the whole thing */
-	*ses_verbs = cached_session_raw_verbs;
-
-	/*
-	 * Make sure the per-session local variables
-	 * are initiated right
-	 */
-	ses_verbs->send_mr = NULL;
-	ses_verbs->send_buf = NULL;
-	ses_verbs->send_buf_size = 0;
-	return 0;
-}
-
-static int raw_verbs_close_session(struct session_net *ses_net)
-{
-	struct session_raw_verbs *ses_verbs;
-
-	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
-	free(ses_verbs);
-	return 0;
 }
 
 /*
@@ -600,6 +569,123 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	return eth_flow;
 }
 
+static int
+raw_verbs_open_session(struct session_net *ses_net,
+		       struct endpoint_info *local_ei,
+		       struct endpoint_info *remote_ei)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_qp *qp;
+	struct ibv_qp_attr qp_attr;
+	int qp_flags, ret;
+	struct ibv_cq *send_cq;
+	struct ibv_qp_init_attr qp_init_attr = {
+		.qp_context = NULL,
+		.cap = {
+			.max_send_wr = NR_BUFFER_DEPTH,
+			.max_recv_wr = NR_BUFFER_DEPTH,
+			.max_send_sge = 2,
+			.max_recv_sge = 2, 
+			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
+		},
+		/*
+		 * This is the key difference.
+		 * We are using RAW PACKET QPs.
+		 */
+		.qp_type = IBV_QPT_RAW_PACKET,
+		.sq_sig_all = 0
+	};
+
+	ses_verbs = malloc(sizeof(struct session_raw_verbs));
+	if (!ses_verbs)
+		return -ENOMEM;
+	ses_net->raw_net_private = ses_verbs;
+
+	*ses_verbs = cached_session_raw_verbs;
+
+	send_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
+	if (!send_cq) {
+		fprintf(stderr, "Couldn't create CQ %d\n", errno);
+		return -ENOMEM;
+	}
+
+	/*
+	 * Use per-session send CQ
+	 * But share a global rece CQ
+	 */
+	qp_init_attr.send_cq = send_cq;
+	qp_init_attr.recv_cq = cached_session_raw_verbs.recv_cq;
+
+	qp = ibv_create_qp(ib_pd, &qp_init_attr);
+	if (!qp) {
+		dprintf_ERROR("Fail to open a new QP %d\n", errno);
+		return -ENOMEM;
+	}
+
+	/* QP: to INIT state */
+	memset(&qp_attr, 0, sizeof(qp_attr));
+	qp_flags = IBV_QP_STATE | IBV_QP_PORT;
+	qp_attr.qp_state = IBV_QPS_INIT;
+	qp_attr.port_num = ib_port;
+
+	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
+	if (ret < 0) {
+		fprintf(stderr, "Failed modify qp to init\n");
+		return -EPERM;
+	}
+
+	/* QP: to Ready-to-Receive state */
+	memset(&qp_attr, 0, sizeof(qp_attr));
+	qp_flags = IBV_QP_STATE;
+	qp_attr.qp_state = IBV_QPS_RTR;
+	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
+	if (ret < 0) {
+		fprintf(stderr, "failed modify qp to receive\n");
+		return -EPERM;
+	}
+
+	/* QP: to Ready-to-Send state */
+	qp_flags = IBV_QP_STATE;
+	qp_attr.qp_state = IBV_QPS_RTS;
+	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
+	if (ret < 0) {
+		fprintf(stderr, "failed modify qp to send\n");
+		return -EPERM;
+	}
+
+#if 0
+	eth_flow = qp_create_flow(qp, &default_local_ei, ib_port);
+	if (!eth_flow) {
+		return -EPERM;
+	}
+#endif
+
+	ses_verbs->pd = ib_pd;
+	ses_verbs->qp = qp;
+	ses_verbs->send_cq = send_cq;
+	atomic_store(&ses_verbs->nr_post_send, 0);
+
+	dprintf_DEBUG("New QPN %u\n", qp->qp_num);
+
+	/*
+	 * Make sure the per-session local variables
+	 * are initiated right
+	 */
+	ses_verbs->send_mr = NULL;
+	ses_verbs->send_buf = NULL;
+	ses_verbs->send_buf_size = 0;
+	return 0;
+}
+
+static int raw_verbs_close_session(struct session_net *ses_net)
+{
+	struct session_raw_verbs *ses_verbs;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	free(ses_verbs);
+	return 0;
+}
+
 /*
  * This function only run once at each host.
  * This function creates a single QP, Send_CQ, Recv_CQ,
@@ -609,10 +695,8 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 {
 	struct ibv_device **dev_list;
 	struct ibv_device *ib_dev;
-	struct ibv_context *context;
-	struct ibv_pd *pd;
 	struct ibv_qp *qp;
-	struct ibv_cq *cq, *recv_cq;
+	struct ibv_cq *send_cq, *recv_cq;
 	struct ibv_flow *eth_flow;
 	struct ibv_qp_attr qp_attr;
 	int qp_flags;
@@ -648,28 +732,28 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 	dprintf_INFO("Using IB Device: %s (ndev: %s)\n",
 		ibv_get_device_name(ib_dev), ndev);
 
-	context = ibv_open_device(ib_dev);
-	if (!context) {
-		fprintf(stderr, "Couldn't get context for %s\n",
+	ib_context = ibv_open_device(ib_dev);
+	if (!ib_context) {
+		fprintf(stderr, "Couldn't get ib_context for %s\n",
 			ibv_get_device_name(ib_dev));
 		return -ENODEV;
 	}
 
-	pd = ibv_alloc_pd(context);
-	if (!pd) {
+	ib_pd = ibv_alloc_pd(ib_context);
+	if (!ib_pd) {
 		fprintf(stderr, "Couldn't allocate PD\n");
 		return -ENOMEM;
 	}
 
 	/* Create send CQ */
-	cq = ibv_create_cq(context, NR_BUFFER_DEPTH, NULL, NULL, 0);
-	if (!cq) {
+	send_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
+	if (!send_cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		goto out_pd;
 	}
 
 	/* Create recv CQ */
-	recv_cq = ibv_create_cq(context, NR_BUFFER_DEPTH, NULL, NULL, 0);
+	recv_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!recv_cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		goto out_send_cq;
@@ -681,13 +765,13 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 	 */
 	struct ibv_qp_init_attr qp_init_attr = {
 		.qp_context = NULL,
-		.send_cq = cq,
+		.send_cq = send_cq,
 		.recv_cq = recv_cq,
 		.cap = {
 			.max_send_wr = NR_BUFFER_DEPTH,
 			.max_recv_wr = NR_BUFFER_DEPTH,
-			.max_send_sge = 1,
-			.max_recv_sge = 1, 
+			.max_send_sge = 2,
+			.max_recv_sge = 2, 
 			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
 		},
 
@@ -699,7 +783,7 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		.sq_sig_all = 0
 	};
 
-	qp = ibv_create_qp(pd, &qp_init_attr);
+	qp = ibv_create_qp(ib_pd, &qp_init_attr);
 	if (!qp) {
 		fprintf(stderr, "Couldn't create RSS QP\n");
 		goto out_both_cq;
@@ -745,12 +829,10 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		goto out_qp;
 
 	cached_session_raw_verbs.eth_flow = eth_flow;
-	cached_session_raw_verbs.pd = pd;
+	cached_session_raw_verbs.pd = ib_pd;
 	cached_session_raw_verbs.qp = qp;
-	cached_session_raw_verbs.send_cq = cq;
+	cached_session_raw_verbs.send_cq = send_cq;
 	cached_session_raw_verbs.recv_cq = recv_cq;
-	cached_session_raw_verbs.lock = &raw_verbs_lock;
-	pthread_spin_init(&raw_verbs_lock, PTHREAD_PROCESS_PRIVATE);
 
 	initial_post_recvs(&cached_session_raw_verbs);
 
@@ -761,9 +843,9 @@ out_qp:
 out_both_cq:
 	ibv_destroy_cq(recv_cq);
 out_send_cq:
-	ibv_destroy_cq(cq);
+	ibv_destroy_cq(send_cq);
 out_pd:
-	ibv_dealloc_pd(pd);
+	ibv_dealloc_pd(ib_pd);
 	return -1;
 }
 

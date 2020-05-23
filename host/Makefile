@@ -18,7 +18,8 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rw_same.c \
 	     $(TP)/test_rw_tlb.c \
 	     $(TP)/test_rw_inline.c \
-	     $(TP)/test_rw_fault.c
+	     $(TP)/test_rw_fault.c \
+	     $(TP)/test_rw_multiboard.c 
 
 # Board emulator files linked to soc files
 BP := board_emulator

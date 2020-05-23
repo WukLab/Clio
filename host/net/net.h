@@ -9,6 +9,7 @@
 #include <uapi/hashtable.h>
 #include <uapi/net_header.h>
 #include <uapi/net_session.h>
+#include <uapi/compiler.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
@@ -16,6 +17,8 @@
 #include <sys/socket.h>
 #include <netinet/ether.h>
 #include <infiniband/verbs.h>
+#include <stdarg.h>
+#include <stdatomic.h>
 
 extern int sysctl_link_mtu;
 
@@ -32,17 +35,19 @@ struct session_raw_socket {
 	struct ifreq if_idx;
 	struct ifreq if_mac;
 	struct sockaddr_ll saddr;
-};
+} ____cacheline_aligned;
 
 struct session_udp_socket {
 	int sockfd;
 	struct sockaddr_in remote_addr;
-};
+} ____cacheline_aligned;
 
 struct session_raw_verbs {
 	struct ibv_pd *pd;
 	struct ibv_qp *qp;
+
 	struct ibv_cq *send_cq;
+	atomic_long nr_post_send;
 
 	struct ibv_cq *recv_cq;
 	struct ibv_mr *recv_mr;
@@ -63,9 +68,7 @@ struct session_raw_verbs {
 	size_t send_buf_size;
 
 	struct ibv_flow *eth_flow;
-
-	pthread_spinlock_t *lock;
-};
+} ____cacheline_aligned;
 
 void dump_gbn_session(struct session_net *net, bool dump_rx_ring);
 

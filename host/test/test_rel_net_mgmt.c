@@ -22,8 +22,8 @@ static pthread_barrier_t thread_barrier;
 
 #define NR_MAX_THREADS	(128)
 /* Tuning */
-static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
-static int test_nr_threads[] = { 1};
+static int test_size[] = { 1400 };
+static int test_nr_threads[] = { 16};
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)
@@ -79,7 +79,7 @@ static void *thread_func(void *_ti)
 	lego_header->opcode = OP_REQ_PINGPONG;
 
 
-#define INLINE_RECEIVE
+//#define INLINE_RECEIVE
 
 #ifdef INLINE_RECEIVE
 	/*
@@ -142,8 +142,10 @@ retry:
 		latency_ns[ti->id][i] = lat_ns;
 
 #if 1
-		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns\n",
-			ti->id, nr_tests, send_size, test_size[i], lat_ns / nr_tests);
+		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns Throughput: %lf Mbps\n",
+			ti->id,
+			nr_tests, send_size, test_size[i], lat_ns / nr_tests,
+			(NSEC_PER_SEC / (lat_ns / nr_tests) * send_size * 8 /1000000));
 #endif
 	}
 	legomem_close_session(NULL, ses);

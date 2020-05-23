@@ -21,10 +21,10 @@ static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 /* Tuning */
-#define NR_RUN_PER_THREAD 1000000
+#define NR_RUN_PER_THREAD 100000
 
-static int test_size[] = { 4, 16, 64, 256, 512, 1024 };
-static int test_nr_threads[] = { 1};
+static int test_size[] = { 1024};
+static int test_nr_threads[] = { 16};
 
 static double latency_ns[128][128];
 
@@ -100,9 +100,10 @@ static void *thread_func(void *_ti)
 		latency_ns[ti->id][i] = lat_ns;
 
 #if 1
-		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns\n",
+		dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns Throughput: %lf Mbps\n",
 			ti->id,
-			nr_tests, send_size, test_size[i], lat_ns / nr_tests);
+			nr_tests, send_size, test_size[i], lat_ns / nr_tests,
+			(NSEC_PER_SEC / (lat_ns / nr_tests) * send_size * 8 /1000000));
 #endif
 	}
 
