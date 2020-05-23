@@ -10,10 +10,10 @@
 #include <fpga/lego_mem_ctrl.h>
 
 /* TODO: dummy address used for xbar routing */
-#define SOC_XBAR_EPID			0
-#define SOC_XBAR_ADDR			0
-#define EXTAPI_XBAR_EPID		1
-#define EXTAPI_XBAR_ADDR		1
+#define SOC_XBAR_EPID			2
+#define SOC_XBAR_ADDR			8
+#define EXTAPI_XBAR_EPID		3
+#define EXTAPI_XBAR_ADDR		0
 #define VM_PRIVATE			0
 #define VM_SHARE			1
 
