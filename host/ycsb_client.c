@@ -28,9 +28,9 @@ struct ycsb_run_req_struct {
 };
 struct ycsb_run_req_struct *run_reqs;
 
-#define MAX_NUM_BOARD 5
-struct board_info **board;
-int num_board;
+struct session_net **sessions;
+struct legomem_context **legomem_ctx;
+int total_num_boards;
 
 void gen_random_value(char *buf, int size)
 {
@@ -39,6 +39,15 @@ void gen_random_value(char *buf, int size)
 	for (i = 0; i < size; i++) {
 		buf[i] = (char)(i % 127);
 	}
+}
+
+int map_key_to_session_id(char *key, int thread_id)
+{
+	int board_id;
+
+	board_id = key % total_num_boards;
+
+	return board_id * total_num_thread + thread_id;
 }
 
 struct run_thread_input {
@@ -53,8 +62,8 @@ void *ycsb_workload_run_phase(void *input)
 	int my_thread_id;
 	char *value_buf;
 	int key_size, value_size;
-	struct legomem_context legomem_ctx;
 	struct run_thread_input input_val;
+	int session_id;
 
 	input_val = *((struct run_thread_input *)input);
 	my_thread_id = input_val.thread_id;
@@ -73,17 +82,20 @@ void *ycsb_workload_run_phase(void *input)
 	for (i = 0; i < total_num_run_reqs; i++) {
 		if (i % total_num_thread != my_thread_id)
 			continue;
+
+		session_id = map_key_to_session_id(run_reqs[i].key, my_thread_id);
+
 		switch (run_reqs[i].op) {
 			case UPDATE:
-				legomem_kvs_update(&legomem_ctx, key_size, run_reqs[i].key, 
+				legomem_kvs_update(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key, 
 						value_size, value_buf);
 				break;
 			case READ:
-				legomem_kvs_read(&legomem_ctx, key_size, run_reqs[i].key, 
+				legomem_kvs_read(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key, 
 						value_size, value_buf);
 				break;
 			case DELETE:
-				legomem_kvs_delete(&legomem_ctx, key_size, run_reqs[i].key); 
+				legomem_kvs_delete(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key); 
 				break;
 			default:
 				printf("error op code in input file %d\n", i);
@@ -98,7 +110,7 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 {
 	int i;
 	char *value_buf;
-	struct legomem_context legomem_ctx;
+	int session_id;
 
 	value_buf = malloc(value_size);
 	assert(value_buf);
@@ -106,7 +118,8 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 	gen_random_value(value_buf, value_size);
 
 	for (i = 0; i < total_num_load_reqs; i++) {
-		legomem_kvs_create(&legomem_ctx, key_size, load_reqs[i], 
+		session_id = map_key_to_session_id(load_reqs[i], 0);
+		legomem_kvs_create(legomem_ctx[session_id], sessions[session_id], key_size, load_reqs[i], 
 				value_size, value_buf);
 	}
 
@@ -148,7 +161,7 @@ int ycsb_prepare_workload_from_trace(char* filename, int key_size)
 	return 0;
 }
 
-void run_ycsb(char* filename, int thread_num, int key_size, int value_size,
+int run_ycsb_workload(char* filename, int thread_num, int key_size, int value_size,
 			uint64_t total_loads, uint64_t total_reqs)
 {
 	int i;
@@ -200,17 +213,43 @@ void run_ycsb(char* filename, int thread_num, int key_size, int value_size,
 	}
 
 	free(thread_job);
-	return;
+	return 0;
 }
 
-int legomem_setup(int total_client_nodes, int total_boards)
+int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
 {
-	int i;
+	int i, j, k;
+	struct board_info *board;
 
-	num_board = total_boards;
-	board = (struct board_info **)malloc(MAX_NUM_BOARD * sizeof(struct board_info*));
+	sessions = (struct session_net **)malloc(total_boards * 
+			num_threads * sizeof(struct session_net));
+	legomem_ctx = (struct legomem_context **)malloc(total_boards * 
+			num_threads * sizeof(struct legomem_context));
+	if (!sessions || !legomem_ctx)
+		return -1;
+
+	total_num_boards = total_boards;
+
 	for (i = 0; i < total_boards; i++) {
-		board[i] = (struct board_info)malloc(sizeof(struct board_info));
-		//board[i] = find_board(ip, port);
+		// TODO: fix + 2
+		board = find_board_by_id(i + 2);
+		if (!board)
+			return -1;
+		for (j = 0; j < num_threads; j++) {
+			k = i * num_threads + j;
+			sessions[k] = legomem_open_session(legomem_ctx[k], board);
+			if (!sessions[k]) {
+				printf("Cannot open session to board %d thread %d\n", i, j);
+				return -1;
+			}
+		}
 	}
+
+	return 0;
+}
+
+void run_ycsb()
+{
+	legomem_setup(1, 5, 2);
+	//run_ycsb_workload();
 }
