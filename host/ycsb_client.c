@@ -20,6 +20,8 @@ uint16_t threads_ready_cnt;
 int thread_can_start;
 uint64_t total_num_load_reqs;
 uint64_t total_num_run_reqs;
+int max_key_size;
+int value_size;
 int total_num_thread;
 char **load_reqs;
 struct ycsb_run_req_struct {
@@ -52,8 +54,6 @@ int map_key_to_session_id(char *key, int thread_id)
 
 struct run_thread_input {
 	int thread_id;
-	int key_size;
-	int value_size;
 };
 
 void *ycsb_workload_run_phase(void *input) 
@@ -61,16 +61,16 @@ void *ycsb_workload_run_phase(void *input)
 	int i;
 	int my_thread_id;
 	char *value_buf;
-	int key_size, value_size;
 	struct run_thread_input input_val;
 	int session_id;
+	struct timespec ts, te;
+	int req_cnt;
 
 	input_val = *((struct run_thread_input *)input);
 	my_thread_id = input_val.thread_id;
-	value_size = input_val.value_size;
-	key_size = input_val.key_size;
 	value_buf = malloc(value_size);
 	assert(value_buf);
+	req_cnt = 0;
 
 	gen_random_value(value_buf, value_size);
 
@@ -79,6 +79,7 @@ void *ycsb_workload_run_phase(void *input)
 	while (thread_can_start == 0)
 		;
 
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < total_num_run_reqs; i++) {
 		if (i % total_num_thread != my_thread_id)
 			continue;
@@ -87,26 +88,31 @@ void *ycsb_workload_run_phase(void *input)
 
 		switch (run_reqs[i].op) {
 			case UPDATE:
-				legomem_kvs_update(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key, 
+				legomem_kvs_update(legomem_ctx[session_id], sessions[session_id], max_key_size, run_reqs[i].key, 
 						value_size, value_buf);
 				break;
 			case READ:
-				legomem_kvs_read(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key, 
+				legomem_kvs_read(legomem_ctx[session_id], sessions[session_id], max_key_size, run_reqs[i].key, 
 						value_size, value_buf);
 				break;
 			case DELETE:
-				legomem_kvs_delete(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key); 
+				legomem_kvs_delete(legomem_ctx[session_id], sessions[session_id], max_key_size, run_reqs[i].key); 
 				break;
 			default:
 				printf("error op code in input file %d\n", i);
 		}
+		req_cnt++;
 	}
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 
+	printf("thread %d run time %f ns avg latency %f ns\n", my_thread_id, (te.tv_sec*1.0e9 + te.tv_nsec) - 
+		(ts.tv_sec*1.0e9 + ts.tv_nsec), ((te.tv_sec*1.0e9 + te.tv_nsec) - 
+		(ts.tv_sec*1.0e9 + ts.tv_nsec) / req_cnt));
 	free(value_buf);
 	return NULL;
 }
 
-int ycsb_workload_load_phase(int key_size, int value_size)
+int ycsb_workload_load_phase()
 {
 	int i;
 	char *value_buf;
@@ -119,7 +125,7 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 
 	for (i = 0; i < total_num_load_reqs; i++) {
 		session_id = map_key_to_session_id(load_reqs[i], 0);
-		legomem_kvs_create(legomem_ctx[session_id], sessions[session_id], key_size, load_reqs[i], 
+		legomem_kvs_create(legomem_ctx[session_id], sessions[session_id], max_key_size, load_reqs[i], 
 				value_size, value_buf);
 	}
 
@@ -127,7 +133,7 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 	return 0;
 }
 
-int ycsb_prepare_workload_from_trace(char* filename, int key_size)
+int ycsb_prepare_workload_from_trace(char* filename)
 {
 	char line[MAX_LINE_SIZE];
 	FILE *fp;
@@ -142,37 +148,49 @@ int ycsb_prepare_workload_from_trace(char* filename, int key_size)
 
 	while (fgets(line, sizeof(line), fp)) {
 		sscanf(line, "%d %s\n", &op_code, key);
+		if (strlen(key) > max_key_size)
+			max_key_size = strlen(key);
+		if (strlen(key) > MAX_KEY_SIZE) {
+			printf("key size exceeding max %lu\n", strlen(key));
+			return -1;
+		}
+
 		if (op_code == INSERT) {
-			memcpy(load_reqs[load_req_count], key, key_size);
+			memcpy(load_reqs[load_req_count], key, strlen(key));
 			load_req_count++;
 		}
 		else {
 			run_reqs[run_req_count].op = op_code;
-			memcpy(run_reqs[run_req_count].key, key, key_size);
+			memcpy(run_reqs[run_req_count].key, key, strlen(key));
 			run_req_count++;
 		}
 	}
 
 	total_num_load_reqs = load_req_count;
 	total_num_run_reqs = run_req_count;
+	printf("total total_num_load_reqs %lu total_num_run_reqs %lu max_key_size %d\n",
+			total_num_load_reqs, total_num_run_reqs, max_key_size);
 
 	fclose(fp);
 	free(key);
-	return 0;
+	return max_key_size;
 }
 
-int run_ycsb_workload(char* filename, int thread_num, int key_size, int value_size,
+int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 			uint64_t total_loads, uint64_t total_reqs)
 {
 	int i;
 	pthread_t *thread_job;
 	struct run_thread_input *thread_input;
+	struct timespec ts, te;
 
 	total_num_thread = thread_num;
+	value_size = input_value_size;
 	thread_job = malloc(sizeof(pthread_t) * thread_num);
 	assert(thread_job);
 	threads_ready_cnt = 0;
 	thread_can_start = 0;
+	max_key_size = 0;
 	total_num_load_reqs = total_loads;
 	total_num_run_reqs = total_reqs;
 
@@ -183,23 +201,23 @@ int run_ycsb_workload(char* filename, int thread_num, int key_size, int value_si
 			sizeof(struct ycsb_run_req_struct));
 	assert(load_reqs && run_reqs);
 	for (i = 0; i < total_num_load_reqs; i++) {
-		load_reqs[i] = (char *)malloc(key_size);
+		load_reqs[i] = (char *)malloc(MAX_KEY_SIZE);
 		assert(load_reqs[i]);
 	}
 	for (i = 0; i < total_num_run_reqs; i++) {
-		run_reqs[i].key = (char *)malloc(key_size);
+		run_reqs[i].key = (char *)malloc(MAX_KEY_SIZE);
 		assert(run_reqs[i].key);
 	}
 
-	ycsb_prepare_workload_from_trace(filename, key_size);
+	if (ycsb_prepare_workload_from_trace(filename) == -1)
+		return -1;
 
-	ycsb_workload_load_phase(key_size, value_size);
+	ycsb_workload_load_phase();
 
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	thread_can_start = 0;
 	for (i = 0; i < thread_num; i++) {
 		thread_input[i].thread_id = i;
-		thread_input[i].key_size = key_size;
-		thread_input[i].value_size = value_size;
 		printf("creating thread %d\n", i);
 		pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &thread_input[i]);
 	}
@@ -211,6 +229,10 @@ int run_ycsb_workload(char* filename, int thread_num, int key_size, int value_si
 	{
 		pthread_join(thread_job[i], NULL);
 	}
+	clock_gettime(CLOCK_MONOTONIC, &te);
+
+	printf("total run time %f ns\n", (te.tv_sec*1.0e9 + te.tv_nsec) - 
+		(ts.tv_sec*1.0e9 + ts.tv_nsec));
 
 	free(thread_job);
 	return 0;
@@ -231,7 +253,6 @@ int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
 	total_num_boards = total_boards;
 
 	for (i = 0; i < total_boards; i++) {
-		// TODO: fix + 2
 		board = find_board_by_id(i + 2);
 		if (!board)
 			return -1;
