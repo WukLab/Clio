@@ -199,6 +199,7 @@ static void prefill_fifos(struct lego_mem_ctrl *ctrl)
 
 int init_freepage_fifo(void)
 {
+#if 0
 	axidma_dev_t dev;
 	struct fifo_info *fi;
 	int i;
@@ -219,6 +220,6 @@ int init_freepage_fifo(void)
 	prefill_fifos(ctrl_send_buf);
 
 	axidma_free(dev, ctrl_send_buf, CTRL_BUFFER_SIZE);
-
+#endif
 	return 0;
 }

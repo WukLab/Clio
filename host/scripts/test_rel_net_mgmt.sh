@@ -23,5 +23,5 @@ set -e
 # you do NOT need to start soc code.
 #
 ./host.o --monitor=127.0.0.1:8888 --skip_join \
-	 --port=8888 --dev=ens4 \
+	 --port=8888 --dev=p4p1 \
 	 --run_test=relnet_mgmt --add_board="192.168.1.23:1234"

@@ -163,11 +163,6 @@ struct board_info *find_board_by_id(unsigned int id)
 	}
 
 	bi = board_info_map + id;
-	if (!(bi->flags & BOARD_INFO_FLAGS_ALLOCATED)) {
-		dprintf_ERROR("board id %d not allocated\n", id);
-		dump_boards();
-		return NULL;
-	}
 	return bi;
 }
 
@@ -218,19 +213,21 @@ void dump_boards(void)
 	struct board_info *bi;
 	char ip_str[INET_ADDRSTRLEN];
 	char ip_port_str[20];
-	int bkt = 0;
+	int i;
 
 	dprintf_CRIT("Dump All Boards (nr_max_board_id %d)\n", nr_max_board_id);
-	printf("  bucket   board_id   board_name                     ip:port              type\n");
-	printf("  -------- ---------- ------------------------------ -------------------- ----------\n");
+	printf("  board_id   board_name                     ip:port              type\n");
+	printf("  ---------- ------------------------------ -------------------- ----------\n");
 
 	pthread_rwlock_rdlock(&board_lock);
-	hash_for_each(board_list, bkt, bi, link) {
+	for (i = 0; i <= nr_max_board_id; i++) {
+		bi = board_info_map + i;
+
 		get_ip_str(bi->board_ip, ip_str);
 		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
 
-		printf("  %-8d %-10d %-30s %-20s %-10s\n",
-			bkt, bi->board_id, bi->name, ip_port_str,
+		printf("  %-10d %-30s %-20s %-10s\n",
+			bi->board_id, bi->name, ip_port_str,
 			board_info_type_str(bi->flags));
 	}
 	pthread_rwlock_unlock(&board_lock);

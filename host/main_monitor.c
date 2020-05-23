@@ -289,11 +289,7 @@ static struct board_info *handle_alloc_find_board(void)
 {
 	struct board_info *bi;
 
-	if (!atomic_load(&sys_nr_boards))
-		return NULL;
-
 	bi = find_board_by_id(nr_alloc_board_index);
-
 	if (nr_alloc_board_index == nr_max_board_id)
 		nr_alloc_board_index = nr_alloc_board_base;
 	else

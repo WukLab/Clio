@@ -579,6 +579,7 @@ raw_verbs_open_session(struct session_net *ses_net,
 	struct ibv_qp_attr qp_attr;
 	int qp_flags, ret;
 	struct ibv_cq *send_cq;
+	struct ibv_flow *eth_flow __maybe_unused;
 	struct ibv_qp_init_attr qp_init_attr = {
 		.qp_context = NULL,
 		.cap = {
