@@ -92,14 +92,13 @@ static void *thread_func_read(void *_ti)
 	 * we will create a new session
 	 * as the original one belongs to master thread
 	 */
+#if 0
+
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
-
-#if 1
 	send_buf = malloc(PAGE_SIZE);
 	net_reg_send_buf(ses, send_buf, PAGE_SIZE);
 #else
-	bi = ses->board_info;
 	ses = legomem_open_session_remote_mgmt(bi);
 	send_buf = net_get_send_buf(ses);
 #endif
