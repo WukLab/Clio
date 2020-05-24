@@ -48,6 +48,8 @@ static int alloc_sys_pid(void)
 
 unlock:
 	pthread_spin_unlock(&sys_pid_lock);
+
+	/* Shift to SYSTEM PID start */
 	return bit + NR_MAX_USER_PID;
 }
 
@@ -67,9 +69,12 @@ static void free_sys_pid(int pid)
 
 /*
  * Used by both ctrl and data path alloc handlers.
+ * 
  * This is specially designed for multiverion on-chip modules.
+ * This is also used by KVS virt alloc FIFOs.
  */
-unsigned long __handle_ctrl_alloc(struct proc_info *pi, size_t size)
+unsigned long __handle_ctrl_alloc(struct proc_info *pi, size_t size,
+				  unsigned long vm_flags)
 {
 	unsigned int vregion_idx;
 	struct vregion_info *vi;
@@ -85,10 +90,11 @@ repeat:
 	vi = index_to_vregion(pi, vregion_idx);
 
 	/*
-	 * Always populate all the pgtables.
-	 * In case page fifo is not filled.
+	 * _Always_ populate all the pgtables!
+	 * In case page fifo is not filled, or we are doing on-board test.
+	 * This is not normal use path anyway.
 	 */
-	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE);
+	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE | vm_flags);
 	if (unlikely(IS_ERR_VALUE(addr))) {
 		vregion_idx++;
 		if (vregion_idx == NR_VREGIONS) {
@@ -122,7 +128,7 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 	pid = rx->param8 + NR_MAX_USER_PID;
 	size = rx->param32;
 
-	/* Prepare tx */
+	/* XXX EPID Prepare tx */
 	tx->epid = 3;
 	tx->addr = rx->addr;
 	tx->cmd = rx->cmd;
@@ -135,7 +141,11 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 		goto out;
 	}
 
-	addr = __handle_ctrl_alloc(pi, size);
+	/*
+	 * Get a pre-populated areas.
+	 * No need to clear, i guess?
+	 */
+	addr = __handle_ctrl_alloc(pi, size, 0);
 	tx->param32 = (u32)addr;
 
 	dprintf_INFO("pid %d size %x addr %#x\n", pid, size, tx->param32);
@@ -158,6 +168,35 @@ static void handle_ctrl_free(struct lego_mem_ctrl *rx,
 	dprintf_ERROR("Not implemented%d\n", 0);
 }
 
+static pid_t __handle_ctrl_create_proc(void)
+{
+	struct proc_info *pi;
+	pid_t pid;
+
+	/*
+	 * This returns a large SYSTEM PID
+	 * Starting from [NR_MAX_USER_PID, NR_MAX_USER_PID).
+	 */
+	pid = alloc_sys_pid();
+	if (pid < 0) {
+		dprintf_ERROR("System PID space full. %d\n", 0);
+		return 0;
+	}
+
+	/*
+	 * Use the large System PID to insert into
+	 * the hashtable to avoid conflict with normal
+	 * monitor allocated PIDs (which start from 0..)
+	 */
+	pi = alloc_proc(pid, NULL, 0);
+	if (!pi) {
+		dprintf_ERROR("Fail to alloc_proc. OOM %d\n", 0);
+		free_sys_pid(pid);
+		return 0;
+	}
+	return pid;
+}
+
 /*
  * This func handles the case when on-board modules wish
  * to create a process context and virtual memory system.
@@ -168,25 +207,15 @@ static void handle_ctrl_free(struct lego_mem_ctrl *rx,
 static void handle_ctrl_create_proc(struct lego_mem_ctrl *rx,
 				    struct lego_mem_ctrl *tx)
 {
-	struct proc_info *pi;
 	pid_t pid;
 
-	/* Prepare tx */
+	/* XXX EPID Prepare tx */
 	tx->epid = 3;
 	tx->addr = rx->addr;
 	tx->cmd = rx->cmd;
 
-	pid = alloc_sys_pid();
-	if (pid < 0) {
-		dprintf_ERROR("System PID space full. %d\n", 0);
-		tx->param32 = 0;
-		goto out;
-	}
-
-	pi = alloc_proc(pid, NULL, 0);
-	if (!pi) {
-		dprintf_ERROR("Fail to alloc_proc. OOM %d\n", 0);
-		free_sys_pid(pid);
+	pid = __handle_ctrl_create_proc();
+	if (!pid) {
 		tx->param32 = 0;
 		goto out;
 	}
@@ -197,8 +226,7 @@ static void handle_ctrl_create_proc(struct lego_mem_ctrl *rx,
 	 * have to cut the base.
 	 */
 	tx->param32 = pid - NR_MAX_USER_PID;
-
-	dprintf_INFO("PID %u\n", tx->param32);
+	dprintf_DEBUG("PID %u\n", tx->param32);
 out:
 	dma_ctrl_send(tx, sizeof(*tx));
 }
@@ -207,10 +235,12 @@ out:
 /*
  * The first 16M portion is used by physical KVS hashtable.
  */
-#define PHYSICAL_KVS_HASHTABLE_SIZE	(16 * 1024 * 1024)
+#define KVS_HASHTABLE_SIZE	(16 * 1024 * 1024)
+#define EPID_KVS		(3)
 
-static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
-			     struct lego_mem_ctrl *tx)
+__used
+static void handle_kvs_alloc_phys(struct lego_mem_ctrl *rx,
+			          struct lego_mem_ctrl *tx)
 {
 	unsigned long va;
 	int id;
@@ -219,9 +249,9 @@ static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
 	id = __i++;
 
 	/* FIFO 1 */
-	tx->epid = 3;
+	tx->epid = EPID_KVS;
 	tx->addr = 1;
-	tx->param32 = id * 256 + PHYSICAL_KVS_HASHTABLE_SIZE;
+	tx->param32 = id * 256 + KVS_HASHTABLE_SIZE;
 	dma_ctrl_send(tx, sizeof(*tx));
 
 	dprintf_DEBUG("alloc fifo1: tx->param32 addr %#x\n", tx->param32);
@@ -232,9 +262,9 @@ static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
 		clear_fpga_page((void *)va, 256);
 
 		/* FIFO 0 */
-		tx->epid = 3;
+		tx->epid = EPID_KVS;
 		tx->addr = 0;
-		tx->param32 = id * 256 + PHYSICAL_KVS_HASHTABLE_SIZE;
+		tx->param32 = id * 256 + KVS_HASHTABLE_SIZE;
 		dma_ctrl_send(tx, sizeof(*tx));
 
 		dprintf_DEBUG("alloc fifo0: tx->param32 addr %#x\n", tx->param32);
@@ -242,22 +272,106 @@ static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
 }
 
 __used
-static void prepare_kvs(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
+static void prepare_kvs_phys(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 {
 	/*
 	 * Note that fpga_mem_start_soc_va starts from FPGA memory 0.
 	 * Thus we need to add the DATA offset, which is 1GB by default.
 	 */
 	clear_fpga_page((void *)(fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START),
-			PHYSICAL_KVS_HASHTABLE_SIZE);
+			KVS_HASHTABLE_SIZE);
 
 	/* Registers */
-	tx->epid = 3;
+	tx->epid = EPID_KVS;
 	tx->addr = 0xff;
 	tx->cmd = 0;
 	tx->param8 = 0x5;
 	tx->param32 = _FPGA_MEMORY_MAP_DATA_START;
 	dma_ctrl_send(tx, sizeof(*tx));
+
+	dprintf_INFO("Done preparing for KVS Phys... %d", 0);
+}
+
+static pid_t kvs_virt_pid;
+static struct proc_info *kvs_virt_pi;
+
+__used
+static void handle_kvs_alloc_virt(struct lego_mem_ctrl *rx,
+			          struct lego_mem_ctrl *tx)
+{
+	unsigned long addr;	
+
+	BUG_ON(!kvs_virt_pi);
+
+	addr = __handle_ctrl_alloc(kvs_virt_pi, PAGE_SIZE, 0);
+	if (!addr) {
+		dprintf_ERROR("fail to alloc for kvs virt fifo1 %d\n",0);
+		return;
+	}
+
+	/* FIFO 1 */
+	tx->epid = EPID_KVS;
+	tx->addr = 1;
+	tx->param32 = addr;
+	dma_ctrl_send(tx, sizeof(*tx));
+	dprintf_DEBUG("alloc fifo1: tx->param32 va %#x\n", tx->param32);
+
+	if (rx->cmd == CMD_LEGOMEM_KVS_ALLOC_BOTH) {
+		addr = __handle_ctrl_alloc(kvs_virt_pi, PAGE_SIZE, LEGOMEM_VM_FLAGS_ZERO);
+		if (!addr) {
+			dprintf_ERROR("fail to alloc for kvs virt fifo0 %d\n",0);
+			return;
+		}
+
+		/* FIFO 0 */
+		tx->epid = EPID_KVS;
+		tx->addr = 0;
+		tx->param32 = addr;
+		dma_ctrl_send(tx, sizeof(*tx));
+		dprintf_DEBUG("alloc fifo0: tx->param32 va %#x\n", tx->param32);
+	}
+}
+
+__used
+static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
+{
+	pid_t sys_pid;
+
+	/*
+	 * Note that fpga_mem_start_soc_va starts from FPGA memory 0.
+	 * Thus we need to add the DATA offset, which is 1GB by default.
+	 * Clear [0x540000000 - 0x540000000+16M]
+	 */
+	clear_fpga_page((void *)(fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START),
+			KVS_HASHTABLE_SIZE);
+
+	/* Get a System PID (not starting from 0) */
+	sys_pid = __handle_ctrl_create_proc();
+	if (!sys_pid) {
+		dprintf_ERROR("Fail to prepare PID for KVS virt %d\n", 0);
+		return;
+	}
+	kvs_virt_pid = sys_pid;
+	kvs_virt_pi = get_proc_by_pid(kvs_virt_pid);
+	BUG_ON(!kvs_virt_pi);
+
+	tx->epid = EPID_KVS;
+	tx->addr = 0xff;
+	tx->cmd = 1;
+	tx->param8 = 0;
+	tx->param32 = kvs_virt_pid;
+	dma_ctrl_send(tx, sizeof(*tx));
+	dprintf_DEBUG("Prepared Sys PID=%u for KVS virt\n", kvs_virt_pid);
+
+	/* VA offset */
+	tx->epid = EPID_KVS;
+	tx->addr = 0xff;
+	tx->cmd = 0;
+	tx->param8 = 0;
+	tx->param32 = 0;
+	dma_ctrl_send(tx, sizeof(*tx));
+
+	dprintf_INFO("Done preparing for KVS Virt... %d", 0);
 }
 
 __used
@@ -318,7 +432,8 @@ static void *ctrl_poll_func(void *_unused)
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
 	//prepare_multiversion(rx, tx);
-	prepare_kvs(rx, tx);
+	//prepare_kvs_phys(rx, tx);
+	prepare_kvs_virt(rx, tx);
 	//prepare_100g_test();
 
 	while (1) {
@@ -343,7 +458,8 @@ static void *ctrl_poll_func(void *_unused)
 		case CMD_LEGOMEM_KVS_ALLOC:
 		case CMD_LEGOMEM_KVS_ALLOC_BOTH:
 			dprintf_INFO("kvs alloc %d\n", 0);
-			handle_kvs_alloc(rx, tx);
+			//handle_kvs_alloc_phys(rx, tx);
+			handle_kvs_alloc_virt(rx, tx);
 			break;
 		default:
 			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
@@ -375,7 +491,7 @@ static void *ctrl_poll_func(void *_unused)
 			case CMD_LEGOMEM_KVS_ALLOC:
 			case CMD_LEGOMEM_KVS_ALLOC_BOTH:
 				dprintf_INFO("kvs alloc %d\n", 0);
-				handle_kvs_alloc(rx, tx);
+				handle_kvs_alloc_phys(rx, tx);
 				break;
 			default:
 				dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);

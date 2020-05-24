@@ -86,7 +86,7 @@ void init_tlbflush_setup(void);
 int init_ctrl_polling(void);
 
 void handle_test_pte(struct thpool_buffer *tb);
-unsigned long __handle_ctrl_alloc(struct proc_info *pi, size_t size);
+unsigned long __handle_ctrl_alloc(struct proc_info *pi, size_t size, unsigned long vm_flags);
 
 void tlb_flush(struct proc_info *pi, unsigned long va, unsigned long size);
 

@@ -102,7 +102,7 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 			 * It does not know vregion idx, we need to allocate here.
 			 * Thus calling the __handle_ctrl_alloc wrapper.
 			 */
-			addr = __handle_ctrl_alloc(pi, len);
+			addr = __handle_ctrl_alloc(pi, len, 0);
 			resp->op.ret = 0;
 			resp->op.addr = addr;
 
