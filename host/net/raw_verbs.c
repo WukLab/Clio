@@ -203,7 +203,7 @@ __raw_verbs_send(struct session_net *ses_net,
 	} else
 		signaled = false;
 
-#if 0
+#if 1
 	char packet_dump_str[256];
 	dump_packet_headers(buf, packet_dump_str);
 	dprintf_INFO("\033[32m signaled %d qpn %u sending: %s size %zu \033[0m\n",

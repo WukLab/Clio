@@ -20,7 +20,7 @@
 #include "net.h"
 #include "../core.h"
 
-#if 0
+#if 1
 #define CONFIG_GBN_DEBUG
 #endif
 
@@ -550,15 +550,9 @@ static void handle_data_packet(struct session_net *ses_net,
 	hdr = to_gbn_header(packet);
 	seq = hdr->seqnum;
 
-	/* Use the pre-registered buffer to send ACK pkt */
-	mb = ses_gbn->mb_ack_reply;
-	ack_pkt = (struct eth_ack_packet *)mb->buf;
-
-	set_gbn_src_dst_session(&ack_pkt->ack_header,
-				get_gbn_dst_session(hdr),
-				get_gbn_src_session(hdr));
-
 	if (likely(seq == atomic_load(&ses_gbn->seqnum_expect))) {
+		unsigned int out_seqnum;
+
 		/*
 		 * Case 1: normal case
 		 * seqnum is valid and as expected,
@@ -585,30 +579,46 @@ static void handle_data_packet(struct session_net *ses_net,
 		__set_buffer_info_usable(info);
 
 		/*
-		 * XXX: YS
-		 * What is the usage of this ack_enable?
-		 * it seems it got updated for every data packet
+		 * Construct and send back ACK
+		 * We only sent back an ACK every X packets.
 		 */
-		ses_gbn->ack_enable = true;
+		//ses_gbn->ack_enable = true;
+		out_seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
 
-		/* Construct and send back ACK */
-		ack_pkt->ack_header.type = GBN_PKT_ACK;
-		ack_pkt->ack_header.seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
+		if (out_seqnum % 100 == 0) {
+			/* Use the pre-registered buffer to send ACK pkt */
+			mb = ses_gbn->mb_ack_reply;
+			ack_pkt = (struct eth_ack_packet *)mb->buf;
+			set_gbn_src_dst_session(&ack_pkt->ack_header,
+						get_gbn_dst_session(hdr),
+						get_gbn_src_session(hdr));
 
-		inc_stat(STAT_NET_GBN_NR_TX_ACK);
+			ack_pkt->ack_header.seqnum = out_seqnum;
+			ack_pkt->ack_header.type = GBN_PKT_ACK;
+			ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
+			if (unlikely(ret < 0)) {
+				dprintf_ERROR("net_send error %d\n", ret);
+				return;
+			}
 
-		ret = raw_net_send_msg_buf(ses_net, mb, sizeof(*ack_pkt), NULL);
-		if (unlikely(ret < 0)) {
-			dprintf_ERROR("net_send error %d\n", ret);
-			return;
+			inc_stat(STAT_NET_GBN_NR_TX_ACK);
 		}
 	} else if (ses_gbn->ack_enable) {
+		/* Use the pre-registered buffer to send ACK pkt */
+		mb = ses_gbn->mb_ack_reply;
+		ack_pkt = (struct eth_ack_packet *)mb->buf;
+		set_gbn_src_dst_session(&ack_pkt->ack_header,
+					get_gbn_dst_session(hdr),
+					get_gbn_src_session(hdr));
+
 		if (seq > atomic_load(&ses_gbn->seqnum_expect)) {
 			/*
 			 * Case 2:
 			 * seqnum invalid, if response is enabled,
 			 * send back NACK and disable further response
 			 */
+			dprintf_ERROR("WARN: received invalid seqnum %u\n", seq);
+
 			ses_gbn->ack_enable = false;
 			ack_pkt->ack_header.type = GBN_PKT_NACK;
 			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
@@ -625,6 +635,8 @@ static void handle_data_packet(struct session_net *ses_net,
 			 * seqnum valid, but not as expected.
 			 * if response is enabled, send back ACK
 			 */
+			dprintf_ERROR("WARN: received invalid seqnum %u\n", seq);
+
 			ack_pkt->ack_header.type = GBN_PKT_ACK;
 			ack_pkt->ack_header.seqnum = atomic_load(&ses_gbn->seqnum_expect) - 1;
 
@@ -635,7 +647,9 @@ static void handle_data_packet(struct session_net *ses_net,
 				return;
 			}
 		}
-	}
+	} else {
+		dprintf_ERROR("Not an expected ACK seqnum %u\n", seq);
+	};
 }
 
 int nr_recv_pkt = 0;

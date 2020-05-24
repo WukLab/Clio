@@ -95,6 +95,7 @@ set_tb_tx_size(struct thpool_buffer *tb, unsigned int tx_size)
 
 #define THPOOL_BUFFER_USED	0x1
 #define THPOOL_BUFFER_NOREPLY	0x2
+#define THPOOL_BUFFER_NOCONT	0x4
 
 static inline bool ThpoolBufferUsed(struct thpool_buffer *tb)
 {

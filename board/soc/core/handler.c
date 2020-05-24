@@ -95,6 +95,8 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 		vm_flags = ops->vm_flags;
 
 		if (vregion_idx == 0xFFFFFFFFDEADBEEF) {
+			dprintf_DEBUG("\t\t !!! get deadbeef %d\n", 0);
+
 			/*
 			 * Special case crafted for multiverion on-chip modules
 			 * It does not know vregion idx, we need to allocate here.
@@ -103,6 +105,11 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 			addr = __handle_ctrl_alloc(pi, len);
 			resp->op.ret = 0;
 			resp->op.addr = addr;
+
+			// XXX Use macro for 3. multiver
+			tb->flags |= THPOOL_BUFFER_NOCONT;
+			to_lego_header(tb->tx)->cont = MAKE_CONT(3, LEGOMEM_CONT_NONE,
+								 LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
 		} else {
 			/*
 			 * Normal case, requests came from hosts.

@@ -123,9 +123,9 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 	size = rx->param32;
 
 	/* Prepare tx */
-	tx->epid = 0;
-	tx->addr = 0;
-	tx->cmd = 0;
+	tx->epid = 3;
+	tx->addr = rx->addr;
+	tx->cmd = rx->cmd;
 
 	pi = get_proc_by_pid(pid);
 	if (!pi) {
@@ -137,6 +137,8 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 
 	addr = __handle_ctrl_alloc(pi, size);
 	tx->param32 = (u32)addr;
+
+	dprintf_INFO("pid %d size %x addr %#lx\n", pid, size, tx->param32);
 out:
 	dma_ctrl_send(tx, sizeof(*tx));
 }
@@ -170,9 +172,9 @@ static void handle_ctrl_create_proc(struct lego_mem_ctrl *rx,
 	pid_t pid;
 
 	/* Prepare tx */
-	tx->epid = 0;
-	tx->addr = 0;
-	tx->cmd = 0;
+	tx->epid = 3;
+	tx->addr = rx->addr;
+	tx->cmd = rx->cmd;
 
 	pid = alloc_sys_pid();
 	if (pid < 0) {
@@ -195,6 +197,8 @@ static void handle_ctrl_create_proc(struct lego_mem_ctrl *rx,
 	 * have to cut the base.
 	 */
 	tx->param32 = pid - NR_MAX_USER_PID;
+
+	dprintf_INFO("PID %u\n", tx->param32);
 out:
 	dma_ctrl_send(tx, sizeof(*tx));
 }
@@ -215,26 +219,36 @@ static void *ctrl_poll_func(void *_unused)
 	rx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
+#if 1
+	// XXX for multi
+	handle_ctrl_create_proc(rx, tx);
+#endif
+
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
 			;
-		//dprintf_DEBUG("ADDR %x CMD %x\n", rx->addr, rx->cmd);
+
+		dprintf_INFO("ADDR %x CMD %x EPID %x\n", rx->addr, rx->cmd, rx->epid);
 
 		switch (rx->addr) {
 		case LEGOMEM_CTRL_ADDR_FREEPAGE_0:
 		case LEGOMEM_CTRL_ADDR_FREEPAGE_1:
 		case LEGOMEM_CTRL_ADDR_FREEPAGE_2:
+			dprintf_INFO("freepage ack %d\n", 0);
 			handle_ctrl_freepage_ack(rx, tx);
 			break;
 		default:
 			switch (rx->cmd) {
 			case CMD_LEGOMEM_CTRL_CREATE_PROC:
+			dprintf_INFO("create proc %d\n", 0);
 				handle_ctrl_create_proc(rx, tx);
 				break;
 			case CMD_LEGOMEM_CTRL_ALLOC:
+			dprintf_INFO("ctel alloc %d\n", 0);
 				handle_ctrl_alloc(rx, tx);
 				break;
 			case CMD_LEGOMEM_CTRL_FREE:
+			dprintf_INFO("ctrl free%d\n", 0);
 				handle_ctrl_free(rx, tx);
 				break;
 			default:

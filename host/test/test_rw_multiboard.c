@@ -28,7 +28,7 @@ static int test_size[] = { 1024};
  * We assign X threads to each board, meaning
  * they use will the vRegion belong to that board.
  */
-#define NR_BOARDS		(2)
+#define NR_BOARDS		(1)
 #define NR_THREADS_PER_BOARD	(8)
 
 static int test_nr_threads[] = { NR_BOARDS*NR_THREADS_PER_BOARD };

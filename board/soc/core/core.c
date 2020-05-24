@@ -544,8 +544,13 @@ static void worker_handle_request_inline(struct thpool_worker *tw,
 		 * 1. Set cont
 		 * 2. Set the size field in lego header
 		 * 3. move data to the beginning of tx buffer (64B aligned)
+		 *
+		 * Some may wish to reply to on-board modules and may
+		 * supply their own CONT, thus add this checking and skip.
 		 */
-		make_cont(tb);
+		if (!(tb->flags & THPOOL_BUFFER_NOCONT))
+			make_cont(tb);
+
 		tx_lego_hdr->size = tb->tx_size - LEGO_HEADER_OFFSET;
 		memmove(tb->tx, tx_lego_hdr, tx_lego_hdr->size);
 		dma_send(tb->tx, tb->tx_size - LEGO_HEADER_OFFSET);

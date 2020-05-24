@@ -18,7 +18,7 @@
 
 #include "api.h"
 
-#if 0
+#if 1
 # define LEGOMEM_DEBUG
 #endif
 

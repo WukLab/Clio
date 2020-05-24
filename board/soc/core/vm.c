@@ -1205,7 +1205,6 @@ retry:
 							 len);
 	if (has_conflict) {
 		nr_retry++;
-
 		/*
 		 * XXX
 		 * which range?

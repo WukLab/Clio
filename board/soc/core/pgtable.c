@@ -216,8 +216,8 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 {
 	struct lego_mem_pte *pte;
 
-	dprintf_DEBUG("PID: %u New VA @[%#lx - %#lx] vm_flags: %#lx\n",
-		pi->pid, start, end, vm_flags);
+	dprintf_DEBUG("PID: %u New VA @[%#lx - %#lx] size: %#lx vm_flags: %#lx\n",
+		pi->pid, start, end, end - start, vm_flags);
 
 	for ( ; start < end; start += page_size) {
 		/*

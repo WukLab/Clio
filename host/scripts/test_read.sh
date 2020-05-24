@@ -31,8 +31,8 @@ if [ "$1" == "1" ]; then
 		./monitor.o \
 			--dev=p4p1 \
 			--port=$monitor_port \
-			--add_board=192.168.1.23:1234 \
-			--add_board=192.168.1.22:1234
+			--add_board=192.168.1.23:1234
+			#--add_board=192.168.1.22:1234
 	else
 		./monitor.o \
 			--dev=p4p1 \
