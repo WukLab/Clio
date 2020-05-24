@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <stdatomic.h>
 
 #include <uapi/list.h>
 #include <uapi/err.h>
@@ -56,9 +57,11 @@
 #define BUFFER_SIZE	4096	/* maximum size of each send buffer */
 #define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
 
-#define NR_MAX_OUTSTANDING_SEND_WR	(NR_BUFFER_DEPTH / 2)
+#define NR_MAX_OUTSTANDING_SEND_WR	64
 
 int ib_port = 1;
+struct ibv_context *ib_context;
+struct ibv_pd *ib_pd;
 
 /*
  * TODO
@@ -68,7 +71,6 @@ int ib_port = 1;
 #define DEFAULT_MAX_INLINE_SIZE (128)
 
 static struct session_raw_verbs cached_session_raw_verbs;
-static pthread_spinlock_t raw_verbs_lock;
 
 static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 				  void *buf, size_t buf_size)
@@ -85,7 +87,7 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		 * We don't free the buffer.
 		 * Since we don't know if it could be freed.
 		 */
-		dprintf_INFO("NOTICE Overriding session %d registered send buf\n",
+		dprintf_DEBUG("NOTICE Overriding session %d registered send buf\n",
 			get_local_session_id(ses_net));
 		ibv_dereg_mr(ses_verbs->send_mr);
 	}
@@ -96,7 +98,7 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 		return errno;
 	}
 
-	dprintf_INFO("Registered buf: [%#lx - %#lx] len=%#lx session id %d\n",
+	dprintf_DEBUG("Registered buf: [%#lx - %#lx] len=%#lx session id %d\n",
 			(u64)buf, (u64)buf + buf_size, (u64)buf_size,
 			get_local_session_id(ses_net));
 
@@ -138,13 +140,6 @@ raw_verbs_reg_msg_buf(struct session_net *ses_net, void *buf, size_t buf_size)
 	mb->private = mr;
 	return mb;
 }
-
-static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
-{
-	struct ibv_mr *mr;
-
-	if (!mb)
-		return -EINVAL;
 
 static int raw_verbs_dereg_msg_buf(struct session_net *net, struct msg_buf *mb)
 {
@@ -715,6 +710,96 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 	struct ibv_cq *send_cq, *recv_cq;
 	struct ibv_flow *eth_flow;
 	struct ibv_qp_attr qp_attr;
+	int qp_flags;
+	int ret;
+	char ndev[32];
+
+	dev_list = ibv_get_device_list(NULL);
+	if (!dev_list) {
+		perror("Failed to get devices list");
+		return -ENODEV;
+	}
+
+	ib_dev = dev_list[0];
+	if (!ib_dev) {
+		fprintf(stderr, "IB device not found\n");
+		return -ENODEV;
+	}
+
+	ret = ibdev2netdev(ibv_get_device_name(ib_dev), ndev, sizeof(ndev));
+	if (ret) {
+		dprintf_ERROR("fail to do ibdev2netdev %d\n", 0);
+		return ret;
+	}
+
+	if (strncmp(ndev, global_net_dev, sizeof(ndev))) {
+		dprintf_ERROR("We are using ibdev [%s], which maps to network "
+			      "device [%s]. But user passed device is [%s]. "
+			      "If you wish to continue using raw_verbs, "
+			      "please restart and use \"--dev=%s\"\n",
+		ibv_get_device_name(ib_dev), ndev, global_net_dev, ndev);
+		return -EIO;
+	}
+	dprintf_INFO("Using IB Device: %s (ndev: %s)\n",
+		ibv_get_device_name(ib_dev), ndev);
+
+	ib_context = ibv_open_device(ib_dev);
+	if (!ib_context) {
+		fprintf(stderr, "Couldn't get ib_context for %s\n",
+			ibv_get_device_name(ib_dev));
+		return -ENODEV;
+	}
+
+	ib_pd = ibv_alloc_pd(ib_context);
+	if (!ib_pd) {
+		fprintf(stderr, "Couldn't allocate PD\n");
+		return -ENOMEM;
+	}
+
+	/* Create send CQ */
+	send_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
+	if (!send_cq) {
+		fprintf(stderr, "Couldn't create CQ %d\n", errno);
+		goto out_pd;
+	}
+
+	/* Create recv CQ */
+	recv_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
+	if (!recv_cq) {
+		fprintf(stderr, "Couldn't create CQ %d\n", errno);
+		goto out_send_cq;
+	}
+
+	/*
+	 * Create a raw_packet QP
+	 * which uses the above send CQ and recv CQ
+	 */
+	struct ibv_qp_init_attr qp_init_attr = {
+		.qp_context = NULL,
+		.send_cq = send_cq,
+		.recv_cq = recv_cq,
+		.cap = {
+			.max_send_wr = NR_BUFFER_DEPTH,
+			.max_recv_wr = NR_BUFFER_DEPTH,
+			.max_send_sge = 2,
+			.max_recv_sge = 2, 
+			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
+		},
+
+		/*
+		 * This is the key difference.
+		 * We are using RAW PACKET QPs.
+		 */
+		.qp_type = IBV_QPT_RAW_PACKET,
+		.sq_sig_all = 0
+	};
+
+	qp = ibv_create_qp(ib_pd, &qp_init_attr);
+	if (!qp) {
+		fprintf(stderr, "Couldn't create RSS QP\n");
+		goto out_both_cq;
+	}
+
 	/* QP: to INIT state */
 	memset(&qp_attr, 0, sizeof(qp_attr));
 	qp_flags = IBV_QP_STATE | IBV_QP_PORT;
@@ -755,12 +840,10 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		goto out_qp;
 
 	cached_session_raw_verbs.eth_flow = eth_flow;
-	cached_session_raw_verbs.pd = pd;
+	cached_session_raw_verbs.pd = ib_pd;
 	cached_session_raw_verbs.qp = qp;
-	cached_session_raw_verbs.send_cq = cq;
+	cached_session_raw_verbs.send_cq = send_cq;
 	cached_session_raw_verbs.recv_cq = recv_cq;
-	cached_session_raw_verbs.lock = &raw_verbs_lock;
-	pthread_spin_init(&raw_verbs_lock, PTHREAD_PROCESS_PRIVATE);
 
 	initial_post_recvs(&cached_session_raw_verbs);
 
@@ -771,9 +854,9 @@ out_qp:
 out_both_cq:
 	ibv_destroy_cq(recv_cq);
 out_send_cq:
-	ibv_destroy_cq(cq);
+	ibv_destroy_cq(send_cq);
 out_pd:
-	ibv_dealloc_pd(pd);
+	ibv_dealloc_pd(ib_pd);
 	return -1;
 }
 
