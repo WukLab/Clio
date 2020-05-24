@@ -176,6 +176,13 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 		if (vm_flags & LEGOMEM_VM_FLAGS_ZERO)
 			clear_fpga_page(soc_va, PAGE_SIZE);
 
+#if 0
+		for (int i = 0; i < PAGE_SIZE; i++) {
+			char *p = (char *)soc_va + i;
+			*p = i;
+		}
+#endif
+
 	} else {
 		fpga_pte->valid = 0;
 		fpga_pte->ppa = 0;

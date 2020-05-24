@@ -204,49 +204,52 @@ out:
 }
 
 
-static int __i = 0;
+/*
+ * The first 16M portion is used by physical KVS hashtable.
+ */
+#define PHYSICAL_KVS_HASHTABLE_SIZE	(16 * 1024 * 1024)
 
 static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
 			     struct lego_mem_ctrl *tx)
 {
-	// memset?
 	unsigned long va;
 	int id;
+	static int __i = 0;
 
 	id = __i++;
 
+	/* FIFO 1 */
 	tx->epid = 3;
 	tx->addr = 1;
-	tx->param32 = id * 256;
+	tx->param32 = id * 256 + PHYSICAL_KVS_HASHTABLE_SIZE;
 	dma_ctrl_send(tx, sizeof(*tx));
+
+	dprintf_DEBUG("alloc fifo1: tx->param32 addr %#x\n", tx->param32);
 
 	if (rx->cmd == CMD_LEGOMEM_KVS_ALLOC_BOTH) {
 		id = __i++;
-		va = fpga_mem_start_soc_va + id * 256;
+		va = fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START + id * 256;
+		clear_fpga_page((void *)va, 256);
 
-		for (int i = 0; i < (256/8); i++) {
-			*(uint64_t *)(va + i * 8) = 0;
-		}
-
+		/* FIFO 0 */
 		tx->epid = 3;
 		tx->addr = 0;
-		tx->param32 = id * 256;
+		tx->param32 = id * 256 + PHYSICAL_KVS_HASHTABLE_SIZE;
 		dma_ctrl_send(tx, sizeof(*tx));
+
+		dprintf_DEBUG("alloc fifo0: tx->param32 addr %#x\n", tx->param32);
 	}
 }
 
 __used
 static void prepare_kvs(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 {
-	u64 *p;
-	int i, cnt;
-
-	/* Clear the first 16M hashtable */
-	cnt = (16 * 1024 * 1024) / 8;
-	p = (u64 *)fpga_mem_start_soc_va;
-	for (i = 0; i < cnt; i++) {
-		*p++ = 0;
-	}
+	/*
+	 * Note that fpga_mem_start_soc_va starts from FPGA memory 0.
+	 * Thus we need to add the DATA offset, which is 1GB by default.
+	 */
+	clear_fpga_page((void *)(fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START),
+			PHYSICAL_KVS_HASHTABLE_SIZE);
 
 	/* Registers */
 	tx->epid = 3;
@@ -315,14 +318,14 @@ static void *ctrl_poll_func(void *_unused)
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
 	//prepare_multiversion(rx, tx);
-	//prepare_kvs(rx, tx);
-	prepare_100g_test();
+	prepare_kvs(rx, tx);
+	//prepare_100g_test();
 
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
 			;
 
-		dprintf_INFO("ADDR %x CMD %x EPID %x\n", rx->addr, rx->cmd, rx->epid);
+		dprintf_INFO("addr=%x cmd=%x epid=%x\n", rx->addr, rx->cmd, rx->epid);
 
 		switch (rx->cmd) {
 		case CMD_LEGOMEM_CTRL_CREATE_PROC:
