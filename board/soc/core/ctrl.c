@@ -355,6 +355,17 @@ static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	kvs_virt_pi = get_proc_by_pid(kvs_virt_pid);
 	BUG_ON(!kvs_virt_pi);
 
+	/* VA offset */
+	tx->epid = EPID_KVS;
+	tx->addr = 0xff;
+	tx->cmd = 0;
+	tx->param8 = 0;
+	tx->param32 = 0;
+	dma_ctrl_send(tx, sizeof(*tx));
+	dprintf_DEBUG("Prepared vaddr %x for KVS virt\n", 0);
+
+	sleep(5);
+
 	tx->epid = EPID_KVS;
 	tx->addr = 0xff;
 	tx->cmd = 1;
@@ -363,15 +374,7 @@ static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	dma_ctrl_send(tx, sizeof(*tx));
 	dprintf_DEBUG("Prepared Sys PID=%u for KVS virt\n", kvs_virt_pid);
 
-	/* VA offset */
-	tx->epid = EPID_KVS;
-	tx->addr = 0xff;
-	tx->cmd = 0;
-	tx->param8 = 0;
-	tx->param32 = 0;
-	dma_ctrl_send(tx, sizeof(*tx));
-
-	dprintf_INFO("Done preparing for KVS Virt... %d", 0);
+	dprintf_INFO("\n\n\tDone preparing for KVS Virt... %d\n\n", 0);
 }
 
 __used
