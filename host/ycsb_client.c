@@ -16,30 +16,12 @@
 #define DELETE 3
 #define MAX_LINE_SIZE 102400
 
-#define MAX_LINE_SIZE 102400
-
 uint16_t threads_ready_cnt;
 int thread_can_start;
 uint64_t total_num_load_reqs;
 uint64_t total_num_run_reqs;
 int max_key_size;
 int value_size;
-int total_num_thread;
-char **load_reqs;
-struct ycsb_run_req_struct {
-	int op;
-	char *key;
-};
-struct ycsb_run_req_struct *run_reqs;
-
-struct session_net **sessions;
-struct legomem_context **legomem_ctx;
-int total_num_boards;
-
-uint16_t threads_ready_cnt;
-int thread_can_start;
-uint64_t total_num_load_reqs;
-uint64_t total_num_run_reqs;
 int total_num_thread;
 char **load_reqs;
 struct ycsb_run_req_struct {
@@ -63,9 +45,14 @@ void gen_random_value(char *buf, int size)
 
 int map_key_to_session_id(char *key, int thread_id)
 {
+	unsigned long hash = 5381;
 	int board_id;
+	int c;
 
-	board_id = key % total_num_boards;
+	while ((c = *key++) != 0)
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+	board_id = hash % total_num_boards;
 
 	return board_id * total_num_thread + thread_id;
 }
@@ -74,21 +61,21 @@ struct run_thread_input {
 	int thread_id;
 };
 
-void ycsb_workload_run_phase(void *input) 
+void *ycsb_workload_run_phase(void *input) 
 {
 	int i;
 	int my_thread_id;
 	char *value_buf;
-	int key_size, value_size;
 	struct run_thread_input input_val;
 	int session_id;
+	struct timespec ts, te;
+	int req_cnt;
 
 	input_val = *((struct run_thread_input *)input);
 	my_thread_id = input_val.thread_id;
-	value_size = input_val.value_size;
-	key_size = input_val.key_size;
 	value_buf = malloc(value_size);
 	assert(value_buf);
+	req_cnt = 0;
 
 	gen_random_value(value_buf, value_size);
 
@@ -135,39 +122,6 @@ int ycsb_workload_load_phase()
 	int i;
 	char *value_buf;
 	int session_id;
-	for (i = 0; i < total_num_run_reqs / total_num_thread; i++) {
-		id = i / total_num_thread + my_thread_id;
-		switch (run_reqs[id].op) {
-	for (i = 0; i < total_num_run_reqs; i++) {
-		if (i % total_num_thread != my_thread_id)
-			continue;
-		switch (run_reqs[i].op) {
-			case UPDATE:
-				legomem_kvs_update(&legomem_ctx, key_size, run_reqs[i].key, 
-				legomem_kvs_update(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key, 
-						value_size, value_buf);
-				break;
-			case READ:
-				legomem_kvs_read(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key, 
-						value_size, value_buf);
-				break;
-			case DELETE:
-				legomem_kvs_delete(legomem_ctx[session_id], sessions[session_id], key_size, run_reqs[i].key); 
-				break;
-			default:
-				printf("error op code in input file %d\n", i);
-		}
-	}
-
-	free(value_buf);
-	return NULL;
-}
-
-int ycsb_workload_load_phase(int key_size, int value_size)
-{
-	int i;
-	char *value_buf;
-	int session_id;
 
 	value_buf = malloc(value_size);
 	assert(value_buf);
@@ -177,8 +131,6 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 	for (i = 0; i < total_num_load_reqs; i++) {
 		session_id = map_key_to_session_id(load_reqs[i], 0);
 		legomem_kvs_create(legomem_ctx[session_id], sessions[session_id], max_key_size, load_reqs[i], 
-		legomem_kvs_create(&legomem_ctx, key_size, load_reqs[i], 
-		legomem_kvs_create(legomem_ctx[session_id], sessions[session_id], key_size, load_reqs[i], 
 				value_size, value_buf);
 	}
 
@@ -186,13 +138,9 @@ int ycsb_workload_load_phase(int key_size, int value_size)
 	return 0;
 }
 
-int ycsb_prepare_workload_from_trace(char* filename, int key_size)
+int ycsb_prepare_workload_from_trace(char* filename)
 {
 	char line[MAX_LINE_SIZE];
-	FILE *fp;
-	int op_code;
-	char *key;
-	char line[1024];
 	FILE *fp;
 	int op_code;
 	char *key;
@@ -214,19 +162,11 @@ int ycsb_prepare_workload_from_trace(char* filename, int key_size)
 
 		if (op_code == INSERT) {
 			memcpy(load_reqs[load_req_count], key, strlen(key));
-	while (fgets(line, sizeof(line), fd)) {
-		sscanf(line, "%llu %llu\n", &op_code, &key);
-		if (op_code == INSERT) {
-			memcpy(load_reqs[load_req_count], key, key_size);
 			load_req_count++;
 		}
 		else {
 			run_reqs[run_req_count].op = op_code;
 			memcpy(run_reqs[run_req_count].key, key, strlen(key));
-			run_reqs[run_req_count].key = key;
-=======
-			memcpy(run_reqs[run_req_count].key, key, key_size);
->>>>>>> tested parsing and running fake ycsb with 100K reqs
 			run_req_count++;
 		}
 	}
@@ -251,20 +191,6 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 
 	total_num_thread = thread_num;
 	value_size = input_value_size;
-
-	fclose(fp);
-	free(key);
-	return 0;
-}
-
-int run_ycsb_workload(char* filename, int thread_num, int key_size, int value_size,
-			uint64_t total_loads, uint64_t total_reqs)
-{
-	int i;
-	pthread_t *thread_job;
-	struct run_thread_input *thread_input;
-
-	total_num_thread = thread_num;
 	thread_job = malloc(sizeof(pthread_t) * thread_num);
 	assert(thread_job);
 	threads_ready_cnt = 0;
@@ -297,33 +223,6 @@ int run_ycsb_workload(char* filename, int thread_num, int key_size, int value_si
 	thread_can_start = 0;
 	for (i = 0; i < thread_num; i++) {
 		thread_input[i].thread_id = i;
-		printf("creating thread %d\n", i);
-		pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &thread_input[i]);
-	total_num_load_reqs = 0;
-	total_num_run_reqs = 0;
-
-	//sleep(1);
-
-	ycsb_prepare_workload_from_trace(filename);
-=======
-		load_reqs[i] = (char *)malloc(key_size);
-		assert(load_reqs[i]);
-	}
-	for (i = 0; i < total_num_run_reqs; i++) {
-		run_reqs[i].key = (char *)malloc(key_size);
-		assert(run_reqs[i].key);
-	}
->>>>>>> tested parsing and running fake ycsb with 100K reqs
-
-	ycsb_prepare_workload_from_trace(filename, key_size);
-
-	ycsb_workload_load_phase(key_size, value_size);
-
-	thread_can_start = 0;
-	for (i = 0; i < thread_num; i++) {
-		thread_input[i].thread_id = i;
-		thread_input[i].key_size = key_size;
-		thread_input[i].value_size = value_size;
 		printf("creating thread %d\n", i);
 		pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &thread_input[i]);
 	}
@@ -359,47 +258,6 @@ int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
 	total_num_boards = total_boards;
 
 	for (i = 0; i < total_boards; i++) {
-		board = find_board_by_id(i + 2);
-		if (!board)
-			return -1;
-		for (j = 0; j < num_threads; j++) {
-			k = i * num_threads + j;
-			sessions[k] = legomem_open_session(legomem_ctx[k], board);
-			if (!sessions[k]) {
-				printf("Cannot open session to board %d thread %d\n", i, j);
-				return -1;
-			}
-		}
-	}
-
-	return 0;
-}
-
-void run_ycsb()
-{
-	legomem_setup(1, 5, 2);
-	//run_ycsb_workload();
-
-	free(thread_job);
-	return 0;
-}
-
-int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
-{
-	int i, j, k;
-	struct board_info *board;
-
-	sessions = (struct session_net **)malloc(total_boards * 
-			num_threads * sizeof(struct session_net));
-	legomem_ctx = (struct legomem_context **)malloc(total_boards * 
-			num_threads * sizeof(struct legomem_context));
-	if (!sessions || !legomem_ctx)
-		return -1;
-
-	total_num_boards = total_boards;
-
-	for (i = 0; i < total_boards; i++) {
-		// TODO: fix + 2
 		board = find_board_by_id(i + 2);
 		if (!board)
 			return -1;

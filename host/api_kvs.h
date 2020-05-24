@@ -4,6 +4,11 @@
 #ifndef _HOST_API_KVS_H_
 #define _HOST_API_KVS_H_
 
+#include <uapi/compiler.h>
+#include <uapi/sched.h>
+#include <uapi/opcode.h>
+#include "net/net.h"
+
 #define MAX_KEY_SIZE 8
 
 int legomem_kvs_create(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size,

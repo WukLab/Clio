@@ -371,7 +371,7 @@ struct op_kvs_req {
 	uint8_t user;
 	uint8_t key_size;
 	uint16_t value_size;
-	uint64_t key;
+	char *key;
 	char value[0];
 } __packed;
 

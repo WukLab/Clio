@@ -28,7 +28,7 @@
  */
 static int
 __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16_t opcode,
-		    uint16_t key_size, uint64_t key, uint16_t value_size, void *value)
+		    uint16_t key_size, char *key, uint16_t value_size, void *value)
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
@@ -72,19 +72,19 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 }
 
 int legomem_kvs_create(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size, 
-		      uint64_t key, uint16_t value_size, void *value)
+		      char *key, uint16_t value_size, void *value)
 {
 	return __legomem_kvs_write(ctx, ses, OP_REQ_KVS_WRITE, key_size, key, value_size, value);
 }
 
 int legomem_kvs_update(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size,
-		       uint64_t key, uint16_t value_size, void *value)
+		       char *key, uint16_t value_size, void *value)
 {
 	return __legomem_kvs_write(ctx, ses, OP_REQ_KVS_UPDATE, key_size, key, value_size, value);
 }
 
 int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size,
-		     uint64_t key, uint16_t value_size, void *value)
+		     char *key, uint16_t value_size, void *value)
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
@@ -132,7 +132,7 @@ int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint1
 }
 
 int legomem_kvs_delete(struct legomem_context *ctx, struct session_net *ses, 
-		uint16_t key_size, uint64_t key)
+		uint16_t key_size, char *key)
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
