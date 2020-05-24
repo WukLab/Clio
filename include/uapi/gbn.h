@@ -73,7 +73,7 @@
 /*
  * attention: don't make retrans_timeout_cycle less than 1
  */
-#define RETRANS_TIMEOUT_US	(4000)
+#define RETRANS_TIMEOUT_US	(100 * USEC_PER_SEC)
 #define FREQUENCY_MHZ		(250)
 #define CYCLE_TIME_NS		(1000 / FREQUENCY_MHZ)
 #define RETRANS_TIMEOUT_CYCLE	(DIV_ROUND_UP(RETRANS_TIMEOUT_US * 1000, CYCLE_TIME_NS))
