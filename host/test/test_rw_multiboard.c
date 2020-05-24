@@ -21,15 +21,15 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 100000
-static int test_size[] = { 1024};
+#define NR_RUN_PER_THREAD 10000
+static int test_size[] = { 1024 };
 
 /*
  * We assign X threads to each board, meaning
  * they use will the vRegion belong to that board.
  */
-#define NR_BOARDS		(1)
-#define NR_THREADS_PER_BOARD	(8)
+#define NR_BOARDS		(2)
+#define NR_THREADS_PER_BOARD	(10)
 
 static int test_nr_threads[] = { NR_BOARDS*NR_THREADS_PER_BOARD };
 
@@ -92,7 +92,7 @@ static void *thread_func_read(void *_ti)
 	 * we will create a new session
 	 * as the original one belongs to master thread
 	 */
-#if 0
+#if 1
 
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);

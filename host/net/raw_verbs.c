@@ -21,6 +21,14 @@
 #include "net.h"
 #include "../core.h"
 
+#if 0
+# define CONFIG_RAW_VERBS_DUMP_RX
+#endif
+
+#if 1
+# define CONFIG_RAW_VERBS_PER_SESSION_QP
+#endif
+
 /*
  * There is only one global QP and paired CQs for one running instance.
  * It works even if there are multiple instances on the same machine
@@ -203,7 +211,7 @@ __raw_verbs_send(struct session_net *ses_net,
 	} else
 		signaled = false;
 
-#if 1
+#ifdef CONFIG_RAW_VERBS_DUMP_RX
 	char packet_dump_str[256];
 	dump_packet_headers(buf, packet_dump_str);
 	dprintf_INFO("\033[32m signaled %d qpn %u sending: %s size %zu \033[0m\n",
@@ -604,6 +612,7 @@ raw_verbs_open_session(struct session_net *ses_net,
 
 	*ses_verbs = cached_session_raw_verbs;
 
+#ifdef CONFIG_RAW_VERBS_PER_SESSION_QP
 	send_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!send_cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
@@ -667,6 +676,7 @@ raw_verbs_open_session(struct session_net *ses_net,
 	atomic_store(&ses_verbs->nr_post_send, 0);
 
 	dprintf_DEBUG("New QPN %u\n", qp->qp_num);
+#endif /* CONFIG_RAW_VERBS_PER_SESSION_QP */
 
 	/*
 	 * Make sure the per-session local variables

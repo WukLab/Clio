@@ -20,7 +20,7 @@
 #include "net.h"
 #include "../core.h"
 
-#if 1
+#if 0
 #define CONFIG_GBN_DEBUG
 #endif
 
@@ -368,12 +368,6 @@ handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 	unsigned int seq, seqnum_last;
 	struct buffer_info *info;
 
-	/* Update per-session stat */
-	if (hdr->type == GBN_PKT_ACK)
-		ses_gbn->nr_rx_ack++;
-	else if (hdr->type == GBN_PKT_NACK)
-		ses_gbn->nr_rx_nack++;
-
 	seqnum_last = atomic_load(&ses_gbn->seqnum_last);
 	seq = hdr->seqnum;
 	info = index_to_unack_buffer_info(ses_gbn, seq - 1);
@@ -601,6 +595,7 @@ static void handle_data_packet(struct session_net *ses_net,
 				return;
 			}
 
+			//dprintf_CRIT("ses id %d send ack %d\n", get_local_session_id(ses_net), out_seqnum);
 			inc_stat(STAT_NET_GBN_NR_TX_ACK);
 		}
 	} else if (ses_gbn->ack_enable) {
@@ -746,7 +741,7 @@ static void *gbn_poll_func(void *_unused)
 			char packet_dump_str[256];
 
 			dump_packet_headers(recv_buf, packet_dump_str);
-			gbn_debug("new pkt: %s  buf_size: %zu nr_recv_pkt: %d\n",
+			dprintf_CRIT("new pkt: %s  buf_size: %zu nr_recv_pkt: %d\n",
 				packet_dump_str, buf_size,
 				nr_recv_pkt++);
 		}
@@ -886,24 +881,27 @@ __gbn_receive_one(struct session_net *net,
 	ses = (struct session_gbn *)net->transport_private;
 
 	if (nr_data_buffer_info(ses) == 0) {
-		struct timespec s, e;
-
 		if (likely(non_blocking))
 			return 0;
 
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		while (unlikely(!nr_data_buffer_info(ses))) {
-			clock_gettime(CLOCK_MONOTONIC, &e);
-			if ((e.tv_sec - s.tv_sec) > GBN_RECEIVE_MAX_TIMEOUT_S) {
-				dprintf_ERROR("Timeout %d s, sesid: %u TAIL %d HEAD %d\n",
-					GBN_RECEIVE_MAX_TIMEOUT_S,
-					get_local_session_id(net),
-					ses->data_buffer_info_TAIL,
-					ses->data_buffer_info_HEAD);
-				print_backtrace();
-				return -ETIMEDOUT;
+#if 0
+		{
+			struct timespec s __maybe_unused, e __maybe_unused;
+			clock_gettime(CLOCK_MONOTONIC, &s);
+			while (unlikely(!nr_data_buffer_info(ses))) {
+				clock_gettime(CLOCK_MONOTONIC, &e);
+				if ((e.tv_sec - s.tv_sec) > GBN_RECEIVE_MAX_TIMEOUT_S) {
+					dprintf_ERROR("Timeout %d s, sesid: %u TAIL %d HEAD %d\n",
+						GBN_RECEIVE_MAX_TIMEOUT_S,
+						get_local_session_id(net),
+						ses->data_buffer_info_TAIL,
+						ses->data_buffer_info_HEAD);
+					print_backtrace();
+					return -ETIMEDOUT;
+				}
 			}
 		}
+#endif
 	}
 
 	index = ses->data_buffer_info_TAIL++;
