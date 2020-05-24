@@ -443,9 +443,9 @@ initial begin
 	for (int i = 0; i < 15; i++) begin
 		seqnum[3]++;
 
-		data = {<<8{session_id, seqnum, pkt_ack}};
+		data = {<<8{session_id, seqnum, pkt_data}};
 		pld_trans.set_data(data);
-		pld_trans.set_last(1'b1);
+		pld_trans.set_last(1'b0);
 		$display("send udp head");
 		hdr_agent.driver.send(hdr_trans);
 		$display("send gbn head");

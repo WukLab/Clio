@@ -120,6 +120,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	static ap_uint<SEQ_WIDTH> recv_seqnum, expt_seqnum, rx_last_ackd_seqnum,
 		rx_last_sent_seqnum;
 	static ap_uint<SLOT_ID_WIDTH> rx_slot_id, tx_slot_id;
+	static ap_uint<8> ack_countdown;
 
 	static enum table_handle_rx_status handle_rx_state =
 		TAB_STATE_RECV_RX_REQ;
@@ -139,6 +140,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 	static ap_uint<SEQ_WIDTH> expected_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
 	static ap_uint<SEQ_WIDTH> last_ackd_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
 	static ap_uint<SEQ_WIDTH> last_sent_seqnum_array[NR_MAX_SESSIONS_PER_NODE];
+	static ap_uint<8> ack_countdown_array[NR_MAX_SESSIONS_PER_NODE];
 #pragma HLS RESOURCE variable=ack_enable_bitmap core=RAM_T2P_BRAM
 #pragma HLS DEPENDENCE variable=ack_enable_bitmap inter false
 #pragma HLS DEPENDENCE variable=ack_enable_bitmap intra false
@@ -154,6 +156,10 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 #pragma HLS RESOURCE variable=last_sent_seqnum_array core=RAM_T2P_BRAM
 #pragma HLS DEPENDENCE variable=last_sent_seqnum_array inter false
 #pragma HLS DEPENDENCE variable=last_sent_seqnum_array intra false
+
+#pragma HLS RESOURCE variable=ack_countdown_array core=RAM_T2P_BRAM
+#pragma HLS DEPENDENCE variable=ack_countdown_array inter false
+#pragma HLS DEPENDENCE variable=ack_countdown_array intra false
 
 	/*
 	 * state machine for handling receive packet
@@ -225,6 +231,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				    PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
 				    PKT_TYPE_OFFSET) == GBN_PKT_DATA) {
 				expt_seqnum = expected_seqnum_array[rx_slot_id];
+				ack_countdown = ack_countdown_array[rx_slot_id];
 #ifdef ENABLE_PROBE
 				nr_data++;
 #endif
@@ -277,8 +284,15 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 
 			state_query_rsp->write(true);
 			/* deliever udp header */
-			rsp_header->write(rsp_udp_info);
-			rsp_payload->write(rsp_pkt);
+			if (ack_countdown == 0) {
+				rsp_header->write(rsp_udp_info);
+				rsp_payload->write(rsp_pkt);
+				ack_countdown_array[rx_slot_id] =
+					NR_PACKET_PER_ACK;
+			} else {
+				ack_countdown_array[rx_slot_id] =
+					ack_countdown - 1;
+			}
 		} else if (ack_enable_bitmap[rx_slot_id] == 1) {
 			if (recv_seqnum > expt_seqnum) {
 				/* disable ack */
@@ -462,6 +476,7 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 			last_ackd_seqnum_array[set_state_slot_id] = 0;
 			last_sent_seqnum_array[set_state_slot_id] = 0;
 			expected_seqnum_array[set_state_slot_id] = 1;
+			ack_countdown_array[set_state_slot_id] = 0;
 		} else {
 			/* set expected seqnum to 0 to devalid a session */
 			expected_seqnum_array[set_state_slot_id] = 0;
