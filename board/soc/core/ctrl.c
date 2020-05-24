@@ -235,6 +235,7 @@ static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
 	}
 }
 
+__used
 static void prepare_kvs(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 {
 	u64 *p;
@@ -256,9 +257,44 @@ static void prepare_kvs(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	dma_ctrl_send(tx, sizeof(*tx));
 }
 
+__used
 static void prepare_multiversion(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 {
 	handle_ctrl_create_proc(rx, tx);
+}
+
+/*
+ * Prepare a usable VA range for on-board 100G testing module.
+ * We need to allocate PID and VA ranges. While the testing module
+ * can directly use them.
+ */
+__used
+static void prepare_100g_test(void)
+{
+	struct proc_info *pi;
+	pid_t pid;
+	unsigned long addr, size;
+	struct vregion_info *vi;
+	int vregion_idx;
+
+	pid = 1;
+	pi = alloc_proc(pid, NULL, 0);
+	if (!pi) {
+		dprintf_ERROR("Cannot allocate PID %d for testing\n", pid);
+		return;
+	}
+
+	size = PAGE_SIZE;
+	vregion_idx = 0;
+	vi = index_to_vregion(pi, vregion_idx);
+	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE);
+	if (IS_ERR_VALUE(addr)) {
+		dprintf_ERROR("Cannot allocate va vregion %d\n", vregion_idx);
+		return;
+	}
+
+	dprintf_INFO("Testing module is safe to use [%#lx %#lx]\n",
+		addr, addr + size);
 }
 
 /*
@@ -280,6 +316,7 @@ static void *ctrl_poll_func(void *_unused)
 #if 0
 	prepare_multiversion(rx, tx);
 	prepare_kvs(rx, tx);
+	prepare_100g_test();
 #endif
 
 	while (1) {
