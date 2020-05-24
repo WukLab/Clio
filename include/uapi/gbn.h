@@ -6,16 +6,37 @@
 #define _LEGO_MEM_REL_NET_H_
 
 #include <uapi/compiler.h>
+#include <fpga/fpga_memory_map.h>
 
-// fix segment size: 9kb
-#define MAX_PACKET_SIZE		(1536)
-#define WINDOW_SIZE_WIDTH	(7)
-#define WINDOW_SIZE		(1 << (WINDOW_SIZE_WIDTH))
-#define WINDOW_IDX_MSK		(WINDOW_SIZE - 1)
+/*
+ * This depends on MTU.
+ */
+#define MAX_PACKET_SIZE			(1536)
+
+/*
+ * This is the maximum number of unack'ed packets, per-session.
+ * By default it is 128 packets / session.
+ */
+#define WINDOW_SIZE_WIDTH		(7)
+#define WINDOW_SIZE			(1 << (WINDOW_SIZE_WIDTH))
+#define WINDOW_IDX_MSK			(WINDOW_SIZE - 1)
+
+/*
+ * The maximum number of sessions supported by a board.
+ * It's all fixed, cannot be swapped.
+ */
 #define NR_MAX_SESSIONS_PER_NODE	(1024)
-#define NR_PACKET_PER_ACK	(99)
 
-#define LEGOMEM_PORT		(1234)
+/*
+ * Per-session Batched Delay ACK.
+ * This parameter is used by FPGA side.
+ * It's an optimization where we send back an ACK every X packets.
+ *
+ * This must be smaller than WINDOW_SIZE.
+ */
+#define NR_BATCHED_PKT_PER_ACK_FPGA	(99)
+
+#define LEGOMEM_PORT			(1234)
 
 /*
  * gbn header format:
@@ -57,7 +78,9 @@
 #define CYCLE_TIME_NS		(1000 / FREQUENCY_MHZ)
 #define RETRANS_TIMEOUT_CYCLE	(DIV_ROUND_UP(RETRANS_TIMEOUT_US * 1000, CYCLE_TIME_NS))
 
-// buff starts at 1GB
+/*
+ * buff starts at 1GB
+ */
 #define BUFF_ADDRESS_START	(0x504000000)
 
 enum gbn_pkt_type {
@@ -75,4 +98,4 @@ enum gbn_conn_set_type {
 	GBN_SOC2FPGA_SET_TYPE_CLOSE
 };
 
-#endif
+#endif /* _LEGO_MEM_REL_NET_H_ */

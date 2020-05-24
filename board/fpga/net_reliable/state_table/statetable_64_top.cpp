@@ -161,6 +161,8 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 #pragma HLS DEPENDENCE variable=ack_countdown_array inter false
 #pragma HLS DEPENDENCE variable=ack_countdown_array intra false
 
+	BUILD_BUG_ON(NR_BATCHED_PKT_PER_ACK_FPGA >= WINDOW_SIZE);
+
 	/*
 	 * state machine for handling receive packet
 	 */
@@ -273,8 +275,8 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 		 * if received data packet, generate ack/nack response
 		 */
 		if (recv_seqnum == expt_seqnum) {
-			expected_seqnum_array[rx_slot_id] =
-				expt_seqnum + 1;
+			expected_seqnum_array[rx_slot_id] = expt_seqnum + 1;
+
 			ack_enable_bitmap[rx_slot_id] = 1;
 			/* generate response packet */
 			rsp_pkt.data(PKT_TYPE_OFFSET + PKT_TYPE_WIDTH - 1,
@@ -283,15 +285,19 @@ void state_table_64(stream<struct udp_info>		*rsp_header,
 				expt_seqnum;
 
 			state_query_rsp->write(true);
-			/* deliever udp header */
+
+			/*
+			 * Opt: Delayed ACK generation.
+			 *
+			 * We delay ACK generation and only send back an ACK every
+			 * NR_BATCHED_PKT_PER_ACK_FPGA packets. This is per-session.
+			 */
 			if (ack_countdown == 0) {
 				rsp_header->write(rsp_udp_info);
 				rsp_payload->write(rsp_pkt);
-				ack_countdown_array[rx_slot_id] =
-					NR_PACKET_PER_ACK;
+				ack_countdown_array[rx_slot_id] = NR_BATCHED_PKT_PER_ACK_FPGA;
 			} else {
-				ack_countdown_array[rx_slot_id] =
-					ack_countdown - 1;
+				ack_countdown_array[rx_slot_id] = ack_countdown - 1;
 			}
 		} else if (ack_enable_bitmap[rx_slot_id] == 1) {
 			if (recv_seqnum > expt_seqnum) {
