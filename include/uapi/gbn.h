@@ -79,9 +79,15 @@
 #define RETRANS_TIMEOUT_CYCLE	(DIV_ROUND_UP(RETRANS_TIMEOUT_US * 1000, CYCLE_TIME_NS))
 
 /*
- * buff starts at 1GB
+ * Network now has a range of 512MB cache.
+ * Marked by:
+ * 	_FPGA_MEMORY_MAP_NETCACHE_START
+ * 	_FPGA_MEMORY_MAP_NETCACHE_END
+ *
+ * See fpga/fpga_memory_map.h for details.
  */
-#define BUFF_ADDRESS_START	(0x504000000)
+#define BUFF_ADDRESS_START	(FPGA_MEMORY_MAP_MAPPING_BASE + \
+				 _FPGA_MEMORY_MAP_NETCACHE_START)
 
 enum gbn_pkt_type {
 	GBN_PKT_ACK = 1,
