@@ -12,9 +12,13 @@
  * CMDs for lego_mem_ctrl->cmd
  */
 enum {
-	CMD_LEGOMEM_CTRL_CREATE_PROC,
+	CMD_LEGOMEM_CTRL_CREATE_PROC = 0,
 	CMD_LEGOMEM_CTRL_ALLOC,
 	CMD_LEGOMEM_CTRL_FREE,
+
+
+	CMD_LEGOMEM_KVS_ALLOC = 8,
+	CMD_LEGOMEM_KVS_ALLOC_BOTH = 9,
 };
 
 struct lego_mem_ctrl {

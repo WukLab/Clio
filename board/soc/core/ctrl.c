@@ -138,7 +138,7 @@ static void handle_ctrl_alloc(struct lego_mem_ctrl *rx,
 	addr = __handle_ctrl_alloc(pi, size);
 	tx->param32 = (u32)addr;
 
-	dprintf_INFO("pid %d size %x addr %#lx\n", pid, size, tx->param32);
+	dprintf_INFO("pid %d size %x addr %#x\n", pid, size, tx->param32);
 out:
 	dma_ctrl_send(tx, sizeof(*tx));
 }
@@ -203,6 +203,64 @@ out:
 	dma_ctrl_send(tx, sizeof(*tx));
 }
 
+
+static int __i = 0;
+
+static void handle_kvs_alloc(struct lego_mem_ctrl *rx,
+			     struct lego_mem_ctrl *tx)
+{
+	// memset?
+	unsigned long va;
+	int id;
+
+	id = __i++;
+
+	tx->epid = 3;
+	tx->addr = 1;
+	tx->param32 = id * 256;
+	dma_ctrl_send(tx, sizeof(*tx));
+
+	if (rx->cmd == CMD_LEGOMEM_KVS_ALLOC_BOTH) {
+		id = __i++;
+		va = fpga_mem_start_soc_va + id * 256;
+
+		for (int i = 0; i < (256/8); i++) {
+			*(uint64_t *)(va + i * 8) = 0;
+		}
+
+		tx->epid = 3;
+		tx->addr = 0;
+		tx->param32 = id * 256;
+		dma_ctrl_send(tx, sizeof(*tx));
+	}
+}
+
+static void prepare_kvs(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
+{
+	u64 *p;
+	int i, cnt;
+
+	/* Clear the first 16M hashtable */
+	cnt = (16 * 1024 * 1024) / 8;
+	p = (u64 *)fpga_mem_start_soc_va;
+	for (i = 0; i < cnt; i++) {
+		*p++ = 0;
+	}
+
+	/* Registers */
+	tx->epid = 3;
+	tx->addr = 0xff;
+	tx->cmd = 0;
+	tx->param8 = 0x5;
+	tx->param32 = _FPGA_MEMORY_MAP_DATA_START;
+	dma_ctrl_send(tx, sizeof(*tx));
+}
+
+static void prepare_multiversion(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
+{
+	handle_ctrl_create_proc(rx, tx);
+}
+
 /*
  * This is the CTRL AXIS DMA FIFO polling thread.
  * It will dispatch events to different handlers
@@ -219,9 +277,9 @@ static void *ctrl_poll_func(void *_unused)
 	rx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
-#if 1
-	// XXX for multi
-	handle_ctrl_create_proc(rx, tx);
+#if 0
+	prepare_multiversion(rx, tx);
+	prepare_kvs(rx, tx);
 #endif
 
 	while (1) {
@@ -230,6 +288,30 @@ static void *ctrl_poll_func(void *_unused)
 
 		dprintf_INFO("ADDR %x CMD %x EPID %x\n", rx->addr, rx->cmd, rx->epid);
 
+		switch (rx->cmd) {
+		case CMD_LEGOMEM_CTRL_CREATE_PROC:
+			dprintf_INFO("create proc %d\n", 0);
+			handle_ctrl_create_proc(rx, tx);
+			break;
+		case CMD_LEGOMEM_CTRL_ALLOC:
+			dprintf_INFO("ctel alloc %d\n", 0);
+			handle_ctrl_alloc(rx, tx);
+			break;
+		case CMD_LEGOMEM_CTRL_FREE:
+			dprintf_INFO("ctrl free%d\n", 0);
+			handle_ctrl_free(rx, tx);
+			break;
+		case CMD_LEGOMEM_KVS_ALLOC:
+		case CMD_LEGOMEM_KVS_ALLOC_BOTH:
+			dprintf_INFO("kvs alloc %d\n", 0);
+			handle_kvs_alloc(rx, tx);
+			break;
+		default:
+			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
+			break;
+		}
+
+#if 0
 		switch (rx->addr) {
 		case LEGOMEM_CTRL_ADDR_FREEPAGE_0:
 		case LEGOMEM_CTRL_ADDR_FREEPAGE_1:
@@ -240,16 +322,21 @@ static void *ctrl_poll_func(void *_unused)
 		default:
 			switch (rx->cmd) {
 			case CMD_LEGOMEM_CTRL_CREATE_PROC:
-			dprintf_INFO("create proc %d\n", 0);
+				dprintf_INFO("create proc %d\n", 0);
 				handle_ctrl_create_proc(rx, tx);
 				break;
 			case CMD_LEGOMEM_CTRL_ALLOC:
-			dprintf_INFO("ctel alloc %d\n", 0);
+				dprintf_INFO("ctel alloc %d\n", 0);
 				handle_ctrl_alloc(rx, tx);
 				break;
 			case CMD_LEGOMEM_CTRL_FREE:
-			dprintf_INFO("ctrl free%d\n", 0);
+				dprintf_INFO("ctrl free%d\n", 0);
 				handle_ctrl_free(rx, tx);
+				break;
+			case CMD_LEGOMEM_KVS_ALLOC:
+			case CMD_LEGOMEM_KVS_ALLOC_BOTH:
+				dprintf_INFO("kvs alloc %d\n", 0);
+				handle_kvs_alloc(rx, tx);
 				break;
 			default:
 				dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
@@ -257,6 +344,7 @@ static void *ctrl_poll_func(void *_unused)
 			}
 			break;
 		}
+#endif
 	}
 	return NULL;
 }
