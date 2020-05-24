@@ -293,8 +293,9 @@ static void prepare_100g_test(void)
 		return;
 	}
 
-	dprintf_INFO("Testing module is safe to use [%#lx %#lx]\n",
-		addr, addr + size);
+	dprintf_INFO("\n\n"
+		"\t Testing module is safe to use PID %u  VA@[%#lx-%#lx]\n\n",
+		pid, addr, addr + size);
 }
 
 /*
@@ -313,11 +314,9 @@ static void *ctrl_poll_func(void *_unused)
 	rx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
-#if 0
-	prepare_multiversion(rx, tx);
-	prepare_kvs(rx, tx);
+	//prepare_multiversion(rx, tx);
+	//prepare_kvs(rx, tx);
 	prepare_100g_test();
-#endif
 
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
