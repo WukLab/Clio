@@ -22,6 +22,7 @@
 /* Knobs */
 #define NR_RUN_PER_THREAD 1000000
 
+#if 0
 //static int test_size[] = { 4, 16, 64, 256, 512, 1024, 2048, 4096 };
 static int test_size[] = { 256 };
 static int test_nr_threads[] = { 1 };
@@ -309,9 +310,11 @@ static void *thread_func_read(void *_ti)
 	}
 	return NULL;
 }
+#endif
 
 int test_legomem_rw_inline(char *_unused)
 {
+#if 0
 	int k, i, j, ret;
 	int nr_threads;
 	pthread_t *tid;
@@ -370,6 +373,7 @@ int test_legomem_rw_inline(char *_unused)
 					NR_RUN_PER_THREAD, nr_threads, send_size, avg_read, avg_write);
 		}
 	}
-
+#endif
 	return 0;
+
 }

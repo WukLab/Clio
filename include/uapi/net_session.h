@@ -139,6 +139,7 @@ struct transport_net_ops {
 
 	/* Send one packet */
 	int (*send_one)(struct session_net *, void *, size_t, void *);
+	int (*send_one_msg_buf)(struct session_net *, struct msg_buf *, size_t, void *);
 
 	/*
 	 * Receive one packet
@@ -158,6 +159,7 @@ struct transport_net_ops {
 	int (*close_session)(struct session_net *);
 
 	int (*reg_send_buf)(struct session_net *, void *buf, size_t buf_size);
+
 	struct msg_buf *(*reg_msg_buf)(struct session_net *, void *buf, size_t buf_size);
 	int (*dereg_msg_buf)(struct session_net *, struct msg_buf *);
 };
@@ -185,19 +187,20 @@ struct raw_net_ops {
 	 * Receive one packet
 	 * Blocking call, return when there is packet.
 	 */
-	int (*receive_one)(void *, size_t);
+	int (*receive_one)(struct session_net *, void *, size_t);
 
 	/*
 	 * The callee will return the pointer to the buffer and buf size.
 	 * This function will not do any copy.
 	 */
-	int (*receive_one_zerocopy)(void **, size_t *);
+	int (*receive_one_zerocopy)(struct session_net *, void **, size_t *);
+	int (*receive_one_zerocopy_batch)(struct session_net *, void **, size_t *);
 
 	/*
 	 * Receive one packet
 	 * Non-blocking call, return immediately.
 	 */
-	int (*receive_one_nb)(void *, size_t);
+	int (*receive_one_nb)(struct session_net *, void *, size_t);
 
 	int (*open_session)(struct session_net *, struct endpoint_info *, struct endpoint_info *);
 	int (*close_session)(struct session_net *);
@@ -214,8 +217,8 @@ struct raw_net_ops {
 };
 
 extern struct raw_net_ops raw_verbs_ops;
-extern struct raw_net_ops raw_socket_ops;
-extern struct raw_net_ops raw_udp_socket_ops;
+//extern struct raw_net_ops raw_socket_ops;
+//extern struct raw_net_ops raw_udp_socket_ops;
 extern struct transport_net_ops transport_bypass_ops;
 extern struct transport_net_ops transport_gbn_ops;
 
@@ -267,25 +270,27 @@ raw_net_send_msg_buf(struct session_net *net, struct msg_buf *buf, size_t buf_si
 }
 
 static inline int
-raw_net_receive(void *buf, size_t buf_size)
+raw_net_receive(struct session_net *ses, void *buf, size_t buf_size)
 {
-	return raw_net_ops->receive_one(buf, buf_size);
+	return raw_net_ops->receive_one(ses, buf, buf_size);
 }
 
 static inline int
-raw_net_receive_zerocopy(void **buf, size_t *buf_size)
+raw_net_receive_zerocopy_batch(struct session_net *ses, void **buf, size_t *buf_size)
 {
-	if (likely(raw_net_ops->receive_one_zerocopy))
-		return raw_net_ops->receive_one_zerocopy(buf, buf_size);
-	return -ENOSYS;
+	return raw_net_ops->receive_one_zerocopy_batch(ses, buf, buf_size);
 }
 
 static inline int
-raw_net_receive_nb(void *buf, size_t buf_size)
+raw_net_receive_zerocopy(struct session_net *ses, void **buf, size_t *buf_size)
 {
-	if (likely(raw_net_ops->receive_one_nb))
-		return raw_net_ops->receive_one_nb(buf, buf_size);
-	return -ENOSYS;
+	return raw_net_ops->receive_one_zerocopy(ses, buf, buf_size);
+}
+
+static inline int
+raw_net_receive_nb(struct session_net *ses, void *buf, size_t buf_size)
+{
+	return raw_net_ops->receive_one_nb(ses, buf, buf_size);
 }
 
 static inline int
@@ -334,10 +339,20 @@ net_reg_msg_buf(struct session_net *ses, void *buf, size_t buf_size)
 	return raw_net_ops->reg_msg_buf(ses, buf, buf_size);
 }
 
+/*
+ * Not too many places call this function.
+ * This one is not intended for normal callers.
+ */
 static __always_inline int
 net_send_with_route(struct session_net *net, void *buf, size_t buf_size, void *route)
 {
 	return transport_net_ops->send_one(net, buf, buf_size, route);
+}
+
+static inline int
+net_send_msg_buf(struct session_net *net, struct msg_buf *buf, size_t buf_size)
+{
+	return transport_net_ops->send_one_msg_buf(net, buf, buf_size, NULL);
 }
 
 static __always_inline int
@@ -369,11 +384,7 @@ net_send_and_receive(struct session_net *net,
 		     void *tx_buf, size_t tx_buf_size,
 		     void *rx_buf, size_t rx_buf_size)
 {
-	int ret;
-
-	ret = net_send(net, tx_buf, tx_buf_size);
-	if (ret <= 0)
-		return ret;
+	net_send(net, tx_buf, tx_buf_size);
 	return net_receive(net, rx_buf, rx_buf_size);
 }
 
@@ -382,11 +393,7 @@ net_send_and_receive_zerocopy(struct session_net *net,
 			      void *tx_buf, size_t tx_buf_size,
 			      void **rx_buf, size_t *rx_buf_size)
 {
-	int ret;
-
-	ret = net_send(net, tx_buf, tx_buf_size);
-	if (ret <= 0)
-		return ret;
+	net_send(net, tx_buf, tx_buf_size);
 	return net_receive_zerocopy(net, rx_buf, rx_buf_size);
 }
 

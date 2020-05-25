@@ -113,14 +113,14 @@ void dump_net_sessions(void)
 
 		bi = ses->board_info;
 		get_ip_str(ses->board_ip, ip_str);
-		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
+		sprintf(ip_port_str, "%s:%d", ip_str, bi ? bi->udp_port : 0);
 
 		printf("  %-8d %-12u %-12u %-20s %-30s\n",
 			bkt,
 			get_local_session_id(ses),
 			get_remote_session_id(ses),
 			ip_port_str,
-			bi->name);
+			bi ? bi->name : "(null)");
 	}
 	pthread_spin_unlock(&session_lock);
 	printf("\n");

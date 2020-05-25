@@ -289,11 +289,15 @@ static struct board_info *handle_alloc_find_board(void)
 {
 	struct board_info *bi;
 
+repeat:
 	bi = find_board_by_id(nr_alloc_board_index);
 	if (nr_alloc_board_index == nr_max_board_id)
 		nr_alloc_board_index = nr_alloc_board_base;
 	else
 		nr_alloc_board_index++;
+
+	if (!(bi->flags & BOARD_INFO_FLAGS_BOARD))
+		goto repeat;
 
 	return bi;
 }
@@ -762,8 +766,6 @@ static void handle_query_stat(struct thpool_buffer *tb)
 	resp->nr_items = NR_STAT_TYPES;
 }
 
-extern int nr_recv_pkt;
-
 static void worker_handle_request(struct thpool_worker *tw,
 				  struct thpool_buffer *tb)
 {
@@ -833,9 +835,8 @@ static void worker_handle_request(struct thpool_worker *tw,
 			char err_msg[128];
 			dump_packet_headers(tb->rx, err_msg);
 			dprintf_ERROR("received unknown or un-implemented opcode: %u (%s) packet dump: \n"
-				      "%s pkt_size: %zu B nr_recv_pkt: %d\n", opcode, legomem_opcode_str(opcode), err_msg,
-				      tb->rx_size, nr_recv_pkt- 1);
-			dump_gbn_session(mgmt_session, true);
+				      "%s pkt_size: %zu B\n", opcode, legomem_opcode_str(opcode), err_msg,
+				      tb->rx_size);
 		}
 		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
 		break;
@@ -1041,11 +1042,15 @@ int main(int argc, char **argv)
 		case 'n':
 			if (!strncmp(optarg, "raw_verbs", 16))
 				raw_net_ops = &raw_verbs_ops;
-			else if (!strncmp(optarg, "raw_udp", 16))
-				raw_net_ops = &raw_udp_socket_ops;
-			else if (!strncmp(optarg, "raw_socket", 16))
-				raw_net_ops = &raw_socket_ops;
-			else {
+			else if (!strncmp(optarg, "raw_udp", 16)) {
+				//raw_net_ops = &raw_udp_socket_ops;
+				printf("not supported\n");
+				exit(0);
+			} else if (!strncmp(optarg, "raw_socket", 16)) {
+				//raw_net_ops = &raw_socket_ops;
+				printf("not supported\n");
+				exit(0);
+			} else {
 				printf("Invalid net_raw_ops: %s\n"
 				       "Available Options are:\n"
 				       "  1. raw_verbs (default if nothing is specified)\n"

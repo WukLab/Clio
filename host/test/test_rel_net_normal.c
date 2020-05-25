@@ -21,10 +21,10 @@ static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
 
 /* Tuning */
-#define NR_RUN_PER_THREAD 100000
+#define NR_RUN_PER_THREAD 100
 
 static int test_size[] = { 1024};
-static int test_nr_threads[] = { 16};
+static int test_nr_threads[] = { 1};
 
 static double latency_ns[128][128];
 

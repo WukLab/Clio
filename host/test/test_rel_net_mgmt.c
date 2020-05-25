@@ -15,7 +15,7 @@
 
 #include "../core.h"
 
-#define NR_RUN_PER_THREAD 1000000
+#define NR_RUN_PER_THREAD 100
 
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
@@ -23,7 +23,7 @@ static pthread_barrier_t thread_barrier;
 #define NR_MAX_THREADS	(128)
 /* Tuning */
 static int test_size[] = { 1400 };
-static int test_nr_threads[] = { 16};
+static int test_nr_threads[] = { 1};
 static double latency_ns[128][128];
 
 static inline void die(const char * str, ...)

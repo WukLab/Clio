@@ -125,6 +125,13 @@ void handle_open_session(struct thpool_buffer *tb)
 	dprintf_DEBUG("session opened, remote: %s remote sesid: %u local sesid: %u\n",
 		bi->name, get_remote_session_id(ses_net), get_local_session_id(ses_net));
 
+	/*
+	 * Patch the UDP port
+	 * for raw verbs.
+	 */
+	ses_net->route.udp.src_port = htons(global_base_udp_port + get_local_session_id(ses_net));
+	ses_net->route.udp.dst_port = htons(port + get_remote_session_id(ses_net));
+
 	return;
 
 error:

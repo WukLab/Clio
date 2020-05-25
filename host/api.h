@@ -65,4 +65,12 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 				 void *send_buf, unsigned long __remote addr, size_t total_size,
 				 enum legomem_write_flag flag);
 
+int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session_net *ses,
+				     struct msg_buf *send_mb, void *recv_buf,
+				     unsigned long __remote addr, size_t total_size);
+
+int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct session_net *ses,
+					struct msg_buf *send_mb, unsigned long __remote addr, size_t total_size,
+					enum legomem_write_flag flag);
+
 #endif /* _LEGOMEM_PUBLIC_APIS_ */

@@ -263,6 +263,8 @@ out:
 struct endpoint_info default_local_ei;
 struct board_info *default_local_bi;
 
+unsigned int global_base_udp_port;
+
 /*
  * Give us a @dev and port@, we will init the ei for you.
  * Mac, IP, port, we will take care of them.
@@ -292,6 +294,7 @@ int init_default_local_ei(const char *dev, unsigned int port,
 		printf("%x ", mac[i]);
 	printf("\033[0m\n");
 
+	global_base_udp_port = port;
 	return 0;
 }
 

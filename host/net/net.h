@@ -42,34 +42,45 @@ struct session_udp_socket {
 	struct sockaddr_in remote_addr;
 } ____cacheline_aligned;
 
+
+/*
+ * Raw Verbs
+ */
+#define BUFFER_SIZE			(4096)	/* maximum size of each send buffer */
+#define NR_BUFFER_DEPTH			(128)
+#define NR_MAX_OUTSTANDING_SEND_WR	(64)
+#define NR_BATCH_POST_RECV		(32)
+#define NR_MAX_RECV_BATCH		(32)
+
 struct session_raw_verbs {
 	struct ibv_pd *pd;
 	struct ibv_qp *qp;
 
 	struct ibv_cq *send_cq;
-	atomic_long nr_post_send;
+	unsigned long nr_post_send;
 
 	struct ibv_cq *recv_cq;
 	struct ibv_mr *recv_mr;
 	void *recv_buf;
 
-	/*
-	 * Registered via net_reg_send_buf
-	 * Each session would only have one registerd send buffer.
-	 * A session is used by one thread, if it is extended to
-	 * use coroutine, it would be per-coroutine.
-	 *
-	 * This is per session local.
-	 * Others are shared, check open_session code.
-	 * We reused the cached_session_raw_verbs
-	 */
 	struct ibv_mr *send_mr;
 	void *send_buf;
 	size_t send_buf_size;
 
-	struct ibv_flow *eth_flow;
+	struct ibv_flow 	*eth_flow;
+	unsigned int		rx_udp_port;
+
+	struct ibv_wc		send_wc[NR_MAX_OUTSTANDING_SEND_WR];
+
+	struct ibv_sge		recv_sge[NR_BUFFER_DEPTH];
+	struct ibv_recv_wr	recv_wr[NR_BUFFER_DEPTH];
+	struct ibv_wc		recv_wc[NR_MAX_RECV_BATCH];
+
+	int recv_head;
+	int nr_delayed_recvs;
 } ____cacheline_aligned;
 
 void dump_gbn_session(struct session_net *net, bool dump_rx_ring);
+struct ibv_mr *raw_verbs_reg_mr(void *buf, size_t buf_size);
 
 #endif /* _HOST_NET_NET_H_ */

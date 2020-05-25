@@ -13,23 +13,26 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <sys/mman.h>
+#include <infiniband/verbs.h>
 
 #include "../core.h"
+#include "../net/net.h"
 
-#define NR_MAX 128
+#define NR_MAX 32
 
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 10000
-static int test_size[] = { 1024 };
+#define NR_RUN_PER_THREAD 100000
+static int test_size[] = { 1400 };
 
 /*
  * We assign X threads to each board, meaning
  * they use will the vRegion belong to that board.
  */
-#define NR_BOARDS		(2)
-#define NR_THREADS_PER_BOARD	(10)
+#define NR_BOARDS		(4)
+#define NR_THREADS_PER_BOARD	(4)
 
 static int test_nr_threads[] = { NR_BOARDS*NR_THREADS_PER_BOARD };
 
@@ -55,30 +58,35 @@ static inline void die(const char * str, ...)
 struct thread_info {
 	int id;
 	int cpu;
+
+	struct msg_buf mb;
 };
 
 static struct legomem_context *ctx;
 static pthread_barrier_t thread_barrier;
 
+struct msg_buf mb_array[NR_MAX];
+
 static void *thread_func_read(void *_ti)
 {
 	unsigned long __remote addr;
 	unsigned long size;
-	void *send_buf, *recv_buf;
+	void *recv_buf;
 	int i, j, nr_tests;
 	struct timespec s, e;
 	struct thread_info *ti = (struct thread_info *)_ti;
 	int cpu, node;
-	int ret;
 	struct session_net *ses;
 	struct session_net *mgmt_ses __maybe_unused;
 	struct board_info *bi __maybe_unused;
+	struct msg_buf *mb;
 
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 
 	/*
 	 * Get the pre allocated addr
+	 * I mean, remote addr space address :)
 	 */
 	i = ti->id / NR_THREADS_PER_BOARD;
 	addr = global_base_addr[i];
@@ -88,22 +96,20 @@ static void *thread_func_read(void *_ti)
 	dprintf_CRIT("Thread id %d running on CPU %d. Base Addr %#lx, board: %s\n",
 			ti->id, cpu, addr, bi->name);
 
-	/*
-	 * we will create a new session
-	 * as the original one belongs to master thread
-	 */
+	/* Got per-thread msg buf */
+	mb = &mb_array[ti->id];
+
+	dprintf_INFO("t %d %#lx %#lx\n", ti->id, (u64)mb->buf, (u64)mb->private);
 #if 1
 
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
-	send_buf = malloc(PAGE_SIZE);
-	net_reg_send_buf(ses, send_buf, PAGE_SIZE);
 #else
 	ses = legomem_open_session_remote_mgmt(bi);
 	send_buf = net_get_send_buf(ses);
 #endif
 
-	recv_buf = malloc(PAGE_SIZE);
+	recv_buf = malloc(4096);
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
@@ -112,53 +118,39 @@ static void *thread_func_read(void *_ti)
 		pthread_barrier_wait(&thread_barrier);
 
 #if 1
-		legomem_write_sync(ctx, send_buf, addr, 0x10);
-
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
-			if (unlikely(ret < 0)) {
-				dprintf_ERROR(
-					"thread id %d fail at %d, error code %d\n",
-					ti->id, j, ret);
-				break;
-			}
+			legomem_read_with_session_msgbuf(ctx, ses, mb, recv_buf, addr, size);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 
-		latency_write_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
-			latency_write_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000));
-#endif
-		pthread_barrier_wait(&thread_barrier);
+		latency_read_ns[ti->id][i] = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) - 
+					     (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-
-#if 1
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_read_with_session(ctx, ses,
-							send_buf, recv_buf, addr, size);
-			if (unlikely(ret < 0)) {
-				dprintf_ERROR(
-					"thread id %d fail at %d, error code %d\n",
-					ti->id, j, ret);
-				break;
-			}
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
-
-		latency_read_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size,
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
+
+#if 1
+		pthread_barrier_wait(&thread_barrier);
+
+		clock_gettime(CLOCK_MONOTONIC, &s);
+		for (j = 0; j < nr_tests; j++) {
+			__legomem_write_with_session_msgbuf(ctx, ses, mb, addr, size, LEGOMEM_WRITE_SYNC);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &e);
+
+		latency_write_ns[ti->id][i] = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+					      (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size,
+			latency_write_ns[ti->id][i] / j,
+			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000));
+#endif
+
+
 	}
 	return NULL;
 }
@@ -169,6 +161,10 @@ int test_legomem_rw_multiboard(char *_unused)
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
+	void *recv_buf;
+	struct ibv_mr *mr;
+
+	BUILD_BUG_ON(NR_BOARDS * NR_THREADS_PER_BOARD > NR_MAX);
 
 	ctx = legomem_open_context();
 	if (!ctx)
@@ -198,7 +194,7 @@ int test_legomem_rw_multiboard(char *_unused)
 
 		ses = find_or_alloc_vregion_session(ctx, addr);
 		bi = ses->board_info;
-		dprintf_CRIT("test board group %d is using: %s, addr range: [%#lx - %#lx]\n",
+		dprintf_ERROR("Test board group %d is Using: %s, addr range: [%#lx - %#lx]\n",
 			i, bi->name, addr, addr + size);
 
 		global_bi[i] = bi;
@@ -209,6 +205,36 @@ int test_legomem_rw_multiboard(char *_unused)
 	tid = malloc(sizeof(*tid) * NR_MAX);
 	if (!tid || !ti)
 		die("OOM");
+
+	/*
+	 * Prepare msgbuf
+	 * Assume 4K per thread
+	 */
+	int max_buf_size = 4096 * NR_MAX;
+	recv_buf = mmap(0, max_buf_size,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB,
+			0, 0);
+	if (recv_buf == MAP_FAILED) {
+		perror("mmap");
+		dprintf_ERROR("Fail to allocate memory %d\n", errno);
+		exit(0);
+	}
+
+	mr = raw_verbs_reg_mr(recv_buf, max_buf_size);
+	if (!mr)
+		exit(0);
+
+	for (i = 0; i < NR_MAX; i++) {
+		struct msg_buf *mb = &mb_array[i];
+
+		mb->buf = recv_buf + i * 4096;
+		mb->max_buf_size = 4096;
+		mb->private = (void *)mr;
+
+		dprintf_INFO("index %d buf %#lx private %#lx\n",
+			i, (u64)mb->buf, (u64)mb->private);
+	}
 
 	for (k = 0; k < ARRAY_SIZE(test_nr_threads); k++) {
 		nr_threads = test_nr_threads[k];

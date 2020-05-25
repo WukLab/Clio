@@ -18,7 +18,7 @@
 
 #include "api.h"
 
-#if 0
+#if 1
 # define LEGOMEM_DEBUG
 #endif
 
@@ -41,12 +41,16 @@
 	printf("\033[1;33m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 extern int gbn_polling_thread_cpu;
+extern int gbn_polling_thread_cpu_2;
+extern int gbn_polling_thread_cpu_3;
 extern int mgmt_dispatcher_thread_cpu;
 
 extern bool stop_gbn_poll_thread;
 extern bool stop_mgmt_dispatcher_thread;
 
 extern int max_lego_payload;
+
+extern unsigned int global_base_udp_port;
 
 /*
  * pthread_rwlock_t is a big structure, around 50-60B.

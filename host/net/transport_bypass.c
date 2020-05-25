@@ -27,25 +27,25 @@ static inline int bypass_send_one(struct session_net *net,
 static inline int bypass_receive_one(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
-	return raw_net_receive(buf, buf_size);
+	return raw_net_receive(net, buf, buf_size);
 }
 
 static inline int bypass_receive_one_zerocopy(struct session_net *net,
 				  void **buf, size_t *buf_size)
 {
-	return raw_net_receive_zerocopy(buf, buf_size);
+	return raw_net_receive_zerocopy(net, buf, buf_size);
 }
 
 static inline int bypass_receive_one_zerocopy_nb(struct session_net *net,
 				  void **buf, size_t *buf_size)
 {
-	return raw_net_receive_zerocopy(buf, buf_size);
+	return raw_net_receive_zerocopy(net, buf, buf_size);
 }
 
 static inline int bypass_receive_one_nb(struct session_net *net,
 				  void *buf, size_t buf_size)
 {
-	return raw_net_receive_nb(buf, buf_size);
+	return raw_net_receive_nb(net, buf, buf_size);
 }
 
 static inline int

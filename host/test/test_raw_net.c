@@ -5,6 +5,7 @@
  * Using raw net layer means we skip any transport layer logic.
  */
 
+#if 0
 #include <uapi/vregion.h>
 #include <uapi/compiler.h>
 #include <uapi/sched.h>
@@ -139,6 +140,7 @@ static void *thread_func(void *_ti)
 	legomem_close_session(NULL, ses);
 	return NULL;
 }
+#endif
 
 /*
  * Special note:
@@ -152,6 +154,7 @@ static void *thread_func(void *_ti)
  */
 int test_raw_net(char *board_ip_port_str)
 {
+#if 0
 	unsigned int ip, port;
 	unsigned int ip1, ip2, ip3, ip4;
 	int k, i, j, ret;
@@ -218,5 +221,7 @@ int test_raw_net(char *board_ip_port_str)
 					NR_RUN_PER_THREAD, nr_threads, send_size, avg);
 		}
 	}
+	return 0;
+#endif
 	return 0;
 }

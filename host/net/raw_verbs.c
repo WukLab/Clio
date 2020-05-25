@@ -5,6 +5,7 @@
  * More specific, we use IBV_QPT_RAW_PACKET QPs.
  */
 #include <netinet/in.h>
+#include <sys/mman.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,46 +23,14 @@
 #include "../core.h"
 
 #if 1
-# define CONFIG_RAW_VERBS_DUMP_RX
+# define CONFIG_RAW_VERBS_DUMP_TX
 #endif
-
-#if 1
-# define CONFIG_RAW_VERBS_PER_SESSION_QP
-#endif
-
-/*
- * There is only one global QP and paired CQs for one running instance.
- * It works even if there are multiple instances on the same machine
- * (each using different udp ports of course).
- *
- * Parameters can be tuned:
- * 1. qp_init_attr, esp max_send_wr and max_recv_wr.
- */
-
-/*
- * FIXME
- * The zerocopy trick that used by GBN works if and only if
- *   GBN window size > BUFFER_SIZE*NR_BUFFER_DEPTH
- *
- * Because the ib_raw layer never free any buffers, it simply reuse
- * the buffer by re-posting it to the RECV_CQ. On the other hand,
- * GBN layer simply enqueue the buffer into its temporary data list,
- * waiting apps to call receive_one.
- *
- * If ib_raw layer's ring buffer is smaller than the GBN window size,
- * IB device might override buffer still sitting in the temporary list!
- * Thus, we need to add such checks in the future.
- *
- * also, we need to take number of connections into account.
- */
-#define BUFFER_SIZE	4096	/* maximum size of each send buffer */
-#define NR_BUFFER_DEPTH	512	/* maximum number of sends waiting for completion */
-
-#define NR_MAX_OUTSTANDING_SEND_WR	64
 
 int ib_port = 1;
 struct ibv_context *ib_context;
 struct ibv_pd *ib_pd;
+
+static atomic_int base_udp_port;
 
 /*
  * TODO
@@ -69,8 +38,6 @@ struct ibv_pd *ib_pd;
  * Check the atc16 paper.
  */
 #define DEFAULT_MAX_INLINE_SIZE (128)
-
-static struct session_raw_verbs cached_session_raw_verbs;
 
 static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 				  void *buf, size_t buf_size)
@@ -106,6 +73,18 @@ static int raw_verbs_reg_send_buf(struct session_net *ses_net,
 	ses_verbs->send_buf = buf;
 	ses_verbs->send_buf_size = buf_size;
 	return 0;
+}
+
+struct ibv_mr *raw_verbs_reg_mr(void *buf, size_t buf_size)
+{
+	struct ibv_mr *mr;
+
+	mr = ibv_reg_mr(ib_pd, buf, buf_size, IBV_ACCESS_LOCAL_WRITE);
+	if (!mr) {
+		perror("reg mr:");
+		return NULL;
+	}
+	return mr;
 }
 
 static struct msg_buf *
@@ -205,16 +184,16 @@ __raw_verbs_send(struct session_net *ses_net,
 	 *
 	 * We must occasionally post a Send Request that generates Work Completion.
 	 */
-	if (!(atomic_fetch_add(&ses_verbs->nr_post_send, 1) % NR_MAX_OUTSTANDING_SEND_WR)) {
+	if (!(ses_verbs->nr_post_send++ % NR_MAX_OUTSTANDING_SEND_WR)) {
 		wr.send_flags |= IBV_SEND_SIGNALED;
 		signaled = true;
 	} else
 		signaled = false;
 
-#ifdef CONFIG_RAW_VERBS_DUMP_RX
+#ifdef CONFIG_RAW_VERBS_DUMP_TX
 	char packet_dump_str[256];
 	dump_packet_headers(buf, packet_dump_str);
-	dprintf_INFO("\033[32m signaled %d qpn %u sending: %s size %zu \033[0m\n",
+	dprintf_INFO("\033[32m TX signaled=%d QPN=%u pkt: %s size %zu \033[0m\n",
 		signaled, qp->qp_num, packet_dump_str, buf_size);
 #endif
 
@@ -226,15 +205,13 @@ __raw_verbs_send(struct session_net *ses_net,
 
 	if (unlikely(signaled)) {
 		while (1) {
-			struct ibv_wc wc;
-
-			ret = ibv_poll_cq(send_cq, NR_MAX_OUTSTANDING_SEND_WR, &wc);
-			if (unlikely(!ret))
-				continue;
-			else if (unlikely(ret < 0)) {
+			ret = ibv_poll_cq(send_cq, NR_MAX_OUTSTANDING_SEND_WR,
+					  ses_verbs->send_wc);
+			if (ret < 0) {
 				dprintf_ERROR("Fail to poll CQ %d\n", errno);
 				goto out;
-			}
+			} else if (ret == 0)
+				continue;
 			break;
 		}
 	}
@@ -330,120 +307,112 @@ raw_verbs_send(struct session_net *ses_net,
 	return ret;
 }
 
-/*
- * This function is not used, there is nothing wrong about
- * this function itself, but the moment it is called: recv_wr is empty.
- * Thus some incoming packets will be dropped.
- */
-static void post_recvs(struct session_raw_verbs *ses)
+static void batched_post_recv(struct session_raw_verbs *ses, int nr_recvs)
 {
-	struct ibv_sge sge;
-	struct ibv_recv_wr recv_wr, *bad_recv_wr;
-	int i;
+	struct ibv_recv_wr *first_wr, *last_wr, *tmp_wr, *bad_wr;
+	int first_wr_i, last_wr_i;
+	int ret;
 
-	sge.lkey = ses->recv_mr->lkey;
-	sge.length = BUFFER_SIZE;
-	recv_wr.num_sge = 1;
-	recv_wr.sg_list = &sge;
-	recv_wr.next = NULL;
+	ses->nr_delayed_recvs += nr_recvs;
+	if (ses->nr_delayed_recvs < NR_BATCH_POST_RECV)
+		return;
 
-	for (i = 0; i < NR_BUFFER_DEPTH; i++) {
-		sge.addr = (uint64_t)(ses->recv_buf + BUFFER_SIZE * i);
-		recv_wr.wr_id = i;
-		if (ibv_post_recv(ses->qp, &recv_wr, &bad_recv_wr) < 0) {
-			printf("Fail to post recv wr\n");
-			exit(1);
-		}
-	}
-}
+	first_wr_i = ses->recv_head;
+	last_wr_i = first_wr_i + (ses->nr_delayed_recvs - 1);
+	if (last_wr_i >= NR_BUFFER_DEPTH)
+		last_wr_i -= NR_BUFFER_DEPTH;
 
-static void
-post_recv(struct session_raw_verbs *ses, unsigned int id)
-{
-	struct ibv_sge sge;
-	struct ibv_recv_wr recv_wr, *bad_recv_wr;
+	first_wr = &ses->recv_wr[first_wr_i];
+	last_wr = &ses->recv_wr[last_wr_i];
+	tmp_wr = last_wr->next;
 
-	sge.lkey = ses->recv_mr->lkey;
-	sge.length = BUFFER_SIZE;
-	recv_wr.num_sge = 1;
-	recv_wr.sg_list = &sge;
-	recv_wr.next = NULL;
+	/* Break circularity for posting */
+	last_wr->next = NULL;
 
-	sge.addr = (uint64_t)(ses->recv_buf + BUFFER_SIZE * id);
-	recv_wr.wr_id = id;
-	if (unlikely(ibv_post_recv(ses->qp, &recv_wr, &bad_recv_wr) < 0)) {
+	ret = ibv_post_recv(ses->qp, first_wr, &bad_wr);
+	if (unlikely(ret < 0)) {
 		dprintf_ERROR("Fail to post a new recv_wr %d\n", errno);
 		dump_stats();
 		dump_legomem_contexts();
 		dump_net_sessions();
 	}
+
+	/* Restore circularity */
+	last_wr->next = tmp_wr;
+
+	ses->recv_head = (last_wr_i + 1) % NR_BUFFER_DEPTH;
+	ses->nr_delayed_recvs = 0;
 }
 
 /*
  * Our current caller is gbn_poll_func, and it is single thread.
  * Thus this function basically is single-threaded.
  */
-static int raw_verbs_receive_zerocopy(void **buf, size_t *buf_size)
+static int raw_verbs_receive_zerocopy_batch(struct session_net *ses_net,
+					    void **buf, size_t *buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_cq *recv_cq;
-	int ret;
-	void *recv_buf;
+	int i, ret;
 
-	if (unlikely(!buf || !buf_size))
-		return -EINVAL;
-
-	ses_verbs = &cached_session_raw_verbs;
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	recv_cq = ses_verbs->recv_cq;
-	recv_buf = ses_verbs->recv_buf;
 
-	while (1) {
-		struct ibv_wc wc;
-		void *buf_p;
+	ret = ibv_poll_cq(recv_cq, NR_MAX_RECV_BATCH, ses_verbs->recv_wc);
+	if (unlikely(ret < 0)) {
+		perror("Poll CQ:");
+		return ret;
+	} else if (ret == 0)
+		return 0;
 
-		ret = ibv_poll_cq(recv_cq, 1, &wc);
-		if (unlikely(ret < 0)) {
-			perror("Poll CQ:");
-			return ret;
-		} else if (ret == 0)
-			return 0;
-
-		inc_stat(STAT_NET_RAW_VERBS_NR_RX_ZEROCOPY);
-
-		/* Get its position in the ring buffer */
-		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
-
-		*buf = buf_p;
-		*buf_size = wc.byte_len;
-
-#if 0
-		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1))) {
-			inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
-			post_recvs(ses_verbs);
-		}
-#else
-		post_recv(ses_verbs, (unsigned int)(wc.wr_id));
-#endif
-		break;
+	for (i = 0; i < ret; i++) {
+		buf[i] = (void *)ses_verbs->recv_wc[i].wr_id;
+		buf_size[i] = ses_verbs->recv_wc[i].byte_len;
 	}
 
-	ret = *buf_size;
+	batched_post_recv(ses_verbs, ret);
 	return ret;
 }
 
-static int raw_verbs_receive(void *buf, size_t buf_size)
+/*
+ * Non-blocking, return 0 if there is no packet.
+ */
+static int raw_verbs_receive_zerocopy(struct session_net *ses_net,
+				      void **buf, size_t *buf_size)
 {
 	struct session_raw_verbs *ses_verbs;
 	struct ibv_cq *recv_cq;
-	void *recv_buf;
+	struct ibv_wc wc;
 	int ret;
 
-	ses_verbs = &cached_session_raw_verbs;
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 	recv_cq = ses_verbs->recv_cq;
-	recv_buf = ses_verbs->recv_buf;
+
+	ret = ibv_poll_cq(recv_cq, 1, &wc);
+	if (unlikely(ret < 0)) {
+		perror("Poll CQ:");
+		return ret;
+	} else if (ret == 0)
+		return 0;
+
+	buf[0] = (void *)wc.wr_id;
+	buf_size[0] = wc.byte_len;
+
+	batched_post_recv(ses_verbs, 1);
+	return 1;
+}
+
+static int raw_verbs_receive(struct session_net *ses_net, void *buf, size_t buf_size)
+{
+	struct session_raw_verbs *ses_verbs;
+	struct ibv_cq *recv_cq;
+	struct ibv_wc wc;
+	int ret;
+
+	ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+	recv_cq = ses_verbs->recv_cq;
 
 	while (1) {
-		struct ibv_wc wc;
 		void *buf_p;
 
 		ret = ibv_poll_cq(recv_cq, 1, &wc);
@@ -454,28 +423,19 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 			return 0;
 		inc_stat(STAT_NET_RAW_VERBS_NR_RX);
 
-		/* Get its position in the ring buffer */
-		buf_p = recv_buf + wc.wr_id * BUFFER_SIZE;
-
 		if (unlikely(wc.byte_len > buf_size)) {
 			dprintf_ERROR("Buf too small (received_size: %u "
 				      "user_buf_size: %zu)\n",
 				      wc.byte_len, buf_size);
 			return -EIO;
 		}
+		buf_size = wc.byte_len;
 
 		/* Extra memcpy is needed if user provides buffer */
-		buf_size = wc.byte_len;
+		buf_p = (void *)wc.wr_id;
 		memcpy(buf, buf_p, buf_size);
 
-#if 0
-		if (unlikely(wc.wr_id == (NR_BUFFER_DEPTH - 1))) {
-			inc_stat(STAT_NET_RAW_VERBS_NR_POST_RECVS);
-			post_recvs(ses_verbs);
-		}
-#else
-		post_recv(ses_verbs, (unsigned int)(wc.wr_id));
-#endif
+		batched_post_recv(ses_verbs, 1);
 		break;
 	}
 
@@ -486,22 +446,29 @@ static int raw_verbs_receive(void *buf, size_t buf_size)
 /*
  * Internal function to prepare receving buffers.
  * Allocate buffer, register, then post recvs.
- *
- * TODO: use huge page
  */
 static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 {
 	void *recv_buf;
 	int recv_buf_size;
 	struct ibv_mr *recv_mr;
+	int i;
+	u64 addr;
+	struct ibv_recv_wr *bad_recv_wr;
+	struct ibv_sge *recv_sge;
+	struct ibv_recv_wr *recv_wr;
 
 	recv_buf_size = BUFFER_SIZE * NR_BUFFER_DEPTH;
-	recv_buf = malloc(recv_buf_size);
-	if (!recv_buf) {
-		printf("Fail to allocate memory\n");
-		return;
+
+	recv_buf = mmap(0, recv_buf_size,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB,
+			0, 0);
+	if (recv_buf == MAP_FAILED) {
+		perror("mmap");
+		dprintf_ERROR("Fail to allocate memory %d\n", errno);
+		exit(0);
 	}
-	memset(recv_buf, 0, recv_buf_size);
 
 	recv_mr = ibv_reg_mr(ses_verbs->pd, recv_buf, recv_buf_size,
 			     IBV_ACCESS_LOCAL_WRITE);
@@ -509,10 +476,41 @@ static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 		printf("Coundn't register recv mr\n");
 		return;
 	}
+
+	/* Save them */
 	ses_verbs->recv_mr = recv_mr;
 	ses_verbs->recv_buf = recv_buf;
 
-	post_recvs(ses_verbs);
+	recv_wr = ses_verbs->recv_wr;
+	recv_sge = ses_verbs->recv_sge;
+
+	for (i = 0; i < NR_BUFFER_DEPTH; i++) {
+		addr = (u64)(recv_buf + BUFFER_SIZE * i);
+
+		recv_sge[i].addr = addr;
+		recv_sge[i].lkey = recv_mr->lkey;
+		recv_sge[i].length = BUFFER_SIZE;
+
+		recv_wr[i].wr_id = addr;
+		recv_wr[i].num_sge = 1;
+		recv_wr[i].sg_list = &recv_sge[i];
+
+		/* Circular link */
+		if (i < (NR_BUFFER_DEPTH - 1))
+			recv_wr[i].next = &recv_wr[i + 1];
+		else
+			recv_wr[i].next = &recv_wr[0];
+	}
+
+	/* Break the last one circular link for posting */
+	recv_wr[NR_BUFFER_DEPTH - 1].next = NULL;
+	if (ibv_post_recv(ses_verbs->qp, &recv_wr[0], &bad_recv_wr) < 0) {
+		printf("Fail to post recv wr\n");
+		exit(1);
+	}
+
+	/* Restore cirularity */
+	recv_wr[NR_BUFFER_DEPTH - 1].next = &recv_wr[0];
 }
 
 /*
@@ -524,7 +522,7 @@ static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
  */
 static struct ibv_flow *
 qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
-	       unsigned int qp_ib_port)
+	       unsigned int qp_ib_port, unsigned int rx_udp_port)
 {
 	struct raw_eth_flow_attr {
 		struct ibv_flow_attr		attr;
@@ -568,7 +566,7 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	/* Steer packets for this UDP port */
 	spec_tcp_udp->type = IBV_FLOW_SPEC_UDP;
 	spec_tcp_udp->size = sizeof(struct ibv_flow_spec_tcp_udp);
-	spec_tcp_udp->val.dst_port = htons(local->udp_port);
+	spec_tcp_udp->val.dst_port = htons(rx_udp_port);
 	spec_tcp_udp->mask.dst_port = 0xFFFFu;
 
 	eth_flow = ibv_create_flow(qp, &flow_attr.attr);
@@ -586,7 +584,7 @@ raw_verbs_open_session(struct session_net *ses_net,
 	struct ibv_qp *qp;
 	struct ibv_qp_attr qp_attr;
 	int qp_flags, ret;
-	struct ibv_cq *send_cq;
+	struct ibv_cq *send_cq, *recv_cq;
 	struct ibv_flow *eth_flow __maybe_unused;
 	struct ibv_qp_init_attr qp_init_attr = {
 		.qp_context = NULL,
@@ -597,6 +595,7 @@ raw_verbs_open_session(struct session_net *ses_net,
 			.max_recv_sge = 2, 
 			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
 		},
+
 		/*
 		 * This is the key difference.
 		 * We are using RAW PACKET QPs.
@@ -604,17 +603,23 @@ raw_verbs_open_session(struct session_net *ses_net,
 		.qp_type = IBV_QPT_RAW_PACKET,
 		.sq_sig_all = 0
 	};
+	unsigned int rx_udp_port;
 
 	ses_verbs = malloc(sizeof(struct session_raw_verbs));
 	if (!ses_verbs)
 		return -ENOMEM;
+	memset(ses_verbs, 0, sizeof(*ses_verbs));
 	ses_net->raw_net_private = ses_verbs;
 
-	*ses_verbs = cached_session_raw_verbs;
-
-#ifdef CONFIG_RAW_VERBS_PER_SESSION_QP
 	send_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
 	if (!send_cq) {
+		fprintf(stderr, "Couldn't create CQ %d\n", errno);
+		return -ENOMEM;
+	}
+
+	/* Create recv CQ */
+	recv_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
+	if (!recv_cq) {
 		fprintf(stderr, "Couldn't create CQ %d\n", errno);
 		return -ENOMEM;
 	}
@@ -624,7 +629,7 @@ raw_verbs_open_session(struct session_net *ses_net,
 	 * But share a global rece CQ
 	 */
 	qp_init_attr.send_cq = send_cq;
-	qp_init_attr.recv_cq = cached_session_raw_verbs.recv_cq;
+	qp_init_attr.recv_cq = recv_cq;
 
 	qp = ibv_create_qp(ib_pd, &qp_init_attr);
 	if (!qp) {
@@ -663,28 +668,29 @@ raw_verbs_open_session(struct session_net *ses_net,
 		return -EPERM;
 	}
 
-#if 0
-	eth_flow = qp_create_flow(qp, &default_local_ei, ib_port);
+	/*
+	 * Each QP has its own unique RX UDP port
+	 * Starting from base_udp_port.
+	 */
+	rx_udp_port = atomic_fetch_add(&base_udp_port, 1);
+
+	ses_verbs->rx_udp_port = rx_udp_port;
+	eth_flow = qp_create_flow(qp, &default_local_ei, ib_port, rx_udp_port);
 	if (!eth_flow) {
 		return -EPERM;
 	}
-#endif
 
 	ses_verbs->pd = ib_pd;
 	ses_verbs->qp = qp;
 	ses_verbs->send_cq = send_cq;
-	atomic_store(&ses_verbs->nr_post_send, 0);
+	ses_verbs->recv_cq = recv_cq;
+	ses_verbs->nr_post_send = 0;
 
-	dprintf_DEBUG("New QPN %u\n", qp->qp_num);
-#endif /* CONFIG_RAW_VERBS_PER_SESSION_QP */
+	ses_verbs->recv_head = 0;
+	ses_verbs->nr_delayed_recvs = 0;
+	initial_post_recvs(ses_verbs);
 
-	/*
-	 * Make sure the per-session local variables
-	 * are initiated right
-	 */
-	ses_verbs->send_mr = NULL;
-	ses_verbs->send_buf = NULL;
-	ses_verbs->send_buf_size = 0;
+	dprintf_CRIT("New QP/UDP pair created: QPN=%u rx_udp_port=%d\n", qp->qp_num, rx_udp_port);
 	return 0;
 }
 
@@ -706,11 +712,6 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 {
 	struct ibv_device **dev_list;
 	struct ibv_device *ib_dev;
-	struct ibv_qp *qp;
-	struct ibv_cq *send_cq, *recv_cq;
-	struct ibv_flow *eth_flow;
-	struct ibv_qp_attr qp_attr;
-	int qp_flags;
 	int ret;
 	char ndev[32];
 
@@ -756,108 +757,8 @@ static int raw_verbs_init_once(struct endpoint_info *local_ei)
 		return -ENOMEM;
 	}
 
-	/* Create send CQ */
-	send_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
-	if (!send_cq) {
-		fprintf(stderr, "Couldn't create CQ %d\n", errno);
-		goto out_pd;
-	}
-
-	/* Create recv CQ */
-	recv_cq = ibv_create_cq(ib_context, NR_BUFFER_DEPTH, NULL, NULL, 0);
-	if (!recv_cq) {
-		fprintf(stderr, "Couldn't create CQ %d\n", errno);
-		goto out_send_cq;
-	}
-
-	/*
-	 * Create a raw_packet QP
-	 * which uses the above send CQ and recv CQ
-	 */
-	struct ibv_qp_init_attr qp_init_attr = {
-		.qp_context = NULL,
-		.send_cq = send_cq,
-		.recv_cq = recv_cq,
-		.cap = {
-			.max_send_wr = NR_BUFFER_DEPTH,
-			.max_recv_wr = NR_BUFFER_DEPTH,
-			.max_send_sge = 2,
-			.max_recv_sge = 2, 
-			.max_inline_data = DEFAULT_MAX_INLINE_SIZE,
-		},
-
-		/*
-		 * This is the key difference.
-		 * We are using RAW PACKET QPs.
-		 */
-		.qp_type = IBV_QPT_RAW_PACKET,
-		.sq_sig_all = 0
-	};
-
-	qp = ibv_create_qp(ib_pd, &qp_init_attr);
-	if (!qp) {
-		fprintf(stderr, "Couldn't create RSS QP\n");
-		goto out_both_cq;
-	}
-
-	/* QP: to INIT state */
-	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE | IBV_QP_PORT;
-	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.port_num = ib_port;
-
-	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret < 0) {
-		fprintf(stderr, "Failed modify qp to init\n");
-		goto out_qp;
-	}
-
-	/* QP: to Ready-to-Receive state */
-	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE;
-	qp_attr.qp_state = IBV_QPS_RTR;
-	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret < 0) {
-		fprintf(stderr, "failed modify qp to receive\n");
-		goto out_qp;
-	}
-
-	/* QP: to Ready-to-Send state */
-	qp_flags = IBV_QP_STATE;
-	qp_attr.qp_state = IBV_QPS_RTS;
-	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret < 0) {
-		fprintf(stderr, "failed modify qp to send\n");
-		goto out_qp;
-	}
-
-	/*
-	 * Install flow control rules
-	 * This step is necessary for RAW_
-	 */
-	eth_flow = qp_create_flow(qp, local_ei, ib_port);
-	if (!eth_flow)
-		goto out_qp;
-
-	cached_session_raw_verbs.eth_flow = eth_flow;
-	cached_session_raw_verbs.pd = ib_pd;
-	cached_session_raw_verbs.qp = qp;
-	cached_session_raw_verbs.send_cq = send_cq;
-	cached_session_raw_verbs.recv_cq = recv_cq;
-
-	initial_post_recvs(&cached_session_raw_verbs);
-
+	atomic_store(&base_udp_port, local_ei->udp_port);
 	return 0;
-
-out_qp:
-	ibv_destroy_qp(qp);
-out_both_cq:
-	ibv_destroy_cq(recv_cq);
-out_send_cq:
-	ibv_destroy_cq(send_cq);
-out_pd:
-	ibv_dealloc_pd(ib_pd);
-	return -1;
 }
 
 static void raw_verbs_exit(void)
@@ -875,9 +776,11 @@ struct raw_net_ops raw_verbs_ops = {
 
 	.send_one		= raw_verbs_send,
 	.send_one_msg_buf	= raw_verbs_send_msg_buf,
-	.receive_one		= raw_verbs_receive,
-	.receive_one_zerocopy	= raw_verbs_receive_zerocopy,
-	.receive_one_nb		= NULL,
+
+	.receive_one			= raw_verbs_receive,
+	.receive_one_zerocopy		= raw_verbs_receive_zerocopy,
+	.receive_one_zerocopy_batch	= raw_verbs_receive_zerocopy_batch,
+	.receive_one_nb			= NULL,
 
 	.reg_send_buf		= raw_verbs_reg_send_buf,
 

@@ -21,7 +21,7 @@
 #include "../core.h"
 
 #if 1
-#define CONFIG_GBN_DEBUG
+#define CONFIG_GBN_DUMP_RX
 #endif
 
 bool stop_gbn_poll_thread = false;
@@ -57,9 +57,6 @@ bool stop_gbn_poll_thread = false;
 #define GBN_RETRANS_TIMEOUT_US		(4000)
 #define GBN_TIMEOUT_CHECK_INTERVAL_MS	(5)
 #define GBN_RECEIVE_MAX_TIMEOUT_S	(10)
-
-static int polling_thread_created = 0;
-static pthread_t polling_thread;
 
 /*
  * This is a global variable controlling the buffer mgmt behavior.
@@ -137,8 +134,8 @@ struct session_gbn {
 	 * Thus two normal unsigned int are good enough.
 	 */
 	struct buffer_info		data_buffer_info_ring[NR_BUFFER_INFO_SLOTS];
-	unsigned int			data_buffer_info_HEAD;
-	unsigned int			data_buffer_info_TAIL;
+	atomic_long			data_buffer_info_HEAD;
+	unsigned long			data_buffer_info_TAIL;
 
 	/* Stats */
 	unsigned long			nr_rx_ack;
@@ -216,16 +213,11 @@ static __always_inline struct buffer_info *
 alloc_unack_buffer_info(struct session_gbn *ses, int *seqnum)
 {
 #define GBN_ALLOC_UNACK_TIMEOUT_S	(2)
-	struct buffer_info *info;
+	struct buffer_info *info = NULL;
 	int index;
 
-	/*
-	 * XXX:
-	 * even if alloc fails, sequence num is still increased
-	 * this will result in missing sequence
-	 */
 	index = atomic_fetch_add(&ses->seqnum_cur, 1);
-
+#if 0
 	/* index = seq - 1 */
 	info = index_to_unack_buffer_info(ses, index);
 
@@ -256,58 +248,9 @@ alloc_unack_buffer_info(struct session_gbn *ses, int *seqnum)
 	 * seq = index + 1, as seq# starts from 1, e.g. seq 1->index 0
 	 */
 	__set_buffer_info_allocated(info);
+#endif
 	*seqnum = index + 1;
-	barrier();
 	return info;
-}
-
-static __always_inline unsigned int
-nr_data_buffer_info(struct session_gbn *ses)
-{
-	return ses->data_buffer_info_HEAD - ses->data_buffer_info_TAIL;
-}
-
-static __always_inline struct buffer_info *
-alloc_data_buffer_info(struct session_gbn *ses)
-{
-#define GBN_ALLOC_DATA_TIMEOUT_S	(5)
-	struct buffer_info *info;
-	int index;
-
-	index = ses->data_buffer_info_HEAD++;
-	info = index_to_data_buffer_info(ses, index);
-
-	if (unlikely(__test_buffer_info_allocated(info))) {
-		struct timespec s, e;
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		while (1) {
-			if (likely(!__test_buffer_info_allocated(info)))
-				break;
-			clock_gettime(CLOCK_MONOTONIC, &e);
-			if ((e.tv_sec - s.tv_sec) >= GBN_ALLOC_DATA_TIMEOUT_S) {
-				gbn_info("alloc data buffer timeout (%d s). "
-					 "maybe some one forgot to grab the packets?\n",
-					GBN_ALLOC_DATA_TIMEOUT_S);
-				return NULL;
-			}
-		}
-	}
-
-	/* Prepare the new slot */
-	__set_buffer_info_allocated(info);
-	return info;
-}
-
-static __always_inline void
-free_data_buffer_info(struct buffer_info *info)
-{
-	info->flags = 0;
-
-	/*
-	 * Make sure no other updates reordered
-	 * by the compiler.
-	 */
-	barrier();
 }
 
 /*
@@ -327,17 +270,10 @@ void dump_gbn_session(struct session_net *net, bool dump_rx_ring)
 
 	ses = (struct session_gbn *)net->transport_private;
 	printf("Dump gbn session: \n"
-	       "  [RX]\n"
-	       "    ring_HEAD: %u\n"
-	       "    ring_TAIL: %u\n"
-	       "    nr_queued: %u\n"
 	       "  [STAT]\n"
 	       "    nr_rx_data: %lu\n"
 	       "    nr_rx_ack: %lu\n"
 	       "    nr_rx_nack: %lu\n",
-		ses->data_buffer_info_HEAD,
-		ses->data_buffer_info_TAIL,
-		nr_data_buffer_info(ses),
 		ses->nr_rx_data,
 		ses->nr_rx_ack,
 		ses->nr_rx_nack);
@@ -360,7 +296,7 @@ void dump_gbn_session(struct session_net *net, bool dump_rx_ring)
 	}
 }
 
-static bool
+static __always_inline bool
 handle_ack_nack_dequeue(struct gbn_header *hdr, struct session_gbn *ses_gbn,
 		        bool is_ack)
 {
@@ -434,38 +370,22 @@ retrans_unack_buffer_info(struct session_net *ses_net, struct session_gbn *ses_g
 	}
 }
 
-static void handle_ack_packet(struct session_net *ses_net, void *packet)
+__used
+static __always_inline void
+handle_ack_packet(struct session_net *ses_net, struct session_gbn *ses_gbn, void *packet)
 {
 	struct gbn_header *hdr;
-	struct session_gbn *ses_gbn;
-
-	ses_gbn = (struct session_gbn *)ses_net->transport_private;
-	if (unlikely(!ses_gbn)) {
-		gbn_info("ERROR: corrupted ses_gbn %p\n", ses_net);
-		return;
-	}
-
 	hdr = to_gbn_header(packet);
-
 	handle_ack_nack_dequeue(hdr, ses_gbn, true);
 }
 
-static void handle_nack_packet(struct session_net *ses_net, void *packet)
+static __always_inline void
+handle_nack_packet(struct session_net *ses_net, struct session_gbn *ses_gbn, void *packet)
 {
 	struct gbn_header *hdr;
-	struct session_gbn *ses_gbn;
-
-	ses_gbn = (struct session_gbn *)ses_net->transport_private;
-	if (unlikely(!ses_gbn)) {
-		gbn_info("ERROR: corrupted ses_gbn %p\n", ses_net);
-		return;
-	}
-
 	hdr = to_gbn_header(packet);
 
-	/*
-	 * If received packet is valid, retransmit
-	 */
+	/* If received packet is valid, retransmit */
 	if (handle_ack_nack_dequeue(hdr, ses_gbn, false))
 		retrans_unack_buffer_info(ses_net, ses_gbn);
 }
@@ -475,11 +395,10 @@ static void handle_nack_packet(struct session_net *ses_net, void *packet)
  * Push new data into cached ring buffer list.
  */
 static void handle_data_packet(struct session_net *ses_net,
+			       struct session_gbn *ses_gbn,
 			       void *packet, size_t buf_size)
 {
 	struct gbn_header *hdr;
-	struct session_gbn *ses_gbn;
-	struct buffer_info *info;
 	unsigned int seq;
 	int ret;
 
@@ -489,93 +408,24 @@ static void handle_data_packet(struct session_net *ses_net,
 		struct	gbn_header ack_header;
 	} __packed *ack_pkt;
 
-	ses_gbn = (struct session_gbn *)ses_net->transport_private;
-	if (unlikely(!ses_gbn)) {
-		dprintf_ERROR("no ses_gbn found. ses_net: %#lx\n",
-			(unsigned long)ses_net);
-		return;
-	}
-
 	/*
-	 * Mgmt traffic is unreliable
+	 * Session 0 is unreliable.
 	 * The sender skipped unack buffer,
 	 * and we, as the receiver, do not need to send ACK.
-	 * Simply attaching this buffer into the list is enough.
 	 */
-	if (test_management_session(ses_net)) {
-		ses_gbn->nr_rx_data++;
-
-		info = alloc_data_buffer_info(ses_gbn);
-		if (unlikely(!info)) {
-			dprintf_INFO("packet dropped due to full ring buffer. "
-				     "session_net srdid %u dstid %u\n",
-				     get_local_session_id(ses_net),
-				     get_remote_session_id(ses_net));
-			return;
-		}
-
-		/*
-		 * If there is no zerocopy, we need to copy
-		 * the conent into the info->buf. Otherwise
-		 * just save the pointer, the buffer is managed
-		 * by the raw net layer.
-		 */
-		info->buf_size = buf_size;
-		if (likely(raw_net_has_zerocopy))
-			info->buf = packet;
-		else
-			memcpy(info->buf, packet, buf_size);
-
-		/*
-		 * For x86 TSO, as long as compiler reserves
-		 * the order, the other cores are guaranteed
-		 * to see above updates before the next one.
-		 */
-		barrier();
-		__set_buffer_info_usable(info);
+	if (unlikely(test_management_session(ses_net)))
 		return;
-	}
 
-	/*
-	 * Otherwise we are dealing with normal traffic,
-	 * i.e., packets targeting non-mgmt sessions.
-	 * We will check seqnum accordingly.
-	 */
 	hdr = to_gbn_header(packet);
 	seq = hdr->seqnum;
 
 	if (likely(seq == atomic_load(&ses_gbn->seqnum_expect))) {
-		unsigned int out_seqnum;
-
-		/*
-		 * Case 1: normal case
-		 * seqnum is valid and as expected,
-		 * send back ACK, enable response, and increase expected seqnum
-		 */
-		ses_gbn->nr_rx_data++;
-
-		info = alloc_data_buffer_info(ses_gbn);
-		if (unlikely(!info)) {
-			dprintf_INFO("packet dropped due to full ring buffer. "
-				     "session_net srdid %u dstid %u\n",
-				     get_local_session_id(ses_net),
-				     get_remote_session_id(ses_net));
-			return;
-		}
-
-		/* See comments above */
-		info->buf_size = buf_size;
-		if (likely(raw_net_has_zerocopy))
-			info->buf = packet;
-		else
-			memcpy(info->buf, packet, buf_size);
-		barrier();
-		__set_buffer_info_usable(info);
-
 		/*
 		 * Construct and send back ACK
 		 * We only sent back an ACK every X packets.
 		 */
+		unsigned int out_seqnum;
+
 		//ses_gbn->ack_enable = true;
 		out_seqnum = atomic_fetch_add(&ses_gbn->seqnum_expect, 1);
 
@@ -594,8 +444,6 @@ static void handle_data_packet(struct session_net *ses_net,
 				dprintf_ERROR("net_send error %d\n", ret);
 				return;
 			}
-
-			//dprintf_CRIT("ses id %d send ack %d\n", get_local_session_id(ses_net), out_seqnum);
 			inc_stat(STAT_NET_GBN_NR_TX_ACK);
 		}
 	} else if (ses_gbn->ack_enable) {
@@ -647,129 +495,6 @@ static void handle_data_packet(struct session_net *ses_net,
 	};
 }
 
-int nr_recv_pkt = 0;
-
-/*
- * This is Go-Back-N transport layer's polling thread.
- * It invokes lower level raw network interface to receive new packets.
- * It then inspects the packet contents, either clear unack'ed buffers,
- * or cache the data packets and generate ACK.
- */
-static void *gbn_poll_func(void *_unused)
-{
-	struct session_net *ses_net;
-	struct gbn_header *gbn_hdr;
-	unsigned int dst_sesid;
-	void *recv_buf;
-	size_t buf_size, max_buf_size = 0;
-	int ret, node, cpu;
-
-	/*
-	 * If there is no zerocopy,
-	 * we need to Bring Our Own Buffers.
-	 */
-	if (!raw_net_has_zerocopy) {
-		max_buf_size = sysctl_link_mtu;
-		recv_buf = malloc(max_buf_size);
-		if (!recv_buf) {
-			printf("%s(): Fail to alloc recv_buf\n", __func__);
-			return NULL;
-		}
-	}
-
-	ret = pin_cpu(gbn_polling_thread_cpu);
-	if (ret) {
-		dprintf_ERROR("fail to pin thread to CPU %d\n",
-			gbn_polling_thread_cpu);
-		return NULL;
-	}
-
-	legomem_getcpu(&cpu, &node);
-	dprintf_CRIT("Global Polling Thread Running on CPU=%d NODE=%d\n", cpu, node);
-
-	while (1) {
-		if (unlikely(READ_ONCE(stop_gbn_poll_thread))) {
-			dprintf_CRIT("Global Polling Thread Exit %d\n", 0);
-			return NULL;
-		}
-
-		if (likely(raw_net_has_zerocopy)) {
-			ret = raw_net_receive_zerocopy(&recv_buf, &buf_size);
-			if (unlikely(ret < 0)) {
-				gbn_info("zerocopy recv error %d\n", ret);
-				goto out;
-			} else if (ret == 0)
-				continue;
-		} else {
-			buf_size = raw_net_receive(recv_buf, max_buf_size);
-			if (unlikely(buf_size < 0)) {
-				gbn_info("receive error %ld\n", buf_size);
-				goto out;
-			} else if (buf_size == 0)
-				continue;
-		}
-		inc_stat(STAT_NET_GBN_NR_RX);
-
-		gbn_hdr = to_gbn_header(recv_buf);
-		dst_sesid = get_gbn_dst_session(gbn_hdr);
-
-		/*
-		 * Try to locate the net session. There are 3 cases:
-		 * 1) local mgmt session, if dst session id is 0.
-		 * 2) the matched session, if both IP+ID match.
-		 * 3) NULL, if none of the above options fulfill
-		 */
-		ses_net = find_net_session(dst_sesid);
-		if (unlikely(!ses_net)) {
-			char str[INET_ADDRSTRLEN];
-			struct in_addr in_addr;
-			struct ipv4_hdr *ipv4_hdr;
-
-			ipv4_hdr = to_ipv4_header(recv_buf);
-			in_addr.s_addr = ipv4_hdr->src_ip;
-			inet_ntop(AF_INET, &in_addr, str, sizeof(str));
-
-			dprintf_ERROR("Session not found! src_ip: %s src_sesid: %u dst_sesid: %u\n",
-				str, get_gbn_src_session(gbn_hdr), dst_sesid);
-			dump_packet_headers(recv_buf, NULL);
-			inc_stat(STAT_NET_GBN_NR_RX_ERROR_NO_SESSION);
-			continue;
-		}
-
-#ifdef CONFIG_GBN_DEBUG
-		{
-			char packet_dump_str[256];
-
-			dump_packet_headers(recv_buf, packet_dump_str);
-			dprintf_CRIT("new pkt: %s  buf_size: %zu nr_recv_pkt: %d\n",
-				packet_dump_str, buf_size,
-				nr_recv_pkt++);
-		}
-#endif
-
-		switch (gbn_hdr->type) {
-		case GBN_PKT_ACK:
-			inc_stat(STAT_NET_GBN_NR_RX_ACK);
-			handle_ack_packet(ses_net, recv_buf);
-			break;
-		case GBN_PKT_NACK:
-			inc_stat(STAT_NET_GBN_NR_RX_NACK);
-			handle_nack_packet(ses_net, recv_buf);
-			break;
-		case GBN_PKT_DATA:
-			inc_stat(STAT_NET_GBN_NR_RX_DATA);
-			handle_data_packet(ses_net, recv_buf, buf_size);
-			break;
-		default:
-			inc_stat(STAT_NET_GBN_NR_RX_ERROR_UNKNOWN_TYPE);
-			dprintf_ERROR("Unknown GBN type: %d\n", gbn_hdr->type);
-			break;
-		};
-	}
-out:
-	return NULL;
-}
-
 /*
  * Fill these fields
  * - src session id
@@ -795,14 +520,13 @@ prepare_gbn_headers(struct gbn_header *hdr, struct session_net *net)
  * We are NOT COPYing the data to unack queue.
  * We are JUST saving th pointers.
  */
-static inline int gbn_send_one(struct session_net *net,
-			       void *buf, size_t buf_size, void *route)
+static int gbn_send_one(struct session_net *net, void *buf,
+			size_t buf_size, void *route)
 {
-	struct buffer_info *info;
 	struct session_gbn *ses;
 	int seqnum;
 	struct gbn_header *hdr;
-	bool unacked_buffer_empty __maybe_unused;
+	struct buffer_info *info __maybe_unused;
 
 	/*
 	 * This is not the best place to run this function.
@@ -833,100 +557,163 @@ static inline int gbn_send_one(struct session_net *net,
 	BUG_ON(!ses);
 
 	/* Try to alloc a new unack buffer and seqnum */
+	alloc_unack_buffer_info(ses, &seqnum);
+#if 0
 	info = alloc_unack_buffer_info(ses, &seqnum);
 	if (!info)
 		return -ENOMEM;
-
-	/* Save into the pkt */
-	hdr->seqnum = seqnum;
-
 	info->buf = buf;
 	info->buf_size = buf_size;
+#endif
+
+	hdr->seqnum = seqnum;
 
 send:
 	inc_stat(STAT_NET_GBN_NR_TX_DATA);
 	return raw_net_send(net, buf, buf_size, route);
 }
 
-static __always_inline void
-wait_data_buffer_usable(struct buffer_info *info)
+static int gbn_send_one_msg_buf(struct session_net *net, struct msg_buf *mb,
+				size_t buf_size, void *route)
 {
-	while (unlikely(!__test_buffer_info_usable(info)))
-		;
+	struct session_gbn *ses;
+	int seqnum;
+	struct gbn_header *hdr;
+	struct buffer_info *info __maybe_unused;
+	void *buf;
+
+	/*
+	 * This is not the best place to run this function.
+	 * But placing here ensures all msgs are properly formatted.
+	 * And could even be used to catch buggy callers.
+	 */
+	buf = mb->buf;
+	prepare_legomem_header(buf, buf_size);
+
+	hdr = to_gbn_header(buf);
+	if (route) {
+		struct gbn_header *user_hdr;
+		user_hdr = to_gbn_header(route);
+		memcpy(hdr, user_hdr, sizeof(*hdr));
+	} else {
+		hdr->type = GBN_PKT_DATA;
+		prepare_gbn_headers(hdr, net);
+	}
+
+	if (test_management_session(net))
+		goto send;
+
+	ses = (struct session_gbn *)net->transport_private;
+	BUG_ON(!ses);
+
+	/* Try to alloc a new unack buffer and seqnum */
+	alloc_unack_buffer_info(ses, &seqnum);
+#if 0
+	info = alloc_unack_buffer_info(ses, &seqnum);
+	if (!info)
+		return -ENOMEM;
+	info->buf = buf;
+	info->buf_size = buf_size;
+#endif
+
+	hdr->seqnum = seqnum;
+
+send:
+	inc_stat(STAT_NET_GBN_NR_TX_DATA);
+	return raw_net_send_msg_buf(net, mb, buf_size, route);
 }
 
 /*
- * GBN receive a packet, i.e., dequeue a packet from the data buffer array.
- * Pakets in that array have been ack'ed and are ready for grab.
- *
- * Note that for a single session @net, only a single thread is supposed
- * to use this particular session. The behavior is undefined if multiple
- * threads call this function upon one session.
- *
  * @zerocopy:		if zerocopy is used. If yes, use @z_buf and @z_buf_size.
  * 			Otherwise use @buf and @buf_size.
  * @non_blocking:	if this is a non-blocking receive. If yes, return
  * 			immediately if there is no packet enqueued.
  */
 static int
-__gbn_receive_one(struct session_net *net,
+__gbn_receive_one(struct session_net *ses_net,
 		  void *buf, size_t buf_size,
 		  void **z_buf, size_t *z_buf_size,
 		  bool zerocopy, bool non_blocking)
 {
-	struct session_gbn *ses;
-	struct buffer_info *info;
-	int index;
+	struct session_net *dst_ses_net;
+	struct session_gbn *ses_gbn;
+	void *recv_buf;
+	size_t recv_size;
+	struct gbn_header *gbn_hdr;
+	unsigned int dst_sesid __maybe_unused;
+	int ret;
 
-	ses = (struct session_gbn *)net->transport_private;
+	ses_gbn = (struct session_gbn *)ses_net->transport_private;
+	BUG_ON(!ses_gbn);
 
-	if (nr_data_buffer_info(ses) == 0) {
-		if (likely(non_blocking))
+retry:
+	ret = raw_net_receive_zerocopy(ses_net, &recv_buf, &recv_size);
+	if (ret < 0) {
+		dprintf_ERROR("raw net failed %d\n", ret);
+		return ret;
+	} else if (ret == 0) {
+		if (non_blocking)
 			return 0;
+		goto retry;
+	}
 
-#if 0
-		{
-			struct timespec s __maybe_unused, e __maybe_unused;
-			clock_gettime(CLOCK_MONOTONIC, &s);
-			while (unlikely(!nr_data_buffer_info(ses))) {
-				clock_gettime(CLOCK_MONOTONIC, &e);
-				if ((e.tv_sec - s.tv_sec) > GBN_RECEIVE_MAX_TIMEOUT_S) {
-					dprintf_ERROR("Timeout %d s, sesid: %u TAIL %d HEAD %d\n",
-						GBN_RECEIVE_MAX_TIMEOUT_S,
-						get_local_session_id(net),
-						ses->data_buffer_info_TAIL,
-						ses->data_buffer_info_HEAD);
-					print_backtrace();
-					return -ETIMEDOUT;
-				}
-			}
-		}
+	gbn_hdr = to_gbn_header(recv_buf);
+
+#if 1
+	dst_sesid = get_gbn_dst_session(gbn_hdr);
+	dst_ses_net = find_net_session(dst_sesid);
+	if (unlikely(dst_ses_net != ses_net)) {
+		char packet_dump_str[256];
+		struct session_raw_verbs *ses_verbs;
+
+
+		ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
+		dump_packet_headers(recv_buf, packet_dump_str);
+		dprintf_ERROR("RX Wrong Session. Calling session: local_sesid %u remote_sesid %u. Verbs: qpn: %u rx_udp_port %u \n\n"
+			      "\t pkt -> %s \n\n",
+			get_local_session_id(ses_net), get_remote_session_id(ses_net),
+			ses_verbs->qp->qp_num, ses_verbs->rx_udp_port, packet_dump_str);
+	}
 #endif
+
+#ifdef CONFIG_GBN_DUMP_RX
+	{
+		char packet_dump_str[256];
+		dump_packet_headers(recv_buf, packet_dump_str);
+		dprintf_CRIT("RX: %s size: %zu\n", packet_dump_str, recv_size);
 	}
+#endif
 
-	index = ses->data_buffer_info_TAIL++;
-	info = index_to_data_buffer_info(ses, index);
+	switch (gbn_hdr->type) {
+	case GBN_PKT_ACK:
+		/*
+		 * If it is an ACK, we need to grab a new one.
+		 * Same for NACK.
+		 */
+		inc_stat(STAT_NET_GBN_NR_RX_ACK);
+		//handle_ack_packet(ses_net, ses_gbn, recv_buf);
+		goto retry;
+	case GBN_PKT_NACK:
+		inc_stat(STAT_NET_GBN_NR_RX_NACK);
+		handle_nack_packet(ses_net, ses_gbn, recv_buf);
+		goto retry;
+	case GBN_PKT_DATA:
+		inc_stat(STAT_NET_GBN_NR_RX_DATA);
+		handle_data_packet(ses_net, ses_gbn, recv_buf, recv_size);
+		break;
+	default:
+		inc_stat(STAT_NET_GBN_NR_RX_ERROR_UNKNOWN_TYPE);
+		dprintf_ERROR("Unknown GBN type: %x\n", gbn_hdr->type);
+		return -EIO;
+	};
 
-	/* Put the data back to the head if too small */
-	if (unlikely(!zerocopy && (info->buf_size > buf_size))) {
-		dprintf_ERROR("User recv buf is too small. "
-			     "(pkt: %u recv_buf: %zu)\n",
-			info->buf_size, buf_size);
-		ses->data_buffer_info_TAIL--;
-		return -ENOMEM;
-	}
-
-	wait_data_buffer_usable(info);
-
-	if (zerocopy) {
-		*z_buf = info->buf;
-		*z_buf_size = info->buf_size;
+	if (likely(zerocopy)) {
+		z_buf[0] = recv_buf;
+		z_buf_size[0] = recv_size;
 	} else {
-		memcpy(buf, info->buf, info->buf_size);
+		memcpy(buf, recv_buf, recv_size);
 	}
-
-	free_data_buffer_info(info);
-	return info->buf_size;
+	return recv_size;
 }
 
 static inline int gbn_receive_one(struct session_net *net,
@@ -1015,31 +802,9 @@ static int init_session_gbn(struct session_net *net, struct session_gbn *gbn)
 	}
 #endif
 
-	/* RX: incoming data list */
-	for (i = 0; i < NR_BUFFER_INFO_SLOTS; i++) {
-		info = index_to_data_buffer_info(gbn, i);
-		memset(info, 0, sizeof(*info));
-
-		/*
-		 * If there is no zerocopy, we need to
-		 * allocate the data buffers. The polling
-		 * thread will copy the packet into this buffer
-		 * instead of saving the pointer.
-		 */
-		if (!raw_net_has_zerocopy) {
-			info->buf = malloc(sysctl_link_mtu);
-			if (!info->buf) {
-				ret = -ENOMEM;
-				goto out;
-			}
-		}
-	}
-	gbn->data_buffer_info_HEAD = 0;
-	gbn->data_buffer_info_TAIL = 0;
 	atomic_init(&gbn->seqnum_expect, 1);
 
 	ret = 0;
-out:
 	return ret;
 }
 
@@ -1110,37 +875,8 @@ static int gbn_close_session(struct session_net *ses_net)
 	return 0;
 }
 
-/*
- * For now, we only create one global polling thread per machine.
- * If this becomes a bottleneck, we may well change this.
- */
-static int create_polling_thread(void)
-{
-	int ret;
-
-	if (polling_thread_created)
-		return 0;
-
-	ret = pthread_create(&polling_thread, NULL, gbn_poll_func, NULL);
-	if (ret) {
-		printf("GBN: Fail to create the polling thread\n");
-		return ret;
-	}
-	printf("Created the go-back-N reliable net polling thread\n");
-	return 0;
-}
-
 static int gbn_init_once(struct endpoint_info *local_ei)
 {
-	int ret;
-
-	/* One global polling thread */
-	ret = create_polling_thread();
-	if (ret) {
-		printf("Fail to create GBN polling thread\n");
-		return ret;
-	}
-
 	/*
 	 * Zerocopy or not affects our buffer mgmt method
 	 * Do this early on, and we will check at various cases.
@@ -1170,6 +906,8 @@ struct transport_net_ops transport_gbn_ops = {
 	.close_session		= gbn_close_session,
 
 	.send_one		= gbn_send_one,
+	.send_one_msg_buf	= gbn_send_one_msg_buf,
+
 	.receive_one		= gbn_receive_one,
 	.receive_one_nb		= gbn_receive_one_nb,
 	.receive_one_zerocopy	= gbn_receive_one_zerocopy,

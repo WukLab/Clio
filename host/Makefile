@@ -45,11 +45,11 @@ C_SRCS := board.c \
 	watchdog.c \
 	net/core.c \
 	net/raw_verbs.c \
-	net/raw_socket.c \
-	net/raw_udp_socket.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
 	api_kvs.c
+	#net/raw_socket.c \
+	#net/raw_udp_socket.c \
 
 SRCS := $(C_SRCS)
 

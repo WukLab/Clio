@@ -9,6 +9,7 @@
 #include <uapi/err.h>
 #include <uapi/page.h>
 #include <pthread.h>
+#include <sys/mman.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -185,7 +186,7 @@ generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
  * This function is for the sender side.
  */
 static struct session_net *
-__legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
+____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		       pid_t tid, bool is_local_mgmt, bool is_remote_mgmt)
 {
 	struct session_net *ses;
@@ -278,7 +279,15 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 
 		dst_sesid = resp.op.session_id;
 		set_remote_session_id(ses, dst_sesid);
+
 	}
+
+	/*
+	 * Patch the UDP port
+	 * for raw verbs.
+	 */
+	ses->route.udp.src_port = htons(global_base_udp_port + get_local_session_id(ses));
+	ses->route.udp.dst_port = htons(bi->udp_port + get_remote_session_id(ses));
 
 bookkeeping:
 	board_add_session(bi, ses);
@@ -288,11 +297,32 @@ bookkeeping:
 	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
 		bi->name, get_local_session_id(ses), dst_sesid);
 
+	dump_net_sessions();
 	return ses;
 
 close_ses:
 	net_close_session(ses);
 	return NULL;
+}
+
+static pthread_spinlock_t open_ses_lock;
+
+__constructor
+static void init_open_ses_lock(void)
+{
+	pthread_spin_init(&open_ses_lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static struct session_net *
+__legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
+		       pid_t tid, bool is_local_mgmt, bool is_remote_mgmt)
+{
+	struct session_net *ses;
+
+	pthread_spin_lock(&open_ses_lock);
+	ses = ____legomem_open_session(ctx, bi, tid, is_local_mgmt, is_remote_mgmt);
+	pthread_spin_unlock(&open_ses_lock);
+	return ses;
 }
 
 /*
@@ -322,13 +352,14 @@ legomem_open_session_remote_mgmt(struct board_info *bi)
 	if (!ses)
 		return NULL;
 
-	buf = malloc(PAGE_SIZE);
+	buf = mmap(0, 4096, PROT_READ | PROT_WRITE,
+		   MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (!buf) { 
 		legomem_close_session(NULL, ses);
 		return NULL;
 	}
 
-	net_reg_send_buf(ses, buf, PAGE_SIZE);
+	net_reg_send_buf(ses, buf, 4096);
 	return ses;
 }
 
@@ -422,6 +453,7 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 			    int *board_ip, unsigned int *board_port,
 			    unsigned int *vregion_idx)
 {
+#if 1
 	struct legomem_alloc_free_req req;
 	struct legomem_alloc_free_resp resp;
 	struct lego_header *lego_header;
@@ -456,6 +488,21 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 	*board_port = resp.op.udp_port;
 	*vregion_idx = resp.op.vregion_idx;
 	return 0;
+#else
+	/*
+	 * DEBUG version
+	 * Just local allocation
+	 */
+	static int __i = 3;
+	static int __j = 0;
+	struct board_info *bi;
+
+	bi = find_board_by_id(__i++);
+	*board_ip = bi->board_ip;
+	*board_port = bi->udp_port;
+	*vregion_idx = __j++;
+	return 0;
+#endif
 }
 
 /*
@@ -810,6 +857,72 @@ struct session_net *find_or_alloc_vregion_session(struct legomem_context *ctx,
 	return __find_or_alloc_vregion_session(ctx, v);
 }
 
+int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session_net *ses,
+				     struct msg_buf *send_mb, void *recv_buf,
+				     unsigned long __remote addr, size_t total_size)
+{
+	struct legomem_read_write_req *req;
+	struct legomem_read_write_resp *resp;
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego __maybe_unused;
+	int nr_sent, ret, i;
+	size_t sz, recv_size;
+
+	req = send_mb->buf;
+	tx_lego = to_lego_header(req);
+	tx_lego->pid = ctx->pid;
+	tx_lego->opcode = OP_REQ_READ;
+
+	nr_sent = 0;
+	do {
+		if (total_size >= max_lego_payload)
+			sz = max_lego_payload;
+		else
+			sz = total_size;
+		total_size -= sz;
+
+		tx_lego->tag = nr_sent;
+		req->op.va = addr + nr_sent * max_lego_payload;
+		req->op.size = sz;
+
+		ret = net_send_msg_buf(ses, send_mb, sizeof(*req));
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
+			break;
+		}
+		nr_sent++;
+	} while (total_size);
+
+	/* Shift to start of payload */
+	recv_buf += sizeof(*resp);
+	for (i = 0; i < nr_sent; i++) {
+		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+		if (unlikely(ret <= 0)) {
+			dprintf_ERROR("Fail to recv read at %dth reply\n", i);
+			continue;
+		}
+
+#if 1
+		/* Sanity Checks */
+		rx_lego = to_lego_header(resp);
+		if (unlikely(rx_lego->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
+			continue;
+		}
+		if (unlikely(rx_lego->opcode != OP_REQ_READ_RESP)) {
+			dprintf_ERROR("errnor: invalid resp msg %s\n",
+				legomem_opcode_str(rx_lego->opcode));
+			continue;
+		}
+		/* Minus header to get lego payload size */
+		recv_size -= sizeof(*resp);
+		memcpy(recv_buf, resp->ret.data, recv_size);
+		recv_buf += recv_size;
+#endif
+	}
+	return 0;
+}
+
 int legomem_read_with_session(struct legomem_context *ctx, struct session_net *ses,
 			      void *send_buf, void *recv_buf,
 			      unsigned long __remote addr, size_t total_size)
@@ -817,7 +930,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 	struct legomem_read_write_req *req;
 	struct legomem_read_write_resp *resp;
 	struct lego_header *tx_lego;
-	struct lego_header *rx_lego;
+	struct lego_header *rx_lego __maybe_unused;
 	int nr_sent, ret, i;
 	size_t sz, recv_size;
 
@@ -866,13 +979,10 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 				legomem_opcode_str(rx_lego->opcode));
 			continue;
 		}
-
-#if 1
 		/* Minus header to get lego payload size */
 		recv_size -= sizeof(*resp);
 		memcpy(recv_buf, resp->ret.data, recv_size);
 		recv_buf += recv_size;
-#endif
 	}
 	return 0;
 }
@@ -901,6 +1011,88 @@ int legomem_read(struct legomem_context *ctx, void *send_buf, void *recv_buf,
 	return legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, total_size);
 }
 
+/*
+ * BYOMB: Bring your own message buffer.
+ * send_mb should be precooked and its buffer should be DMA-able.
+ */
+int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct session_net *ses,
+					struct msg_buf *send_mb, unsigned long __remote addr, size_t total_size,
+					enum legomem_write_flag flag)
+{
+	struct legomem_read_write_req *req;
+	struct legomem_read_write_resp *resp;
+	size_t recv_size, sz; 
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego __maybe_unused;
+	int i, ret, nr_sent;
+	void *send_buf;
+
+	send_buf = send_mb->buf;
+	nr_sent = 0;
+	do {
+		u64 shift;
+
+		if (total_size >= max_lego_payload)
+			sz = max_lego_payload;
+		else
+			sz = total_size;
+		total_size -= sz;
+
+		/*
+		 * Shift to next pkt start
+		 * We will override portion of already-sent user data
+		 */
+		shift = (u64)(nr_sent * max_lego_payload);
+		req = (struct legomem_read_write_req *)((u64)send_buf + shift);
+		req->op.va = addr + shift;
+		req->op.size = sz;
+		tx_lego = to_lego_header(req);
+		tx_lego->pid = ctx->pid;
+		if (flag == LEGOMEM_WRITE_SYNC)
+			tx_lego->opcode = OP_REQ_WRITE;
+		else if (flag == LEGOMEM_WRITE_ASYNC)
+			tx_lego->opcode = OP_REQ_WRITE_NOREPLY;
+
+		/* Temporary uses the latest buf point */
+		send_mb->buf = req;
+
+		ret = net_send_msg_buf(ses, send_mb, sz + sizeof(*req));
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to send write at nr_sent: %d\n", nr_sent);
+			break;
+		}
+		nr_sent++;
+	} while (total_size);
+
+	/* Restore the original pointer */
+	send_mb->buf = send_buf;
+
+	if (flag == LEGOMEM_WRITE_ASYNC)
+		return 0;
+
+	for (i = 0; i < nr_sent; i++) {
+		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+		if (unlikely(ret <= 0)) {
+			dprintf_ERROR("Fail to recv write at %dth reply\n", i);
+			continue;
+		}
+#if 0
+		/* Sanity Checks */
+		rx_lego = to_lego_header(resp);
+		if (unlikely(rx_lego->req_status != 0)) {
+			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
+			continue;
+		}
+		if (unlikely(rx_lego->opcode != OP_REQ_WRITE_RESP)) {
+			dprintf_ERROR("errnor: invalid resp msg %s. at %dth reply\n",
+				legomem_opcode_str(rx_lego->opcode), i);
+			continue;
+		}
+#endif
+	}
+	return 0;
+}
+
 int __legomem_write_with_session(struct legomem_context *ctx, struct session_net *ses,
 				 void *send_buf, unsigned long __remote addr, size_t total_size,
 				 enum legomem_write_flag flag)
@@ -909,7 +1101,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 	struct legomem_read_write_resp *resp;
 	size_t recv_size, sz; 
 	struct lego_header *tx_lego;
-	struct lego_header *rx_lego;
+	struct lego_header *rx_lego __maybe_unused;
 	int i, ret, nr_sent;
 
 	nr_sent = 0;
@@ -954,7 +1146,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 			dprintf_ERROR("Fail to recv write at %dth reply\n", i);
 			continue;
 		}
-
+#if 0
 		/* Sanity Checks */
 		rx_lego = to_lego_header(resp);
 		if (unlikely(rx_lego->req_status != 0)) {
@@ -966,6 +1158,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 				legomem_opcode_str(rx_lego->opcode), i);
 			continue;
 		}
+#endif
 	}
 	return 0;
 }

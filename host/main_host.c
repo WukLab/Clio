@@ -57,7 +57,7 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
-	if (0) {
+	if (1) {
 		dprintf_INFO("received opcode: %u (%s)\n",
 			opcode, legomem_opcode_str(opcode));
 	}
@@ -88,6 +88,11 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		set_tb_tx_size(tb, sizeof(struct legomem_common_headers));
 		break;
 	};
+
+	if (1) {
+		dprintf_INFO("received opcode: %u (%s) .. DONE \n",
+			opcode, legomem_opcode_str(opcode));
+	}
 
 	if (likely(!ThpoolBufferNoreply(tb))) {
 		/*
@@ -152,32 +157,31 @@ static void *dispatcher(void *_unused)
 
 static int join_cluster(void)
 {
-	struct legomem_membership_join_cluster_req req;
-	struct legomem_membership_join_cluster_resp resp;
+	struct legomem_membership_join_cluster_req *req;
+	struct legomem_membership_join_cluster_resp *resp;
+	size_t recv_size;
 	struct lego_header *lego_header;
-	int ret;
 
-	lego_header = to_lego_header(&req);
+	req = net_get_send_buf(monitor_session);
+	lego_header = to_lego_header(req);
 	lego_header->opcode = OP_REQ_MEMBERSHIP_JOIN_CLUSTER;
 
-	req.op.mem_size_bytes = 0;
-	req.op.type = BOARD_INFO_FLAGS_HOST;
-	req.op.ei = default_local_ei;
+	req->op.mem_size_bytes = 0;
+	req->op.type = BOARD_INFO_FLAGS_HOST;
+	req->op.ei = default_local_ei;
 
-	ret = net_send_and_receive(monitor_session, &req, sizeof(req),
-				   &resp, sizeof(resp));
-	if (ret <= 0) {
-		dprintf_ERROR("net error %d\n", ret);
-		return -1;
-	}
+	net_send(monitor_session, req, sizeof(*req));
+	net_receive_zerocopy(monitor_session, (void **)&resp, &recv_size);
 
-	if (resp.ret == 0)
+	if (resp->ret == 0)
 		dprintf_INFO("Succefully joined cluster! (monitor: %s)\n",
 			monitor_bi->name);
-	else
+	else {
 		dprintf_ERROR("Fail to join cluster, monitor error %d\n",
-			resp.ret);
-	return resp.ret;
+			resp->ret);
+		exit(0);
+	}
+	return 0;
 }
 
 struct test_option {
@@ -368,11 +372,15 @@ int main(int argc, char **argv)
 		case 'n':
 			if (!strncmp(optarg, "raw_verbs", 16))
 				raw_net_ops = &raw_verbs_ops;
-			else if (!strncmp(optarg, "raw_udp", 16))
-				raw_net_ops = &raw_udp_socket_ops;
-			else if (!strncmp(optarg, "raw_socket", 16))
-				raw_net_ops = &raw_socket_ops;
-			else {
+			else if (!strncmp(optarg, "raw_udp", 16)) {
+				//raw_net_ops = &raw_udp_socket_ops;
+				printf("not supported\n");
+				exit(0);
+			} else if (!strncmp(optarg, "raw_socket", 16)) {
+				//raw_net_ops = &raw_socket_ops;
+				printf("not supported\n");
+				exit(0);
+			} else {
 				printf("Invalid net_raw_ops: %s\n"
 				       "Available Options are:\n"
 				       "  1. raw_verbs (default if nothing is specified)\n"
@@ -493,7 +501,7 @@ int main(int argc, char **argv)
 		ret = join_cluster();
 		if (ret)
 			exit(-1);
-		sleep(2);
+		sleep(4);
 	} else {
 		dprintf_INFO("Skipped join_cluster, monitor (%s) is not contacted.\n",
 			monitor_bi->name);

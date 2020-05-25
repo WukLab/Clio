@@ -59,9 +59,7 @@ GENERATED_IP = generated_ip/
 
 PHONY :=
 all:
-	$(Q)mkdir -p $(GENERATED_IP)
 	$(Q)make -C host
-	$(Q)make -C monitor
 	$(Q)make -C board
 
 PHONY += tags
