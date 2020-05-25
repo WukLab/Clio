@@ -21,7 +21,7 @@
 #include "net.h"
 #include "../core.h"
 
-#if 0
+#if 1
 # define CONFIG_RAW_VERBS_DUMP_RX
 #endif
 

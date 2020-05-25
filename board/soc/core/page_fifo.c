@@ -199,7 +199,7 @@ static void prefill_fifos(struct lego_mem_ctrl *ctrl)
 
 int init_freepage_fifo(void)
 {
-#if 1
+#if 0
 	axidma_dev_t dev;
 	struct fifo_info *fi;
 	int i;

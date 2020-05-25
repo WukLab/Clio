@@ -19,7 +19,9 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rw_tlb.c \
 	     $(TP)/test_rw_inline.c \
 	     $(TP)/test_rw_fault.c \
-	     $(TP)/test_rw_multiboard.c 
+	     $(TP)/test_rw_multiboard.c \
+	     $(TP)/test_kvs_simple.c \
+	     $(TP)/test_kvs_ycsb.c
 
 # Board emulator files linked to soc files
 BP := board_emulator
@@ -47,8 +49,7 @@ C_SRCS := board.c \
 	net/raw_udp_socket.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
-	api_kvs.c \
-	ycsb_client.c
+	api_kvs.c
 
 SRCS := $(C_SRCS)
 

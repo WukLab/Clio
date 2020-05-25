@@ -23,6 +23,7 @@
  * op_kvs_req describes kv pairs. Please refer to include/uapi/opcode.h.
  */
 
+
 /*
  * @value: value buffer to write.
  */
@@ -37,13 +38,12 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	int ret;
 	size_t recv_size;
 
-	// find the pre-created memory region buffer
-	req = NULL;
+	req = net_get_send_buf(ses);
 
 	/* Cook lego headers */
 	tx_lego = to_lego_header(req);
-	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = opcode;
+	tx_lego->pid = ctx->pid;
 
 	/* Cook KVS-specific headers */
 	op = &req->op;
@@ -74,7 +74,7 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 int legomem_kvs_create(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size, 
 		      char *key, uint16_t value_size, void *value)
 {
-	return __legomem_kvs_write(ctx, ses, OP_REQ_KVS_WRITE, key_size, key, value_size, value);
+	return __legomem_kvs_write(ctx, ses, OP_REQ_KVS_CREATE, key_size, key, value_size, value);
 }
 
 int legomem_kvs_update(struct legomem_context *ctx, struct session_net *ses, uint16_t key_size,
@@ -94,11 +94,11 @@ int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint1
 	int ret;
 	size_t recv_size;
 
-	req = NULL;
+	req = net_get_send_buf(ses);
 
 	tx_lego = to_lego_header(req);
-	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_KVS_READ;
+	tx_lego->pid = ctx->pid;
 
 	op = &req->op;
 	op->key_size = key_size;
@@ -141,11 +141,11 @@ int legomem_kvs_delete(struct legomem_context *ctx, struct session_net *ses,
 	int ret;
 	size_t recv_size;
 
-	req = NULL;
+	req = net_get_send_buf(ses);
 
 	tx_lego = to_lego_header(req);
-	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_KVS_DELETE;
+	tx_lego->pid = ctx->pid;
 
 	op = &req->op;
 	op->key_size = key_size;

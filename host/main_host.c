@@ -253,6 +253,16 @@ struct test_option test_options[] = {
 		.desc	= "test single host multiple boards case",
 		.func	= test_legomem_rw_multiboard,
 	},
+	{
+		.name	= "kvs_ycsb",
+		.desc	= "run kvs_ycsb",
+		.func	= test_run_ycsb,
+	},
+	{
+		.name	= "kvs_simple",
+		.desc	= "run_kvs_simple",
+		.func	= test_kvs_simple,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)
@@ -512,15 +522,10 @@ int main(int argc, char **argv)
 			     "**\n", cpu, node);
 
 
-		if (board_addr_set) {
+		if (board_addr_set)
 			test_option->func(board_addr);
-
-			//ret = test_legomem_board(board_addr);
-			//ret = test_raw_net(board_addr);
-			//ret = test_legomem_soc(board_addr);
-		} else {
+		else
 			test_option->func(NULL);
-		}
 	}
 
 	pthread_join(mgmt_session->thread, NULL);

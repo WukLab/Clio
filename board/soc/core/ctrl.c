@@ -242,32 +242,40 @@ __used
 static void handle_kvs_alloc_phys(struct lego_mem_ctrl *rx,
 			          struct lego_mem_ctrl *tx)
 {
+	/*
+	 * This is the value entry size.
+	 * Change based on experiment!
+	 */
+#define KVS_PHYS_ENTRY_SIZE	(1024)
 	unsigned long va;
 	int id;
-	static int __i = 0;
+	static int __cached_kvs_phys_i = 0;
 
-	id = __i++;
+	id = __cached_kvs_phys_i++;
 
 	/* FIFO 1 */
 	tx->epid = EPID_KVS;
 	tx->addr = 1;
-	tx->param32 = id * 256 + KVS_HASHTABLE_SIZE;
+	tx->param8 = 0;
+	tx->param32 = id * KVS_PHYS_ENTRY_SIZE + KVS_HASHTABLE_SIZE;
 	dma_ctrl_send(tx, sizeof(*tx));
 
-	dprintf_DEBUG("alloc fifo1: tx->param32 addr %#x\n", tx->param32);
+	if ((id % 1000) == 0)
+		dprintf_DEBUG("alloc fifo1: tx->param32 addr %#x\n", tx->param32);
 
 	if (rx->cmd == CMD_LEGOMEM_KVS_ALLOC_BOTH) {
-		id = __i++;
-		va = fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START + id * 256;
-		clear_fpga_page((void *)va, 256);
+		id = __cached_kvs_phys_i++;
+
+		/* Memset this entry */
+		va = fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START + id * KVS_PHYS_ENTRY_SIZE;
+		clear_fpga_page((void *)va, KVS_PHYS_ENTRY_SIZE);
 
 		/* FIFO 0 */
 		tx->epid = EPID_KVS;
 		tx->addr = 0;
-		tx->param32 = id * 256 + KVS_HASHTABLE_SIZE;
+		tx->param8 = 0;
+		tx->param32 = id * KVS_PHYS_ENTRY_SIZE + KVS_HASHTABLE_SIZE;
 		dma_ctrl_send(tx, sizeof(*tx));
-
-		dprintf_DEBUG("alloc fifo0: tx->param32 addr %#x\n", tx->param32);
 	}
 }
 
@@ -289,7 +297,7 @@ static void prepare_kvs_phys(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	tx->param32 = _FPGA_MEMORY_MAP_DATA_START;
 	dma_ctrl_send(tx, sizeof(*tx));
 
-	dprintf_INFO("Done preparing for KVS Phys... %d", 0);
+	dprintf_INFO("\n\n\tDone preparing for KVS Phys... %d\n\n", 0);
 }
 
 static pid_t kvs_virt_pid;
@@ -437,15 +445,15 @@ static void *ctrl_poll_func(void *_unused)
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
 	//prepare_multiversion(rx, tx);
-	//prepare_kvs_phys(rx, tx);
-	prepare_kvs_virt(rx, tx);
+	prepare_kvs_phys(rx, tx);
+	//prepare_kvs_virt(rx, tx);
 	//prepare_100g_test();
 
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
 			;
 
-		dprintf_INFO("addr=%x cmd=%x epid=%x\n", rx->addr, rx->cmd, rx->epid);
+		//dprintf_INFO("addr=%x cmd=%x epid=%x\n", rx->addr, rx->cmd, rx->epid);
 
 		switch (rx->cmd) {
 		case CMD_LEGOMEM_CTRL_CREATE_PROC:
@@ -462,9 +470,8 @@ static void *ctrl_poll_func(void *_unused)
 			break;
 		case CMD_LEGOMEM_KVS_ALLOC:
 		case CMD_LEGOMEM_KVS_ALLOC_BOTH:
-			dprintf_INFO("kvs alloc %d\n", 0);
-			//handle_kvs_alloc_phys(rx, tx);
-			handle_kvs_alloc_virt(rx, tx);
+			handle_kvs_alloc_phys(rx, tx);
+			//handle_kvs_alloc_virt(rx, tx);
 			break;
 		default:
 			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);
