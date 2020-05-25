@@ -299,33 +299,34 @@ __used
 static void handle_kvs_alloc_virt(struct lego_mem_ctrl *rx,
 			          struct lego_mem_ctrl *tx)
 {
-	unsigned long addr;	
+	/*
+	 * Per entry size
+	 * allocation granularity
+	 */
+#define KVS_VIRT_ENTRY_SIZE	(1024)
+#define KVS_VIRT_HASHTABLE_SIZE	(4*1024*1024)
+	unsigned int addr;	
+	static int _cached_index = 0;
 
-	BUG_ON(!kvs_virt_pi);
-
-	addr = __handle_ctrl_alloc(kvs_virt_pi, PAGE_SIZE, 0);
-	if (!addr) {
-		dprintf_ERROR("fail to alloc for kvs virt fifo1 %d\n",0);
-		return;
-	}
+	addr = _cached_index * KVS_VIRT_ENTRY_SIZE + KVS_VIRT_HASHTABLE_SIZE;
+	_cached_index++;
 
 	/* FIFO 1 */
 	tx->epid = EPID_KVS;
 	tx->addr = 1;
+	tx->param8 = 0;
 	tx->param32 = addr;
 	dma_ctrl_send(tx, sizeof(*tx));
 	dprintf_DEBUG("alloc fifo1: tx->param32 va %#x\n", tx->param32);
 
 	if (rx->cmd == CMD_LEGOMEM_KVS_ALLOC_BOTH) {
-		addr = __handle_ctrl_alloc(kvs_virt_pi, PAGE_SIZE, LEGOMEM_VM_FLAGS_ZERO);
-		if (!addr) {
-			dprintf_ERROR("fail to alloc for kvs virt fifo0 %d\n",0);
-			return;
-		}
+		addr = _cached_index * KVS_VIRT_ENTRY_SIZE + KVS_VIRT_HASHTABLE_SIZE;
+		_cached_index++;
 
 		/* FIFO 0 */
 		tx->epid = EPID_KVS;
 		tx->addr = 0;
+		tx->param32 = 0;
 		tx->param32 = addr;
 		dma_ctrl_send(tx, sizeof(*tx));
 		dprintf_DEBUG("alloc fifo0: tx->param32 va %#x\n", tx->param32);
@@ -337,8 +338,6 @@ static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 {
 	pid_t sys_pid;
 	unsigned long addr, size;
-	struct vregion_info *vi;
-	int vregion_idx;
 
 	/* Get a System PID (not starting from 0) */
 	sys_pid = __handle_ctrl_create_proc();
@@ -361,14 +360,13 @@ static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	sleep(2);
 
 	/* VA Base */
-	size = PAGE_SIZE * 4;
-	vregion_idx = 0;
-	vi = index_to_vregion(kvs_virt_pi, vregion_idx);
-	addr = alloc_va_vregion(kvs_virt_pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_ZERO);
+	size = PAGE_SIZE * 16;
+	addr = __handle_ctrl_alloc(kvs_virt_pi, size, LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_ZERO);
 	if (IS_ERR_VALUE(addr)) {
-		dprintf_ERROR("Cannot allocate va vregion %d\n", vregion_idx);
+		dprintf_ERROR("Cannot allocate va vregion %d\n", 0);
 		return;
 	}
+
 	tx->epid = EPID_KVS;
 	tx->addr = 0xff;
 	tx->cmd = 0;
