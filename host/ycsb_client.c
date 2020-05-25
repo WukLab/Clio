@@ -277,5 +277,5 @@ int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
 void run_ycsb()
 {
 	legomem_setup(1, 5, 2);
-	//run_ycsb_workload();
+	//run_ycsb_workload("workloada_parsed", 1, 1000, 100000, 100000);
 }
