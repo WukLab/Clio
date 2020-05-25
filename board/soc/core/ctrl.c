@@ -336,14 +336,9 @@ __used
 static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 {
 	pid_t sys_pid;
-
-	/*
-	 * Note that fpga_mem_start_soc_va starts from FPGA memory 0.
-	 * Thus we need to add the DATA offset, which is 1GB by default.
-	 * Clear [0x540000000 - 0x540000000+16M]
-	 */
-	clear_fpga_page((void *)(fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START),
-			KVS_HASHTABLE_SIZE);
+	unsigned long addr, size;
+	struct vregion_info *vi;
+	int vregion_idx;
 
 	/* Get a System PID (not starting from 0) */
 	sys_pid = __handle_ctrl_create_proc();
@@ -355,24 +350,33 @@ static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	kvs_virt_pi = get_proc_by_pid(kvs_virt_pid);
 	BUG_ON(!kvs_virt_pi);
 
-	/* VA offset */
-	tx->epid = EPID_KVS;
-	tx->addr = 0xff;
-	tx->cmd = 0;
-	tx->param8 = 0;
-	tx->param32 = 0;
-	dma_ctrl_send(tx, sizeof(*tx));
-	dprintf_DEBUG("Prepared vaddr %x for KVS virt\n", 0);
-
-	sleep(5);
-
 	tx->epid = EPID_KVS;
 	tx->addr = 0xff;
 	tx->cmd = 1;
 	tx->param8 = 0;
 	tx->param32 = kvs_virt_pid;
 	dma_ctrl_send(tx, sizeof(*tx));
-	dprintf_DEBUG("Prepared Sys PID=%u for KVS virt\n", kvs_virt_pid);
+	dprintf_DEBUG("Prepared Sys PID=%u for KVS virt ...\n", kvs_virt_pid);
+
+	sleep(2);
+
+	/* VA Base */
+	size = PAGE_SIZE * 4;
+	vregion_idx = 0;
+	vi = index_to_vregion(kvs_virt_pi, vregion_idx);
+	addr = alloc_va_vregion(kvs_virt_pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_ZERO);
+	if (IS_ERR_VALUE(addr)) {
+		dprintf_ERROR("Cannot allocate va vregion %d\n", vregion_idx);
+		return;
+	}
+	tx->epid = EPID_KVS;
+	tx->addr = 0xff;
+	tx->cmd = 0;
+	tx->param8 = 0;
+	tx->param32 = addr;
+	dma_ctrl_send(tx, sizeof(*tx));
+	dprintf_DEBUG("Prepared vaddr tx->param32 [%#x - #%x] for KVS virt ... \n",
+		(u32)tx->param32, (u32)(tx->param32 + size));
 
 	dprintf_INFO("\n\n\tDone preparing for KVS Virt... %d\n\n", 0);
 }
