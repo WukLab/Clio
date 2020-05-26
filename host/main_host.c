@@ -493,6 +493,7 @@ int main(int argc, char **argv)
 		ret = join_cluster();
 		if (ret)
 			exit(-1);
+		sleep(2);
 	} else {
 		dprintf_INFO("Skipped join_cluster, monitor (%s) is not contacted.\n",
 			monitor_bi->name);

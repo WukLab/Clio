@@ -16,10 +16,8 @@
 #include "../core.h"
 #include "../api_kvs.h"
 
-#define DATA_BUFFSER_SIZE 1024
-#define NR_READ		1000
-#define NR_WRITE	1000
-#define NR_UPDATE	128
+#define NR_READ		10000
+#define NR_WRITE	10000
 
 int test_kvs_simple(char *_unused)
 {
@@ -55,29 +53,31 @@ int test_kvs_simple(char *_unused)
 	net_reg_send_buf(ses, reg_buf, 4096);
 
 	char buf[1024];
-	uint64_t base_key = 0x1234560000ULL;
+	uint64_t base_key = 0x223456789ULL;
 	uint64_t key;
+
 	int value_size = 1000;
 
 	key = base_key;
 
+#if 0
 	legomem_kvs_create(ctx, ses, 8, (char *)key, value_size, buf);
 	printf("after create..\n");
 	sleep(5);
 
 	legomem_kvs_read(ctx, ses, 8, (char *)key, value_size, buf);
 	printf("after read..\n");
+#endif
 
-	exit(0);
 
-
-#if 0
+#if 1
 	struct timespec ts, te;
-	int i;
+
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (int i = 0; i < NR_WRITE; i++) {
-		key = base_key + i * 0x100;
-		legomem_kvs_create(ctx, ses, key, value_size, buf);
+		key = base_key + i * 0x1;
+
+		legomem_kvs_create(ctx, ses, 8, (char *)key, value_size, buf);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &te);
 
@@ -87,8 +87,9 @@ int test_kvs_simple(char *_unused)
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (int i = 0; i < NR_READ; i++) {
-		key = base_key + i * 0x100;
-		legomem_kvs_read(ctx, key, value_size, buf);
+		key = base_key + i * 0x1;
+
+		legomem_kvs_read(ctx, ses, 8, (char *)key, value_size, buf);
 	}
 	clock_gettime(CLOCK_MONOTONIC, &te);
 

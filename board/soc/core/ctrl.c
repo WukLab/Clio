@@ -233,20 +233,16 @@ out:
 
 
 /*
- * The first 16M portion is used by physical KVS hashtable.
+ * The first portion is used by physical KVS hashtable.
  */
-#define KVS_HASHTABLE_SIZE	(16 * 1024 * 1024)
+#define KVS_PHYS_HASHTABLE_SIZE	(4 * 1024 * 1024)
+#define KVS_PHYS_ENTRY_SIZE	(1024)
 #define EPID_KVS		(3)
 
 __used
 static void handle_kvs_alloc_phys(struct lego_mem_ctrl *rx,
 			          struct lego_mem_ctrl *tx)
 {
-	/*
-	 * This is the value entry size.
-	 * Change based on experiment!
-	 */
-#define KVS_PHYS_ENTRY_SIZE	(1024)
 	unsigned long va;
 	int id;
 	static int __cached_kvs_phys_i = 0;
@@ -257,7 +253,7 @@ static void handle_kvs_alloc_phys(struct lego_mem_ctrl *rx,
 	tx->epid = EPID_KVS;
 	tx->addr = 1;
 	tx->param8 = 0;
-	tx->param32 = id * KVS_PHYS_ENTRY_SIZE + KVS_HASHTABLE_SIZE;
+	tx->param32 = id * KVS_PHYS_ENTRY_SIZE + KVS_PHYS_HASHTABLE_SIZE;
 	dma_ctrl_send(tx, sizeof(*tx));
 
 	if ((id % 1000) == 0)
@@ -274,7 +270,7 @@ static void handle_kvs_alloc_phys(struct lego_mem_ctrl *rx,
 		tx->epid = EPID_KVS;
 		tx->addr = 0;
 		tx->param8 = 0;
-		tx->param32 = id * KVS_PHYS_ENTRY_SIZE + KVS_HASHTABLE_SIZE;
+		tx->param32 = id * KVS_PHYS_ENTRY_SIZE + KVS_PHYS_HASHTABLE_SIZE;
 		dma_ctrl_send(tx, sizeof(*tx));
 	}
 }
@@ -287,7 +283,7 @@ static void prepare_kvs_phys(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	 * Thus we need to add the DATA offset, which is 1GB by default.
 	 */
 	clear_fpga_page((void *)(fpga_mem_start_soc_va + _FPGA_MEMORY_MAP_DATA_START),
-			KVS_HASHTABLE_SIZE);
+			KVS_PHYS_HASHTABLE_SIZE);
 
 	/* Registers */
 	tx->epid = EPID_KVS;
@@ -300,6 +296,19 @@ static void prepare_kvs_phys(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	dprintf_INFO("\n\n\tDone preparing for KVS Phys... %d\n\n", 0);
 }
 
+/*
+ * Per entry size
+ * allocation granularity
+ */
+#define KVS_VIRT_ENTRY_SIZE	(1024)
+#define KVS_VIRT_HASHTABLE_SIZE	(4*1024*1024)
+
+/*
+ * The avilable VA space for KVS virt
+ */
+#define KVS_VIRT_NR_PAGES	(64)
+#define KVS_VIRT_VA_SIZE	(PAGE_SIZE * KVS_VIRT_NR_PAGES)
+
 static pid_t kvs_virt_pid;
 static struct proc_info *kvs_virt_pi;
 
@@ -307,17 +316,17 @@ __used
 static void handle_kvs_alloc_virt(struct lego_mem_ctrl *rx,
 			          struct lego_mem_ctrl *tx)
 {
-	/*
-	 * Per entry size
-	 * allocation granularity
-	 */
-#define KVS_VIRT_ENTRY_SIZE	(1024)
-#define KVS_VIRT_HASHTABLE_SIZE	(4*1024*1024)
 	unsigned int addr;	
 	static int _cached_index = 0;
 
 	addr = _cached_index * KVS_VIRT_ENTRY_SIZE + KVS_VIRT_HASHTABLE_SIZE;
 	_cached_index++;
+
+	if (addr >= KVS_VIRT_VA_SIZE) {
+		dprintf_ERROR("_cached_index %d addr %#lx is full. Enlarge.\n",
+			_cached_index, KVS_VIRT_VA_SIZE);
+		exit(0);
+	}
 
 	/* FIFO 1 */
 	tx->epid = EPID_KVS;
@@ -325,7 +334,6 @@ static void handle_kvs_alloc_virt(struct lego_mem_ctrl *rx,
 	tx->param8 = 0;
 	tx->param32 = addr;
 	dma_ctrl_send(tx, sizeof(*tx));
-	dprintf_DEBUG("alloc fifo1: tx->param32 va %#x\n", tx->param32);
 
 	if (rx->cmd == CMD_LEGOMEM_KVS_ALLOC_BOTH) {
 		addr = _cached_index * KVS_VIRT_ENTRY_SIZE + KVS_VIRT_HASHTABLE_SIZE;
@@ -337,7 +345,6 @@ static void handle_kvs_alloc_virt(struct lego_mem_ctrl *rx,
 		tx->param32 = 0;
 		tx->param32 = addr;
 		dma_ctrl_send(tx, sizeof(*tx));
-		dprintf_DEBUG("alloc fifo0: tx->param32 va %#x\n", tx->param32);
 	}
 }
 
@@ -368,7 +375,7 @@ static void prepare_kvs_virt(struct lego_mem_ctrl *rx, struct lego_mem_ctrl *tx)
 	sleep(2);
 
 	/* VA Base */
-	size = PAGE_SIZE * 16;
+	size = KVS_VIRT_VA_SIZE;
 	addr = __handle_ctrl_alloc(kvs_virt_pi, size, LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_ZERO);
 	if (IS_ERR_VALUE(addr)) {
 		dprintf_ERROR("Cannot allocate va vregion %d\n", 0);
@@ -445,8 +452,8 @@ static void *ctrl_poll_func(void *_unused)
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
 	//prepare_multiversion(rx, tx);
-	prepare_kvs_phys(rx, tx);
-	//prepare_kvs_virt(rx, tx);
+	//prepare_kvs_phys(rx, tx);
+	prepare_kvs_virt(rx, tx);
 	//prepare_100g_test();
 
 	while (1) {
@@ -470,8 +477,8 @@ static void *ctrl_poll_func(void *_unused)
 			break;
 		case CMD_LEGOMEM_KVS_ALLOC:
 		case CMD_LEGOMEM_KVS_ALLOC_BOTH:
-			handle_kvs_alloc_phys(rx, tx);
-			//handle_kvs_alloc_virt(rx, tx);
+			//handle_kvs_alloc_phys(rx, tx);
+			handle_kvs_alloc_virt(rx, tx);
 			break;
 		default:
 			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);

@@ -133,7 +133,7 @@ void __dump_packet_headers(void *packet, char *str_buf)
 		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),
 		gbn_pkt_type_str(gbn->type));
 
-	DUMP_PR("lego pid=%u tag=%#x opcode=%u (%s)",
+	DUMP_PR("lego pid=%u tag=%#x opcode=%#x (%s)",
 		lego->pid, lego->tag, lego->opcode,
 		legomem_opcode_str(lego->opcode));
 

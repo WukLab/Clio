@@ -88,7 +88,7 @@ int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint1
 {
 	struct legomem_kvs_req *req;
 	struct lego_header *tx_lego;
-	struct lego_header *rx_lego;
+	struct lego_header *rx_lego __maybe_unused;
 	struct op_kvs_req *op;
 	struct legomem_kvs_resp *resp;
 	int ret;
@@ -116,11 +116,13 @@ int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint1
 		dprintf_ERROR("Net recv error %d\n", ret);
 		return ret;
 	}
+#if 0
 	rx_lego = to_lego_header(resp);
 	if (unlikely(rx_lego->req_status)) {
 		dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
 		return -1;
 	}
+#endif
 
 	/*
 	 * Zerocopy is using low-level network ring-buffers,

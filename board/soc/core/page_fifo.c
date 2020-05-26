@@ -197,6 +197,10 @@ static void prefill_fifos(struct lego_mem_ctrl *ctrl)
 	}
 }
 
+/*
+ * HACK: If you enable this, the produced binary
+ * should only ran once.
+ */
 int init_freepage_fifo(void)
 {
 #if 0
