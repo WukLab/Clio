@@ -95,7 +95,10 @@ repeat:
 	 * This is not normal use path anyway.
 	 */
 	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE | vm_flags);
-	if (unlikely(IS_ERR_VALUE(addr))) {
+	if (unlikely(!addr)) {
+		dprintf_DEBUG("PID %u vregion_idx %u is full, move to next one.\n",
+			pi->pid, vregion_idx);
+
 		vregion_idx++;
 		if (vregion_idx == NR_VREGIONS) {
 			dprintf_ERROR("Well OOM%d\n", 0);
@@ -425,7 +428,7 @@ static void prepare_100g_test(void)
 	vregion_idx = 0;
 	vi = index_to_vregion(pi, vregion_idx);
 	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE);
-	if (IS_ERR_VALUE(addr)) {
+	if (!addr) {
 		dprintf_ERROR("Cannot allocate va vregion %d\n", vregion_idx);
 		return;
 	}

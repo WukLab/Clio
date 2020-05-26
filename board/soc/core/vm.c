@@ -1163,6 +1163,8 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
  * This funtion will NOT touch other vRegions.
  *
  * vRegion lock is held upon entry.
+ *
+ * Return 0 Failure. Not -ENOMEM!!
  */
 static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 				unsigned long len, unsigned long vm_flags)
@@ -1186,7 +1188,8 @@ retry:
 	 */
 	addr = __find_va_range(proc, vi, len);
 	if (IS_ERR_VALUE(addr)) {
-		dprintf_ERROR("nr_retry: %d\n", nr_retry);
+		dprintf_ERROR("nr_retry=%d Fail to alloc VA range. PID %u vregion_idx %lu\n",
+			nr_retry, proc->pid, vregion_to_index(proc, vi));
 		return 0;
 	}
 
@@ -1212,7 +1215,7 @@ retry:
 		 */
 		vma_tree_new(proc, vi, addr, len, LEGOMEM_VM_FLAGS_CONFLICT);
 
-		dprintf_DEBUG("va alloc conflict [%#lx-%#lx] nr_retry: %d\n",
+		dprintf_DEBUG("VA alloc Conflict [%#lx-%#lx] nr_retry: %d\n",
 			addr, addr + len, nr_retry);
 		goto retry;
 	}
@@ -1222,8 +1225,11 @@ retry:
 	 * No need to revert anything if it fails.
 	 */
 	addr = vma_tree_new(proc, vi, addr, len, vm_flags);
-	if (IS_ERR_VALUE(addr))
+	if (IS_ERR_VALUE(addr)) {
+		dprintf_ERROR("Fail to update VMA tree. PID %u vregion_idx %lu\n",
+			proc->pid, vregion_to_index(proc, vi));
 		return 0;
+	}
 
 	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags, PAGE_SIZE);
 	return addr;
