@@ -23,7 +23,6 @@ uint64_t total_num_load_reqs;
 uint64_t total_num_run_reqs;
 int max_key_size;
 int value_size;
-int total_num_thread;
 //char **load_reqs;
 u64 *load_reqs;
 struct ycsb_run_req_struct {
@@ -32,9 +31,7 @@ struct ycsb_run_req_struct {
 };
 struct ycsb_run_req_struct *run_reqs;
 
-struct session_net **sessions;
 struct legomem_context *legomem_ctx;
-int total_num_boards;
 
 static pthread_barrier_t thread_barrier;
 
@@ -47,30 +44,38 @@ void gen_random_value(char *buf, int size)
 	}
 }
 
-// XXX revist if >1 boards
+#define NR_BOARDS (4)
+#define NR_TOTAL_THREADS (16)
+
+int nr_total_sessions = NR_TOTAL_THREADS;
+
+struct session_net *sessions[NR_BOARDS * NR_TOTAL_THREADS]; 
+
+double tput[NR_TOTAL_THREADS];
+int NR_THREAD[] = {NR_TOTAL_THREADS};
+
+int map_key_to_board_id(char *key)
+{
+	return  (unsigned long)key % NR_BOARDS;
+}
+
+/*
+ * thread_id is per board
+ * not a total num..
+ */
 int map_key_to_session_id(char *key, int thread_id)
 {
-	static unsigned long hash = 5381;
 	int board_id;
+	int id;
 
-#if 0
-	//while ((c = *key++) != 0)
-	while ((c = (u64)key++) != 0)
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-#endif
-
-	board_id = hash++ % total_num_boards;
-	return board_id * total_num_thread + thread_id;
+	board_id = map_key_to_board_id(key);
+	id = board_id * NR_TOTAL_THREADS + thread_id;
+	return id;
 }
 
 struct run_thread_input {
 	int thread_id;
 };
-
-#define NR_MAX_THREADS (8)
-double tput[NR_MAX_THREADS];
-int nr_max_threads = NR_MAX_THREADS;
-int NR_THREAD[] = {1, 2, 4, NR_MAX_THREADS};
 
 void *ycsb_workload_run_phase(void *input) 
 {
@@ -90,21 +95,44 @@ void *ycsb_workload_run_phase(void *input)
 
 	gen_random_value(value_buf, value_size);
 
-	pthread_barrier_wait(&thread_barrier);
-
 	int cpu, node;
 
 	/* Start from CPU2 */
 	pin_cpu(2+my_thread_id);
 	legomem_getcpu(&cpu, &node);
-	dprintf_CRIT("thread %d runs on CPU %d\n", my_thread_id, cpu);
+
+	dprintf_CRIT("thread %d runs on CPU %d \n",
+			my_thread_id, cpu);
+
+#if 0
+	int _r;
+	_r = pthread_barrier_wait(&thread_barrier);
+	if (_r == PTHREAD_BARRIER_SERIAL_THREAD)
+		legomem_dist_barrier();
+	else
+		__legomem_dist_barrier();
+#endif
+
+	int client_id = 0;
+	int nr_clients = 1;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	for (i = 0; i < total_num_run_reqs; i++) {
-		if (i % total_num_thread != my_thread_id)
+	for (i = my_thread_id; i < total_num_run_reqs; i += NR_TOTAL_THREADS) {
+#if 1
+		if ((i % nr_clients) != client_id)
 			continue;
+#endif
+#if 1
+		if ((i % NR_TOTAL_THREADS) != my_thread_id)
+			continue;
+#endif
 
-		session_id = map_key_to_session_id(run_reqs[i].key, my_thread_id);
+		//int bid = map_key_to_board_id(run_reqs[i].key);
+		int bid = my_thread_id % NR_BOARDS;
+
+		session_id = bid * NR_TOTAL_THREADS + my_thread_id;
+		//session_id = my_thread_id;
+
 		switch (run_reqs[i].op) {
 			case UPDATE:
 				legomem_kvs_update(legomem_ctx, sessions[session_id], 8, run_reqs[i].key, 
@@ -137,26 +165,36 @@ void *ycsb_workload_run_phase(void *input)
 
 int ycsb_workload_load_phase()
 {
-	int i;
+	int i, j;
 	char *value_buf;
 	int session_id;
+	struct session_net *ses;
 
 	value_buf = malloc(value_size);
 	assert(value_buf);
 
 	gen_random_value(value_buf, value_size);
 
-	for (i = 0; i < total_num_load_reqs; i++) {
-		session_id = map_key_to_session_id((char *)load_reqs[i], 0);
+	/*
+	 * Populate keys to all boards...
+	 */
+	for (j = 0; j < NR_BOARDS; j++) {
+		/* Get the first session with each board */
+		session_id = j * NR_TOTAL_THREADS;
+		ses = sessions[session_id];
 
-#if 0
-		dprintf_CRIT("KVS Create index=%d key=%lx value_size %d\n",
-				i, load_reqs[i], value_size);
+		for (i = 0; i < total_num_load_reqs; i++) {
+#if 1
+			dprintf_INFO("CREATE board=%d nr=%5d key=%#lx value_size %5d session_index %d ses id %d ses->board: %s\n",
+				j, i, load_reqs[i], value_size, session_id, 
+				get_local_session_id(ses),
+				ses->board_info->name);
 #endif
-		legomem_kvs_create(legomem_ctx,
-				   sessions[session_id],
-				   8, (char *)load_reqs[i], 
-				   value_size, value_buf);
+			legomem_kvs_create(legomem_ctx,
+					   ses,
+					   8, (char *)load_reqs[i], 
+					   value_size, value_buf);
+		}
 	}
 
 	free(value_buf);
@@ -221,6 +259,9 @@ int ycsb_prepare_workload_from_trace(char* filename)
 	return max_key_size;
 }
 
+/*
+ *@thread_num: all
+ */
 int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 			uint64_t total_loads, uint64_t total_reqs)
 {
@@ -228,7 +269,8 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 	pthread_t *thread_job;
 	struct run_thread_input *thread_input;
 
-	total_num_thread = thread_num;
+	thread_num = NR_TOTAL_THREADS;
+
 	value_size = input_value_size;
 	thread_job = malloc(sizeof(pthread_t) * thread_num);
 	assert(thread_job);
@@ -253,6 +295,7 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 	if (ycsb_prepare_workload_from_trace(filename) == -1)
 		return -1;
 
+#if 1
 	/*
 	 * Write to board
 	 * create keys
@@ -260,32 +303,31 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 	dprintf_CRIT("Loading (create) phase started, wait .. %d\n", 0);
 	ycsb_workload_load_phase();
 	dprintf_CRIT("Loading (create) phase finished ..%d\n", 0);
+	//sleep(30);
+#else
+	sleep(10);
+#endif
 
-	for (int k = 0; k < ARRAY_SIZE(NR_THREAD); k++) {
-		double tput_sum;
+	double tput_sum;
 
-		thread_num = NR_THREAD[k];
-		dprintf_CRIT(" TEST [%d] nr_threads / board = %d\n", k, thread_num);
+	pthread_barrier_init(&thread_barrier, NULL, thread_num);
 
-		pthread_barrier_init(&thread_barrier, NULL, thread_num);
-
-		for (i = 0; i < thread_num; i++) {
-			thread_input[i].thread_id = i;
-			pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &thread_input[i]);
-		}
-
-		for (i = 0; i < thread_num; i++) {
-			pthread_join(thread_job[i], NULL);
-		}
-
-		tput_sum = 0;
-		for (i = 0; i < thread_num; i++) {
-			tput_sum += tput[i];
-		}
-
-		// print in red
-		dprintf_ERROR("nr_threads=%d Sum IOPS %lf\n", thread_num, tput_sum);
+	for (i = 0; i < thread_num; i++) {
+		thread_input[i].thread_id = i;
+		pthread_create(&thread_job[i], NULL, &ycsb_workload_run_phase, &thread_input[i]);
 	}
+
+	for (i = 0; i < thread_num; i++) {
+		pthread_join(thread_job[i], NULL);
+	}
+
+	tput_sum = 0;
+	for (i = 0; i < thread_num; i++) {
+		tput_sum += tput[i];
+	}
+
+	// print in red
+	dprintf_ERROR("nr_threads=%d Sum IOPS %lf\n", thread_num, tput_sum);
 
 	return 0;
 }
@@ -293,22 +335,15 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 /*
  * @num_threads is for per board.
  */
-int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
+int legomem_setup(void)
 {
 	int i, j, k;
 	struct board_info *board;
 	void *buf;
 
-	sessions = (struct session_net **)malloc(total_boards * num_threads * sizeof(struct session_net));
-
 	legomem_ctx = legomem_open_context();
 
-	if (!sessions || !legomem_ctx)
-		return -1;
-
-	total_num_boards = total_boards;
-
-	for (i = 0; i < total_boards; i++) {
+	for (i = 0; i < NR_BOARDS; i++) {
 
 		/*
 		 * XXX
@@ -320,19 +355,18 @@ int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
 
 		dprintf_CRIT("Selected Board:  [%s] \n", board->name);
 
-		/*
-		 * Create the maximum num threads possible..
-		 */
-		for (j = 0; j < num_threads; j++) {
-			k = i * num_threads + j;
+		for (j = 0; j < NR_TOTAL_THREADS; j++) {
+			k = i * NR_TOTAL_THREADS + j;
 
 			//sessions[k] = legomem_open_session(legomem_ctx, board);
+
 			sessions[k] = legomem_open_session_remote_mgmt(board);
 			if (!sessions[k]) {
 				printf("Cannot open session to board %d thread %d\n", i, j);
 				return -1;
 			}
 
+#if 1
 			/* Create per-session send RDMA buf */
 			buf = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 			if (buf == MAP_FAILED) {
@@ -342,7 +376,14 @@ int legomem_setup(int total_client_nodes, int total_boards, int num_threads)
 			net_reg_send_buf(sessions[k], buf, 4096);
 
 			dprintf_CRIT("\tCreated session %d with board %s\n", k, board->name);
+#endif
 		}
+	}
+
+	for (i = 0; i < NR_TOTAL_THREADS * NR_BOARDS; i++) {
+		dprintf_INFO(" YCSB session index %2d sesid %2d remote %s\n",
+			i, get_local_session_id(sessions[i]),
+			sessions[i]->board_info->name);
 	}
 	return 0;
 }
@@ -353,21 +394,22 @@ int test_run_ycsb(char *unused)
 	//char *fname = "ycsb/workloadb_parsed";
 	char *fname = "ycsb/workloadc_parsed";
 
-	int nr_clients, nr_boards, nr_threads;
+	int nr_boards, nr_threads;
 	int value_size;
 
-	nr_threads = nr_max_threads;
+	nr_threads = NR_TOTAL_THREADS;
 
-	nr_clients = 1;
-	nr_boards = 1;
+	nr_boards = NR_BOARDS;
 
-	dprintf_CRIT("Start running YCSB... File: %s. nr_clients: %d nr_boards %d nr_max_threads %d\n",
-		fname, nr_clients, nr_boards, nr_threads);
+	dprintf_CRIT("Start running YCSB... File: %s. nr_boards %d nr_total_threads %d\n",
+		fname, NR_BOARDS, NR_TOTAL_THREADS);
 
-	legomem_setup(nr_clients, nr_boards, nr_threads);
+	legomem_setup();
 
-	value_size = 1000;
-	run_ycsb_workload(fname, nr_max_threads, value_size, 100 * 1000, 100 * 1000);
+	value_size = 1024;
+
+	run_ycsb_workload(fname, NR_TOTAL_THREADS, value_size, 100 * 1000, 100 * 1000);
+	//run_ycsb_workload(fname, nr_threads * nr_boards, value_size, 100, 100);
 
 	return 0;
 }

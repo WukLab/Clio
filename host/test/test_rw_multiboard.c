@@ -24,8 +24,13 @@
 #define OneM 1024*1024
 
 /* Knobs */
+<<<<<<< HEAD
 #define NR_RUN_PER_THREAD 1000000
 static int test_size[] = { 1024 };
+=======
+#define NR_RUN_PER_THREAD 100000
+static int test_size[] = { 1430 };
+>>>>>>> host: add legomem_dist_barrier() api
 
 /*
  * We assign X threads to each board, meaning
@@ -35,6 +40,9 @@ static int test_size[] = { 1024 };
 #define NR_THREADS_PER_BOARD	(1)
 
 static int test_nr_threads[] = { NR_BOARDS*NR_THREADS_PER_BOARD };
+
+double read_tput[NR_BOARDS*NR_THREADS_PER_BOARD];
+double write_tput[NR_BOARDS*NR_THREADS_PER_BOARD];
 
 /*
  * Each board has their own base addr,
@@ -84,14 +92,10 @@ static void *thread_func_read(void *_ti)
 	if (pin_cpu(ti->cpu))
 		die("can not pin to cpu %d\n", ti->cpu);
 
-	/*
-	 * Get the pre allocated addr
-	 * I mean, remote addr space address :)
-	 */
-	i = ti->id / NR_THREADS_PER_BOARD;
-	addr = global_base_addr[i];
-	bi = global_bi[i];
+	int board_id = (ti->id / NR_THREADS_PER_BOARD) + 3;
+	bi = find_board_by_id(board_id);
 
+	addr = 0x3e000000;
 	legomem_getcpu(&cpu, &node);
 	dprintf_CRIT("Thread id %d running on CPU %d. Base Addr %#lx, board: %s\n",
 			ti->id, cpu, addr, bi->name);
@@ -121,28 +125,8 @@ static void *thread_func_read(void *_ti)
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
-
-		pthread_barrier_wait(&thread_barrier);
-
+	
 #if 1
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		for (j = 0; j < nr_tests; j++) {
-			legomem_read_with_session_msgbuf(ctx, ses, mb, recv_buf, addr, size);
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
-
-		latency_read_ns[ti->id][i] = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) - 
-					     (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-
-		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
-			latency_read_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
-#endif
-
-#if 1
-		pthread_barrier_wait(&thread_barrier);
-
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			__legomem_write_with_session_msgbuf(ctx, ses, mb, addr, size, LEGOMEM_WRITE_SYNC);
@@ -155,8 +139,28 @@ static void *thread_func_read(void *_ti)
 			ti->id, j, size,
 			latency_write_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000));
+
+		write_tput[ti->id] = (NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000);
 #endif
 
+
+		pthread_barrier_wait(&thread_barrier);
+#if 1
+		clock_gettime(CLOCK_MONOTONIC, &s);
+		for (j = 0; j < nr_tests; j++) {
+			legomem_read_with_session_msgbuf(ctx, ses, mb, recv_buf, addr, size);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &e);
+
+		latency_read_ns[ti->id][i] = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+					      (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size,
+			latency_read_ns[ti->id][i] / j,
+			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
+
+		read_tput[ti->id] = (NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000);
+#endif
 
 	}
 	return NULL;
@@ -178,6 +182,7 @@ int test_legomem_rw_multiboard(char *_unused)
 		return -1;
 	dump_legomem_contexts();
 
+#if 0
 	for (i = 0; i < NR_BOARDS; i++) {
 		struct session_net *ses;
 		struct board_info *bi;
@@ -208,6 +213,7 @@ int test_legomem_rw_multiboard(char *_unused)
 		global_bi[i] = bi;
 		global_base_addr[i] = addr;
 	}
+#endif
 
 	ti = malloc(sizeof(*ti) * NR_MAX);
 	tid = malloc(sizeof(*tid) * NR_MAX);
@@ -287,6 +293,13 @@ int test_legomem_rw_multiboard(char *_unused)
 					NR_RUN_PER_THREAD, nr_threads, send_size, avg_read, avg_write);
 		}
 	}
+
+	double rs=0, ws=0;
+	for (i = 0; i < NR_BOARDS * NR_THREADS_PER_BOARD ; i++) {
+		rs += read_tput[i];
+		ws += write_tput[i];
+	}
+	printf("read %f Mbps write %f Mbps\n", rs, ws);
 
 	while (1);
 	legomem_close_context(ctx);

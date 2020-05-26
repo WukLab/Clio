@@ -56,7 +56,7 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	 * If user can provide a larger buffer (i.e., reserve
 	 * space for common_headers), we could avoid this.
 	 */
-	memcpy(op->value, value, value_size);
+	//memcpy(op->value, value, value_size);
 
 	ret = net_send(ses, req, sizeof(*req) + value_size);
 	if (ret < 0) {
@@ -128,7 +128,7 @@ int legomem_kvs_read(struct legomem_context *ctx, struct session_net *ses, uint1
 	 * Zerocopy is using low-level network ring-buffers,
 	 * which will be recycled soon. We should copy to user buffer.
 	 */
-	memcpy(value, resp->op.value, value_size);
+	//memcpy(value, resp->op.value, value_size);
 
 	return 0;
 }

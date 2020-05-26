@@ -56,46 +56,20 @@ int test_legomem_migration(char *_unused)
 
 	alloc_size = VREGION_SIZE;
 
-	for (i = 0; i < NR_TESTS; i++) {
-		addr[i] = legomem_alloc(ctx, alloc_size, LEGOMEM_VM_FLAGS_POPULATE);
-		if (!addr[i]) {
-			dprintf_ERROR("alloc failed %d\n", 0);
-			goto close;
-		}
-#if 1
+	i = 0;
+	addr[i] = legomem_alloc(ctx, alloc_size, LEGOMEM_VM_FLAGS_POPULATE);
+	if (!addr[i])
+		dprintf_ERROR("alloc failed %d\n", 0);
+
 		dprintf_INFO(" alloc i=%3d addr=%#18lx vregion_idx=%u\n",
 			i, addr[i], va_to_vregion_index(addr[i]));
-#endif
-	}
 
-	/* write something into the original owner's memory */
-	void *buf = malloc(alloc_size + 100);
-	if (!buf) {
-		printf("OOM\n");
-		exit(0);
-	}
-	memset(buf, 0x6, alloc_size);
-	
-	dprintf_INFO("buf %#lx\n", (u64)buf);
-	struct session_net *ses = find_or_alloc_vregion_session(ctx, addr[0]);
-	net_reg_send_buf(ses, buf, alloc_size + 100);
+	dprintf_INFO(" migrate i=%3d addr=%#18lx vregion_idx=%u\n",
+		i, addr[i], va_to_vregion_index(addr[i]));
 
-	legomem_write_sync(ctx, buf, addr[0], alloc_size);
-	printf("After write...\n");
+	legomem_migration(ctx, dst_bi, addr[i], 128);
+	exit(0);
 
-	clock_gettime(CLOCK_MONOTONIC, &s);
-	/* 
-	 * leave the first one open, we want to reuse its session
-	 * if we happen to use only one board.
-	 */
-	for (i = 0; i < NR_TESTS; i++) {
-#if 1
-		dprintf_INFO(" migrate i=%3d addr=%#18lx vregion_idx=%u\n",
-			i, addr[i], va_to_vregion_index(addr[i]));
-#endif
-
-		legomem_migration(ctx, dst_bi, addr[i], 128);
-	}
 	clock_gettime(CLOCK_MONOTONIC, &e);
 
 	lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
@@ -105,7 +79,6 @@ int test_legomem_migration(char *_unused)
 	dprintf_INFO("#nr_migration: %d, #avg_latency_ns: %lf\n",
 		NR_TESTS, lat_ns);
 
-close:
 	legomem_close_context(ctx);
 	return 0;
 }

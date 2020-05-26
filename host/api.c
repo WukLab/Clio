@@ -28,7 +28,7 @@ struct board_info *monitor_bi;
 /*
  * Depends on MTU: sysctl_link_mtu
  */
-int max_lego_payload ____cacheline_aligned = 1400;
+int max_lego_payload ____cacheline_aligned = 1450;
 
 /*
  * Allocate a new process-local legomem context.
@@ -453,7 +453,7 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 			    int *board_ip, unsigned int *board_port,
 			    unsigned int *vregion_idx)
 {
-#if 1
+#if 0
 	struct legomem_alloc_free_req req;
 	struct legomem_alloc_free_resp resp;
 	struct lego_header *lego_header;
@@ -473,6 +473,8 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 		dprintf_ERROR("net error %d\n", ret);
 		return -EIO;
 	}
+
+	dprintf_INFO("Monitor replied %d %d\n", resp.op.board_ip, resp.op.udp_port);
 
 	if (resp.op.ret) {
 		dprintf_ERROR("Monitor fail to pick a new vRegion %d\n",
@@ -652,6 +654,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	}
 
 	/*
+	 *
 	 * Step II:
 	 * We need to check if this running _thread_ (not process)
 	 * has established a network connection with this particular board.
@@ -668,6 +671,9 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 * into the per-context session hashtable,
 		 * thus visiable to context_find_session() afterwards.
 		 */
+	dprintf_CRIT("NEW SESSION selected vregion_idx %u, mapped to board: %s new_session: %d\n",
+			vregion_idx, bi->name, new_session);
+
 		ses = __legomem_open_session(ctx, bi, tid, false, false);
 		if (!ses) {
 			dprintf_ERROR("Fail to open a net session with "
@@ -677,7 +683,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		new_session = true;
 	}
 
-	dprintf_DEBUG("selected vregion_idx %u, mapped to board: %s new_session: %d\n",
+	dprintf_CRIT("selected vregion_idx %u, mapped to board: %s new_session: %d\n",
 			vregion_idx, bi->name, new_session);
 	/*
 	 * Step III:
@@ -1370,6 +1376,7 @@ int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 	start_index = va_to_vregion_index(addr);
 	end_index = va_to_vregion_index(end);
 
+	dprintf_INFO("s %d e %d\n", start_index, end_index);
 	while (start_index <= end_index) {
 		ret = legomem_migration_vregion(ctx, dst_bi, start_index);
 		start_index++;
@@ -1399,7 +1406,26 @@ void handle_dist_barrier(struct thpool_buffer *tb)
 	lego = to_lego_header(tx);
 	lego->opcode = OP_REQ_DIST_BARRIER_RESP;
 
-	dprintf_DEBUG("Received a barrier from %d\n", 0);
+	dprintf_DEBUG("Received a barrier then current_counter=%ld\n",
+			atomic_load(&legomem_barrier_counter));
+}
+
+void __legomem_dist_barrier(void)
+{
+#if 0
+	while (atomic_load(&legomem_barrier_counter) !=
+	       atomic_load(&nr_online_hosts))
+		;
+#else
+	/*
+	 * Hardcode the number of other clients except myself.
+	 * This is useful if the join timing is hard to control.
+	 */
+	int __NR_OTHER_CLINETS = 2;
+	while (atomic_load(&legomem_barrier_counter) != __NR_OTHER_CLINETS)
+		;
+#endif
+	dprintf_DEBUG("All barriers received. %ld\n", atomic_load(&legomem_barrier_counter));
 }
 
 /*
@@ -1432,20 +1458,11 @@ int legomem_dist_barrier(void)
 						   (void **)&resp, &resp_size);
 	}
 
-	dprintf_DEBUG("nr_online_hosts: %ld. barrier: %ld\n",
+	dprintf_DEBUG("nr_online_hosts: %ld. current_barrier: %ld\n",
 			atomic_load(&nr_online_hosts),
 			atomic_load(&legomem_barrier_counter));
 
-#if 0
-	while (atomic_load(&legomem_barrier_counter) !=
-	       atomic_load(&nr_online_hosts))
-		;
-#else
-	while (atomic_load(&legomem_barrier_counter) != 3)
-		;
-#endif
-
-	atomic_store(&legomem_barrier_counter, 0);
+	__legomem_dist_barrier();
 
 	return 0;
 }

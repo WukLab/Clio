@@ -18,7 +18,7 @@ set -e
 # Make sure board is already up and running
 board_ip="192.168.1.23:1234"
 
-monitor_port=1000
+monitor_port=20000
 monitor_ip="192.168.1.2"
 
 if [ "$1" == "1" ]; then

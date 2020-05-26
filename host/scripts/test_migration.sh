@@ -17,9 +17,9 @@ elif [ "$1" == "2" ]; then
 	./board_emulator.o -d lo -p 9997 -m 127.0.0.1:9999
 elif [ "$1" == "3" ]; then
 	./host.o \
-		-d p4p1 \
-		-p 1234 \
-		-m 192.168.1.3:1234 \
+		-d ens4 \
+		-p 40000 \
+		-m 192.168.1.2:20000 \
 		--run_test=migration
 elif [ "$1" == "4" ]; then
 	pkill -f monitor.o

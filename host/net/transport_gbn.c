@@ -635,12 +635,12 @@ __gbn_receive_one(struct session_net *ses_net,
 		  void **z_buf, size_t *z_buf_size,
 		  bool zerocopy, bool non_blocking)
 {
-	struct session_net *dst_ses_net;
 	struct session_gbn *ses_gbn;
 	void *recv_buf;
 	size_t recv_size;
 	struct gbn_header *gbn_hdr;
 	unsigned int dst_sesid __maybe_unused;
+	struct session_net *dst_ses_net __maybe_unused;
 	int ret;
 
 	ses_gbn = (struct session_gbn *)ses_net->transport_private;
@@ -659,14 +659,18 @@ retry:
 
 	gbn_hdr = to_gbn_header(recv_buf);
 
-#if 1
+	/* Sanity Check */
 	dst_sesid = get_gbn_dst_session(gbn_hdr);
 	dst_ses_net = find_net_session(dst_sesid);
 	if (unlikely(dst_ses_net != ses_net)) {
 		char packet_dump_str[256];
 		struct session_raw_verbs *ses_verbs;
 
-
+		/*
+		 * If this happens, it means there is some issue
+		 * with the received packet's UDP port. E.g., dst_sesid+base_udp_port.
+		 * Something wrong about the udp port setup code?
+		 */
 		ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 		dump_packet_headers(recv_buf, packet_dump_str);
 		dprintf_ERROR("RX Wrong Session. Calling session: local_sesid %u remote_sesid %u. Verbs: qpn: %u rx_udp_port %u \n\n"
@@ -674,7 +678,6 @@ retry:
 			get_local_session_id(ses_net), get_remote_session_id(ses_net),
 			ses_verbs->qp->qp_num, ses_verbs->rx_udp_port, packet_dump_str);
 	}
-#endif
 
 #ifdef CONFIG_GBN_DUMP_RX
 	{
@@ -691,7 +694,7 @@ retry:
 		 * Same for NACK.
 		 */
 		inc_stat(STAT_NET_GBN_NR_RX_ACK);
-		//handle_ack_packet(ses_net, ses_gbn, recv_buf);
+		handle_ack_packet(ses_net, ses_gbn, recv_buf);
 		goto retry;
 	case GBN_PKT_NACK:
 		inc_stat(STAT_NET_GBN_NR_RX_NACK);
