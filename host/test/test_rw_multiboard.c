@@ -24,15 +24,15 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 100000
-static int test_size[] = { 1400 };
+#define NR_RUN_PER_THREAD 1000000
+static int test_size[] = { 1024 };
 
 /*
  * We assign X threads to each board, meaning
  * they use will the vRegion belong to that board.
  */
-#define NR_BOARDS		(4)
-#define NR_THREADS_PER_BOARD	(4)
+#define NR_BOARDS		(1)
+#define NR_THREADS_PER_BOARD	(1)
 
 static int test_nr_threads[] = { NR_BOARDS*NR_THREADS_PER_BOARD };
 
@@ -100,16 +100,23 @@ static void *thread_func_read(void *_ti)
 	mb = &mb_array[ti->id];
 
 	dprintf_INFO("t %d %#lx %#lx\n", ti->id, (u64)mb->buf, (u64)mb->private);
+
 #if 1
 
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
 #else
 	ses = legomem_open_session_remote_mgmt(bi);
-	send_buf = net_get_send_buf(ses);
 #endif
 
 	recv_buf = malloc(4096);
+
+#if 0
+	sleep(5);
+	dprintf_CRIT("Enter barrier wait..%d\n", 0);
+	legomem_dist_barrier();
+	dprintf_CRIT("Exit barrier.. %d\n", 0);
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
@@ -184,7 +191,8 @@ int test_legomem_rw_multiboard(char *_unused)
 		 *
 		 * Also, prepopulate all pgtables.
 		 */
-		size = VREGION_SIZE / 2 + 1;
+		//size = VREGION_SIZE / 2 + 1;
+		size = PAGE_SIZE;
 
 		addr = legomem_alloc(ctx, size, LEGOMEM_VM_FLAGS_POPULATE);
 		if (addr < 0) {

@@ -21,10 +21,10 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 100000
+#define NR_RUN_PER_THREAD 1000000
 
 static int test_nr_threads[] = { 1};
-static int test_size[] = { 200*1024};
+static int test_size[] = { 16 };
 //static int test_nr_threads[] = { 1 };
 
 static double latency_read_ns[NR_MAX][NR_MAX];
@@ -87,15 +87,15 @@ static void *thread_func_read(void *_ti)
 	BUG_ON(!ses);
 
 #if 1
-	send_buf = malloc(PAGE_SIZE);
-	net_reg_send_buf(ses, send_buf, PAGE_SIZE);
+	send_buf = malloc(4096);
+	net_reg_send_buf(ses, send_buf, 4096);
 #else
 	bi = ses->board_info;
 	ses = legomem_open_session_remote_mgmt(bi);
 	send_buf = net_get_send_buf(ses);
 #endif
 
-	recv_buf = malloc(PAGE_SIZE);
+	recv_buf = malloc(4096);
 
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];

@@ -73,4 +73,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 					struct msg_buf *send_mb, unsigned long __remote addr, size_t total_size,
 					enum legomem_write_flag flag);
 
+int legomem_dist_barrier(void);
+void handle_dist_barrier(struct thpool_buffer *tb);
+
 #endif /* _LEGOMEM_PUBLIC_APIS_ */

@@ -22,7 +22,7 @@
 #include "net.h"
 #include "../core.h"
 
-#if 1
+#if 0
 # define CONFIG_RAW_VERBS_DUMP_TX
 #endif
 

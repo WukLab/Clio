@@ -28,6 +28,9 @@ static DECLARE_BITMAP(board_id_map, NR_MAX_BOARDS);
 
 int nr_max_board_id ____cacheline_aligned;
 
+atomic_long	nr_online_hosts;
+atomic_long	nr_online_boards;
+
 __constructor
 static void init_board_subsys(void)
 {

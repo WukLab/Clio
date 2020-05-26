@@ -20,7 +20,7 @@
 #include "net.h"
 #include "../core.h"
 
-#if 1
+#if 0
 #define CONFIG_GBN_DUMP_RX
 #endif
 

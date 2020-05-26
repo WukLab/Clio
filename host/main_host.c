@@ -78,6 +78,9 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 	case OP_REQ_QUERY_STAT:
 		handle_query_stat(tb);
 		break;
+	case OP_REQ_DIST_BARRIER:
+		handle_dist_barrier(tb);
+		break;
 	default:
 		if (1) {
 			char err_msg[128];

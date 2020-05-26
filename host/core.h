@@ -40,9 +40,12 @@
 #define dprintf_CRIT(fmt, ...) \
 	printf("\033[1;33m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
+extern atomic_long	nr_online_hosts;
+extern atomic_long	nr_online_boards;
+
+extern atomic_long legomem_barrier_counter;
+
 extern int gbn_polling_thread_cpu;
-extern int gbn_polling_thread_cpu_2;
-extern int gbn_polling_thread_cpu_3;
 extern int mgmt_dispatcher_thread_cpu;
 
 extern bool stop_gbn_poll_thread;

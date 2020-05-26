@@ -1379,3 +1379,73 @@ int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 	}
 	return ret;
 }
+
+/*
+ * A very simple distributed barrier mechanism.
+ * Once received such req, pop up the local barrier counter.
+ * legomem_dist_barrier() is spinning on this.
+ */
+atomic_long legomem_barrier_counter;
+void handle_dist_barrier(struct thpool_buffer *tb)
+{
+	struct legomem_common_headers *tx;
+	struct lego_header *lego;
+
+	atomic_fetch_add(&legomem_barrier_counter, 1);
+
+	tx = (struct legomem_common_headers *)tb->tx;
+	set_tb_tx_size(tb, sizeof(*tx));
+
+	lego = to_lego_header(tx);
+	lego->opcode = OP_REQ_DIST_BARRIER_RESP;
+
+	dprintf_DEBUG("Received a barrier from %d\n", 0);
+}
+
+/*
+ * Wait for all online clinets have reached this point.
+ *
+ * Be careful during testing, if a node joined after we've sent
+ * out all the notifications.. we may stuck here forever. Thus
+ * just make sure all boards have joined _before_ calling this func.
+ */
+int legomem_dist_barrier(void)
+{
+	struct board_info *bi;
+	struct session_net *ses;
+	struct legomem_common_headers *req, *resp;
+	size_t resp_size;
+	int i;
+
+	for (i = 0; i <= nr_max_board_id; i++) {
+		bi = find_board_by_id(i);
+		if (!(bi->flags & BOARD_INFO_FLAGS_HOST))
+			continue;
+
+		dprintf_DEBUG("sending to host %s\n", bi->name);
+		
+		ses = get_board_mgmt_session(bi);
+		req = net_get_send_buf(ses);
+		req->lego.opcode = OP_REQ_DIST_BARRIER;
+
+		net_send_and_receive_zerocopy_lock(ses, req, sizeof(*req),
+						   (void **)&resp, &resp_size);
+	}
+
+	dprintf_DEBUG("nr_online_hosts: %ld. barrier: %ld\n",
+			atomic_load(&nr_online_hosts),
+			atomic_load(&legomem_barrier_counter));
+
+#if 0
+	while (atomic_load(&legomem_barrier_counter) !=
+	       atomic_load(&nr_online_hosts))
+		;
+#else
+	while (atomic_load(&legomem_barrier_counter) != 3)
+		;
+#endif
+
+	atomic_store(&legomem_barrier_counter, 0);
+
+	return 0;
+}

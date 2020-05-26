@@ -424,6 +424,8 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 	get_ip_str(ip, ip_str);
 	if (node_type == BOARD_INFO_FLAGS_BOARD) {
 		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
+
+		atomic_fetch_add(&nr_online_boards, 1);
 	} else {
 		dprintf_ERROR("Manual adding only supports _board_ for now. (%s)\n",
 			board_info_type_str(node_type));

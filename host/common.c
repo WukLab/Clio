@@ -163,14 +163,6 @@ void handle_new_node(struct thpool_buffer *tb)
 	req = (struct legomem_membership_new_node_req *)tb->rx;
 	new_ei = &req->op.ei;
 
-	/* Sanity check */
-	if (req->op.type != BOARD_INFO_FLAGS_HOST &&
-	    req->op.type != BOARD_INFO_FLAGS_BOARD) {
-		dprintf_ERROR("invalid type: %lu %s\n",
-			req->op.type, board_info_type_str(req->op.type));
-		return;
-	}
-
 	/*
 	 * We may use a different local MAC address to reach the new host
 	 * run our local ARP protocol to get the latest and update if necessary.
@@ -207,24 +199,18 @@ void handle_new_node(struct thpool_buffer *tb)
 		       new_ei, &default_local_ei, false);
 	if (!bi)
 		return;
-	bi->flags = req->op.type;
+	bi->flags |= req->op.type;
 
-#if 0
-	/*
-	 * oOh jesus this printf causes weird bug.
-	 * So this handle_new_node() is called within worker_handle_request_inline(),
-	 * with passed @tb parameter. When this function is enabled, the @tb within
-	 * the caller stack, changed to 0. It seems this printf cause some overflow?
-	 * Or maybe the gcc has some internal bug? Weirdly, if I enabled gdb + watchpoint,
-	 * it succeed.. Either way, I don't get this.
-	 */
-	dprintf_INFO("new node added name: %s, ip:port: %s:%d type: %s\n",
-		req->op.name, new_ei->ip_str, new_ei->udp_port,
-		board_info_type_str(bi->flags));
-#endif
-
+	if (req->op.type & BOARD_INFO_FLAGS_HOST) {
+		atomic_fetch_add(&nr_online_hosts, 1);
+	} else if (req->op.type & BOARD_INFO_FLAGS_BOARD) {
+		atomic_fetch_add(&nr_online_boards, 1);
+	} else {
+		dprintf_ERROR("invalid type: %lu %s\n",
+			req->op.type,
+			board_info_type_str(req->op.type));
+	}
 	dump_boards();
-	dump_net_sessions();
 }
 
 /*
