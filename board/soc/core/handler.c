@@ -94,19 +94,59 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 		vregion_idx = ops->vregion_idx;
 		vm_flags = ops->vm_flags;
 
+		/*
+		 * Special case crafted for multiverion on-chip modules
+		 * It does not know vregion idx, we need to allocate here.
+		 * Thus calling the __handle_ctrl_alloc wrapper.
+		 */
 		if (vregion_idx == 0xFFFFFFFFDEADBEEF) {
-			dprintf_DEBUG("\t\t !!! get deadbeef %d\n", 0);
+			static unsigned long mv_base_vaddr = 0;
+			static unsigned long mv_base_size = 0;
+			static unsigned long mv_base_limit = 0;
+
+			dprintf_DEBUG("\t\t !!! get deadbeef ALLOC request %d\n", 0);
+
+			if (mv_base_vaddr == 0) {
+				/*
+				 * First time allocation.
+				 * Allocate everything.
+				 */
+				mv_base_size = VREGION_SIZE;
+
+				mv_base_vaddr = __handle_ctrl_alloc(pi, mv_base_size, 0);
+				if (!mv_base_vaddr) {
+					dprintf_ERROR("Fail to allocate %d\n", 0);
+					resp->op.ret = 0;
+					resp->op.addr = 0;
+				}
+
+				mv_base_limit = mv_base_vaddr + mv_base_size;
+				dprintf_INFO("VA Range [%#lx - %#lx]\n", mv_base_vaddr, mv_base_limit);
+
+				resp->op.ret = 0;
+				resp->op.addr = mv_base_vaddr;
+			} else {
+				/*
+				 * Normal allocate.
+				 * Check if it overflows.
+				 */
+				if (mv_base_vaddr + len >= mv_base_vaddr) {
+					dprintf_ERROR("OOM. len %#lx limit: %#lx\n", len, mv_base_limit);
+					resp->op.ret = 0;
+					resp->op.addr = 0;
+				}
+
+				resp->op.ret = 0;
+				resp->op.addr = mv_base_vaddr;
+			}
+
+			/* THE allocation itself */
+			mv_base_vaddr += len;
 
 			/*
-			 * Special case crafted for multiverion on-chip modules
-			 * It does not know vregion idx, we need to allocate here.
-			 * Thus calling the __handle_ctrl_alloc wrapper.
+			 * Bring our own CONT. Tell the polling handler not override our cont.
+			 * XXX Use macro for 3. multiver
 			 */
-			addr = __handle_ctrl_alloc(pi, len, 0);
-			resp->op.ret = 0;
-			resp->op.addr = addr;
-
-			// XXX Use macro for 3. multiver
 			tb->flags |= THPOOL_BUFFER_NOCONT;
 			to_lego_header(tb->tx)->cont = MAKE_CONT(3, LEGOMEM_CONT_NONE,
 								 LEGOMEM_CONT_NONE, LEGOMEM_CONT_NONE);
