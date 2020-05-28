@@ -289,6 +289,11 @@ static struct board_info *handle_alloc_find_board(void)
 {
 	struct board_info *bi;
 
+	if (atomic_load(&nr_online_boards) == 0) {
+		dprintf_ERROR("No boards online yet! %d\n", 0);
+		return NULL;
+	}
+
 repeat:
 	bi = find_board_by_id(nr_alloc_board_index);
 	if (nr_alloc_board_index == nr_max_board_id)
@@ -355,6 +360,8 @@ static void handle_alloc(struct thpool_buffer *tb)
 		dprintf_ERROR("No board available for this alloc req. pid %d\n", pid);
 		goto out;
 	}
+
+	dprintf_CRIT("Slected board %s\n", bi->name);
 
 	/*
 	 * All info in place
@@ -777,7 +784,7 @@ static void worker_handle_request(struct thpool_worker *tw,
 	lego_hdr = to_lego_header(tb->rx);
 	opcode = lego_hdr->opcode;
 
-	if (0) {
+	if (1) {
 		dprintf_INFO("received opcode: %u (%s) pkt_size: %zu B\n",
 			opcode, legomem_opcode_str(opcode), tb->rx_size);
 	}

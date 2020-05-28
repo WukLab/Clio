@@ -24,13 +24,8 @@
 #define OneM 1024*1024
 
 /* Knobs */
-<<<<<<< HEAD
 #define NR_RUN_PER_THREAD 1000000
 static int test_size[] = { 1024 };
-=======
-#define NR_RUN_PER_THREAD 100000
-static int test_size[] = { 1430 };
->>>>>>> host: add legomem_dist_barrier() api
 
 /*
  * We assign X threads to each board, meaning
@@ -183,6 +178,10 @@ int test_legomem_rw_multiboard(char *_unused)
 	dump_legomem_contexts();
 
 #if 0
+	/*
+	 * Let soc setup pgtables
+	 * prepare_xxx()
+	 */
 	for (i = 0; i < NR_BOARDS; i++) {
 		struct session_net *ses;
 		struct board_info *bi;

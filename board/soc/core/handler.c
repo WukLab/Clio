@@ -109,9 +109,10 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 			if (mv_base_vaddr == 0) {
 				/*
 				 * First time allocation.
-				 * Allocate everything.
+				 * how much to allocate? This can be tuned.
+				 * current is tmp.
 				 */
-				mv_base_size = VREGION_SIZE;
+				mv_base_size = VREGION_SIZE / 2;
 
 				mv_base_vaddr = __handle_ctrl_alloc(pi, mv_base_size, 0);
 				if (!mv_base_vaddr) {
@@ -130,7 +131,7 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 				 * Normal allocate.
 				 * Check if it overflows.
 				 */
-				if (mv_base_vaddr + len >= mv_base_vaddr) {
+				if (mv_base_vaddr + len >= mv_base_limit) {
 					dprintf_ERROR("OOM. len %#lx limit: %#lx\n", len, mv_base_limit);
 					resp->op.ret = 0;
 					resp->op.addr = 0;
@@ -257,22 +258,33 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	req->lego_header.dst_sesid = 0;
 	req->lego_header.size = sizeof(*req);
 
-	// XXX 192.168.1.22 1234
+	// XXX 192.168.1.24 1234
 	req->lego_header.dest_ip = 0x011604d2;
 
 	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
-	dprintf_DEBUG("nr_rounds: %d\n", nr_rounds);
 
+	struct timespec ts, te;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	for (i = 0; i < nr_rounds; i++) {
 		req->op.size = READ_MIGRATION_SIZE;
 		req->op.va = vregion_index_to_va(vregion_index) + i * READ_MIGRATION_SIZE;
 		dma_send(req, sizeof(*req));
 
-		dprintf_DEBUG("migrationr req %5d len %u va %lx\n",
-			i, req->op.size, req->op.va);
-		sleep(10);
+#if 0
+		if (i % 2000 == 0)
+			dprintf_DEBUG("migrationr req %5d len %u va %lx\n",
+				i, req->op.size, req->op.va);
+#endif
+		//sleep(10);
 	}
-	dprintf_DEBUG("Finished sending %d REQs to COREMEM...\n", i);
+	clock_gettime(CLOCK_MONOTONIC, &te);
+
+	double lat;
+
+	lat = te.tv_sec * 1.0e9 + te.tv_nsec - (ts.tv_sec * 1.0e9 + ts.tv_nsec);
+	dprintf_DEBUG(" all data sent in %lf ns. avg per send %lf ns\n",
+		lat, lat / nr_rounds);
 }
 
 /*
@@ -313,10 +325,11 @@ void board_soc_handle_migration_send(struct thpool_buffer *tb)
 		resp->op.ret = -ESRCH;
 		return;
 	}
-	dump_migration_req(pid, op);
+	//dump_migration_req(pid, op);
 
 	/* Do the dirty work */
 	do_read_migration(pid, op->dst_board_ip, op->vregion_index);
+	exit(0);
 
 	/* Reap all VMAs within this vRegion */
 	vi = index_to_vregion(pi, op->vregion_index);
@@ -383,7 +396,7 @@ void board_soc_handle_migration_recv(struct thpool_buffer *tb)
 	 * make sure coremem pipeline is informed within.
 	 */
 	vi = index_to_vregion(pi, op->vregion_index);
-	addr = alloc_va_vregion(pi, vi, VREGION_SIZE, 0);
+	addr = alloc_va_vregion(pi, vi, VREGION_SIZE, LEGOMEM_VM_FLAGS_POPULATE);
 	if (IS_ERR_VALUE(addr)) {
 		dprintf_ERROR("Fail to prepare the vRegion %#lx\n", addr);
 		resp->op.ret = -ENOMEM;

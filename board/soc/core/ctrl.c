@@ -331,6 +331,11 @@ static void handle_kvs_alloc_virt(struct lego_mem_ctrl *rx,
 		exit(0);
 	}
 
+#if 0
+	if ((_cached_index % 1)==0)
+		dprintf_DEBUG("nr %d\n", _cached_index);
+#endif
+
 	/* FIFO 1 */
 	tx->epid = EPID_KVS;
 	tx->addr = 1;
@@ -424,7 +429,7 @@ static void prepare_100g_test(void)
 		return;
 	}
 
-	size = PAGE_SIZE;
+	size = PAGE_SIZE * 8;
 	vregion_idx = 0;
 	vi = index_to_vregion(pi, vregion_idx);
 	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE);
@@ -454,9 +459,14 @@ static void *ctrl_poll_func(void *_unused)
 	rx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 	tx = axidma_malloc(dev, CTRL_BUFFER_SIZE);
 
+	/*
+	 * Remember to change the handlers below
+	 * Only one handler at a time..
+	 */
+	prepare_kvs_phys(rx, tx);
+	//prepare_kvs_virt(rx, tx);
+
 	//prepare_multiversion(rx, tx);
-	//prepare_kvs_phys(rx, tx);
-	prepare_kvs_virt(rx, tx);
 	//prepare_100g_test();
 
 	while (1) {
@@ -480,8 +490,8 @@ static void *ctrl_poll_func(void *_unused)
 			break;
 		case CMD_LEGOMEM_KVS_ALLOC:
 		case CMD_LEGOMEM_KVS_ALLOC_BOTH:
-			//handle_kvs_alloc_phys(rx, tx);
-			handle_kvs_alloc_virt(rx, tx);
+			handle_kvs_alloc_phys(rx, tx);
+			//handle_kvs_alloc_virt(rx, tx);
 			break;
 		default:
 			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);

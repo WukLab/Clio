@@ -453,7 +453,7 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 			    int *board_ip, unsigned int *board_port,
 			    unsigned int *vregion_idx)
 {
-#if 0
+#if 1
 	struct legomem_alloc_free_req req;
 	struct legomem_alloc_free_resp resp;
 	struct lego_header *lego_header;
