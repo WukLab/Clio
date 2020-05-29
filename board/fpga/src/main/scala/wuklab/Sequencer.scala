@@ -114,14 +114,21 @@ class DecodeAction extends MatchActionFunction {
   override def cond(bits : Bits) = True
 
   override def action(bits : Bits, valid : Bool) = LegoMemHeader.assignToBitsOperation(header => {
+    import LegoMem.Continuation._
     when (header.reqType(7) === True) {
-      header.cont := U"16'h00_00_00_02"
+      header.cont := apply(EP_SOC)
+    } elsewhen (header.reqType(7 downto 4) === U"4'h2") {
+      header.cont := apply(EP_MULTIVERSION, EP_NETWORK)
+    } elsewhen (header.reqType(7 downto 4) === U"4'h6") {
+      header.cont := apply(EP_KEYVALUE, EP_NETWORK)
     } otherwise {
       switch (header.reqType) {
-        is (LegoMem.RequestType.READ)  { header.cont := U"16'h00_00_00_01" }
-        is (LegoMem.RequestType.WRITE) { header.cont := U"16'h00_00_00_01" }
-        is (LegoMem.RequestType.PINGPONG) { header.cont := U"16'h00_00_00_06" }
-        default { header.cont := U"16'h00_00_00_00" }
+        is (LegoMem.RequestType.READ)     { header.cont := apply(EP_COREMEM, EP_NETWORK) }
+        is (LegoMem.RequestType.WRITE)    { header.cont := apply(EP_COREMEM, EP_NETWORK) }
+        is (LegoMem.RequestType.PINGPONG) { header.cont := apply(EP_PINGPONG, EP_NETWORK) }
+        is (LegoMem.RequestType.READ_RESP, LegoMem.RequestType.WRITE_RESP) { header.cont := apply(EP_DROP) }
+
+        default { header.cont := apply(EP_DROP) }
       }
     }
   })(bits)
@@ -392,12 +399,15 @@ class MemoryModelController extends Component {
 }
 
 class MemoryModel(implicit config : CoreMemConfig) extends Component {
+  val networkQueueSize = 128
+
   val io = new Bundle {
     val ep = LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
-    val net = NetworkInterface()
+    val net = NetworkInterface(config.networkDataWidth)
     val sess = master Stream UInt(16 bits)
   }
 
+  // TODO: add buffer after this
   val bridge = new RawInterfaceEndpoint
   bridge.io.ep <> io.ep
 
@@ -410,7 +420,7 @@ class MemoryModel(implicit config : CoreMemConfig) extends Component {
   // network adapter
   val net = new NetworkAdapter
   net.io.net <> io.net
-  net.io.seq.dataIn << bridge.io.raw.dataIn
+  net.io.seq.dataIn << bridge.io.raw.dataIn.queue(networkQueueSize)
 
   // Match Action Table
   val matBuilder = new MatchActionTableFactory
@@ -418,7 +428,6 @@ class MemoryModel(implicit config : CoreMemConfig) extends Component {
   matBuilder.addAction(new DecodeAction)
 
   val mat = matBuilder.build()
-  mat.io.dataOut >> bridge.io.raw.dataOut
   mat.io.dataIn << net.io.seq.dataOut
   mat.io.ctrlIn << controller.io.sub.mat.in
   mat.io.ctrlOut >> controller.io.sub.mat.out
@@ -429,4 +438,14 @@ class MemoryModel(implicit config : CoreMemConfig) extends Component {
   // lock.io.res >> bridge.io.raw.dataOut
   // // TODO: fix this
   // lock.io.unlock << bridge.io.raw.dataIn.tapAsFlow.fmap { f => LegoMemHeader(f.fragment).tag }
+
+  // filter datahere
+  val dropCtrl = new Area {
+    val (signalF, finalData) = StreamFork2(mat.io.dataOut)
+    val signal = signalF.takeFirst
+      .fmap { f => LegoMemHeader(f.fragment).cont(3 downto 0) =/= LegoMem.Continuation.EP_DROP }
+      .queueLowLatency(4)
+    val filteredData = finalData.filterBySignal(signal)
+    filteredData >> bridge.io.raw.dataOut
+  }
 }

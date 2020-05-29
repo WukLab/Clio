@@ -314,7 +314,6 @@ class BramCache(implicit config : CoreMemConfig) extends Component {
     lookupCmd.fmap(r => LookupReadReq(r.tag)) >> table.io.rd.req
     // read out
     val delayedCmd = table.streamDelay(delayCmdF)
-    val (withReturn, withReport) = StreamFork2(delayedCmd)
 
     // Return path, include res and fwd
     // debubble here
@@ -323,7 +322,9 @@ class BramCache(implicit config : CoreMemConfig) extends Component {
     table.io.rd.res.ready := !table.io.rd.res.valid || lookupRes.ready
     lookupRes.valid := table.io.rd.res.valid
 
-    val returnPair = (withReturn >*< lookupRes).takeBy { p => !isShootDown(p.fst) }
+    val (toReturn, toReportF) = StreamFork2(delayedCmd >*< lookupRes)
+
+    val returnPair = toReturn.takeBy { p => !p.fst.isShootDown }
     val Seq(fwd, res) = StreamDemux2(returnPair, returnPair.snd.hit)
     io.cmd.fwd <-< fwd.fmap(_.fst)
     io.cmd.res.translateFrom (res) { (pte, pair) =>
@@ -333,31 +334,13 @@ class BramCache(implicit config : CoreMemConfig) extends Component {
 
     // Report Path
     // TODO: we can only emit n frags out
-    val reportPair = withReport >*< table.io.rd.rpt.asStream.queueLowLatency(table.pipelineDelay)
-    val Seq(hitRpt, shootDownRptF) = StreamDemux2(reportPair.fmap(_.snd), isShootDown(reportPair.fst))
+    val toReport = toReportF.takeBy(_.snd.hit).fmap(_.fst)
+    val reportPair = toReport >*< table.io.rd.rpt.asStream.queueLowLatency(table.pipelineDelay)
+    val Seq(hitRpt, shootDownRptF) = StreamDemux2(reportPair.fmap(_.snd), reportPair.fst.isShootDown)
     val shootDownRpt = shootDownRptF.toFlow
     io.ctrl.hitRpt << hitRpt.toFlow
     io.ctrl.shootDownRpt << shootDownRpt
     table.io.wr.shootDown << shootDownRpt
-
-
-//    val isShootDown = delayedCmd.reqType === AddressLookupRequest.RequestType.SHOOTDOWN
-//    val isResult = table.io.rd.res.hit
-
-//    val Seq(fwd, res) = isResult.demux(table.io.rd.res.throwWhen(isShootDown))
-//    // forward path
-//    io.cmd.fwd <-< (delayedCmd <* fwd)
-//    // result path
-//    val pte = io.cmd.res.payloadType()
-//    pte.seqId := delayedCmd.seqId
-//    io.cmd.res << res.fmap(r => pte.fromCompactBits(r.value.asBits))
-
-//    val Seq(hitRpt, shootDownRpt) = isShootDown.demux(table.io.rd.rpt)
-//    io.ctrl.hitRpt << hitRpt
-//    io.ctrl.shootDownRpt << shootDownRpt
-//    table.io.wr.shootDown << shootDownRpt
-
-    def isShootDown(cmd : AddressLookupRequest) : Bool = cmd.reqType === AddressLookupRequest.RequestType.SHOOTDOWN
   }
 }
 
@@ -419,7 +402,7 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
     }
 
     val bus = master (Axi4(config.lookupAxi4Config))
-    val counters = Vec(out (UInt(32 bits)), 11)
+    val counters = if (config.debug) Vec(out (UInt(32 bits)), 11) else null
   }
 
   // TODO: rething this arrows. if theres timing violation, first add pipelines here
@@ -429,7 +412,7 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
   io.ctrl.out << agent.io.cmdOut
 
   val (seqStream, reqStream) = StreamFork2(io.req)
-  val seqFifo = seqStream.fmap(_.seqId).queue(numInflightRequests)
+  val seqFifo = seqStream.takeBy(!_.isShootDown).fmap(_.seqId).queue(numInflightRequests)
 
   // bram cache & update unit
   val cache = new BramCache
@@ -467,35 +450,37 @@ class AddressLookupUnit(implicit config : CoreMemConfig) extends Component {
 
   // merge here
   // TODO: replace this with a reorder buffer (log the seq numbers, and compare)
-  val streams = Seq(cache.io.cmd.res, pageFault.io.res)
+  val streams = Seq(cache.io.cmd.res.stage(), pageFault.io.res.stage())
   val matchVec = streams.map { s => s.seqId === seqFifo.payload && s.valid }
-  val selected = StreamMux(OHToUInt(matchVec), streams)
-  io.res << (seqFifo *> selected)
+  val selected = StreamMux(OHToUInt(matchVec.asBits), streams)
+  io.res << (seqFifo *> selected).continueWhen(matchVec.orR)
 
   // Debug
-  val Registers = Seq[(String, Bool)](
-    ("RequestIn",   io.req.fire),
-    ("SeqFifoIn",   seqStream.fire),
-    ("SeqFifoOut",  seqFifo.fire),
-    ("CacheReqq",   cache.io.cmd.req.fire),
-    ("CacheFWD",    cache.io.cmd.fwd.fire),
-    ("CacheRES",    cache.io.cmd.res.fire),
-    ("UpdateRptHit", update.io.rpt.hit.fire),
-    ("UpdateRptShootDown", update.io.rpt.shootDown.fire),
-    ("UpdateRptAlloc", update.io.rpt.alloc.fire),
-    ("UpdateUpdate", update.io.updateReq.fire),
-    ("UpdateInsert", update.io.insertReq.fire)
-  )
+  if (config.debug) {
+    val Registers = Seq[(String, Bool)](
+      ("RequestIn",   io.req.fire),
+      ("SeqFifoIn",   seqStream.fire),
+      ("SeqFifoOut",  seqFifo.fire),
+      ("CacheReqq",   cache.io.cmd.req.fire),
+      ("CacheFWD",    cache.io.cmd.fwd.fire),
+      ("CacheRES",    cache.io.cmd.res.fire),
+      ("UpdateRptHit", update.io.rpt.hit.fire),
+      ("UpdateRptShootDown", update.io.rpt.shootDown.fire),
+      ("UpdateRptAlloc", update.io.rpt.alloc.fire),
+      ("UpdateUpdate", update.io.updateReq.fire),
+      ("UpdateInsert", update.io.insertReq.fire)
+    )
 
-  val regs = Registers.map(_._2).map(Counter(32 bits, _))
-  (io.counters, regs).zipped map (_ := _.value)
+    val regs = Registers.map(_._2).map(Counter(32 bits, _))
+    (io.counters, regs).zipped map (_ := _.value)
 
-  val base = BigInt("A0006800", 16)
-  println(f"* Build Register Access Script on $base")
-  Registers.map(_._1).zipWithIndex.map { case (str, idx) =>
-    val addr = base + idx * 4
-    println(f"echo $str")
-    println(f"devmem 0x$addr%X 32")
+    val base = BigInt("A0006800", 16)
+    println(f"* Build Register Access Script on $base")
+    Registers.map(_._1).zipWithIndex.map { case (str, idx) =>
+      val addr = base + idx * 4
+      println(f"echo $str")
+      println(f"devmem 0x$addr%X 32")
+    }
   }
 
 }

@@ -72,9 +72,11 @@ case class AxiStreamDMAWriteCommand(
 //output wire [AXIS_DEST_WIDTH-1:0] m_axis_write_desc_status_dest,
 //output wire [AXIS_USER_WIDTH-1:0] m_axis_write_desc_status_user,
 
+case class AxiStreamDMAConfig(streamConfig : AxiStreamConfig, addrWidth : Int, lenWidth : Int, tagWidth : Int = 0) {}
+
 // The complex interface
-case class AxiStreamDMAReadInterface(config : AxiStreamConfig, addrWidth: Int, lenWidth : Int, tagWidth : Int = 0) extends Bundle with IMasterSlave {
-  val cmd = Stream (AxiStreamDMAReadCommand(config, addrWidth, lenWidth, tagWidth))
+case class AxiStreamDMAReadInterface(config : AxiStreamDMAConfig) extends Bundle with IMasterSlave {
+  val cmd = Stream (AxiStreamDMAReadCommand(config.streamConfig, config.addrWidth, config.lenWidth, config.tagWidth))
   val data = Stream Fragment (Bits(512 bits))
 
   override def asMaster(): Unit = {
@@ -83,8 +85,8 @@ case class AxiStreamDMAReadInterface(config : AxiStreamConfig, addrWidth: Int, l
   }
 }
 
-case class AxiStreamDMAWriteInterface(addrWidth: Int, lenWidth : Int, tagWidth : Int = 0) extends Bundle with IMasterSlave {
-  val cmd = Stream (AxiStreamDMAWriteCommand(addrWidth, lenWidth, tagWidth))
+case class AxiStreamDMAWriteInterface(config : AxiStreamDMAConfig) extends Bundle with IMasterSlave {
+  val cmd = Stream (AxiStreamDMAWriteCommand(config.addrWidth, config.lenWidth, config.tagWidth))
   val data = Stream Fragment (Bits(512 bits))
 
   override def asMaster(): Unit = {
@@ -93,13 +95,9 @@ case class AxiStreamDMAWriteInterface(addrWidth: Int, lenWidth : Int, tagWidth :
   }
 }
 
-case class AxiStreamDMAInterface(config : AxiStreamConfig,
-                                 addrWidth: Int,
-                                 lenWidth : Int,
-                                 tagWidth : Int = 0
-                                ) extends Bundle with IMasterSlave {
-  val read = AxiStreamDMAReadInterface(config, addrWidth, lenWidth, tagWidth)
-  val write = AxiStreamDMAWriteInterface(addrWidth, lenWidth, tagWidth)
+case class AxiStreamDMAInterface(config : AxiStreamDMAConfig) extends Bundle with IMasterSlave {
+  val read = AxiStreamDMAReadInterface(config)
+  val write = AxiStreamDMAWriteInterface(config)
 
   override def asMaster(): Unit = {
     master (read)
@@ -108,26 +106,31 @@ case class AxiStreamDMAInterface(config : AxiStreamConfig,
 }
 
 // DMA Utilities
-class AxiStreamDMAReadArbiter(num : Int) extends Component {
+// All these applies to lower first
+class AxiStreamDMAReadArbiter(num : Int, config : AxiStreamDMAConfig) extends Component {
+  val dmaLatency = 64
   val io = new Bundle {
-    val reads = Vec(slave (AxiStreamDMAReadInterface()), num)
-    val dma = master (AxiStreamDMAReadInterface())
+    val reads = Vec(slave (AxiStreamDMAReadInterface(config)), num)
+    val dma = master (AxiStreamDMAReadInterface(config))
   }
 
-  val arbiter = StreamArbiterFactory.roundRobin.build(io.dma.cmd.payload, num)
+  val arbiter = StreamArbiterFactory.lowerFirst.build(io.dma.cmd.payload, num)
   (arbiter.io.inputs, io.reads).zipped map { _ << _.cmd }
   val (cmdOut, selectStreamF) = StreamFork2(arbiter.io.output)
   io.dma.cmd << cmdOut
-  val selectStream = selectStreamF.translateWith (arbiter.io.chosen)
 
-  val dataOuts = io.dma.data.demux(selectStream, num)
+  // Bridge between request and return
+  val selectStream = selectStreamF.translateWith (arbiter.io.chosen).queue(dmaLatency)
+
+  // TODO: why this fix all the loops????
+  val dataOuts = io.dma.data.stage().demux(selectStream, num)
   (dataOuts, io.reads).zipped map { _ >> _.data }
 }
 
-class AxiStreamDMAWriteArbiter(num : Int) extends Component {
+class AxiStreamDMAWriteArbiter(num : Int, config : AxiStreamDMAConfig) extends Component {
   val io = new Bundle {
-    val writes = Vec(slave (AxiStreamDMAWriteInterface()), num)
-    val dma = master (AxiStreamDMAWriteInterface())
+    val writes = Vec(slave (AxiStreamDMAWriteInterface(config)), num)
+    val dma = master (AxiStreamDMAWriteInterface(config))
   }
 
   val (cmd, data) = StreamWithFragmentArbiter.onInterface(io.writes : _ *) { ifc => (ifc.cmd, ifc.data) }

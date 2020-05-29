@@ -6,7 +6,7 @@ import spinal.core.sim._
 import wuklab._
 import wuklab.sim._
 
-import SimContext._
+import CoreMemSimContext._
 
 object LegoMemSystemCtrlSim {
   import SimConversions._

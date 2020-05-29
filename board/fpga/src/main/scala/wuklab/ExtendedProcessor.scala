@@ -27,7 +27,7 @@ import Utils._
 // }
 
 class PingPong(dataLength : Int)(implicit config : CoreMemConfig) extends Component with XilinxAXI4Toplevel {
-  require(dataLength <= (config.epDataAxisConfig.dataBytes - LegoMemHeader.headerWidth / 8))
+  require(dataLength <= (config.epDataAxisConfig.dataBytes - LegoMemHeader.headerBytes))
 
   val io = new Bundle {
     val ep = LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
@@ -40,7 +40,7 @@ class PingPong(dataLength : Int)(implicit config : CoreMemConfig) extends Compon
   bridge.io.raw.dataOut.translateFrom (bridge.io.raw.dataIn.takeFirst) { (newData, oldData) =>
     val assignF = LegoMemHeader.assignToBitsOperation { header =>
       header.cont := U"16'h0"
-      header.size := LegoMemHeader.headerBytes
+      header.size := LegoMemHeader.headerBytes + dataLength
     }
 
     newData.fragment := assignF(oldData.fragment)

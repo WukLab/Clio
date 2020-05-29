@@ -26,6 +26,16 @@ object LegoMem {
     def WRITE      = U"8'h50"
     def WRITE_RESP = U"8'h51"
 
+    def KV_READ    = U"8'h60"
+    def KV_READ_REPL = U"8'h61"
+    def KV_WRITE   = U"8'h62"
+    def KV_WRITE_REPL = U"8'h63"
+    def KV_UPDATE  = U"8'h64"
+    def KV_UPDATE_REPL = U"8'h65"
+    def KV_DELETE  = U"8'h66"
+    def KV_DELETE_REPL = U"8'h67"
+    def isKV(op : UInt) = op(7 downto 4) === U"4'h6"
+
     def CACHE_SHOOTDOWN = U"8'h70"
 
     // 80 -> FF :
@@ -62,15 +72,19 @@ object LegoMem {
   object Continuation {
     def apply()         = UInt(16 bits)
     def apply(c1: UInt, c2: UInt = EP_DROP, c3: UInt = EP_DROP, c4: UInt = EP_DROP) = (c4 ## c3 ## c2 ## c1).asUInt
-    def EP_DROP         = U"4'h0"
+    def EP_DROP         = U"4'hF"
     def EP_NETWORK      = U"4'h0"
     def EP_COREMEM      = U"4'h1"
     def EP_SOC          = U"4'h2"
-    def EP_KEYVALUE     = U"4'h5"
+    def EP_MULTIVERSION = U"4'h3"
+    def EP_KEYVALUE     = U"4'h3"
+    def EP_PINGPONG     = U"4'h6"
   }
 }
 
 trait LegoMemConfig {
+  val debug : Boolean
+
   val epDataWidth = 512
   val epDataBytes = epDataWidth / 8
 
@@ -80,12 +94,18 @@ trait LegoMemConfig {
   def destWidth = 4
   def dmaLengthWidth = 16
 
-  def dmaAxisConfig = AxiStreamConfig (512)
+  def dmaAxisConfig = AxiStreamConfig (512, keepWidth = 64)
   def epDataAxisConfig = AxiStreamConfig (512, destWidth = destWidth)
   def epCtrlAxisConfig = AxiStreamConfig (64, destWidth = destWidth)
+
+  // Network
+  val networkDataWidth = 64
 }
 
 trait CoreMemConfig extends LegoMemConfig {
+
+  // === Options
+  val useSimpleDMA = false
 
   // === Memory service config
   val physicalAddrWidth : Int
@@ -334,6 +354,8 @@ case class LegoMemHeader() extends Bundle with Header[LegoMemHeader] {
 
   override def asBits = {
     val bits = Bits(packedWidth bits)
+    bits := 0
+    bits.allowOverride
     bits(0,  16 bits) := pid      .asBits
     bits(16, 8  bits) := tag      .asBits
     bits(24, 8  bits) := reqType  .asBits
@@ -367,6 +389,15 @@ case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[L
     next.addr   := bits(header.packedWidth, virtAddrWidth bits).asUInt
     next.length := bits(header.packedWidth + 64, 32 bits).asUInt
     next
+  }
+  override def asBits: Bits = {
+    val bits = Bits(packedWidth bits)
+    bits := 0
+    bits.allowOverride
+    bits(0, header.packedWidth bits) := header.asBits
+    bits(header.packedWidth, virtAddrWidth bits) := addr.asBits
+    bits(header.packedWidth + 64, 32 bits) := length.asBits
+    bits
   }
 }
 
@@ -434,8 +465,7 @@ case class ControlRequest() extends Bundle {
   def assignParam(param : BitVector) : Unit = {
     assert(param.getWidth <= 40, "over sized prameter")
     param32 := param.asBits.asUInt.resize(32)
-    if (param.getWidth > 32)
-      param8 := param.asBits.asUInt.resize(40)(39 downto 32)
+    param8 := param.asBits.asUInt.resize(40)(39 downto 32)
   }
 }
 
@@ -541,6 +571,8 @@ case class AddressLookupRequest(tagWidth : Int) extends Bundle {
   val seqId     = UInt(16 bits)
   val reqType   = UInt(2 bits)
   val tag       = UInt(tagWidth bits)
+
+  def isShootDown : Bool = reqType === AddressLookupRequest.RequestType.SHOOTDOWN
 }
 
 case class AddressLookupResult(addrWidth : Int) extends Bundle {

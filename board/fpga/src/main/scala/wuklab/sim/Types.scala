@@ -59,7 +59,9 @@ case class LegoMemHeaderSim(
                               cont : Int = 0,
                               destPort : Int = 0,
                               destIp : Long = 0
-                            )
+                            ) extends BitSerializable[LegoMemHeaderSim] {
+  override val codec = SimConversions.legoMemHeaderCodec
+}
 
 // val length        = UInt(12 bits)
 // val dest_port     = UInt(16 bits)
@@ -67,12 +69,12 @@ case class LegoMemHeaderSim(
 // val ip_dest_ip    = UInt(32 bits)
 // val ip_source_ip  = UInt(32 bits)
 case class UDPHeaderSim(
-                           length : Int,
-                           destPort : Int,
-                           sourcePort : Int,
+                           sourceIp : Long,
                            destIP : Long,
-                           sourceIp : Long
-                          ) extends BitSerializable[UDPHeaderSim] {
+                           sourcePort : Int,
+                           destPort : Int,
+                           length : Int
+) extends BitSerializable[UDPHeaderSim] {
   override val codec = SimConversions.udpHeaderCodec
 }
 
@@ -91,6 +93,15 @@ case class ControlRequestSim (
                                epid : Int = 0
                              ) extends BitSerializable[ControlRequestSim] {
   override val codec = SimConversions.controlRequestCodec
+}
+
+case class KeyValueHeaderSim (
+                              header : LegoMemHeaderSim,
+                              keySize : Int = 0,
+                              user : Int = 0,
+                              valueSize : Int = 0
+                             ) extends BitSerializable[KeyValueHeaderSim] {
+  override val codec = SimConversions.keyValueHeaderCodec
 }
 
 object SimConversions {
@@ -147,8 +158,10 @@ object SimConversions {
       :: uint32L
     ).as[LegoMemHeaderSim]
   val legoMemAccessMsgCodec = (legoMemHeaderCodec :: int64L :: int32L :: bytes).as[(LegoMemHeaderSim, Long, Int, ByteVector)]
-  val udpHeaderCodec = (uint16 :: uint16 :: uint16 :: uint32 :: uint32).as[UDPHeaderSim]
+  val udpHeaderCodec = (uint32L :: uint32L :: uint16L :: uint16L :: uint16L).as[UDPHeaderSim]
   val controlRequestCodec = (uint32L :: uint8L :: uint4L :: uint4L :: uint8L :: uint8L).as[ControlRequestSim]
+  val keyValueHeaderCodec = (legoMemHeaderCodec :: uint8L :: uint8L :: uint16L).as[KeyValueHeaderSim]
+  val keyValueMessageCodes = (keyValueHeaderCodec :: bytes).as[(KeyValueHeaderSim, ByteVector)]
 
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)
@@ -156,6 +169,11 @@ object SimConversions {
 
   implicit def bitSerializableAssign[T <: BitSerializable[T]](b : BitSerializable[T], bits : spinal.core.Bits): Unit = {
     bits #= BigInt(b.serialize.toByteArray.reverse)
+  }
+  // Simple one!
+  implicit def bitSerializableAxisAssign[T <: BitSerializable[T]]
+  (b : BitSerializable[T], axiStreamPayload: AxiStreamPayload): Unit = {
+    axiStreamPayload.tdata #= BigInt(b.serialize.toByteArray.reverse)
   }
 
   implicit def encodedToBigInt(a : Attempt[BitVector]) : BigInt = {

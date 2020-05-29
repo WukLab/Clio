@@ -124,6 +124,13 @@ object Utils {
     def fmap[T2 <: Data](f : T => T2) : Stream[T2] = {
       stream ~~ f
     }
+    def changeBy(f : T => Unit) : Stream[T] = {
+      val next = cloneOf(stream)
+      next << stream
+      next.payload.allowOverride
+      f(next.payload)
+      next
+    }
 
     def lift[T2 <: Data](implicit f : T => T2) : Stream[T2] = {
       stream ~~ f
@@ -193,6 +200,19 @@ object Utils {
       stream.valid.clear()
     }
 
+    def mergeBy[T2 <: Data](f : T => Bool, other : Stream[T2])(assign : (T, T2) => Unit) : Stream[T] = {
+      val next = cloneOf(stream)
+      val cond = f(stream.payload)
+      next.payload := stream.payload
+      when (cond) { assign(next.payload, other.payload) }
+
+      stream.ready := Mux(cond, other.valid && next.ready, next.ready)
+      other.ready := cond && stream.valid && next.ready
+      next.valid := Mux(cond, other.valid && stream.valid, stream.valid)
+
+      next
+    }
+
 
     def forkWith(signal : Stream[Bool]) : (Stream[T], Stream[T]) = {
       val (ifTrue, ifFalse) = StreamFork2(stream)
@@ -202,6 +222,10 @@ object Utils {
 
       signal.ready := ifTrue.fire || ifFalse.fire
       (ifTrue, ifFalse)
+    }
+
+    def addLatency(n : Int) : Stream[T] = {
+      (0 until n).foldLeft(stream) { (s, _) => s.stage() }
     }
 
   }
@@ -311,6 +335,15 @@ object Utils {
 
   implicit class StreamFragmentUtils[T <: Data](frag : Stream[Fragment[T]]) {
 
+    def changeFirst (f : T => Unit) : Stream[Fragment[T]] = {
+      val next = cloneOf(frag)
+      next.last := frag.last
+      next.valid := next.valid
+      next.fragment := frag.fragment
+      when (frag.first) { f(next.fragment) }
+      next
+    }
+
     def fmapFirst (f : T => T) : Stream[Fragment[T]] = {
       val next = cloneOf(frag)
       next.last := frag.last
@@ -381,7 +414,7 @@ object Utils {
 
     def demux(select : Stream[UInt], num: Int) : Seq[Stream[Fragment[T]]] = {
       val fragments = StreamDemux(frag.continueWhen(select.valid), select.payload, num)
-      select.throwWhen(frag.fire)
+      select.ready := frag.lastFire
       fragments
     }
 
@@ -394,6 +427,14 @@ object Utils {
     // 0 -----------> 512
     // initial | (head | tail) | (head | tail) | (head | tail)
     // (initial | head) | (tail | head) | ...
+    def dropAt(offset : Int) : Stream[Fragment[Bits]] = {
+      val tailWidth = widthOf(frag.fragment)
+      val next = cloneOf(frag)
+      // TODO: finish this
+
+      next
+    }
+
     def shiftAt(initial : Bits, skipLast : Bool): Stream[Fragment[Bits]] = {
       // TODO: we may waste a cycle here, repair this!
       val next = cloneOf(frag)
@@ -436,6 +477,7 @@ object Utils {
   }
 
   def rightOR(x : UInt) : UInt = (1 until x.getWidth) map (x |>> _) reduce (_ | _)
+  def unique(bits : Bits) : Bits = bits & (~bits.asUInt + 1).asBits
 }
 
 object Pair {
@@ -561,11 +603,13 @@ object StreamWithFragmentArbiter {
   (streams : Seq[Stream[T1]], fragments : Seq[Stream[Fragment[T2]]]) : (Stream[T1], Stream[Fragment[T2]])= {
 
     require(streams.length > 0, "Should work on a list")
-    require(streams.length == fragments.length, "Length of the streams should match fragments")
+    require(streams.length == fragments.length, "Number of the streams should match fragments")
+
     val numPairs = streams.length
     val fragType = fragments(0).payloadType
 
     val dataArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(fragType, numPairs)
+    (dataArbiter.io.inputs, fragments).zipped map { _ << _ }
 
     val (dataOutputStream, dataRouteStreamF) = StreamFork2(dataArbiter.io.output)
 
