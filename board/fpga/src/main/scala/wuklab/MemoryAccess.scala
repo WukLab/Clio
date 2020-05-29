@@ -23,6 +23,17 @@ trait HeaderProcessor {
   require (dataWidth % 8 == 0, "Data should be aligned to byte bound")
 }
 
+case class BitsHeader(width : Int) extends Bundle with Header[BitsHeader] {
+  require(width % 8 == 0, "Width should be byte aligned")
+  val bits = Bits(width bits)
+  override val packedWidth = width
+  override def getSize = U"16'h8"
+  override def fromWiderBits(b: Bits) = {
+    bits := b(widthOf(b) downBy width)
+    this
+  }
+}
+
 class PacketParser[B <: Bundle with Header[B]](
                                                 val dataWidth : Int, header : B
                                               ) extends Component with HeaderProcessor {
@@ -53,7 +64,8 @@ class PacketParser[B <: Bundle with Header[B]](
 
   val lastCycle = size <= dataBytes
   val dataReg = RegNextWhen(toData.fragment(dataWidth-1 downto headerWidth), toData.fire)
-  val outData = toData.fragment(headerWidth-1 downto 0) ## dataReg
+  val dataPad = Mux(regValid, dataReg, toData.fragment(dataWidth-1 downto headerWidth))
+  val outData = toData.fragment(headerWidth-1 downto 0) ## dataPad
 
   io.dataOut.fragment := outData
   io.dataOut.last := lastCycle
@@ -70,6 +82,7 @@ class PacketParser[B <: Bundle with Header[B]](
     when (toData.valid) {
       when (headerIn.getSize <= dataBytes && io.dataOut.ready) {
         io.dataOut.valid := True
+        io.dataOut.last := True
       } otherwise {
         regValid := True
       }
@@ -104,7 +117,6 @@ class PacketParser[B <: Bundle with Header[B]](
 
     } elsewhen (toData.valid) {
       io.dataOut.valid := True
-
       when (io.dataOut.ready) {
         toData.ready := True
         size := size - dataBytes
@@ -137,8 +149,8 @@ class PacketBuilder[B <: Bundle with Header[B]] (
   val lastCycleUseReg = lastCycleBytes <= headerBytes && lastCycleBytes =/= 0
 
   val tailReg = RegNextWhen(io.dataIn.fragment(dataWidth - 1 downto offsetWidth), io.dataIn.fire)
-  val dataOut =
-    io.dataIn.fragment(offsetWidth - 1 downto 0) ## Mux(io.dataOut.first, io.headerIn.payload.asBits, tailReg)
+  val selectedPad = Mux(io.dataOut.first, io.headerIn.payload.asBits, tailReg)
+  val dataOut = io.dataIn.fragment(offsetWidth - 1 downto 0) ## selectedPad
 
   val lastCycleNoData = (lastCycle && lastCycleUseReg)
   val validData : Bool = io.dataIn.valid || lastCycleNoData
@@ -149,7 +161,6 @@ class PacketBuilder[B <: Bundle with Header[B]] (
 
   io.headerIn.ready := io.dataOut.last && io.dataOut.ready && validData
   io.dataIn.ready := io.headerIn.valid && io.dataOut.ready && !lastCycleNoData
-
 }
 
 // ReqStatus
@@ -206,6 +217,7 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
   // We Filter if the request is valid later
   // TODO: seems this one will process MIG, since ret of MIG is WIRTE
   val Seq(rdJoin, wrJoin) = StreamDemux2(cmd, cmd.snd.header.reqType === RequestType.WRITE_RESP)
+
   val (wrCmd, wrValid) = StreamFork2(wrJoin)
   io.wrCmd.translateFrom (wrCmd.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
   // TODO: add queue
@@ -260,7 +272,7 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   val destWidth = 4
   val headerQueueSize = 64
   val writeDataQueueSize = 1024
-  val readDataQueueSize = 256
+  val readDataQueueSize = 1024
   val dmaRequestQueueSize = 256
 
   // Assign data for mover
@@ -272,8 +284,13 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
     }
 
     // debg info
-    val counters = Vec(out (UInt(32 bits)), 16)
-    val lookup_counters = Vec(out (UInt(32 bits)), 11)
+    val counters = if (config.debug) Vec(out (UInt(32 bits)), 16) else null
+    val lookup_counters = if (config.debug) Vec(out (UInt(32 bits)), 11) else null
+
+    // stat info
+    val stat = new Bundle {
+      val latency = Vec(out (UInt(32 bits)), 4)
+    }
   }
 
 
@@ -303,52 +320,95 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 
   val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
   dma.io.m_axi <> io.bus.access
+  val (writeCmd, writeSizeCmdF) = StreamFork2(access.io.wrCmd.queue(dmaRequestQueueSize))
+  val sizeCmd = writeSizeCmdF.fmap { cmd =>
+    val len = cmd.len.resize(6)
+    val lenTop = !len.orR
+    val lenFull = (lenTop ## len).asUInt
+    ((U"1'h1" << lenFull) - 1).resize(64)
+  } .queue(32)
+  dma.io.s_axis_read_desc << access.io.rdCmd.queue(dmaRequestQueueSize)
+  dma.io.s_axis_write_desc << writeCmd
   dma.io.m_axis_read_data.liftStream(_.tdata).queue(readDataQueueSize) >> packetBuilder.io.dataIn
   // TODO: add a loopback path here, for extended module parameters
   // signal A -> loopback queue -> signal B -> access unit
   val filteredDataF = packetParser.io.dataOut.queue(writeDataQueueSize)
-  val filteredData = filteredDataF.filterBySignal(access.io.wrDataSignal.queueLowLatency(dmaRequestQueueSize))
-  dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, filteredData)
-  dma.io.s_axis_read_desc <> access.io.rdCmd.queue(dmaRequestQueueSize)
-  dma.io.s_axis_write_desc <> access.io.wrCmd.queue(dmaRequestQueueSize)
+  val filteredData = filteredDataF.filterBySignal(access.io.wrDataSignal.queue(dmaRequestQueueSize))
+  dma.io.s_axis_write_data.translateFrom (filteredData.queue(dmaRequestQueueSize)) { (axis, data) =>
+    axis.fragment.tdata := data.fragment
+    daxis.fragment.tkeep := Mux(data.last, sizeCmd.payload.asBits, B"64'hFFFF_FFFF_FFFF_FFFF")
+    axis.last := data.last
+  }
+  sizeCmd.ready := filteredData.lastFire
 
   dma.io.write_enable := True
   dma.io.read_enable := True
   dma.io.write_abort := False
 
+  // === Stat
+  val counter = Counter(32 bits, True)
+  val stat = new Area {
+    val dataInFirst = RegNextWhen(counter.value, packetParser.io.dataIn.firstFire)
+    val dataInLast = RegNextWhen(counter.value, packetParser.io.dataIn.lastFire)
+    val lookupOut = RegNextWhen(counter.value, lookup.io.res.fire)
 
-  // Monitor registers
-  val Registers = Seq[(String, Bool)](
-    ("ParserDataIn",      packetParser.io.dataIn.lastFire),
-    ("ParserHeaderOut",   packetParser.io.headerOut.fire),
-    ("ParserDataOut",     packetParser.io.dataOut.lastFire),
-    ("BuilderDataIn",     packetBuilder.io.dataIn.lastFire),
-    ("BuilderHeaderIn",   packetBuilder.io.headerIn.fire),
-    ("BuilderHeaderOut",  packetBuilder.io.dataOut.lastFire),
-    ("LookupHeader",      lookup.io.req.fire),
-    ("AccessHeader",      access.io.headerIn.fire),
-    ("LookupRes",         lookup.io.res.fire),
-    ("writeDesc",         dma.io.s_axis_write_desc.fire),
-    ("readDesc",          dma.io.s_axis_read_desc.fire),
-    ("filterSignal",      access.io.wrDataSignal.fire),
-    ("FilteredSignal",    filteredData.lastFire),
-    ("dmaWriteData",      dma.io.s_axis_write_data.lastFire),
-    ("dmaReadData",       dma.io.m_axis_read_data.lastFire),
-    ("ctrlOUt",           io.ep.ctrlOut.fire)
-  )
+    val accFirstLookup = Reg (UInt(32 bits)) init 0
+    val accLastLookup = Reg (UInt(32 bits)) init 0
+    val accFirstAccess = Reg (UInt(32 bits)) init 0
 
-  val regs = Registers.map(_._2).map(Counter(32 bits, _))
-  (io.counters, regs).zipped map (_ := _.value)
+    // last to last
+    when (lookup.io.res.fire) {
+      accFirstLookup := accFirstLookup + (counter.value - dataInFirst)
+      accLastLookup := accLastLookup + (counter.value - dataInLast)
+    }
 
-  val base = BigInt("A0006400", 16)
-  println(f"* Build Register Access Script on $base")
-  Registers.map(_._1).zipWithIndex.map { case (str, idx) =>
-    val addr = base + idx * 4
-    println(f"echo $str")
-    println(f"devmem 0x$addr%X 32")
+    when (packetBuilder.io.dataOut.lastFire) {
+      accFirstAccess := accFirstAccess + (counter.value - lookupOut)
+    }
+
+    io.stat.latency(0) := accFirstLookup
+    io.stat.latency(1) := accLastLookup
+    io.stat.latency(2) := accFirstAccess
+    io.stat.latency(3) := 0x7edc1234
   }
 
-  lookup.io.counters <> io.lookup_counters
+
+  // === Debug
+  if (config.debug) {
+    // Monitor registers
+    val Registers = Seq[(String, Bool)](
+      ("ParserDataIn", packetParser.io.dataIn.lastFire),
+      ("ParserHeaderOut", packetParser.io.headerOut.fire),
+      ("ParserDataOut", packetParser.io.dataOut.lastFire),
+      ("BuilderDataIn", packetBuilder.io.dataIn.lastFire),
+      ("BuilderHeaderIn", packetBuilder.io.headerIn.fire),
+      ("BuilderHeaderOut", packetBuilder.io.dataOut.lastFire),
+      ("LookupHeader", lookup.io.req.fire),
+      ("AccessHeader", access.io.headerIn.fire),
+      ("LookupRes", lookup.io.res.fire),
+
+      ("writeDesc", dma.io.s_axis_write_desc.fire),
+      ("readDesc", dma.io.s_axis_read_desc.fire),
+      ("filterSignal", access.io.wrDataSignal.fire),
+      ("FilteredSignal", filteredData.lastFire),
+      ("dmaWriteData", dma.io.s_axis_write_data.lastFire),
+      ("dmaReadData", dma.io.m_axis_read_data.lastFire),
+      ("ctrlOUt", io.ep.ctrlOut.fire)
+    )
+
+    val regs = Registers.map(_._2).map(Counter(32 bits, _))
+    (io.counters, regs).zipped map (_ := _.value)
+
+    val base = BigInt("A0006400", 16)
+    println(f"* Build Register Access Script on $base")
+    Registers.map(_._1).zipWithIndex.map { case (str, idx) =>
+      val addr = base + idx * 4
+      println(f"echo $str")
+      println(f"devmem 0x$addr%X 32")
+    }
+
+    lookup.io.counters <> io.lookup_counters
+  }
 
   def generateLookupRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
     val next = AddressLookupRequest(config.tagWidth)
@@ -372,6 +432,15 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
 // In, means outside (xbar) -> module
 // Out, means module -> outside
 
+case class LegoMemRawDataInterface() extends Bundle with IMasterSlave {
+  val dataIn = Stream Fragment (Bits(512 bits))
+  val dataOut = Stream Fragment (Bits(512 bits))
+  override def asMaster(): Unit = {
+    master(dataIn)
+    slave(dataOut)
+  }
+}
+
 case class LegoMemRawInterface() extends Bundle with IMasterSlave {
   val dataIn  = Stream Fragment(Bits(512 bits))
   val dataOut = Stream Fragment(Bits(512 bits))
@@ -393,7 +462,7 @@ case class LegoMemRawInterface() extends Bundle with IMasterSlave {
 
 }
 
-class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
+class RawInterfaceEndpoint(implicit config : LegoMemConfig) extends Component {
   val io = new Bundle {
     // TODO: correct this
     val ep = new LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
@@ -420,8 +489,4 @@ class RawInterfaceEndpoint(implicit config : CoreMemConfig) extends Component {
   // TODO: Still not that, smooth
   // TODO: check this
   when (io.raw.dataOut.first) { io.ep.dataOut.tdata(0, LegoMemHeader.headerWidth bits) := header.asBits }
-
-
-
-
 }

@@ -6,6 +6,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.Axi4
 import Utils._
+import spinal.core
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config, AxiLite4SlaveFactory}
 
 class LegoMemSystem(implicit config : CoreMemConfig) extends Component with XilinxAXI4Toplevel {
@@ -22,7 +23,7 @@ class LegoMemSystem(implicit config : CoreMemConfig) extends Component with Xili
     }
 
     // Other external interface
-    val net = NetworkInterface()
+    val net = NetworkInterface(config.networkDataWidth)
     val net_sess = master Stream UInt(16 bits)
     val soc = new Bundle {
       val dataIn  = master Stream Fragment (AxiStreamPayload(socAxisConfig))
@@ -89,30 +90,64 @@ class LegoMemSystem(implicit config : CoreMemConfig) extends Component with Xili
     val netOut   = RegNextWhen(counter.value, io.net.dataOut    .firstFire) init 0xdead
   }
 
+  val total = new Area {
+    val mem = Reg (UInt(32 bits)) init 0
+    val system = Reg (UInt(32 bits)) init 0
+    val fullmem = Reg (UInt(32 bits)) init 0
+    val fullsystem = Reg (UInt(32 bits)) init 0
+
+    // last to last
+    when (io.eps.mem.dataOut.lastFire) {
+      mem := mem + (counter.value - last.epMemIn)
+      fullmem := fullmem + (counter.value - first.epMemIn)
+    }
+    when (io.net.dataOut.lastFire) {
+      system := system + (counter.value - last.netIn)
+      fullsystem := fullsystem + (counter.value - first.netIn)
+    }
+
+  }
+
   val regs = new AxiLite4SlaveFactory(io.regBus)
-  def offset(i : Int) = BigInt("A0006000", 16) + BigInt(i * 4)
-  regs.read (last.epSocIn,  offset(16 + 1)) // 0x44
-  regs.read (last.epSocOut, offset(16 + 2)) // 0x48
-  regs.read (last.epMemIn,  offset(16 + 3)) // 0x4c
-  regs.read (last.epMemOut, offset(16 + 4)) // 0x50
-  regs.read (last.epSeqIn,  offset(16 + 5)) // 0x54
-  regs.read (last.epSeqOut, offset(16 + 6)) // 0x58
-  regs.read (last.netIn,    offset(16 + 7)) // 0x60
-  regs.read (last.netOut,   offset(16 + 8)) // 0x64
+  def offset(i : Int, base : Int = 0) = BigInt("A0006000", 16) + BigInt(i * 4) + BigInt(base)
 
-  // 0x80
-  regs.read (first.epSocIn,  offset(32 + 1)) // 0x80
-  regs.read (first.epSocOut, offset(32 + 2)) // 0x84
-  regs.read (first.epMemIn,  offset(32 + 3)) // 0x8c
-  regs.read (first.epMemOut, offset(32 + 4)) // 0x90
-  regs.read (first.epSeqIn,  offset(32 + 5)) // 0x94
-  regs.read (first.epSeqOut, offset(32 + 6)) // 0x9c
-  regs.read (first.netIn,    offset(32 + 7)) // 0xa0
-  regs.read (first.netOut,   offset(32 + 8)) // 0xa4
+  if (config.debug) {
+    regs.read (U"32'h20200524",  offset(16 + 0)) // 0x44
+    regs.read (last.epSocIn,  offset(16 + 1)) // 0x44
+    regs.read (last.epSocOut, offset(16 + 2)) // 0x48
+    regs.read (last.epMemIn,  offset(16 + 3)) // 0x4c
+    regs.read (last.epMemOut, offset(16 + 4)) // 0x50
+    regs.read (last.epSeqIn,  offset(16 + 5)) // 0x54
+    regs.read (last.epSeqOut, offset(16 + 6)) // 0x58
+    regs.read (last.netIn,    offset(16 + 7)) // 0x5c
+    regs.read (last.netOut,   offset(16 + 8)) // 0x60
 
+    // 0x80
+    regs.read (first.epSocIn,  offset(32 + 1)) // 0x84
+    regs.read (first.epSocOut, offset(32 + 2)) // 0x88
+    regs.read (first.epMemIn,  offset(32 + 3)) // 0x8c
+    regs.read (first.epMemOut, offset(32 + 4)) // 0x90
+    regs.read (first.epSeqIn,  offset(32 + 5)) // 0x94
+    regs.read (first.epSeqOut, offset(32 + 6)) // 0x98
+    regs.read (first.netIn,    offset(32 + 7)) // 0x9c
+    regs.read (first.netOut,   offset(32 + 8)) // 0xa0
+
+    // 0x400
+    access.io.counters.zipWithIndex.map { case (reg, idx) => regs.read(reg, offset(0x100 + idx)) }
+    access.io.lookup_counters.zipWithIndex.map { case (reg, idx) => regs.read(reg, offset(0x200 + idx)) }
+  }
+
+  // Stat
   // 0x100
-  access.io.counters.zipWithIndex.map { case (reg, idx) => regs.read(reg, offset(0x100 + idx)) }
-  access.io.lookup_counters.zipWithIndex.map { case (reg, idx) => regs.read(reg, offset(0x200 + idx)) }
+  regs.readAndWrite (total.mem, 0x100 + offset(0))
+  regs.readAndWrite (total.system, 0x100 + offset(1))
+  regs.readAndWrite (total.fullmem, 0x100 + offset(2))
+  regs.readAndWrite (total.fullsystem, 0x100 + offset(3))
+
+  // 0x200
+  access.io.stat.latency.zipWithIndex.map { case (reg, idx) =>
+    regs.read(reg, offset(idx, 0x200))
+  }
 
   // Rename
   addPrePopTask(renameIO)

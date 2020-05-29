@@ -23,12 +23,12 @@ class MonitorRegisters(numInputs : Int, numOutputs : Int, baseAddr : BigInt) ext
   }
 
   val regs = new AxiLite4SlaveFactory(io.regBus)
-  if (enableInputs)  io.inputRegs .zipWithIndex.map { case (reg, i) => regs.read(reg, offset(i)) }
   if (enableOutputs) io.outputRegs.zipWithIndex.map { case (out, i) =>
     val reg = Reg (UInt(32 bits)) init 0xdead
-    regs.write(reg, offset(numInputs + i))
+    regs.readAndWrite(reg, offset(i))
     out := reg
   }
+  if (enableInputs)  io.inputRegs .zipWithIndex.map { case (reg, i) => regs.read(reg, offset(numOutputs + i)) }
 
   addPrePopTask(renameIO)
 }

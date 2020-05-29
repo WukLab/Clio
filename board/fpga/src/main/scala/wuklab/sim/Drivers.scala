@@ -121,7 +121,7 @@ object SeqDataGen {
     val wire = t
     // @ret: the valid of the value
     def tik : Boolean = {
-      println(f"At $idx ")
+//      println(f"At $idx ")
       if (idx < seq.size) {
         f(seq(idx), t)
         true
@@ -184,7 +184,8 @@ class BitAxisDataGen(bits : (scodec.bits.BitVector, Int))(frag : Fragment[AxiStr
     wire.last #= isLast
     if (config.useDest) wire.fragment.tdest #= dest
     if (config.useKeep) wire.fragment.tkeep #= {
-      val shiftWidth = if (isLast) tail.bytes.size % config.keepWidth else config.keepWidth
+      val shiftWidthF = if (isLast) tail.bytes.size % config.keepWidth else config.keepWidth
+      val shiftWidth = if (shiftWidthF == 0) config.keepWidth else shiftWidthF
 //      println("DO TKEEP: %d -> %X" format (shiftWidth, (1L << shiftWidth) - 1))
       (1L << shiftWidth) - 1
     }
@@ -192,7 +193,7 @@ class BitAxisDataGen(bits : (scodec.bits.BitVector, Int))(frag : Fragment[AxiStr
   }
   override def update(update: Boolean): Unit = {
     if (update) {
-      println(s"Axis: Send Data<${config.dataWidth}>: ${data.map("%02X" format _).mkString("_")}")
+//      println(s"Axis: Send Data<${config.dataWidth}>: ${data.map("%02X" format _).mkString("_")}")
       tail = tail.drop(config.dataWidth)
     }
   }
@@ -310,6 +311,7 @@ abstract class Axi4SlaveMemoryDriver (clockDomain: ClockDomain) extends Simulati
                             var state : Int = 0,
                             var beats : Int = 0,
                             var burst : Int = 0,
+                            var size : Int = 0,
                             var addr : BigInt = 0
                           )
   def memoryRead(addr : BigInt, size : Int) : BigInt
@@ -405,6 +407,7 @@ abstract class Axi4SlaveMemoryDriver (clockDomain: ClockDomain) extends Simulati
             if (cmd.valid.toBoolean) {
               write.beats = if (config.useLen) cmd.len.toInt else 0
               write.burst = if (config.useBurst) cmd.burst.toInt else 0
+              write.size = if (config.useSize) (1 << cmd.size.toInt) else config.bytePerWord
               write.addr = cmd.addr.toBigInt
               write.state = 1
             }
@@ -412,7 +415,14 @@ abstract class Axi4SlaveMemoryDriver (clockDomain: ClockDomain) extends Simulati
           case 1 => {
             if (data.valid.toBoolean) {
               if (write.beats == 0) write.state = 2
-              memoryWrite(write.addr, config.bytePerWord, data.data.toBigInt)
+              val size = if (config.useStrb) (data.strb.toBigInt.bitCount) else write.size
+              val offset = if (config.useStrb)
+                ((data.strb.toBigInt & -data.strb.toBigInt) - 1).bitCount else 0
+              val wrData = BigInt(data.data.toBigInt.toByteArray.reverse.drop(offset).reverse)
+              println(f"Memory Write @${write.addr}%08X:$offset:$size")
+//              println(f"Writing big data ${data.data.toBigInt}%X")
+//              println(f"Writing big data $wrData%X")
+              memoryWrite(write.addr, size, wrData)
               write.beats -= 1
               if (write.burst != 0)
                 write.addr += config.bytePerWord
@@ -444,19 +454,28 @@ abstract class Axi4SlaveMemoryDriver (clockDomain: ClockDomain) extends Simulati
 class ArrayMemoryDriver(val clockDomain: ClockDomain, size : Int) extends Axi4SlaveMemoryDriver(clockDomain) {
   private val memory : ArrayBuffer[Byte] = ArrayBuffer.fill(size)(0)
 
-  override def memoryRead(addr : BigInt, size : Int) : BigInt = {
-    println(f"Memory Read @$addr%08X:$size")
+  override def memoryRead(addr : BigInt, len : Int) : BigInt = {
+    println(f"Memory Read @$addr%08X:$len")
+    if (addr > size) {
+      println(f"invalid addr $addr with $size ")
+      return 0
+    }
     // TODO: deal with unaligned accesses
-    val buffer = new Array[Byte](size)
-    for (idx <- 0 until size)
+    val buffer = new Array[Byte](len)
+    for (idx <- 0 until len)
       buffer(idx) = memory(addr.toInt + idx)
     new BigInt(new BigInteger(buffer.reverse))
   }
 
-  override def memoryWrite(addr : BigInt, size : Int, data : BigInt) : Unit = {
-    println(f"Memory Write @$addr%08X:$size")
-    val buffer = data.toByteArray
-    for (idx <- 0 until Math.min(size, buffer.size)) {
+  override def memoryWrite(addr : BigInt, len : Int, data : BigInt) : Unit = {
+    if (addr > size) {
+      println(f"invalid addr $addr with $size ")
+      return
+    }
+    val buffer = data.toByteArray.reverse
+    println(f"Writing to $addr%X with data length ${buffer.size}")
+
+    for (idx <- 0 until Math.min(len, buffer.size)) {
       memory(idx + addr.toInt) = buffer(idx)
     }
   }

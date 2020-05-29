@@ -127,12 +127,18 @@ class LegoMemDataOutputAdapter(externalWidth : Int) extends Component {
 
   // Connect this to a converter
   // TODO: add in and out fifos
-  val inPipe = new AxiStreamWidthConverter(adapterConfig, externalConfig)
-  inPipe.io.s_axis << io.external.dataIn
-  inPipe.io.m_axis.liftStream(_.tdata) >> io.internal.dataOut
-  val outPipe = new AxiStreamWidthConverter(externalConfig, adapterConfig)
-  outPipe.io.s_axis << adaptCtrl.dataOut
-  outPipe.io.m_axis >> io.external.dataOut
+  if (externalWidth == 512) {
+    // No need to convert
+    io.internal.dataOut << io.external.dataIn.liftStream(_.tdata)
+    adaptCtrl.dataOut >> io.external.dataOut
+  } else {
+    val inPipe = new AxiStreamWidthConverter(adapterConfig, externalConfig)
+    inPipe.io.s_axis << io.external.dataIn
+    inPipe.io.m_axis.liftStream(_.tdata) >> io.internal.dataOut
+    val outPipe = new AxiStreamWidthConverter(externalConfig, adapterConfig)
+    outPipe.io.s_axis << adaptCtrl.dataOut
+    outPipe.io.m_axis >> io.external.dataOut
+  }
 
 }
 
@@ -147,7 +153,7 @@ class AxiStreamWidthConverter(mconfig : AxiStreamConfig, sconfig: AxiStreamConfi
     val S_DATA_WIDTH = sconfig.dataWidth
     // Propagate tkeep signal on input interface
     // If disabled, tkeep assumed to be 1'b1
-    // val S_KEEP_ENABLE = if (sconfig.useKeep) 1 else 0
+    val S_KEEP_ENABLE = if (sconfig.useKeep) 1 else 0
     // tkeep signal width (words per cycle) on input interface
     // val S_KEEP_WIDTH = (S_DATA_WIDTH/8)
     // Width of output AXI stream interface in bits

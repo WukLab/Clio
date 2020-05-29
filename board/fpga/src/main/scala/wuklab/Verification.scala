@@ -111,3 +111,36 @@ class CoreLookupWrapper(implicit config: CoreMemConfig) extends Component with X
 
   addPrePopTask(renameIO)
 }
+
+class LegoMemAxisBridge(implicit config: LegoMemConfig) extends Component with XilinxAXI4Toplevel {
+  val io = new Bundle {
+    val ep = LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
+    val raw = new Bundle {
+      val data = master (LegoMemRawDataInterface())
+      val ctrl = new Bundle {
+        val ctrlIn = master Stream (Bits(64 bits))
+        val ctrlOut = slave Stream (Bits(64 bits))
+      }
+    }
+  }
+
+  val bridge = new RawInterfaceEndpoint
+  bridge.io.ep <> io.ep
+  bridge.io.raw.dataIn >> io.raw.data.dataIn
+  bridge.io.raw.dataOut << io.raw.data.dataOut
+  bridge.io.raw.ctrlIn.fmap(_.asBits) >> io.raw.ctrl.ctrlIn
+  bridge.io.raw.ctrlOut.translateFrom (io.raw.ctrl.ctrlOut) (_.assignFromBits(_))
+
+  addPrePopTask(renameIO)
+}
+
+class AxiStreamRegisterInterface extends Component with XilinxAXI4Toplevel {
+  val inputRegs = 4
+  val outputRegs = 4
+  val io = new Bundle {
+    val regs = AxiLite4(AxiLite4Config(8, 32))
+
+    val inputStream = master Stream UInt(inputRegs * 4 bits)
+    val outputStream = master Stream UInt(outputRegs * 4 bits)
+  }
+}

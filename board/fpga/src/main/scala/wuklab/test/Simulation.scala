@@ -5,16 +5,11 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.amba4.axi.Axi4
 import spinal.lib.{Fragment, master, slave}
+import wuklab.sim._
 import wuklab._
-import wuklab.sim.{AddressLookupRequestSim, _}
+import wuklab.kv._
 
-object SimContext {
-  val memPtes = Seq(
-    (0x200, PageTableEntrySim(ppa = 0x1234, tag = 0x12, pageType = 0, used = true, allocated = true)),
-    (0x400, PageTableEntrySim(ppa = 0x5678, tag = 0x14, pageType = 1, used = true, allocated = true)),
-    (0x800, PageTableEntrySim(ppa = 0x9985, tag = 0x18, pageType = 2, used = false, allocated = true))
-  )
-
+trait SimContext {
   object SimulationSpinalConfig extends SpinalConfig(
     defaultConfigForClockDomains = ClockDomainConfig (
       resetActiveLevel = LOW
@@ -28,9 +23,33 @@ object SimContext {
     // TODO: check for SEL_RANGE
     .addSimulatorFlag("-Wno-SELRANGE")
     .withWave
+
+}
+
+object KeyValueSimContext extends SimContext {
+  implicit val config = new KeyValueConfig {
+    override val debug = false
+
+    override val allocEp = 2
+    override val allocAddr = 0
+    override val hteEntryWidth = 16
+  }
+}
+
+object CoreMemSimContext extends SimContext {
+  val memPtes = Seq(
+    (0x200, PageTableEntrySim(ppa = 0x1234, tag = 0x12, pageType = 0, used = true, allocated = true)),
+    (0x400, PageTableEntrySim(ppa = 0x5678, tag = 0x14, pageType = 1, used = true, allocated = true)),
+    (0x800, PageTableEntrySim(ppa = 0x9985, tag = 0x18, pageType = 2, used = false, allocated = true))
+  )
   implicit val config : CoreMemConfig = GenerateContext.config
 }
-import wuklab.test.SimContext._
+
+object CoreMem512SimContext extends SimContext {
+  implicit val config : CoreMemConfig = GenerateContext512.config
+}
+
+import wuklab.test.CoreMemSimContext._
 
 
 // object MemoryRegisterInterfaceSim {

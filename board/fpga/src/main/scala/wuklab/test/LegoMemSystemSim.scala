@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import wuklab._
 import wuklab.sim._
-import SimContext._
+import CoreMemSimContext._
 import scodec.bits.ByteVector
 
 object LegoMemSystemSim {
@@ -51,12 +51,14 @@ object LegoMemSystemSim {
 
       dut.clockDomain.waitRisingEdge(10)
 
+      def cmd(opcode : Int, seq : Int) =
+        LegoMemHeaderSim(pid = 0x0001, tag = 0, reqType = opcode, cont = 0x4321, seqId = seq, size = 16).serialize
       def wr_cmd(seq : Int, data : Seq[Byte]) = legoMemAccessMsgCodec.encode(
         (LegoMemHeaderSim(pid = 0x0001, tag = 0, reqType = 0x50, cont = 0x4321, seqId = seq, size = 28 + data.size),
           0x7e000000, data.size, ByteVector(data))
       ).require
       def rd_cmd(seq : Int) = legoMemAccessMsgCodec.encode(
-        (LegoMemHeaderSim(pid = 0x0001, tag = 0, reqType = 0x40, cont = 0x4321, seqId = seq, size = 28),
+        (LegoMemHeaderSim(pid = 0x0001, tag = 0, reqType = 0x41, cont = 0x4321, seqId = seq, size = 28),
           0x7e000000, 16, ByteVector.empty)
       ).require
 
@@ -67,12 +69,13 @@ object LegoMemSystemSim {
         )
       }
       fork {
-//        dataStream #= BitAxisDataGen(wr_cmd(0, Array.fill(65)(0x73 : Byte)))
-        dataStream #= BitAxisDataGen(rd_cmd(1))
+        dataStream #= BitAxisDataGen(
+          wr_cmd(0, (0 until 512) map (_.toByte))
+        )
       }
       fork {
-//        ctrlStream #= BitStreamDataGen(
-//          Seq(ControlRequestSim(epid = 1, addr = 0).serialize)
+//        ctrlStream #= SeqDataGen(
+//          ControlRequestSim(epid = 1, addr = 0)
 //        )
       }
 
