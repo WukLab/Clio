@@ -6,6 +6,7 @@ import spinal.lib._
 import spinal.lib.fsm._
 import Utils._
 import spinal.core.internals.Operator
+import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config}
 
 trait HeaderProcessor {
   def dataWidth : Int
@@ -22,6 +23,17 @@ trait HeaderProcessor {
   require (dataWidth % 8 == 0, "Data should be aligned to byte bound")
 }
 
+case class BitsHeader(width : Int) extends Bundle with Header[BitsHeader] {
+  require(width % 8 == 0, "Width should be byte aligned")
+  val bits = Bits(width bits)
+  override val packedWidth = width
+  override def getSize = U"16'h8"
+  override def fromWiderBits(b: Bits) = {
+    bits := b(widthOf(b) downBy width)
+    this
+  }
+}
+
 class PacketParser[B <: Bundle with Header[B]](
                                                 val dataWidth : Int, header : B
                                               ) extends Component with HeaderProcessor {
@@ -34,29 +46,82 @@ class PacketParser[B <: Bundle with Header[B]](
     val headerOut = master Stream cloneOf(header)
   }
 
-  // if size == 0
-  // if (size & (datawidth-1)) <= headerWidth, we will save a cycle -> skipLast
-  val headerIn = header.fromWiderBits(io.dataIn.fragment)
-  // check reg next when bypass
-  val size = RegNextWhen(headerIn.getSize, io.dataIn.firstFire)
-  val skipLast = size.maskBy(dataBytes) <= headerBytes
+  val (toHeader, toDataF) = StreamFork2(io.dataIn)
+  // 1. easy path: header
+  io.headerOut << toHeader.takeFirst.toStreamOfFragment.fmap (_ |> header.fromWiderBits)
 
-  val (toHeader, toData) = StreamFork2(io.dataIn)
-  io.headerOut << toHeader.takeWhen(toHeader.isFirst).fmap (_.fragment |> header.fromWiderBits)
+  // 2. data
+  // 2.1 filter out no data headers
+  val toData = toDataF.throwBy {f => toDataF.first && header.fromWiderBits(f.fragment).getSize <= headerBytes }
+  // 2.2 generate data using a state machine
+  val headerIn = header.fromWiderBits(toData.fragment)
 
-  val offset = RegNextWhen (toData.fragment(offsetWidth-1 downto 0), toData.fire)
-  val outData = offset ## toData.fragment(dataWidth-1 downto offsetWidth)
-  // delay the data for one cycle
-  // TODO: check this
-  // We throw the delayed flow.
-  val delayedData = toData.stage()
+  // Cycle one, we fill in reg
 
-  // if no size, we do not read the data
-  // TODO: check this condition
-  val outDataStream = delayedData.haltWhen(size === 0).throwWhen(!delayedData.isFirst && delayedData.isLast && skipLast)
-  io.dataOut.translateFrom (outDataStream) {(out, in) =>
-    out.fragment := outData
-    out.last := in.last
+  val regValid = Reg (Bool) init False
+  val size = Reg (cloneOf(headerIn.getSize))
+  val lastCycleNoNeedData = size <= offsetBytes && size =/= 0
+
+  val lastCycle = size <= dataBytes
+  val dataReg = RegNextWhen(toData.fragment(dataWidth-1 downto headerWidth), toData.fire)
+  val dataPad = Mux(regValid, dataReg, toData.fragment(dataWidth-1 downto headerWidth))
+  val outData = toData.fragment(headerWidth-1 downto 0) ## dataPad
+
+  io.dataOut.fragment := outData
+  io.dataOut.last := lastCycle
+
+  toData.ready := False
+  io.dataOut.valid := False
+  // Let compiler optimize this shit
+  when (!regValid) {
+    // We need to fillin the reg!
+    toData.ready := True
+
+    size := headerIn.getSize - headerBytes
+
+    when (toData.valid) {
+      when (headerIn.getSize <= dataBytes && io.dataOut.ready) {
+        io.dataOut.valid := True
+        io.dataOut.last := True
+      } otherwise {
+        regValid := True
+      }
+    }
+  } otherwise {
+    // We can emit data
+    // From here, the size IS pure data size
+
+    when (lastCycle) {
+
+      when (lastCycleNoNeedData) {
+        io.dataOut.valid := True
+        when (io.dataOut.ready) {
+          regValid := False
+          // TODO: optimization here, can be revoke
+          // TODO: DO NOT WAIT TO ENTER STATE 0
+          toData.ready := True
+          size := headerIn.getSize - headerBytes
+
+          // We can only do register here, can not directly send
+          when (toData.valid) {
+            regValid := True
+          }
+        }
+      } elsewhen (toData.valid) {
+        io.dataOut.valid := True
+        when (io.dataOut.ready) {
+          toData.ready := True
+          regValid := False
+        }
+      }
+
+    } elsewhen (toData.valid) {
+      io.dataOut.valid := True
+      when (io.dataOut.ready) {
+        toData.ready := True
+        size := size - dataBytes
+      }
+    }
   }
 
 }
@@ -72,38 +137,30 @@ class PacketBuilder[B <: Bundle with Header[B]] (
     val dataOut = master Stream Fragment(Bits(dataWidth bits))
   }
 
-  val size = RegNextWhenBypass(io.headerIn.getSize, io.headerIn.fire)
-  val insertLast = (size & dataBytes.toMask.asUInt) >= offsetBytes
+  val remainSize = cloneOf(io.headerIn.getSize)
+  val remainSizeReg = RegNextWhen(remainSize - dataBytes, io.dataOut.fire)
+  remainSize := Mux(io.dataOut.first, io.headerIn.getSize, remainSizeReg)
 
-  val dataOut = io.dataIn.shiftAt(header.packedWidth)
-  io.dataOut << io.dataIn.translateWithLastInsert(dataOut, insertLast)
-}
+  // Status regs
+  val lastCycle = remainSize <= dataBytes
+  val firstCycle = io.dataOut.first
 
-class LegoMemEndPointPacketBuilder (implicit config : CoreMemConfig) extends Component with HeaderProcessor {
+  val lastCycleBytes = io.headerIn.getSize.maskBy(dataBytes)
+  val lastCycleUseReg = lastCycleBytes <= headerBytes && lastCycleBytes =/= 0
 
-  override def dataWidth = 512
-  override def headerWidth = LegoMemHeader.headerWidth
+  val tailReg = RegNextWhen(io.dataIn.fragment(dataWidth - 1 downto offsetWidth), io.dataIn.fire)
+  val selectedPad = Mux(io.dataOut.first, io.headerIn.payload.asBits, tailReg)
+  val dataOut = io.dataIn.fragment(offsetWidth - 1 downto 0) ## selectedPad
 
-  val io = new Bundle {
-    val dataIn = slave Stream Fragment(Bits(dataWidth bits))
-    val headerIn = slave Stream LegoMemHeader()
-    val dataOut = master Stream Fragment(AxiStreamPayload(config.epAxisConfig))
-  }
+  val lastCycleNoData = (lastCycle && lastCycleUseReg)
+  val validData : Bool = io.dataIn.valid || lastCycleNoData
 
-  io.headerIn.ready := io.dataIn.lastFire
-  // Generate this information at the 1st cycle
-  val (next, dest) = io.headerIn.stackPop
-  val insertLast = io.headerIn.getSize.maskBy(dataBytes) >= offsetBytes
+  io.dataOut.fragment := dataOut
+  io.dataOut.last := lastCycle
+  io.dataOut.valid := io.headerIn.valid && validData
 
-  val dataOut = io.dataIn.shiftAt(headerWidth, next.asBits)
-  val outStream = io.dataIn.translateWithLastInsert(dataOut, insertLast)
-
-  // 1st cycle: header + first half of data.
-  io.dataOut.translateFrom (outStream) { (axis, data) =>
-    axis.last := data.last
-    axis.fragment.tdata := data.fragment
-    axis.fragment.tdest := dest
-  }
+  io.headerIn.ready := io.dataOut.last && io.dataOut.ready && validData
+  io.dataIn.ready := io.headerIn.valid && io.dataOut.ready && !lastCycleNoData
 }
 
 // ReqStatus
@@ -115,7 +172,7 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
     // interface from request
     val lookupRes = slave Stream config.pteResType
     val headerIn  = slave Stream LegoMemAccessHeader(config.virtualAddrWidth)
-    val headerOut = master Stream LegoMemHeader()
+    val headerOut = master Stream LegoMemAccessHeader(config.virtualAddrWidth)
 
     // Interface to the data mover
     val wrCmd = master Stream AxiStreamDMAWriteCommand(config.physicalAddrWidth, config.dmaLengthWidth)
@@ -125,13 +182,15 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
     val wrDataSignal = master Stream Bool
   }
 
+  import LegoMem._
+
   // TODO: check delay
   type JoinType = Pair[PageTableEntry, LegoMemAccessHeader]
   val joinStream = (io.lookupRes >*< io.headerIn).stage()
 
   // cmd path
   def assignFromJoin(cmd : AxiStreamDMACommand, p : JoinType): Unit = {
-    cmd.len := p.snd.header.size
+    cmd.len := p.snd.length(15 downto 0)
     cmd.addr := config.va2pa(p.fst, p.snd.addr)
   }
   // This assume that, there are not wrong command forwarded here
@@ -144,11 +203,10 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
       dst.allowOverride
       // Build the resp code
       // TODO: make this a function
-      val retCode = src.snd.header.reqType.mux(
-        0 -> U(0, 4 bits),
-        default -> U(0, 4 bits)
-      )
-      dst.snd.header.reqStatus := retCode
+      dst.snd.header.reqType := LegoMem.RequestType.resp(src.snd.header.reqType)
+      val status = checkRequest(src)
+      dst.snd.header.reqStatus := status
+      dst.snd.header.size := genSize(src, status)
     }
 
   }
@@ -156,82 +214,279 @@ class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
   val (cmd, rsp) = StreamFork2(requestChecker.parsed)
 
   // We Generate the response first;
-  val Seq(wrJoin, rdJoin) = StreamDemux(cmd, cmd.snd.header.reqType(0).asUInt, 2)
-  val (wrCmd, wrValid) = StreamFork2(wrJoin)
-  io.wrCmd.translateFrom (wrCmd.takeBy(_.snd.header.reqStatus === 0)) (assignFromJoin)
-  io.wrDataSignal.translateFrom (wrValid) ( _ := _.snd.header.reqStatus === 0)
+  // We Filter if the request is valid later
+  // TODO: seems this one will process MIG, since ret of MIG is WIRTE
+  val Seq(rdJoin, wrJoin) = StreamDemux2(cmd, cmd.snd.header.reqType === RequestType.WRITE_RESP)
 
-  io.rdCmd.translateFrom (rdJoin.takeBy(_.snd.header.reqStatus === 0)) (assignFromJoin)
+  val (wrCmd, wrValid) = StreamFork2(wrJoin)
+  io.wrCmd.translateFrom (wrCmd.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
+  // TODO: add queue
+  io.wrDataSignal.translateFrom (wrValid) ( _ := _.snd.header.reqStatus === RequestStatus.OKAY)
+
+  io.rdCmd.translateFrom (rdJoin.takeBy(_.snd.header.reqStatus === RequestStatus.OKAY)) (assignFromJoin)
 
   // TODO: join with the status returned by data mover
-  io.headerOut << rsp.fmap(_.snd.header)
+  io.headerOut << rsp.fmap(_.snd)
+
+  // Protocol Checking
+  def checkRequest(req : JoinType) : UInt = {
+    val ret = UInt(4 bits)
+    when (req.fst.used) {
+      switch (req.snd.header.reqType) {
+
+        is (LegoMem.RequestType.WRITE, LegoMem.RequestType.READ, LegoMem.RequestType.READ_MIG) {
+          ret := LegoMem.RequestStatus.OKAY
+        }
+
+        default {
+          ret := LegoMem.RequestStatus.ERR_INVALID
+        }
+      }
+    } otherwise {
+      ret := LegoMem.RequestStatus.ERR_INVALID
+    }
+    ret
+  }
+
+  def genSize(req : JoinType, status : UInt) : UInt = {
+    val size = UInt(16 bits)
+    size := req.snd.packedBytes
+
+    when (status === RequestStatus.OKAY) {
+      switch (req.snd.header.reqType) {
+        is (LegoMem.RequestType.READ, LegoMem.RequestType.READ_MIG) {
+          size := req.snd.length(15 downto 0) + req.snd.packedBytes
+        }
+      }
+    }
+    size
+  }
 }
 
 // At core memory, we assign sequence number (locally) and do packet paser, do send the lookup request.
 // we analyze the header, and do a dispatch at the end of a sequencer
 
 class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
+  // TODO: commit FIFO here
 
   val destWidth = 4
+  val headerQueueSize = 64
+  val writeDataQueueSize = 1024
+  val readDataQueueSize = 1024
+  val dmaRequestQueueSize = 256
 
   // Assign data for mover
   val io = new Bundle {
-    val ep = LegoMemEndPoint(config.epAxisConfig)
+    val ep = LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
     val bus = new Bundle {
       val access = master (Axi4(config.accessAxi4Config))
       val lookup = master (Axi4(config.lookupAxi4Config))
     }
+
+    // debg info
+    val counters = if (config.debug) Vec(out (UInt(32 bits)), 16) else null
+    val lookup_counters = if (config.debug) Vec(out (UInt(32 bits)), 11) else null
+
+    // stat info
+    val stat = new Bundle {
+      val latency = Vec(out (UInt(32 bits)), 4)
+    }
   }
 
+
+
+  val endpoint = new RawInterfaceEndpoint
+  endpoint.io.ep <> io.ep
+
   val packetParser = new PacketParser(512, LegoMemAccessHeader(config.virtualAddrWidth))
-  val packetBuilder = new LegoMemEndPointPacketBuilder
-  packetParser.io.dataIn << io.ep.dataIn.liftStream(_.tdata)
-  packetBuilder.io.dataOut >> io.ep.dataOut
+  val packetBuilder = new PacketBuilder(512, LegoMemAccessHeader(config.virtualAddrWidth))
+  packetParser.io.dataIn << endpoint.io.raw.dataIn
+  packetBuilder.io.dataOut >> endpoint.io.raw.dataOut
 
   // TODO: add fifo here
   val (lookupHeader, accessHeader) = StreamFork2(packetParser.io.headerOut)
 
-  // TODO: generate req here
   val lookup = new AddressLookupUnit
   lookup.io.bus <> io.bus.lookup
-  lookup.io.ctrl.in <> io.ep.ctrlIn
-  lookup.io.ctrl.out <> io.ep.ctrlOut
-  lookup.io.req << lookupHeader.queueLowLatency(32).fmap(generateRequest)
+  lookup.io.ctrl.in << endpoint.io.raw.ctrlIn
+  lookup.io.ctrl.out >> endpoint.io.raw.ctrlOut
+  // We insert a queue here
+  lookup.io.req << lookupHeader.queue(headerQueueSize).fmap(generateLookupRequest)
 
   val access = new MemoryAccessUnit
   lookup.io.res <> access.io.lookupRes
-  accessHeader.queue(32) >> access.io.headerIn
-  packetBuilder.io.headerIn << access.io.headerOut
+  accessHeader.takeBy(isValidAccessRequest).queue(headerQueueSize) >> access.io.headerIn
+  packetBuilder.io.headerIn << access.io.headerOut.queue(headerQueueSize)
 
   val dma = new axi_dma(config.dmaAxisConfig, config.accessAxi4Config, config.physicalAddrWidth, config.dmaLengthWidth)
   dma.io.m_axi <> io.bus.access
-  dma.io.m_axis_read_data.liftStream(_.tdata) >> packetBuilder.io.dataIn
-  // TODO: We need to filter this flow. throw when is not done
-  val filteredData = packetParser.io.dataOut.filterBySignal(access.io.wrDataSignal)
-  dma.io.s_axis_write_data << AxiStream(config.dmaAxisConfig, filteredData)
-  dma.io.s_axis_read_desc <> access.io.rdCmd
-  dma.io.s_axis_write_desc <> access.io.wrCmd
+  val (writeCmd, writeSizeCmdF) = StreamFork2(access.io.wrCmd.queue(dmaRequestQueueSize))
+  val sizeCmd = writeSizeCmdF.fmap { cmd =>
+    val len = cmd.len.resize(6)
+    val lenTop = !len.orR
+    val lenFull = (lenTop ## len).asUInt
+    ((U"1'h1" << lenFull) - 1).resize(64)
+  } .queue(32)
+  dma.io.s_axis_read_desc << access.io.rdCmd.queue(dmaRequestQueueSize)
+  dma.io.s_axis_write_desc << writeCmd
+  dma.io.m_axis_read_data.liftStream(_.tdata).queue(readDataQueueSize) >> packetBuilder.io.dataIn
+  // TODO: add a loopback path here, for extended module parameters
+  // signal A -> loopback queue -> signal B -> access unit
+  val filteredDataF = packetParser.io.dataOut.queue(writeDataQueueSize)
+  val filteredData = filteredDataF.filterBySignal(access.io.wrDataSignal.queue(dmaRequestQueueSize))
+  dma.io.s_axis_write_data.translateFrom (filteredData.queue(dmaRequestQueueSize)) { (axis, data) =>
+    axis.fragment.tdata := data.fragment
+    daxis.fragment.tkeep := Mux(data.last, sizeCmd.payload.asBits, B"64'hFFFF_FFFF_FFFF_FFFF")
+    axis.last := data.last
+  }
+  sizeCmd.ready := filteredData.lastFire
 
   dma.io.write_enable := True
   dma.io.read_enable := True
   dma.io.write_abort := False
 
-  def generateRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
+  // === Stat
+  val counter = Counter(32 bits, True)
+  val stat = new Area {
+    val dataInFirst = RegNextWhen(counter.value, packetParser.io.dataIn.firstFire)
+    val dataInLast = RegNextWhen(counter.value, packetParser.io.dataIn.lastFire)
+    val lookupOut = RegNextWhen(counter.value, lookup.io.res.fire)
+
+    val accFirstLookup = Reg (UInt(32 bits)) init 0
+    val accLastLookup = Reg (UInt(32 bits)) init 0
+    val accFirstAccess = Reg (UInt(32 bits)) init 0
+
+    // last to last
+    when (lookup.io.res.fire) {
+      accFirstLookup := accFirstLookup + (counter.value - dataInFirst)
+      accLastLookup := accLastLookup + (counter.value - dataInLast)
+    }
+
+    when (packetBuilder.io.dataOut.lastFire) {
+      accFirstAccess := accFirstAccess + (counter.value - lookupOut)
+    }
+
+    io.stat.latency(0) := accFirstLookup
+    io.stat.latency(1) := accLastLookup
+    io.stat.latency(2) := accFirstAccess
+    io.stat.latency(3) := 0x7edc1234
+  }
+
+
+  // === Debug
+  if (config.debug) {
+    // Monitor registers
+    val Registers = Seq[(String, Bool)](
+      ("ParserDataIn", packetParser.io.dataIn.lastFire),
+      ("ParserHeaderOut", packetParser.io.headerOut.fire),
+      ("ParserDataOut", packetParser.io.dataOut.lastFire),
+      ("BuilderDataIn", packetBuilder.io.dataIn.lastFire),
+      ("BuilderHeaderIn", packetBuilder.io.headerIn.fire),
+      ("BuilderHeaderOut", packetBuilder.io.dataOut.lastFire),
+      ("LookupHeader", lookup.io.req.fire),
+      ("AccessHeader", access.io.headerIn.fire),
+      ("LookupRes", lookup.io.res.fire),
+
+      ("writeDesc", dma.io.s_axis_write_desc.fire),
+      ("readDesc", dma.io.s_axis_read_desc.fire),
+      ("filterSignal", access.io.wrDataSignal.fire),
+      ("FilteredSignal", filteredData.lastFire),
+      ("dmaWriteData", dma.io.s_axis_write_data.lastFire),
+      ("dmaReadData", dma.io.m_axis_read_data.lastFire),
+      ("ctrlOUt", io.ep.ctrlOut.fire)
+    )
+
+    val regs = Registers.map(_._2).map(Counter(32 bits, _))
+    (io.counters, regs).zipped map (_ := _.value)
+
+    val base = BigInt("A0006400", 16)
+    println(f"* Build Register Access Script on $base")
+    Registers.map(_._1).zipWithIndex.map { case (str, idx) =>
+      val addr = base + idx * 4
+      println(f"echo $str")
+      println(f"devmem 0x$addr%X 32")
+    }
+
+    lookup.io.counters <> io.lookup_counters
+  }
+
+  def generateLookupRequest(header : LegoMemAccessHeader) : AddressLookupRequest = {
     val next = AddressLookupRequest(config.tagWidth)
+    // Currently we only fetch the smallest page sizes
     next.tag := config.genTag(header.header.pid, header.addr).asUInt
-    // TODO: fix this, use an unified ID
     next.seqId := header.header.seqId.resize(16 bits)
-    next.reqType := header.header.reqType.resize(2 bits)
+    val isShootDown = header.header.reqType === LegoMem.RequestType.CACHE_SHOOTDOWN
+    next.reqType := Mux(isShootDown, AddressLookupRequest.RequestType.SHOOTDOWN, AddressLookupRequest.RequestType.LOOKUP)
     next
+  }
+
+  def isValidAccessRequest(header : LegoMemAccessHeader) : Bool = {
+    import LegoMem.RequestType._
+    val req = header.header.reqType
+    req === READ || req === WRITE || req === READ_MIG
   }
 }
 
 // For the interconnection, we do not need to add the names into the fifo.
+// This in and outs are from Module's perspective.
+// In, means outside (xbar) -> module
+// Out, means module -> outside
 
-// TODO: look at upsize converter
-// data keep last
-// class CoreCtrl
-// class Sequencer
-// We need a downsizer for this!
+case class LegoMemRawDataInterface() extends Bundle with IMasterSlave {
+  val dataIn = Stream Fragment (Bits(512 bits))
+  val dataOut = Stream Fragment (Bits(512 bits))
+  override def asMaster(): Unit = {
+    master(dataIn)
+    slave(dataOut)
+  }
+}
 
-// We need A => A function, we have =>
+case class LegoMemRawInterface() extends Bundle with IMasterSlave {
+  val dataIn  = Stream Fragment(Bits(512 bits))
+  val dataOut = Stream Fragment(Bits(512 bits))
+
+  val ctrlIn  = Stream (ControlRequest())
+  val ctrlOut = Stream (ControlRequest())
+
+  override def asMaster(): Unit = {
+    master (dataIn)
+    slave (dataOut)
+    master (ctrlIn)
+    slave (ctrlOut)
+  }
+
+  def disableCtrl = {
+    ctrlIn.freeRun()
+    ctrlOut.disable
+  }
+
+}
+
+class RawInterfaceEndpoint(implicit config : LegoMemConfig) extends Component {
+  val io = new Bundle {
+    // TODO: correct this
+    val ep = new LegoMemEndPoint(config.epDataAxisConfig, config.epCtrlAxisConfig)
+    val raw = master (LegoMemRawInterface())
+  }
+
+  // Ctrl FIFOs
+  io.raw.ctrlIn.translateFrom (io.ep.ctrlIn) { (ctrl, axis) => ctrl.assignFromBits(axis.tdata) }
+  io.ep.ctrlOut.translateFrom (io.raw.ctrlOut) { (axis, ctrl) =>
+    axis.tdata := ctrl.asBits
+    axis.tdest := ctrl.epid.resize(4)
+  }
+
+  // Data FIFOs
+  io.raw.dataIn.translateFrom (io.ep.dataIn) { (f, s) => f.last := s.last; f.fragment := s.fragment.tdata }
+  val (header, dest) = LegoMemHeader(io.raw.dataOut.fragment).stackPop
+  val destReg = RegNextWhenBypass(dest, io.raw.dataOut.isFirst)
+  io.ep.dataOut.translateFrom (io.raw.dataOut) { (s, f) =>
+    s.last := f.last
+    s.fragment.tdata := f.fragment
+    s.fragment.tdest := destReg
+  }
+  // We need to overwrite the first
+  // TODO: Still not that, smooth
+  // TODO: check this
+  when (io.raw.dataOut.first) { io.ep.dataOut.tdata(0, LegoMemHeader.headerWidth bits) := header.asBits }
+}

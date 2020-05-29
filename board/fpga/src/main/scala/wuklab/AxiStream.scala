@@ -15,6 +15,9 @@ case class AxiStreamConfig( dataWidth : Int,
   def useId = idWidth > 0
   def useDest = destWidth > 0
   def useUser = userWidth > 0
+
+  def dataBytes = dataWidth / 8
+  def keepBytes = keepWidth / 8
 }
 
 object AxiStreamConfig {
@@ -48,80 +51,146 @@ object LegoMemEndPoint {
   type LegoMemEndPointStream = Stream[Fragment[AxiStreamPayload]]
 }
 
-case class LegoMemEndPoint(config : AxiStreamConfig) extends Bundle {
-  val dataOut = master Stream Fragment(AxiStreamPayload(config))
-  val dataIn  = slave  Stream Fragment(AxiStreamPayload(config))
-  val ctrlOut = master Stream ControlRequest()
-  val ctrlIn  = slave  Stream ControlRequest()
+case class LegoMemEndPoint(dataConfig : AxiStreamConfig, ctrlConfig : AxiStreamConfig) extends Bundle {
+  val dataOut = master Stream Fragment(AxiStreamPayload(dataConfig))
+  val dataIn  = slave  Stream Fragment(AxiStreamPayload(dataConfig))
+  val ctrlOut = master Stream AxiStreamPayload(ctrlConfig)
+  val ctrlIn  = slave  Stream AxiStreamPayload(ctrlConfig)
+}
+
+class LegoMemAxiStreamBridge(config : AxiStreamConfig) extends Component {
+
+  val io = new Bundle {
+    val lego = new Bundle {
+      val dataIn  = slave  Stream Fragment(Bits(512 bits))
+      val dataOut = master Stream Fragment(Bits(512 bits))
+    }
+    val axis = new Bundle {
+      val dataIn  = slave  Stream Fragment(AxiStreamPayload(config))
+      val dataOut = master Stream Fragment(AxiStreamPayload(config))
+    }
+  }
+
+  // Output Path
+  val size = RegNextWhenBypass(LegoMemHeader(io.lego.dataIn.fragment).size, io.lego.dataIn.first)
+  val allZero = !size(5 downto 0).orR
+  val shiftSize = (allZero ## size(5 downto 0)).asUInt
+  // TODO: check this
+  val lastKeep = ((U"1'b1" << shiftSize) - 1).resize(64).asBits
+
+  io.axis.dataOut.translateFrom (io.lego.dataIn) { (next, beat) =>
+    next.last := beat.last
+    next.fragment.tdata := beat.fragment
+    next.fragment.tkeep := Mux(beat.last, lastKeep, Bits(64 bits).setAll())
+  }
+
+  // Input Path
+  io.axis.dataIn.liftStream(_.tdata) >> io.lego.dataOut
 }
 
 // Converter
-//class LegoMemDataOutputAdapter(outputWidth : Int) extends Component {
-//  assert(512 % outputWidth == 0, "Adapter: width conversion is not 1:n")
-//  // this one implies outputWidth is pow of 2
-//  val ratio = 512 / outputWidth
-//  val io = new Bundle {
-//    val dataIn = slave Stream Fragment(AxiStreamPayload(AxiStreamConfig(512, destWidth = 4)))
-//    val dataOut = master Stream Fragment(AxiStreamPayload(AxiStreamConfig(64, keepWidth = 8)))
-//  }
-//
-//  val headerBytes = 64 / 8
-//  val size = RegNextWhenBypass(LegoMemHeader(io.dataIn.fragment.tdata).size, io.dataIn.isFirst)
-//  // TODO: check this
-//  val lastTKeep = leftOR(headerBytes + (size & 0xff), 64)
-//
-//  val withTKeep = Stream Fragment AxiStreamPayload(AxiStreamConfig(512, keepWidth = 64))
-//  withTKeep.translateFrom (io.dataIn) { (next, beat) =>
-//    next.last := beat.last
-//    next.fragment := beat.fragment
-//    next.fragment.tkeep := Mux(beat.last, 0.asBits, Bits(64 bits).setAll())
-//  }
-//
-//  // Connect this to a converter
-//
-//}
+class LegoMemDataOutputAdapter(externalWidth : Int) extends Component {
+  assert(512 % externalWidth == 0, "Adapter: width conversion is not 1:n")
+  // this one implies outputWidth is pow of 2
 
-//class AxiStreamWidthConverter extends BlackBox {
-//  val generic = new Generic {
-//    // Width of input AXI stream interface in bits
-//    val S_DATA_WIDTH = 8
-//    // Propagate tkeep signal on input interface
-//    // If disabled, tkeep assumed to be 1'b1
-//    // val S_KEEP_ENABLE = (S_DATA_WIDTH>8)
-//    // tkeep signal width (words per cycle) on input interface
-//    // val S_KEEP_WIDTH = (S_DATA_WIDTH/8)
-//    // Width of output AXI stream interface in bits
-//    val M_DATA_WIDTH = 8
-//    // Propagate tkeep signal on output interface
-//    // If disabled, tkeep assumed to be 1'b1
-//    val M_KEEP_ENABLE = (M_DATA_WIDTH>8)
-//    // tkeep signal width (words per cycle) on output interface
-//    val M_KEEP_WIDTH = (M_DATA_WIDTH/8)
-//    // Propagate tid signal
-//    val ID_ENABLE = 0
-//    // tid signal width
-//    val ID_WIDTH = 8
-//    // Propagate tdest signal
-//    val DEST_ENABLE = 0
-//    // tdest signal width
-//    val DEST_WIDTH = 8
-//    // Propagate tuser signal
-//    val USER_ENABLE = 0
-//    // tuser signal width
-//    val USER_WIDTH = 1
-//  }
-//
-//  val io = new Bundle {
-//    val clk = Bool
-//    val rst = Bool
-//
-//    val s_axis = new Bundle {
-//      val m_axis = cloneOf(axisIfcType)
-//    }
-//  }
-//
-//  mapClockDomain(clock = io.clk, reset = io.rst)
-//}
+  val adapterConfig = AxiStreamConfig(512, keepWidth = 64)
+  val externalConfig = AxiStreamConfig(externalWidth, keepWidth = externalWidth / 8)
+
+  val io = new Bundle {
+    val internal = new Bundle {
+      val dataIn = slave Stream Fragment(Bits(512 bits))
+      val dataOut = master Stream Fragment(Bits(512 bits))
+    }
+    val external = new Bundle {
+      val dataIn = slave Stream Fragment(AxiStreamPayload(externalConfig))
+      val dataOut = master Stream Fragment(AxiStreamPayload(externalConfig))
+    }
+  }
+
+  // convert internal to converter
+  val adaptCtrl = new Area {
+    val dataOut = Stream Fragment AxiStreamPayload(adapterConfig)
+
+    val size = RegNextWhenBypass(LegoMemHeader(io.internal.dataIn.fragment).size, io.internal.dataIn.first)
+    val allZero = !size(5 downto 0).orR
+    val shiftSize = (allZero ## size(5 downto 0)).asUInt
+    // TODO: check this
+    val lastKeep = ((U"1'b1" << shiftSize) - 1).resize(64).asBits
+
+    dataOut.translateFrom (io.internal.dataIn) { (next, beat) =>
+      next.last := beat.last
+      next.fragment.tdata := beat.fragment
+      next.fragment.tkeep := Mux(beat.last, lastKeep, Bits(64 bits).setAll())
+    }
+
+  }
+
+  // Connect this to a converter
+  // TODO: add in and out fifos
+  if (externalWidth == 512) {
+    // No need to convert
+    io.internal.dataOut << io.external.dataIn.liftStream(_.tdata)
+    adaptCtrl.dataOut >> io.external.dataOut
+  } else {
+    val inPipe = new AxiStreamWidthConverter(adapterConfig, externalConfig)
+    inPipe.io.s_axis << io.external.dataIn
+    inPipe.io.m_axis.liftStream(_.tdata) >> io.internal.dataOut
+    val outPipe = new AxiStreamWidthConverter(externalConfig, adapterConfig)
+    outPipe.io.s_axis << adaptCtrl.dataOut
+    outPipe.io.m_axis >> io.external.dataOut
+  }
+
+}
+
+class AxiStreamWidthConverter(mconfig : AxiStreamConfig, sconfig: AxiStreamConfig)
+  extends BlackBox with XilinxAXI4Toplevel {
+
+  require(mconfig.useKeep, "Master Interface must enable tKeep!")
+  require(sconfig.useKeep, "Slave Interface enable tKeep!")
+
+  val generic = new Generic {
+    // Width of input AXI stream interface in bits
+    val S_DATA_WIDTH = sconfig.dataWidth
+    // Propagate tkeep signal on input interface
+    // If disabled, tkeep assumed to be 1'b1
+    val S_KEEP_ENABLE = if (sconfig.useKeep) 1 else 0
+    // tkeep signal width (words per cycle) on input interface
+    // val S_KEEP_WIDTH = (S_DATA_WIDTH/8)
+    // Width of output AXI stream interface in bits
+    val M_DATA_WIDTH = mconfig.dataWidth
+    // Propagate tkeep signal on output interface
+    // If disabled, tkeep assumed to be 1'b1
+    // val M_KEEP_ENABLE = (M_DATA_WIDTH>8)
+    // tkeep signal width (words per cycle) on output interface
+    // val M_KEEP_WIDTH = (M_DATA_WIDTH/8)
+    // Propagate tid signal
+    val ID_ENABLE = 0
+    // tid signal width
+    val ID_WIDTH = 8
+    // Propagate tdest signal
+    val DEST_ENABLE = 0
+    // tdest signal width
+    val DEST_WIDTH = 8
+    // Propagate tuser signal
+    val USER_ENABLE = 0
+    // tuser signal width
+    val USER_WIDTH = 1
+  }
+
+  val io = new Bundle {
+    val clk = in Bool
+    val rstn = in Bool
+
+    val m_axis = master Stream Fragment(AxiStreamPayload(mconfig))
+    val s_axis = slave Stream Fragment(AxiStreamPayload(sconfig))
+  }
+
+  setDefinitionName("axis_adapter")
+  addPrePopTask(renameIO)
+
+  mapClockDomain(clock = io.clk, reset = io.rstn)
+  addRTLPath("src/lib/verilog/verilog-axis/rtl/axis_adapter.v")
+}
 
 class axi_dma(
                axisConfig : AxiStreamConfig, axiConfig : Axi4Config, addrWidth: Int, lenWidth : Int, tagWidth : Int = 0
@@ -135,15 +204,16 @@ class axi_dma(
     // Width of AXI wstrb (width of data bus in words)
     // val AXI_STRB_WIDTH = (AXI_DATA_WIDTH/8)
     // Width of AXI ID signal
-    val AXI_ID_WIDTH = 8
+    val AXI_ID_WIDTH = if (axiConfig.useId) axiConfig.idWidth else 1
     // Maximum AXI burst length to generate
+    // This parameter is mainly about the max burst length
     val AXI_MAX_BURST_LEN = 16
     // Width of AXI stream interfaces in bits
     // val AXIS_DATA_WIDTH = AXI_DATA_WIDTH
     // Use AXI stream tkeep signal
     val AXIS_KEEP_ENABLE = if (axisConfig.useKeep) 1 else 0
     // AXI stream tkeep signal width (words per cycle)
-    // val AXIS_KEEP_WIDTH = (AXIS_DATA_WIDTH/8)
+    val AXIS_KEEP_WIDTH = if (axisConfig.useKeep) axisConfig.keepWidth else 1
     // Use AXI stream tlast signal
     val AXIS_LAST_ENABLE = 1
     // Propagate AXI stream tid signal
@@ -196,75 +266,3 @@ class axi_dma(
   addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma_rd.v")
   addRTLPath("src/lib/verilog/verilog-axi/rtl/axi_dma_wr.v")
 }
-
-//input  wire [AXI_ADDR_WIDTH-1:0]  s_axis_read_desc_addr,
-//input  wire [LEN_WIDTH-1:0]       s_axis_read_desc_len,
-//input  wire [TAG_WIDTH-1:0]       s_axis_read_desc_tag,
-//input  wire [AXIS_ID_WIDTH-1:0]   s_axis_read_desc_id,
-//input  wire [AXIS_DEST_WIDTH-1:0] s_axis_read_desc_dest,
-//input  wire [AXIS_USER_WIDTH-1:0] s_axis_read_desc_user,
-//input  wire                       s_axis_read_desc_valid,
-//output wire                       s_axis_read_desc_ready,
-
-class AxiStreamDMACommand(addrWidth: Int, lenWidth : Int, tagWidth : Int = 0) extends Bundle {
-  def useTag = tagWidth > 0
-
-  val addr = UInt(addrWidth bits)
-  val len  = UInt(lenWidth bits)
-  val tag  = if (useTag) UInt(tagWidth bits) else null
-}
-
-case class AxiStreamDMAReadCommand(config : AxiStreamConfig,
-                                   addrWidth: Int,
-                                   lenWidth : Int,
-                                   tagWidth : Int = 0) extends AxiStreamDMACommand(addrWidth, lenWidth, tagWidth) {
-  val id   = if (config.useId)   UInt(config.idWidth bits)   else null
-  val dest = if (config.useDest) UInt(config.destWidth bits) else null
-  val user = if (config.useUser) UInt(config.userWidth bits) else null
-}
-
-///*
-// * AXI write descriptor input
-// */
-//input  wire [AXI_ADDR_WIDTH-1:0]  s_axis_write_desc_addr,
-//input  wire [LEN_WIDTH-1:0]       s_axis_write_desc_len,
-//input  wire [TAG_WIDTH-1:0]       s_axis_write_desc_tag,
-//input  wire                       s_axis_write_desc_valid,
-//output wire                       s_axis_write_desc_ready,
-//
-case class AxiStreamDMAWriteCommand(
-                                     addrWidth: Int, lenWidth : Int, tagWidth : Int = 0
-                                   ) extends AxiStreamDMACommand(addrWidth, lenWidth, tagWidth) {}
-
-
-
-// For now, we ignore the status things
-
-
-//
-///*
-// * AXI read descriptor status output
-// */
-//output wire [TAG_WIDTH-1:0]       m_axis_read_desc_status_tag,
-//output wire                       m_axis_read_desc_status_valid,
-//
-///*
-// * AXI stream read data output
-// */
-//output wire [AXIS_DATA_WIDTH-1:0] m_axis_read_data_tdata,
-//output wire [AXIS_KEEP_WIDTH-1:0] m_axis_read_data_tkeep,
-//output wire                       m_axis_read_data_tvalid,
-//input  wire                       m_axis_read_data_tready,
-//output wire                       m_axis_read_data_tlast,
-//output wire [AXIS_ID_WIDTH-1:0]   m_axis_read_data_tid,
-//output wire [AXIS_DEST_WIDTH-1:0] m_axis_read_data_tdest,
-//output wire [AXIS_USER_WIDTH-1:0] m_axis_read_data_tuser,
-//
-///*
-// * AXI write descriptor status output
-// */
-//output wire [LEN_WIDTH-1:0]       m_axis_write_desc_status_len,
-//output wire [TAG_WIDTH-1:0]       m_axis_write_desc_status_tag,
-//output wire [AXIS_ID_WIDTH-1:0]   m_axis_write_desc_status_id,
-//output wire [AXIS_DEST_WIDTH-1:0] m_axis_write_desc_status_dest,
-//output wire [AXIS_USER_WIDTH-1:0] m_axis_write_desc_status_user,
