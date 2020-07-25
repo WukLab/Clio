@@ -170,7 +170,8 @@ void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
  * This function is called during startup
  * to pre-fill all the fifos.
  */
-static void prefill_fifos(struct lego_mem_ctrl *ctrl)
+__maybe_unused static void
+prefill_fifos(struct lego_mem_ctrl *ctrl)
 {
 	int i, j;
 	struct fifo_info *fi;

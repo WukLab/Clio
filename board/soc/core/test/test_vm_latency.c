@@ -2,6 +2,11 @@
  * Copyright (c) 2020. Wuklab. All rights reserved.
  */
 
+/*
+ * This test will mainly test alloc_va_vregion and free_va_vregion, both of them
+ * operate with a single vRegion. We will get the average latency of them.
+ */
+
 #include <uapi/err.h>
 #include <uapi/list.h>
 #include <uapi/vregion.h>
@@ -46,6 +51,7 @@ void test_vm(void)
 
 	addr = malloc(sizeof(*addr) * NR_VREGIONS * nr_allocs_per_vregion);
 
+	/* Test alloc_va_vregion latency */
 	clock_gettime(CLOCK_MONOTONIC, &s);
 	for (i = 0; i < NR_VREGIONS; i++) {
 		vi = pi->vregion + i;
@@ -68,6 +74,7 @@ void test_vm(void)
 	dprintf_INFO("alloc_size %d MB #nr_alloc=%d avg_ns=%lf\n",
 		alloc_size >> 20, i * j, (diff_ns / i / j));
 
+	/* Test free_va_vregion latency */
 	clock_gettime(CLOCK_MONOTONIC, &s);
 	for (i = 0; i < NR_VREGIONS; i++) {
 		vi = pi->vregion + i;

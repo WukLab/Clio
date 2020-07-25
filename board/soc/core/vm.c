@@ -1288,7 +1288,7 @@ unsigned long alloc_va(struct proc_info *proc, unsigned long len,
 			addr = alloc_va_vregion(proc, vi, len, vm_flags);
 			if (!IS_ERR_VALUE(addr))
 				return addr;
-		} 
+		}
 	} else {
 		printf("TODO\n");
 		BUG();
