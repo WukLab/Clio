@@ -71,7 +71,7 @@ object CoreMemSim {
       // Start Simulation
       val dataThread = fork {
         // Setup the cache
-        dataStream #= BitAxisDataGen(mig_cmd(0, 0x10))
+        dataStream #= BitAxisDataGen(rd_cmd(0, 0x10))
         dut.clockDomain.waitRisingEdge(30)
 
 //        println(f"flush Test Started")
@@ -86,26 +86,23 @@ object CoreMemSim {
 //        dut.clockDomain.waitRisingEdge(30)
 
         println(f"Read Test Started")
-        for (i <- 1 to 512) {
+        for (i <- 1 to 16) {
           val dataBytes = 0x10 + 1024
           dataStream #= BitAxisDataGen(rd_cmd(i % 256, dataBytes))
           println(f"Read finish $i with $dataBytes bytes")
         }
-        dut.clockDomain.waitRisingEdge(30)
+        dut.clockDomain.waitRisingEdge(100)
 
         println(f"Write Test Started")
-        for (i <- 1 to 128) {
+        for (i <- 1 to 16) {
           val dataBytes = i * 4
           dataStream #= BitAxisDataGen(wr_cmd(i % 256, (0 until dataBytes).map(_.toByte)))
           println(f"Write finish $i with $dataBytes bytes")
         }
-        dut.clockDomain.waitRisingEdge(30)
-//
-//        for (i <- 1 to 512) {
-//          val dataBytes = 0x10 + Random.nextInt(256)
-//          dataStream #= BitAxisDataGen(mig_cmd(i % 256, dataBytes))
-//          println(f"MIGRATION finish $i with $dataBytes bytes")
-//        }
+        dut.clockDomain.waitRisingEdge(100)
+
+        println(f"MIGRATION test start")
+        dataStream #= BitAxisDataGen(mig_cmd(0, config.migrationStep))
 
       }
 

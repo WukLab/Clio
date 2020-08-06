@@ -9,6 +9,12 @@ import wuklab.Utils._
 object LegoMem {
   object RequestType {
     def apply()    = UInt(8 bits)
+    implicit class RequestTypeCompare(uint : UInt) {
+      def is (t: UInt): Bool = {
+        require(widthOf(t) == 8, "Length mismatch for type")
+        t === uint
+      }
+    }
     // 00 -> 3F : Basic MGNT
     def INVALID    = U"8'h00"
     def LOOPBACK   = U"8'h01"
@@ -25,6 +31,8 @@ object LegoMem {
 
     def WRITE      = U"8'h50"
     def WRITE_RESP = U"8'h51"
+    def WRITE_REP  = U"8'h52"
+    def WRITE_REPR = U"8'h53"
 
     def KV_READ    = U"8'h60"
     def KV_READ_REPL = U"8'h61"
@@ -103,9 +111,12 @@ trait LegoMemConfig {
 }
 
 trait CoreMemConfig extends LegoMemConfig {
-
   // === Options
   val useSimpleDMA = false
+  //  = Migration
+  val useMigrationAccelerator = false
+  val migrationStep : Int = 1024
+  val migrationCount : Int = 1024
 
   // === Memory service config
   val physicalAddrWidth : Int

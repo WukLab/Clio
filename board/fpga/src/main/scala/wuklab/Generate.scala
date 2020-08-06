@@ -8,6 +8,8 @@ object GenerateContext {
   implicit val config : CoreMemConfig = new CoreMemConfig {
     val debug = false
 
+    override val useMigrationAccelerator = true
+
     val physicalAddrWidth = 40
     val virtualAddrWidth = 64
 

@@ -45,6 +45,7 @@ class LegoMemSystem(implicit config : CoreMemConfig) extends Component with Xili
   sequencer.io.net <> io.net
   sequencer.io.sess >> io.net_sess
 
+  // Insert modules before the access endpoint
   val access = new MemoryAccessEndPoint
   access.io.ep <> io.eps.mem
   access.io.bus <> io.bus

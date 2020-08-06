@@ -293,10 +293,15 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
     }
   }
 
-
-
+  // TODO: create a pipe trait
   val endpoint = new RawInterfaceEndpoint
-  endpoint.io.ep <> io.ep
+  if (config.useMigrationAccelerator) {
+    val mig = new MigrationEndPointPipe
+    mig.io.epIn <> io.ep
+    mig.io.epOut <> endpoint.io.ep
+  } else {
+    endpoint.io.ep <> io.ep
+  }
 
   val packetParser = new PacketParser(512, LegoMemAccessHeader(config.virtualAddrWidth))
   val packetBuilder = new PacketBuilder(512, LegoMemAccessHeader(config.virtualAddrWidth))
@@ -336,7 +341,7 @@ class MemoryAccessEndPoint(implicit config : CoreMemConfig) extends Component {
   val filteredData = filteredDataF.filterBySignal(access.io.wrDataSignal.queue(dmaRequestQueueSize))
   dma.io.s_axis_write_data.translateFrom (filteredData.queue(dmaRequestQueueSize)) { (axis, data) =>
     axis.fragment.tdata := data.fragment
-    daxis.fragment.tkeep := Mux(data.last, sizeCmd.payload.asBits, B"64'hFFFF_FFFF_FFFF_FFFF")
+    axis.fragment.tkeep := Mux(data.last, sizeCmd.payload.asBits, B"64'hFFFF_FFFF_FFFF_FFFF")
     axis.last := data.last
   }
   sizeCmd.ready := filteredData.lastFire
