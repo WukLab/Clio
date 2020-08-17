@@ -38,6 +38,7 @@ static inline char *legomem_opcode_str(unsigned int opcode)
 	S(OP_REQ_WRITE_NOREPLY);
 
 	S(OP_REQ_CACHE_INVALID);
+	S(OP_REQ_POINTER_CHASING);
 
 	S(OP_REQ_KVS_READ);
 	S(OP_REQ_KVS_READ_REPL);
@@ -189,6 +190,26 @@ struct op_read_write_ret {
 struct op_cache_flush {
 	unsigned long __remote	va;
 	unsigned int		size;
+} __packed;
+
+/*
+ * Pointer chasing struct
+ * nextOffset: offset by 64 bytes
+ * useDepth: limited depth
+ */
+struct op_pointer_chasing {
+    uint64_t __remote addr;
+    uint64_t key;
+    uint16_t structSize;
+    uint16_t valueSize;
+    uint8_t  keyOffset;
+    uint8_t  valueOffset;
+    uint8_t  depth;
+    uint8_t  nextOffset         : 4;
+    uint8_t  flag_useDepth      : 1;
+    uint8_t  flag_useKey        : 1;
+    uint8_t  flag_useValuePrt   : 1;
+    uint8_t  reserved           : 1;
 } __packed;
 
 /*

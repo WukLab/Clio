@@ -1388,6 +1388,67 @@ int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
 }
 
 /*
+ * Do pointer chasing
+ */
+int legomem_pointer_chasing(struct legomem_context *ctx,
+		      uint64_t __remote addr, uint64_t key,
+		      uint16_t structSize, uint16_t valueSize,
+		      uint8_t keyOffset, uint8_t valueOffset, uint8_t depth,
+		      uint8_t nextOffset)
+{
+	struct legomem_pointer_chasing reqv;
+
+	struct legomem_pointer_chasing *req;
+	struct legomem_read_write_resp *resp;
+
+	size_t recv_size, sz; 
+	struct lego_header *tx_lego;
+	struct lego_header *rx_lego __maybe_unused;
+	int i, ret, nr_sent;
+
+	v = va_to_legomem_vregion(ctx, ptr);
+	ses = __find_or_alloc_vregion_session(ctx, v);
+	if (!ses) {
+		dump_legomem_vregion(ctx, v);
+		dprintf_ERROR("Cannot get or alloc session %#lx\n", ptr);
+		return -EIO;
+	}
+
+    req = &reqv;
+    req->op.addr = addr + shift;
+    req->op.key = key;
+    req->op.structSize = structSize;
+    req->op.valueSize = valueSize;
+    req->op.keyOffset = keyOffset;
+    req->op.valueOffset = valueOffset;
+    req->op.depth = depth;
+    // Must be 64 bit align here
+    req->op.nextOffset = nextOffset >> 3;
+    req->op.flag_useDepth = 0;
+    req->op.flag_useKey = 0;
+    req->op.flag_useValuePtr = 0;
+    req->op.reserved = 0;
+
+    tx_lego = to_lego_header(req);
+    tx_lego->pid = ctx->pid;
+    tx_lego->opcode = OP_REQ_POINTER_CHASING;
+
+    ret = net_send(ses, req, sizeof(*req));
+    if (unlikely(ret < 0)) {
+        dprintf_ERROR("Fail to send write at nr_sent: %d\n", nr_sent);
+        break;
+    }
+
+    ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+    if (unlikely(ret <= 0)) {
+        dprintf_ERROR("Fail to recv write at %dth reply\n", i);
+        continue;
+    }
+
+	return 0;
+}
+
+/*
  * A very simple distributed barrier mechanism.
  * Once received such req, pop up the local barrier counter.
  * legomem_dist_barrier() is spinning on this.
