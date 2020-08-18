@@ -198,18 +198,18 @@ struct op_cache_flush {
  * useDepth: limited depth
  */
 struct op_pointer_chasing {
-    uint64_t __remote addr;
-    uint64_t key;
-    uint16_t structSize;
-    uint16_t valueSize;
-    uint8_t  keyOffset;
-    uint8_t  valueOffset;
-    uint8_t  depth;
-    uint8_t  nextOffset         : 4;
-    uint8_t  flag_useDepth      : 1;
-    uint8_t  flag_useKey        : 1;
-    uint8_t  flag_useValuePrt   : 1;
-    uint8_t  reserved           : 1;
+	uint64_t	     __remote addr;
+	uint64_t	     key;
+	uint16_t	     structSize;
+	uint16_t	     valueSize;
+	uint8_t		     keyOffset;
+	uint8_t		     valueOffset;
+	uint8_t		     depth;
+	uint8_t		     nextOffset         : 4;
+	uint8_t		     flag_useDepth      : 1;
+	uint8_t		     flag_useKey        : 1;
+	uint8_t		     flag_useValuePtr   : 1;
+	uint8_t		     reserved           : 1;
 } __packed;
 
 /*
@@ -424,6 +424,12 @@ struct legomem_kvs_req {
 struct legomem_kvs_resp {
 	struct legomem_common_headers comm_headers;
 	struct op_kvs_resp op;
+};
+
+/* Pointer Chasing */
+struct legomem_pointer_chasing_req {
+	struct legomem_common_headers comm_headers;
+	struct op_pointer_chasing op;
 };
 
 #endif /* _LEGOFPGA_OPCODE_H_ */

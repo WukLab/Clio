@@ -28,7 +28,7 @@ struct board_info *monitor_bi;
 /*
  * Depends on MTU: sysctl_link_mtu
  */
-int max_lego_payload ____cacheline_aligned = 1450;
+int max_lego_payload ____cacheline_aligned = 1300;
 
 /*
  * Allocate a new process-local legomem context.
@@ -1391,20 +1391,19 @@ int legomem_migration(struct legomem_context *ctx, struct board_info *dst_bi,
  * Do pointer chasing
  */
 int legomem_pointer_chasing(struct legomem_context *ctx,
-		      uint64_t __remote addr, uint64_t key,
-		      uint16_t structSize, uint16_t valueSize,
-		      uint8_t keyOffset, uint8_t valueOffset, uint8_t depth,
-		      uint8_t nextOffset)
+		            uint64_t __remote ptr,
+			    uint64_t key, uint16_t structSize,
+			    uint16_t valueSize, uint8_t keyOffset,
+			    uint8_t valueOffset, uint8_t depth,
+			    uint8_t nextOffset)
 {
-	struct legomem_pointer_chasing reqv;
-
-	struct legomem_pointer_chasing *req;
+	struct legomem_pointer_chasing_req *req;
 	struct legomem_read_write_resp *resp;
-
-	size_t recv_size, sz; 
+	struct legomem_vregion *v;
+	struct session_net *ses;
+	size_t recv_size;
 	struct lego_header *tx_lego;
-	struct lego_header *rx_lego __maybe_unused;
-	int i, ret, nr_sent;
+	int ret;
 
 	v = va_to_legomem_vregion(ctx, ptr);
 	ses = __find_or_alloc_vregion_session(ctx, v);
@@ -1414,40 +1413,58 @@ int legomem_pointer_chasing(struct legomem_context *ctx,
 		return -EIO;
 	}
 
-    req = &reqv;
-    req->op.addr = addr + shift;
-    req->op.key = key;
-    req->op.structSize = structSize;
-    req->op.valueSize = valueSize;
-    req->op.keyOffset = keyOffset;
-    req->op.valueOffset = valueOffset;
-    req->op.depth = depth;
-    // Must be 64 bit align here
-    req->op.nextOffset = nextOffset >> 3;
-    req->op.flag_useDepth = 0;
-    req->op.flag_useKey = 0;
-    req->op.flag_useValuePtr = 0;
-    req->op.reserved = 0;
+	req = net_get_send_buf(ses);
+	BUG_ON(!req);
 
-    tx_lego = to_lego_header(req);
-    tx_lego->pid = ctx->pid;
-    tx_lego->opcode = OP_REQ_POINTER_CHASING;
+	tx_lego = to_lego_header(req);
+	tx_lego->pid = ctx->pid;
+	tx_lego->opcode = OP_REQ_POINTER_CHASING;
 
-    ret = net_send(ses, req, sizeof(*req));
-    if (unlikely(ret < 0)) {
-        dprintf_ERROR("Fail to send write at nr_sent: %d\n", nr_sent);
-        break;
-    }
+	req->op.addr = ptr;
+	req->op.key = key & 0xFFFFFFFFULL;
+	req->op.structSize = structSize;
+	req->op.valueSize = valueSize;
+	req->op.keyOffset = keyOffset;
+	req->op.valueOffset = valueOffset;
+	req->op.depth = depth;
+	// Must be 64 bit align here
+	req->op.nextOffset = nextOffset >> 3;
+	req->op.flag_useDepth = 1;
+	req->op.flag_useKey = 1;
+	req->op.flag_useValuePtr = 1;
+	req->op.reserved = 1;
 
-    ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
-    if (unlikely(ret <= 0)) {
-        dprintf_ERROR("Fail to recv write at %dth reply\n", i);
-        continue;
-    }
+#if 0
+	dprintf_INFO("[pc_req] addr %#lx key %#lx structSize %#x valueSize %#x "
+		     "keyOffset %#x valueOffset %#x depth %d nextOffset %#x\n",
+		req->op.addr, req->op.key, req->op.structSize,
+		req->op.valueSize, req->op.keyOffset,
+		req->op.valueOffset, req->op.depth, req->op.nextOffset);
+#endif
 
+	ret = net_send(ses, req, sizeof(*req));
+	if (unlikely(ret < 0)) {
+		dprintf_ERROR("Fail to send ptr chasing %d\n", ret);
+		return ret;
+	}
+
+	ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+	if (unlikely(ret <= 0)) {
+		dprintf_ERROR("Fail to recv %d\n", ret);
+		return ret;
+	}
+#if 0
+	{
+		struct lego_header *rx_lego;
+		rx_lego = to_lego_header(resp);
+		if (rx_lego->req_status) {
+			dprintf_ERROR("req_status %#x va %#lx key %#lx depth %d\n",
+				rx_lego->req_status, ptr, key, depth);
+		}
+	}
+#endif
 	return 0;
 }
-
 /*
  * A very simple distributed barrier mechanism.
  * Once received such req, pop up the local barrier counter.

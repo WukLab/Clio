@@ -18,7 +18,7 @@
 
 #include "api.h"
 
-#if 1
+#if 0
 # define LEGOMEM_DEBUG
 #endif
 
@@ -450,6 +450,7 @@ int test_legomem_rw_inline(char *_unused);
 int test_legomem_rw_multiboard(char *_unused);
 int test_run_ycsb(char *unused);
 int test_kvs_simple(char *_unused);
+int test_pointer_chasing(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

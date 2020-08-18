@@ -1038,7 +1038,7 @@ static unsigned long __find_va_range_topdown(struct proc_info *proc,
 	high_limit = gap_end - length;
 
 	if (info->low_limit > high_limit) {
-		dprintf_DEBUG("%#lx %#lx\n", info->low_limit, high_limit);
+		dprintf_DEBUG("ERROR: %#lx %#lx\n", info->low_limit, high_limit);
 		return -ENOMEM;
 	}
 	low_limit = info->low_limit + length;

@@ -77,4 +77,11 @@ void __legomem_dist_barrier(void);
 int legomem_dist_barrier(void);
 void handle_dist_barrier(struct thpool_buffer *tb);
 
+int legomem_pointer_chasing(struct legomem_context *ctx,
+		            uint64_t __remote ptr,
+			    uint64_t key, uint16_t structSize,
+			    uint16_t valueSize, uint8_t keyOffset,
+			    uint8_t valueOffset, uint8_t depth,
+			    uint8_t nextOffset);
+
 #endif /* _LEGOMEM_PUBLIC_APIS_ */

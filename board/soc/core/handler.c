@@ -258,9 +258,16 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	req->lego_header.dst_sesid = 0;
 	req->lego_header.size = sizeof(*req);
 
-	// XXX 192.168.1.24 1234
-	req->lego_header.dest_ip = 0x011604d2;
+	// XXX 192.168.1.23 1234
+	req->lego_header.dest_ip = 0x011704d2;
 
+	// for the asplos version, it has to be 1024.
+	req->op.size = 1024;
+	req->op.va = vregion_index_to_va(vregion_index);
+	dma_send(req, sizeof(*req));
+	printf("%s: after sending migration dma to fpga...\n", __func__);
+
+#if 0
 	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
 
 	struct timespec ts, te;
@@ -285,6 +292,7 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	lat = te.tv_sec * 1.0e9 + te.tv_nsec - (ts.tv_sec * 1.0e9 + ts.tv_nsec);
 	dprintf_DEBUG(" all data sent in %lf ns. avg per send %lf ns\n",
 		lat, lat / nr_rounds);
+#endif
 }
 
 /*

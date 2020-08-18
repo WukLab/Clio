@@ -21,7 +21,8 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rw_fault.c \
 	     $(TP)/test_rw_multiboard.c \
 	     $(TP)/test_kvs_simple.c \
-	     $(TP)/test_kvs_ycsb.c
+	     $(TP)/test_kvs_ycsb.c \
+	     $(TP)/test_pointer_chasing.c
 
 # Board emulator files linked to soc files
 BP := board_emulator

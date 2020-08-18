@@ -463,7 +463,7 @@ static void *ctrl_poll_func(void *_unused)
 	 * Remember to change the handlers below
 	 * Only one handler at a time..
 	 */
-	prepare_kvs_phys(rx, tx);
+	//prepare_kvs_phys(rx, tx);
 	//prepare_kvs_virt(rx, tx);
 
 	//prepare_multiversion(rx, tx);

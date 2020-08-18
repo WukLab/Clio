@@ -270,6 +270,11 @@ struct test_option test_options[] = {
 		.desc	= "run_kvs_simple",
 		.func	= test_kvs_simple,
 	},
+	{
+		.name	= "pointer_chasing",
+		.desc	= "test pointer chasing",
+		.func	= test_pointer_chasing,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)
