@@ -35,9 +35,8 @@ trait XilinxAXI4Toplevel {
     println(f"Xilinx: Rename ${this.getClass().getSimpleName}")
   }
 
-  // TODO: find a solution to this
-  // addPrePopTask(renameIO)
-
+  // TODO: change to mixin
+  // Component.current.addPrePopTask(renameIO)
 }
 
 object StreamJoinMaster{
@@ -196,6 +195,7 @@ object Utils {
     }
 
     def disable : Unit = {
+//      assert(stream.isMasterInterface, "disable should only used on master interfaces")
       stream.payload.clearAll
       stream.valid.clear()
     }
@@ -349,6 +349,14 @@ object Utils {
       next.last := frag.last
       next.valid := next.valid
       next.fragment := Mux(frag.first, f(frag.fragment), frag.fragment)
+      next
+    }
+
+    def toStream : Stream[T] = {
+      val next = Stream(frag.fragmentType)
+      next.payload := frag.fragment
+      next.valid := frag.valid
+      frag.ready := next.ready
       next
     }
 

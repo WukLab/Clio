@@ -95,12 +95,30 @@ case class ControlRequestSim (
   override val codec = SimConversions.controlRequestCodec
 }
 
+case class PointerChasingHeaderSim (
+  header : LegoMemHeaderSim,
+  addr : Long,
+  key : Long,
+  structSize : Int,
+  valueSize : Int,
+  keyOffset : Int,
+  valueOffset : Int,
+  depth : Int,
+  reserved : Boolean = false,
+  linkValue : Boolean = false,
+  useKey : Boolean = false,
+  useDepth : Boolean = false,
+  nextOffset : Int
+) extends BitSerializable[PointerChasingHeaderSim] {
+  override val codec = SimConversions.pointerChasingHeaderCodec
+}
+
 case class KeyValueHeaderSim (
-                              header : LegoMemHeaderSim,
-                              keySize : Int = 0,
-                              user : Int = 0,
-                              valueSize : Int = 0
-                             ) extends BitSerializable[KeyValueHeaderSim] {
+  header : LegoMemHeaderSim,
+  keySize : Int = 0,
+  user : Int = 0,
+  valueSize : Int = 0
+) extends BitSerializable[KeyValueHeaderSim] {
   override val codec = SimConversions.keyValueHeaderCodec
 }
 
@@ -162,6 +180,27 @@ object SimConversions {
   val controlRequestCodec = (uint32L :: uint8L :: uint4L :: uint4L :: uint8L :: uint8L).as[ControlRequestSim]
   val keyValueHeaderCodec = (legoMemHeaderCodec :: uint8L :: uint8L :: uint16L).as[KeyValueHeaderSim]
   val keyValueMessageCodes = (keyValueHeaderCodec :: bytes).as[(KeyValueHeaderSim, ByteVector)]
+  //val header      = LegoMemHeader()
+  //val addr        = UInt(64 bits)
+  //val key         = UInt(64 bits)
+  //// We use 64 bits key here, all offsets are 4 aligned
+  //val structSize  = UInt(16 bits)
+  //val valueSize   = UInt(16 bits)
+  //val keyOffset   = UInt(8 bits)
+  //val valueOffset = UInt(8 bits)
+  //val depth       = UInt(8 bits)
+  //val nextOffset  = UInt(4 bits)
+  //val flags       = new Bundle {
+  //val useDepth  = Bool
+  //val useKey    = Bool
+  //val linkValue = Bool
+  //}
+  val pointerChasingHeaderCodec = (
+    legoMemHeaderCodec :: int64L :: int64L :: uint16L :: uint16L ::
+    uint8L :: uint8L :: uint8L ::
+    bool :: bool :: bool :: bool ::
+    uint4L
+  ).as[PointerChasingHeaderSim]
 
   implicit def simStructToBigInt(s : MemSimStruct) : BigInt = {
     BigInt(s.asBytes.toArray)

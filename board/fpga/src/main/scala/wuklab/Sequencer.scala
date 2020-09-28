@@ -126,6 +126,7 @@ class DecodeAction extends MatchActionFunction {
         is (LegoMem.RequestType.READ)     { header.cont := apply(EP_COREMEM, EP_NETWORK) }
         is (LegoMem.RequestType.WRITE)    { header.cont := apply(EP_COREMEM, EP_NETWORK) }
         is (LegoMem.RequestType.PINGPONG) { header.cont := apply(EP_PINGPONG, EP_NETWORK) }
+        is (LegoMem.RequestType.POINTER_CHASING) { header.cont := apply(EP_POINTERCHASE, EP_COREMEM, EP_NETWORK) }
         is (LegoMem.RequestType.READ_RESP, LegoMem.RequestType.WRITE_RESP) { header.cont := apply(EP_DROP) }
 
         default { header.cont := apply(EP_DROP) }

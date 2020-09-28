@@ -8,7 +8,7 @@ object GenerateContext {
   implicit val config : CoreMemConfig = new CoreMemConfig {
     val debug = false
 
-    override val useMigrationAccelerator = true
+    override val useMigrationAccelerator = false
 
     val physicalAddrWidth = 40
     val virtualAddrWidth = 64
@@ -157,5 +157,12 @@ object KeyValueVirtualInterfaceGenerate {
   def main(args: Array[String]) {
     import KeyValueGenerateContext._
     MySpinalConfig.generateVerilog(new KeyValueVirtualEndpoint)
+  }
+}
+
+object PointerChasingGenerate {
+  def main(args : Array[String]): Unit = {
+    import GenerateContext._
+    MySpinalConfig.generateVerilog(new PointerChasingEndpoint)
   }
 }

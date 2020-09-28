@@ -167,7 +167,6 @@ class PacketBuilder[B <: Bundle with Header[B]] (
 // accept : header, generate: data mover cmd / header
 class MemoryAccessUnit(implicit config : CoreMemConfig) extends Component {
 
-  val dataCmdType = HardType(DataMoverCmd(config.physicalAddrWidth, true))
   val io = new Bundle {
     // interface from request
     val lookupRes = slave Stream config.pteResType

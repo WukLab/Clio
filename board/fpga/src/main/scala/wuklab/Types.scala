@@ -45,6 +45,7 @@ object LegoMem {
     def isKV(op : UInt) = op(7 downto 4) === U"4'h6"
 
     def CACHE_SHOOTDOWN = U"8'h70"
+    def POINTER_CHASING = U"8'h71"
 
     // 80 -> FF :
     def ALLOC      = U"8'h85"
@@ -75,6 +76,7 @@ object LegoMem {
     def ERR_INVALID     = U"4'h01"
     def ERR_WRITE_PERM  = U"4'h02"
     def ERR_READ_PERM   = U"4'h03"
+    def ERR_FAIL        = U"4'h04"
   }
 
   object Continuation {
@@ -86,6 +88,7 @@ object LegoMem {
     def EP_SOC          = U"4'h2"
     def EP_MULTIVERSION = U"4'h3"
     def EP_KEYVALUE     = U"4'h3"
+    def EP_POINTERCHASE = U"4'h4"
     def EP_PINGPONG     = U"4'h6"
   }
 }
@@ -116,7 +119,7 @@ trait CoreMemConfig extends LegoMemConfig {
   //  = Migration
   val useMigrationAccelerator = false
   val migrationStep : Int = 1024
-  val migrationCount : Int = 1024
+  val migrationCount : Int = 1024*1024
 
   // === Memory service config
   val physicalAddrWidth : Int
@@ -251,6 +254,18 @@ trait CoreMemConfig extends LegoMemConfig {
     (pageSizes, pageOffsets).zipped foreach { (size, offset) =>
       println(s"  - Page size $size offset bits $offset")
     }
+  }
+}
+
+// Interface types
+// slave: normal device
+case class LegoMemControlEndpoint() extends Bundle with IMasterSlave {
+  val in  = Stream (ControlRequest())
+  val out = Stream (ControlRequest())
+
+  override def asMaster(): Unit = {
+    master (in)
+    slave (out)
   }
 }
 
@@ -411,6 +426,73 @@ case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[L
     bits
   }
 }
+
+case class PointerChasingHeader() extends Bundle with Header[PointerChasingHeader]{
+  val header      = LegoMemHeader()
+  val addr        = UInt(64 bits)
+  val key         = UInt(64 bits)
+  // We use 64 bits key here, all offsets are 4 aligned
+  val structSize  = UInt(16 bits)
+  val valueSize   = UInt(16 bits)
+  val keyOffset   = UInt(8 bits)
+  val valueOffset = UInt(8 bits)
+  val depth       = UInt(8 bits)
+  val nextOffset  = UInt(4 bits)
+  val flags       = new Bundle {
+    val useDepth  = Bool
+    val useKey    = Bool
+    val linkValue = Bool
+  }
+
+  override val packedWidth = 192 + header.packedWidth
+  override def getSize = header.size
+  override def fromWiderBits(bits: Bits) = {
+    assert(bits.getWidth >= packedWidth)
+    val next = cloneOf(this)
+    next.header      := LegoMemHeader.apply(bits)
+    next.addr        := bits(header.packedWidth,       64 bits).asUInt
+    next.key         := bits(header.packedWidth + 64,  64 bits).asUInt
+    next.structSize  := bits(header.packedWidth + 128, 16 bits).asUInt
+    next.valueSize   := bits(header.packedWidth + 144, 16 bits).asUInt
+    next.keyOffset   := bits(header.packedWidth + 160, 8  bits).asUInt
+    next.valueOffset := bits(header.packedWidth + 168, 8  bits).asUInt
+    next.depth       := bits(header.packedWidth + 176, 8  bits).asUInt
+    next.nextOffset  := bits(header.packedWidth + 184, 4  bits).asUInt
+
+    val flagvec = bits(header.packedWidth + 188, 4 bits)
+    next.flags.useDepth  := flagvec(0)
+    next.flags.useKey    := flagvec(1)
+    next.flags.linkValue := flagvec(2)
+
+    next
+  }
+  override def asBits: Bits = {
+    val bits = Bits(packedWidth bits)
+    bits := 0
+    bits.allowOverride
+    bits(0, header.packedWidth bits) := header.asBits
+
+    bits(header.packedWidth,       64 bits) := addr        .asBits
+    bits(header.packedWidth + 64,  64 bits) := key         .asBits
+    bits(header.packedWidth + 128, 16 bits) := structSize  .asBits
+    bits(header.packedWidth + 144, 16 bits) := valueSize   .asBits
+    bits(header.packedWidth + 160, 8  bits) := keyOffset   .asBits
+    bits(header.packedWidth + 168, 8  bits) := valueOffset .asBits
+    bits(header.packedWidth + 176, 8  bits) := depth       .asBits
+    bits(header.packedWidth + 184, 4  bits) := nextOffset  .asBits
+
+    val flagvec = Bits(4 bits)
+    flagvec(0) := flags.useDepth
+    flagvec(1) := flags.useKey
+    flagvec(2) := flags.linkValue
+    flagvec(3) := False
+    bits(header.packedWidth + 188, 4 bits) := flagvec
+
+    bits
+  }
+}
+
+// Control Request Types
 
 object ControlRequest {
   def apply(
@@ -589,86 +671,5 @@ case class AddressLookupRequest(tagWidth : Int) extends Bundle {
 case class AddressLookupResult(addrWidth : Int) extends Bundle {
   val seqId     = UInt(16 bits)
   val pte       = PageTableEntry(ppaWidth = addrWidth, usePpa = true, useTag = false)
-}
-
-object DataMoverCmd {
-  // create basic commands
-  def apply(addr : UInt, btt : UInt, tag : UInt = 0, isIncr : Bool = True): DataMoverCmd = {
-    val data = apply(addr.getWidth, useBasic = true)
-    data.addr := addr
-    data.btt := btt
-    data.isIncr := isIncr
-    data.tag := 0
-    data
-  }
-}
-
-case class DataMoverCmd(addrWidth : Int, useBasic : Boolean) extends Bundle {
-  // verify the addr is byte aligned
-  assert (addrWidth % 8 == 0)
-
-  val tag = UInt(4 bits)
-  val addr = UInt(addrWidth bits)
-  val isIncr = Bool
-  val btt = UInt(23 bits)
-
-  val cache = if (!useBasic) UInt(4 bits) else null
-  val user  = if (!useBasic) UInt(4 bits) else null
-  val drr   = if (!useBasic) Bool else null
-  val eof   = if (!useBasic) Bool else null
-  val dsa   = if (!useBasic) UInt(6 bits) else null
-
-  override def asBits : Bits = {
-    val bits = if (useBasic) Bits(addrWidth + 40 bits) else Bits(addrWidth + 48 bits)
-    if (!useBasic) {
-      bits(addrWidth + 47 downto addrWidth + 44) := cache.asBits
-      bits(addrWidth + 43 downto addrWidth + 40) := user.asBits
-      bits(31) := drr
-      bits(30) := eof
-      bits(29 downto 24) := dsa.asBits
-    } else {
-      // these fields are all rsvd
-      bits(31) := False
-      bits(30) := False
-      bits(29 downto 24) := 0
-    }
-    bits(addrWidth + 39 downto addrWidth + 36) := 0 // Reserved
-    bits(addrWidth + 47 downto addrWidth + 44) := tag.asBits
-    bits(addrWidth + 31 downto 32) := addr.asBits
-    bits(23) := isIncr
-    bits(22 downto 0) := btt.asBits
-    bits
-  }
-
-  override def assignFromBits(bits: Bits): Unit = {
-    if (useBasic)
-      assert(Bits.getWidth == addrWidth + 40)
-    else
-      assert(Bits.getWidth == addrWidth + 48)
-
-    if (!useBasic) {
-      cache := bits(addrWidth + 47 downto addrWidth + 44).asUInt
-      user := bits(addrWidth + 43 downto addrWidth + 40).asUInt
-      drr := bits(31)
-      eof := bits(30)
-      dsa := bits(29 downto 24).asUInt
-    }
-    tag := bits(addrWidth + 47 downto addrWidth + 44).asUInt
-    addr := bits(addrWidth + 31 downto 32).asUInt
-    isIncr := bits(23)
-    btt := bits(22 downto 0).asUInt
-  }
-}
-
-// Interface types
-// slave: normal device
-case class LegoMemControlEndpoint() extends Bundle with IMasterSlave {
-  val in  = Stream (ControlRequest())
-  val out = Stream (ControlRequest())
-
-  override def asMaster(): Unit = {
-    master (in)
-    slave (out)
-  }
 }
 
