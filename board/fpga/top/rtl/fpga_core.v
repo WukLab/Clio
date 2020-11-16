@@ -379,7 +379,9 @@ eth_axis_tx_inst (
     .busy()
 );
 
-udp_complete_64
+udp_complete_64 #(
+    .UDP_CHECKSUM_GEN_ENABLE(0)
+)
 udp_complete_inst (
     .clk(clk),
     .rst(rst),
