@@ -488,6 +488,7 @@ assign led[7:2] = led_int[5:0];
 
 wire [31:0]    config_ip;
 wire [63:0]    config_mac;
+assign s_udp_payload_axis_tuser = 0;
 
 fpga_core core_inst (
     /*
@@ -567,7 +568,7 @@ legomem_system legomem_system_i (
     .udp_out_payload_tkeep  (s_udp_payload_axis_tkeep),
     .udp_out_payload_tlast  (s_udp_payload_axis_tlast),
     .udp_out_payload_tready (s_udp_payload_axis_tready),
-    .udp_out_payload_tuser  (s_udp_payload_axis_tuser),
+    //.udp_out_payload_tuser  (s_udp_payload_axis_tuser),
     .udp_out_payload_tvalid (s_udp_payload_axis_tvalid),
 
     // External Interfaces
