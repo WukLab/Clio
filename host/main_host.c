@@ -112,8 +112,10 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		 * It will become 0 -> X
 		 * (X is larger than 0)
 		 */
+#ifdef TRANSPORT_USE_GBN
 		gbn_hdr = to_gbn_header(tb->rx);
 		swap_gbn_session(gbn_hdr);
+#endif
 
 		net_send_with_route(mgmt_session, tb->tx, tb->tx_size, ri);
 	}

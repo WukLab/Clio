@@ -256,7 +256,9 @@ struct legomem_common_headers {
 	struct eth_hdr		eth;
 	struct ipv4_hdr		ipv4;
 	struct udp_hdr		udp;
+#ifdef TRANSPORT_USE_GBN
 	struct gbn_header	gbn;
+#endif
 	struct lego_header	lego;
 } __packed;
 
