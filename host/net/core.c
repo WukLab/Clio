@@ -128,13 +128,15 @@ void __dump_packet_headers(void *packet, char *str_buf)
 	inet_ntop(AF_INET, &src_addr, src_ip, sizeof(src_ip));
 	inet_ntop(AF_INET, &dst_addr, dst_ip, sizeof(dst_ip));
 
+#ifdef TRANSPORT_USE_GBN
 	DUMP_PR("ip:port:gbn %s:%u:%u->%s:%u:%u (%s) ",
 		src_ip, ntohs(udp->src_port), get_gbn_src_session(gbn),
 		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),
 		gbn_pkt_type_str(gbn->type));
+#endif
 
-	DUMP_PR("lego pid=%u tag=%#x opcode=%#x (%s)",
-		lego->pid, lego->tag, lego->opcode,
+	DUMP_PR("lego pid=%u tag=%#x opcode=%#x sesid=%u (%s)",
+		lego->pid, lego->tag, lego->opcode, lego->src_sesid,
 		legomem_opcode_str(lego->opcode));
 
 	if (!str_buf)

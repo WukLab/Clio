@@ -150,7 +150,11 @@ set_gbn_conn_req(unsigned int *conn_set_req, unsigned int slot_id, enum gbn_conn
 #define ETHERNET_HEADER_SIZE	(14)
 #define IP_HEADER_SIZE		(20)
 #define UDP_HEADER_SIZE		(8)
-#define GBN_HEADER_SIZE		(sizeof(struct gbn_header))
+#ifdef TRANSPORT_USE_GBN
+# define GBN_HEADER_SIZE	(sizeof(struct gbn_header))
+#else
+# define GBN_HEADER_SIZE	((size_t)0)
+#endif
 #define LEGO_HEADER_SIZE	(sizeof(struct lego_header))
 
 #define GBN_HEADER_OFFSET \
@@ -295,6 +299,18 @@ prepare_legomem_header(void *packet, size_t packet_size)
 
 	p = to_lego_header(packet);
 	p->size = (uint16_t)(packet_size - LEGO_HEADER_OFFSET);
+}
+
+static __always_inline void
+prepare_legomem_header_with_sesid(void *packet, size_t packet_size,
+				  unsigned int sesid)
+{
+	struct lego_header *p;
+
+	p = to_lego_header(packet);
+	p->size = (uint16_t)(packet_size - LEGO_HEADER_OFFSET);
+	p->src_sesid = sesid;
+	p->dst_sesid = sesid;
 }
 
 /**

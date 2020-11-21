@@ -48,6 +48,7 @@ C_SRCS := board.c \
 	net/raw_verbs.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
+	net/transport_rpc.c \
 	api_kvs.c
 	#net/raw_socket.c \
 	#net/raw_udp_socket.c \
