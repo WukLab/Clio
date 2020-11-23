@@ -906,6 +906,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 		}
 		nr_sent++;
 	} while (total_size);
+	atomic_fetch_add(&ses->outstanding_reads, 1);
 
 	/* Shift to start of payload */
 	recv_buf += sizeof(*resp);
@@ -934,6 +935,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 		recv_buf += recv_size;
 #endif
 	}
+	atomic_fetch_sub(&ses->outstanding_reads, 1);
 	return 0;
 }
 
@@ -972,6 +974,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		}
 		nr_sent++;
 	} while (total_size);
+	atomic_fetch_add(&ses->outstanding_reads, 1);
 
 	/* Shift to start of payload */
 	recv_buf += sizeof(*resp);
@@ -998,6 +1001,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		memcpy(recv_buf, resp->ret.data, recv_size);
 		recv_buf += recv_size;
 	}
+	atomic_fetch_sub(&ses->outstanding_reads, 1);
 	return 0;
 }
 
@@ -1077,6 +1081,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 		}
 		nr_sent++;
 	} while (total_size);
+	atomic_fetch_add(&ses->outstanding_writes, 1);
 
 	/* Restore the original pointer */
 	send_mb->buf = send_buf;
@@ -1104,6 +1109,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 		}
 #endif
 	}
+	atomic_fetch_sub(&ses->outstanding_writes, 1);
 	return 0;
 }
 
@@ -1150,7 +1156,13 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 		}
 		nr_sent++;
 	} while (total_size);
+	atomic_fetch_add(&ses->outstanding_writes, 1);
 
+	/*
+	 * TODO: We need to decrease the outstanding_writes counter
+	 * when we receive the write reply. Not sure "who" should
+	 * do that. Are we relying on app's polling?
+	 */
 	if (flag == LEGOMEM_WRITE_ASYNC)
 		return 0;
 
@@ -1174,6 +1186,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 		}
 #endif
 	}
+	atomic_fetch_sub(&ses->outstanding_writes, 1);
 	return 0;
 }
 
@@ -1551,4 +1564,22 @@ int legomem_dist_barrier(void)
 	__legomem_dist_barrier();
 
 	return 0;
+}
+
+void legomem_mfence(struct session_net *ses)
+{
+    while (atomic_load(&ses->outstanding_reads) || atomic_load(&ses->outstanding_writes))
+	;
+}
+
+void legomem_rfence(struct session_net *ses)
+{
+    while (atomic_load(&ses->outstanding_reads))
+	;
+}
+
+void legomem_wfence(struct session_net *ses)
+{
+    while (atomic_load(&ses->outstanding_writes))
+	;
 }

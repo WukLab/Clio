@@ -15,6 +15,7 @@
 #include <limits.h>
 #include <time.h>
 #include <pthread.h>
+#include <stdatomic.h>
 
 #include "config.h"
 #include "api.h"

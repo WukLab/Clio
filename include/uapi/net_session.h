@@ -11,6 +11,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <uapi/net_header.h>
+#include <stdatomic.h>
 #include <uapi/hashtable.h>
 
 #define SESSION_NET_FLAGS_ALLOCATED		(0x1)
@@ -87,6 +88,13 @@ struct session_net {
 
 	/* Private data used by raw net layer */
 	void 			*raw_net_private;
+
+	/*
+	 * Record outstanding reads and writes
+	 * Used to implement fence
+	 */
+	atomic_int		outstanding_reads;
+	atomic_int		outstanding_writes;
 } __aligned(64);
 
 static inline void init_session_net(struct session_net *p)
@@ -96,6 +104,8 @@ static inline void init_session_net(struct session_net *p)
 	INIT_HLIST_NODE(&p->ht_link_board);
 	INIT_HLIST_NODE(&p->ht_link_context);
 	INIT_HLIST_NODE(&p->ht_link_vregion);
+	atomic_store(&p->outstanding_reads, 0);
+	atomic_store(&p->outstanding_writes, 0);
 }
 
 static inline bool ses_thread_should_stop(struct session_net *ses)
