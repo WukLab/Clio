@@ -145,6 +145,8 @@ int generic_handle_close_session(struct legomem_context *ctx,
 /*
  * @dst_sesis is from sender
  * we will allocate a local session id
+ * 
+ * XXX: if we use connectionless rpc, this will not be called
  */
 struct session_net *
 generic_handle_open_session(struct board_info *bi, unsigned int dst_sesid)
@@ -255,6 +257,7 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 
 		req.op.session_id = get_local_session_id(ses);
 
+#ifdef TRANSPORT_USE_GBN
 		remote_mgmt_ses = get_board_mgmt_session(bi);
 		if (!remote_mgmt_ses) {
 			dump_boards();
@@ -278,6 +281,13 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		}
 
 		dst_sesid = resp.op.session_id;
+#else
+		/*
+		 * If connectionless rpc, there is no destination session,
+		 * so we will set dst_sesid the same as local session id
+		 */
+		dst_sesid = ses->session_id;
+#endif
 		set_remote_session_id(ses, dst_sesid);
 
 	}
@@ -387,6 +397,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 	 * established without contacting them (check __legomem_open_session).
 	 * For all other normal user sessions, we need to contact remote.
 	 */
+#ifdef TRANSPORT_USE_GBN
 	if (!test_management_session(ses)) {
 		struct legomem_open_close_session_req req;
 		struct legomem_open_close_session_resp resp;
@@ -435,6 +446,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 			return -EFAULT;
 		}
 	}
+#endif
 
 	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
 		bi->name, get_local_session_id(ses), get_remote_session_id(ses));
