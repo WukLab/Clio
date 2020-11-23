@@ -221,6 +221,7 @@ extern struct raw_net_ops raw_verbs_ops;
 //extern struct raw_net_ops raw_udp_socket_ops;
 extern struct transport_net_ops transport_bypass_ops;
 extern struct transport_net_ops transport_gbn_ops;
+extern struct transport_net_ops transport_rpc_ops;
 
 extern struct raw_net_ops *raw_net_ops;
 extern struct transport_net_ops *transport_net_ops;

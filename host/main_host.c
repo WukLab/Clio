@@ -402,13 +402,16 @@ int main(int argc, char **argv)
 		case OPT_NET_TRANS_OPS:
 			if (!strncmp(optarg, "gbn", 8))
 				transport_net_ops = &transport_gbn_ops;
+			else if (!strncmp(optarg, "rpc", 8))
+				transport_net_ops = &transport_rpc_ops;
 			else if (!strncmp(optarg, "bypass", 8))
 				transport_net_ops = &transport_bypass_ops;
 			else {
 				printf("Invalid net_trans_ops: %s\n"
 				       "Available Options are:\n"
 				       "1. gbn (go-back-N reliable stack, default if nothing is specified)\n"
-				       "2. bypass (simple bypass transport layer, unreliable)\n", optarg);
+				       "2. rpc (rpc semantic unreliable stack)\n"
+				       "3. bypass (simple bypass transport layer, unreliable)\n", optarg);
 				exit(-1);
 			}
 			break;
