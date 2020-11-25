@@ -503,9 +503,12 @@ dump_legomem_vregion(struct legomem_context *ctx, struct legomem_vregion *v)
 	pthread_rwlock_unlock(&v->rwlock);
 }
 
+#define MEMORY_MODEL_OP_READ	(0)
+#define MEMORY_MODEL_OP_WRITE	(1)
+
 void mc_wait_and_set_dependency(struct session_net *ses,
-				unsigned long __remote addr, size_t total_size);
+				unsigned long __remote addr, size_t total_size, int op);
 void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
-			 size_t total_size);
+			 size_t total_size, int op);
 
 #endif /* _HOST_CORE_H_ */

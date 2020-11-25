@@ -888,7 +888,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
 
-	mc_wait_and_set_dependency(ses, addr, total_size);
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 
 	nr_sent = 0;
 	do {
@@ -939,7 +939,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 #endif
 	}
 	atomic_fetch_sub(&ses->outstanding_reads, 1);
-	mc_clear_dependency(ses, addr, total_size);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
 }
 
@@ -959,7 +959,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
 
-	mc_wait_and_set_dependency(ses, addr, total_size);
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 
 	nr_sent = 0;
 	do {
@@ -1008,7 +1008,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		recv_buf += recv_size;
 	}
 	atomic_fetch_sub(&ses->outstanding_reads, 1);
-	mc_clear_dependency(ses, addr, total_size);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
 }
 
@@ -1052,7 +1052,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 	int i, ret, nr_sent;
 	void *send_buf;
 
-	mc_wait_and_set_dependency(ses, addr, total_size);
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 
 	send_buf = send_mb->buf;
 	nr_sent = 0;
@@ -1119,7 +1119,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 #endif
 	}
 	atomic_fetch_sub(&ses->outstanding_writes, 1);
-	mc_clear_dependency(ses, addr, total_size);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 	return 0;
 }
 
@@ -1134,7 +1134,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 	struct lego_header *rx_lego __maybe_unused;
 	int i, ret, nr_sent;
 
-	mc_wait_and_set_dependency(ses, addr, total_size);
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 
 	nr_sent = 0;
 	do {
@@ -1199,7 +1199,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 #endif
 	}
 	atomic_fetch_sub(&ses->outstanding_writes, 1);
-	mc_clear_dependency(ses, addr, total_size);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 	return 0;
 }
 
