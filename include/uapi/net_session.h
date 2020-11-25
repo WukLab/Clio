@@ -11,6 +11,9 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <uapi/net_header.h>
+#include <uapi/page.h>
+#include <uapi/bitops.h>
+#include <uapi/bitmap.h>
 #include <stdatomic.h>
 #include <uapi/hashtable.h>
 
@@ -90,11 +93,18 @@ struct session_net {
 	void 			*raw_net_private;
 
 	/*
+	 * Added for OSDI21
+	 */
+
+	/*
 	 * Record outstanding reads and writes
 	 * Used to implement fence
 	 */
 	atomic_int		outstanding_reads;
 	atomic_int		outstanding_writes;
+
+	DECLARE_BITMAP(outstanding_reads_map, NR_VIRTUAL_PAGES);
+	DECLARE_BITMAP(outstanding_writes_map, NR_VIRTUAL_PAGES);
 } __aligned(64);
 
 static inline void init_session_net(struct session_net *p)
@@ -106,6 +116,8 @@ static inline void init_session_net(struct session_net *p)
 	INIT_HLIST_NODE(&p->ht_link_vregion);
 	atomic_store(&p->outstanding_reads, 0);
 	atomic_store(&p->outstanding_writes, 0);
+	bitmap_zero(p->outstanding_reads_map, NR_VIRTUAL_PAGES);
+	bitmap_zero(p->outstanding_writes_map, NR_VIRTUAL_PAGES);
 }
 
 static inline bool ses_thread_should_stop(struct session_net *ses)

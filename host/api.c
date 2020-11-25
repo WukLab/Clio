@@ -10,6 +10,7 @@
 #include <uapi/page.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -338,7 +339,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 struct session_net *
 legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 {
-	pid_t tid = gettid();
+	pid_t tid = syscall(SYS_gettid);
 
 	/* This is user-visiable API, thus both mgmt options are false */
 	return __legomem_open_session(ctx, bi, tid, false, false);
@@ -607,7 +608,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	unsigned long __remote addr;
 	bool new_session;
 
-	tid = gettid();
+	tid = syscall(SYS_gettid);
 
 	/*
 	 * Step I:
@@ -819,7 +820,7 @@ struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
 	struct session_net *ses;
 	pid_t tid;
 
-	tid = gettid();
+	tid = syscall(SYS_gettid);
 	ses = find_vregion_session(v, tid);
 	if (likely(ses))
 		return ses;
@@ -887,6 +888,8 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
 
+	mc_wait_and_set_dependency(ses, addr, total_size);
+
 	nr_sent = 0;
 	do {
 		if (total_size >= max_lego_payload)
@@ -936,6 +939,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 #endif
 	}
 	atomic_fetch_sub(&ses->outstanding_reads, 1);
+	mc_clear_dependency(ses, addr, total_size);
 	return 0;
 }
 
@@ -954,6 +958,8 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 	tx_lego = to_lego_header(req);
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
+
+	mc_wait_and_set_dependency(ses, addr, total_size);
 
 	nr_sent = 0;
 	do {
@@ -1002,6 +1008,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		recv_buf += recv_size;
 	}
 	atomic_fetch_sub(&ses->outstanding_reads, 1);
+	mc_clear_dependency(ses, addr, total_size);
 	return 0;
 }
 
@@ -1044,6 +1051,8 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 	struct lego_header *rx_lego __maybe_unused;
 	int i, ret, nr_sent;
 	void *send_buf;
+
+	mc_wait_and_set_dependency(ses, addr, total_size);
 
 	send_buf = send_mb->buf;
 	nr_sent = 0;
@@ -1110,6 +1119,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 #endif
 	}
 	atomic_fetch_sub(&ses->outstanding_writes, 1);
+	mc_clear_dependency(ses, addr, total_size);
 	return 0;
 }
 
@@ -1123,6 +1133,8 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 	struct lego_header *tx_lego;
 	struct lego_header *rx_lego __maybe_unused;
 	int i, ret, nr_sent;
+
+	mc_wait_and_set_dependency(ses, addr, total_size);
 
 	nr_sent = 0;
 	do {
@@ -1187,6 +1199,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 #endif
 	}
 	atomic_fetch_sub(&ses->outstanding_writes, 1);
+	mc_clear_dependency(ses, addr, total_size);
 	return 0;
 }
 
@@ -1337,7 +1350,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	 * First close the original session with the old board,
 	 * then open a new session with new board.
 	 */
-	tid = gettid();
+	tid = syscall(SYS_gettid);
 	ses = find_vregion_session(v, tid);
 	if (!ses) {
 		dprintf_ERROR("Fail to find the original session associated "

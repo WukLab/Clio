@@ -11,6 +11,7 @@
 #include <uapi/list.h>
 #include <uapi/err.h>
 #include <uapi/thpool.h>
+#include <sys/types.h>
 #include "net/net.h"
 #include <limits.h>
 #include <time.h>
@@ -501,5 +502,10 @@ dump_legomem_vregion(struct legomem_context *ctx, struct legomem_vregion *v)
 	}
 	pthread_rwlock_unlock(&v->rwlock);
 }
+
+void mc_wait_and_set_dependency(struct session_net *ses,
+				unsigned long __remote addr, size_t total_size);
+void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
+			 size_t total_size);
 
 #endif /* _HOST_CORE_H_ */

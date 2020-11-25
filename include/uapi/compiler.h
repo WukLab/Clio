@@ -315,14 +315,4 @@ typedef uint64_t u64;
 /* To mark a remote legomem address */
 #define __remote
 
-/*
- * Higher version GCC has built-in gettid
- */
-#if 1
-static inline pid_t gettid(void)
-{
-	return syscall(SYS_gettid);
-}
-#endif
-
 #endif /* _LEGOMEM_UAPI_COMPILER_H_ */

@@ -50,6 +50,7 @@ C_SRCS := board.c \
 	net/transport_gbn.c \
 	net/transport_rpc.c \
 	api_kvs.c \
+	memory_model.c \
 	lib/bitmap.c
 	#net/raw_socket.c \
 	#net/raw_udp_socket.c \
