@@ -125,10 +125,10 @@ set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
 user.org:user:LegoMemSystem:1.0\
-user.org:user:MonitorRegistersRead:1.0\
 user.org:user:MonitorRegistersWrite:1.0\
 xilinx.com:ip:axi_dma:7.1\
 xilinx.com:ip:ddr4:2.2\
+Wuklab.UCSD:hls:filter_64:1.0\
 xilinx.com:ip:axis_data_fifo:2.0\
 xilinx.com:ip:proc_sys_reset:5.0\
 xilinx.com:ip:xlconcat:2.1\
@@ -250,9 +250,6 @@ proc create_root_design { parentCell } {
   # Create instance: LegoMemSystem_0, and set properties
   set LegoMemSystem_0 [ create_bd_cell -type ip -vlnv user.org:user:LegoMemSystem:1.0 LegoMemSystem_0 ]
 
-  # Create instance: MonitorRegistersRead_0, and set properties
-  set MonitorRegistersRead_0 [ create_bd_cell -type ip -vlnv user.org:user:MonitorRegistersRead:1.0 MonitorRegistersRead_0 ]
-
   # Create instance: MonitorRegistersWrite_0, and set properties
   set MonitorRegistersWrite_0 [ create_bd_cell -type ip -vlnv user.org:user:MonitorRegistersWrite:1.0 MonitorRegistersWrite_0 ]
 
@@ -355,6 +352,9 @@ proc create_root_design { parentCell } {
    CONFIG.C0_DDR4_BOARD_INTERFACE {ddr4_sdram} \
    CONFIG.RESET_BOARD_INTERFACE {reset} \
  ] $ddr4_0
+
+  # Create instance: filter_64_0, and set properties
+  set filter_64_0 [ create_bd_cell -type ip -vlnv Wuklab.UCSD:hls:filter_64:1.0 filter_64_0 ]
 
   # Create instance: in_data_fifo, and set properties
   set in_data_fifo [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 in_data_fifo ]
@@ -1123,7 +1123,6 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net axi_interconnect_0_M00_AXI [get_bd_intf_pins axi_dma_0/S_AXI_LITE] [get_bd_intf_pins axi_interconnect_0/M00_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_0_M01_AXI [get_bd_intf_pins axi_dma_1/S_AXI_LITE] [get_bd_intf_pins axi_interconnect_0/M01_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_0_M02_AXI [get_bd_intf_pins LegoMemSystem_0/regBus] [get_bd_intf_pins axi_interconnect_0/M02_AXI]
-  connect_bd_intf_net -intf_net axi_interconnect_0_M03_AXI [get_bd_intf_pins MonitorRegistersRead_0/regBus] [get_bd_intf_pins axi_interconnect_0/M03_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_0_M04_AXI [get_bd_intf_pins MonitorRegistersWrite_0/regBus] [get_bd_intf_pins axi_interconnect_0/M04_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_1_M00_AXI [get_bd_intf_pins axi_interconnect_1/M00_AXI] [get_bd_intf_pins ddr4_0/C0_DDR4_S_AXI]
   connect_bd_intf_net -intf_net axi_interconnect_2_M00_AXI [get_bd_intf_pins axi_interconnect_2/M00_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HPC0_FPD]
@@ -1135,8 +1134,10 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net axis_interconnect_1_M01_AXIS [get_bd_intf_pins LegoMemSystem_0/eps_mem_ctrlIn] [get_bd_intf_pins axis_interconnect_1/M01_AXIS]
   connect_bd_intf_net -intf_net axis_interconnect_1_M02_AXIS [get_bd_intf_pins LegoMemSystem_0/eps_soc_ctrlIn] [get_bd_intf_pins axis_interconnect_1/M02_AXIS]
   connect_bd_intf_net -intf_net ddr4_0_C0_DDR4 [get_bd_intf_ports ddr4_sdram] [get_bd_intf_pins ddr4_0/C0_DDR4]
-  connect_bd_intf_net -intf_net in_data_fifo_M_AXIS [get_bd_intf_pins LegoMemSystem_0/net_dataIn] [get_bd_intf_pins in_data_fifo/M_AXIS]
-  connect_bd_intf_net -intf_net in_header_fifo_M_AXIS [get_bd_intf_pins LegoMemSystem_0/net_headerIn] [get_bd_intf_pins in_header_fifo/M_AXIS]
+  connect_bd_intf_net -intf_net in_data_fifo_M_AXIS [get_bd_intf_pins LegoMemSystem_0/net_dataIn] [get_bd_intf_pins filter_64_0/usr_rx_payload]
+  connect_bd_intf_net -intf_net in_data_fifo_M_AXIS1 [get_bd_intf_pins filter_64_0/rx_payload] [get_bd_intf_pins in_data_fifo/M_AXIS]
+  connect_bd_intf_net -intf_net in_header_fifo_M_AXIS [get_bd_intf_pins LegoMemSystem_0/net_headerIn] [get_bd_intf_pins filter_64_0/usr_rx_header_V]
+  connect_bd_intf_net -intf_net in_header_fifo_M_AXIS1 [get_bd_intf_pins filter_64_0/rx_header_V] [get_bd_intf_pins in_header_fifo/M_AXIS]
   connect_bd_intf_net -intf_net out_data_fifo_M_AXIS [get_bd_intf_ports udp_out_payload] [get_bd_intf_pins out_data_fifo/M_AXIS]
   connect_bd_intf_net -intf_net out_header_fifo_M_AXIS [get_bd_intf_ports udp_out_header] [get_bd_intf_pins out_header_fifo/M_AXIS]
   connect_bd_intf_net -intf_net udp_in_header_1 [get_bd_intf_ports udp_in_header] [get_bd_intf_pins in_header_fifo/S_AXIS]
@@ -1157,12 +1158,12 @@ proc create_root_design { parentCell } {
   connect_bd_net -net rel_net_resetn_1 [get_bd_ports rel_net_resetn] [get_bd_pins MonitorRegistersWrite_0/resetn] [get_bd_pins axi_interconnect_0/M04_ARESETN] [get_bd_pins in_data_fifo/s_axis_aresetn] [get_bd_pins in_header_fifo/s_axis_aresetn]
   connect_bd_net -net reset_1 [get_bd_ports reset] [get_bd_pins ddr4_0/sys_rst]
   connect_bd_net -net rst_ddr4_0_300M_peripheral_aresetn [get_bd_pins axi_interconnect_1/M00_ARESETN] [get_bd_pins ddr4_0/c0_ddr4_aresetn] [get_bd_pins rst_ddr4_0_300M/peripheral_aresetn]
-  connect_bd_net -net s_axis_aclk_0_1 [get_bd_pins MonitorRegistersRead_0/clk] [get_bd_pins axi_interconnect_0/M03_ACLK] [get_bd_pins axi_interconnect_1/S03_ACLK] [get_bd_pins proc_sys_reset_0/slowest_sync_clk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1]
-  connect_bd_net -net s_axis_aresetn_0_1 [get_bd_pins MonitorRegistersRead_0/resetn] [get_bd_pins axi_interconnect_0/M03_ARESETN] [get_bd_pins axi_interconnect_1/S03_ARESETN] [get_bd_pins proc_sys_reset_0/peripheral_aresetn]
+  connect_bd_net -net s_axis_aclk_0_1 [get_bd_pins axi_interconnect_0/M03_ACLK] [get_bd_pins axi_interconnect_1/S03_ACLK] [get_bd_pins proc_sys_reset_0/slowest_sync_clk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1]
+  connect_bd_net -net s_axis_aresetn_0_1 [get_bd_pins axi_interconnect_0/M03_ARESETN] [get_bd_pins axi_interconnect_1/S03_ARESETN] [get_bd_pins proc_sys_reset_0/peripheral_aresetn]
   connect_bd_net -net xlconcat_0_dout [get_bd_pins xlconcat_0/dout] [get_bd_pins zynq_ultra_ps_e_0/pl_ps_irq0]
   connect_bd_net -net xlconcat_1_dout [get_bd_ports monitor_config_mac] [get_bd_pins xlconcat_1/dout]
-  connect_bd_net -net zynq_ultra_ps_e_0_pl_clk0 [get_bd_pins LegoMemSystem_0/clk] [get_bd_pins axi_dma_0/m_axi_mm2s_aclk] [get_bd_pins axi_dma_0/m_axi_s2mm_aclk] [get_bd_pins axi_dma_0/s_axi_lite_aclk] [get_bd_pins axi_dma_1/m_axi_mm2s_aclk] [get_bd_pins axi_dma_1/m_axi_s2mm_aclk] [get_bd_pins axi_dma_1/s_axi_lite_aclk] [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins axi_interconnect_0/M00_ACLK] [get_bd_pins axi_interconnect_0/M01_ACLK] [get_bd_pins axi_interconnect_0/M02_ACLK] [get_bd_pins axi_interconnect_0/S00_ACLK] [get_bd_pins axi_interconnect_1/ACLK] [get_bd_pins axi_interconnect_1/S00_ACLK] [get_bd_pins axi_interconnect_1/S01_ACLK] [get_bd_pins axi_interconnect_1/S02_ACLK] [get_bd_pins axi_interconnect_2/ACLK] [get_bd_pins axi_interconnect_2/M00_ACLK] [get_bd_pins axi_interconnect_2/M01_ACLK] [get_bd_pins axi_interconnect_2/S00_ACLK] [get_bd_pins axi_interconnect_2/S01_ACLK] [get_bd_pins axi_interconnect_2/S02_ACLK] [get_bd_pins axi_interconnect_2/S03_ACLK] [get_bd_pins axis_interconnect_0/ACLK] [get_bd_pins axis_interconnect_0/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M02_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S02_AXIS_ACLK] [get_bd_pins axis_interconnect_1/ACLK] [get_bd_pins axis_interconnect_1/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_1/M01_AXIS_ACLK] [get_bd_pins axis_interconnect_1/M02_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S02_AXIS_ACLK] [get_bd_pins in_data_fifo/m_axis_aclk] [get_bd_pins in_header_fifo/m_axis_aclk] [get_bd_pins out_data_fifo/s_axis_aclk] [get_bd_pins out_header_fifo/s_axis_aclk] [get_bd_pins rst_ps8_0_99M/slowest_sync_clk] [get_bd_pins zynq_ultra_ps_e_0/maxihpm0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/maxihpm1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins zynq_ultra_ps_e_0/saxihpc0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/saxihpc1_fpd_aclk]
-  connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0 [get_bd_pins LegoMemSystem_0/resetn] [get_bd_pins axi_dma_0/axi_resetn] [get_bd_pins axi_dma_1/axi_resetn] [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins axi_interconnect_0/M00_ARESETN] [get_bd_pins axi_interconnect_0/M01_ARESETN] [get_bd_pins axi_interconnect_0/M02_ARESETN] [get_bd_pins axi_interconnect_0/S00_ARESETN] [get_bd_pins axi_interconnect_1/ARESETN] [get_bd_pins axi_interconnect_1/S00_ARESETN] [get_bd_pins axi_interconnect_1/S01_ARESETN] [get_bd_pins axi_interconnect_1/S02_ARESETN] [get_bd_pins axi_interconnect_2/ARESETN] [get_bd_pins axi_interconnect_2/M00_ARESETN] [get_bd_pins axi_interconnect_2/M01_ARESETN] [get_bd_pins axi_interconnect_2/S00_ARESETN] [get_bd_pins axi_interconnect_2/S01_ARESETN] [get_bd_pins axi_interconnect_2/S02_ARESETN] [get_bd_pins axi_interconnect_2/S03_ARESETN] [get_bd_pins axis_interconnect_0/ARESETN] [get_bd_pins axis_interconnect_0/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M02_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S02_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/ARESETN] [get_bd_pins axis_interconnect_1/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/M01_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/M02_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S02_AXIS_ARESETN] [get_bd_pins out_data_fifo/s_axis_aresetn] [get_bd_pins out_header_fifo/s_axis_aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
+  connect_bd_net -net zynq_ultra_ps_e_0_pl_clk0 [get_bd_pins LegoMemSystem_0/clk] [get_bd_pins axi_dma_0/m_axi_mm2s_aclk] [get_bd_pins axi_dma_0/m_axi_s2mm_aclk] [get_bd_pins axi_dma_0/s_axi_lite_aclk] [get_bd_pins axi_dma_1/m_axi_mm2s_aclk] [get_bd_pins axi_dma_1/m_axi_s2mm_aclk] [get_bd_pins axi_dma_1/s_axi_lite_aclk] [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins axi_interconnect_0/M00_ACLK] [get_bd_pins axi_interconnect_0/M01_ACLK] [get_bd_pins axi_interconnect_0/M02_ACLK] [get_bd_pins axi_interconnect_0/S00_ACLK] [get_bd_pins axi_interconnect_1/ACLK] [get_bd_pins axi_interconnect_1/S00_ACLK] [get_bd_pins axi_interconnect_1/S01_ACLK] [get_bd_pins axi_interconnect_1/S02_ACLK] [get_bd_pins axi_interconnect_2/ACLK] [get_bd_pins axi_interconnect_2/M00_ACLK] [get_bd_pins axi_interconnect_2/M01_ACLK] [get_bd_pins axi_interconnect_2/S00_ACLK] [get_bd_pins axi_interconnect_2/S01_ACLK] [get_bd_pins axi_interconnect_2/S02_ACLK] [get_bd_pins axi_interconnect_2/S03_ACLK] [get_bd_pins axis_interconnect_0/ACLK] [get_bd_pins axis_interconnect_0/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/M02_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_0/S02_AXIS_ACLK] [get_bd_pins axis_interconnect_1/ACLK] [get_bd_pins axis_interconnect_1/M00_AXIS_ACLK] [get_bd_pins axis_interconnect_1/M01_AXIS_ACLK] [get_bd_pins axis_interconnect_1/M02_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S00_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S01_AXIS_ACLK] [get_bd_pins axis_interconnect_1/S02_AXIS_ACLK] [get_bd_pins filter_64_0/ap_clk] [get_bd_pins in_data_fifo/m_axis_aclk] [get_bd_pins in_header_fifo/m_axis_aclk] [get_bd_pins out_data_fifo/s_axis_aclk] [get_bd_pins out_header_fifo/s_axis_aclk] [get_bd_pins rst_ps8_0_99M/slowest_sync_clk] [get_bd_pins zynq_ultra_ps_e_0/maxihpm0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/maxihpm1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins zynq_ultra_ps_e_0/saxihpc0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/saxihpc1_fpd_aclk]
+  connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0 [get_bd_pins LegoMemSystem_0/resetn] [get_bd_pins axi_dma_0/axi_resetn] [get_bd_pins axi_dma_1/axi_resetn] [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins axi_interconnect_0/M00_ARESETN] [get_bd_pins axi_interconnect_0/M01_ARESETN] [get_bd_pins axi_interconnect_0/M02_ARESETN] [get_bd_pins axi_interconnect_0/S00_ARESETN] [get_bd_pins axi_interconnect_1/ARESETN] [get_bd_pins axi_interconnect_1/S00_ARESETN] [get_bd_pins axi_interconnect_1/S01_ARESETN] [get_bd_pins axi_interconnect_1/S02_ARESETN] [get_bd_pins axi_interconnect_2/ARESETN] [get_bd_pins axi_interconnect_2/M00_ARESETN] [get_bd_pins axi_interconnect_2/M01_ARESETN] [get_bd_pins axi_interconnect_2/S00_ARESETN] [get_bd_pins axi_interconnect_2/S01_ARESETN] [get_bd_pins axi_interconnect_2/S02_ARESETN] [get_bd_pins axi_interconnect_2/S03_ARESETN] [get_bd_pins axis_interconnect_0/ARESETN] [get_bd_pins axis_interconnect_0/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/M02_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_0/S02_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/ARESETN] [get_bd_pins axis_interconnect_1/M00_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/M01_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/M02_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S00_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S01_AXIS_ARESETN] [get_bd_pins axis_interconnect_1/S02_AXIS_ARESETN] [get_bd_pins filter_64_0/ap_rst_n] [get_bd_pins out_data_fifo/s_axis_aresetn] [get_bd_pins out_header_fifo/s_axis_aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
   connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn1 [get_bd_pins rst_ps8_0_99M/ext_reset_in] [get_bd_pins zynq_ultra_ps_e_0/pl_resetn0]
   connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn2 [get_bd_pins proc_sys_reset_0/ext_reset_in] [get_bd_pins zynq_ultra_ps_e_0/pl_resetn1]
 
@@ -1194,7 +1195,6 @@ proc create_root_design { parentCell } {
   create_bd_addr_seg -range 0x10000000 -offset 0xD0000000 [get_bd_addr_spaces axi_dma_1/Data_MM2S] [get_bd_addr_segs zynq_ultra_ps_e_0/SAXIGP1/HPC1_QSPI] SEG_zynq_ultra_ps_e_0_HPC1_QSPI
   create_bd_addr_seg -range 0x10000000 -offset 0xD0000000 [get_bd_addr_spaces axi_dma_1/Data_S2MM] [get_bd_addr_segs zynq_ultra_ps_e_0/SAXIGP1/HPC1_QSPI] SEG_zynq_ultra_ps_e_0_HPC1_QSPI
   create_bd_addr_seg -range 0x00001000 -offset 0xA0006000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs LegoMemSystem_0/regBus/reg0] SEG_LegoMemSystem_0_reg0
-  create_bd_addr_seg -range 0x00001000 -offset 0xA000D000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs MonitorRegistersRead_0/regBus/reg0] SEG_MonitorRegistersRead_0_reg0
   create_bd_addr_seg -range 0x00001000 -offset 0xA000C000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs MonitorRegistersWrite_0/regBus/reg0] SEG_MonitorRegistersWrite_0_reg0
   create_bd_addr_seg -range 0x00001000 -offset 0xA0000000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs axi_dma_0/S_AXI_LITE/Reg] SEG_axi_dma_0_Reg
   create_bd_addr_seg -range 0x00001000 -offset 0xA0001000 [get_bd_addr_spaces zynq_ultra_ps_e_0/Data] [get_bd_addr_segs axi_dma_1/S_AXI_LITE/Reg] SEG_axi_dma_1_Reg
