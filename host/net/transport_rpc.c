@@ -7,6 +7,7 @@
 #include <stdatomic.h>
 #include <time.h>
 #include <pthread.h>
+#include <uapi/compiler.h>
 #include <uapi/list.h>
 #include <uapi/net_header.h>
 #include "net.h"
@@ -23,10 +24,19 @@
 	printf("%s():%d " fmt, __func__, __LINE__, __VA_ARGS__)
 
 #define RPC_WAIT_CREDIT_TIMEOUT_S	(2)
+#define NR_LATENCY_INFO_SLOTS		(256)
+#define TARGET_DELAY_NS			(5000)
+#define SEND_CREDIT_MAX			(4096)
 
-/* ad-hoc value */
-unsigned int default_credit_send = 65536;
-unsigned int default_credit_recv = 65536;
+/* 
+ * congestion control parameters
+ * ad-hoc value
+ */
+unsigned int default_credit_send = 4096;
+unsigned int default_credit_recv = 4096;
+int ai = 1;
+double md = 0.5;
+double beta = 0.8;
 
 /*
  * This is a global variable controlling the buffer mgmt behavior.
@@ -60,12 +70,45 @@ static struct congestion_control_states {
 } __aligned(64) global_cc_states;
 
 struct session_rpc {
-	struct per_board_send_state *send_state;
+	struct per_board_send_state	*send_state;
+	struct timespec			latency_info_ring[NR_LATENCY_INFO_SLOTS];
+	atomic_uint			ring_head;
+	atomic_uint			ring_tail;
 } __aligned(64);
 
-static int consume_send_credit(struct per_board_send_state *send_state, size_t send_size)
+static __always_inline void
+set_send_timestamp(struct session_rpc *ses_rpc)
 {
-	if (unlikely(atomic_fetch_sub(&send_state->send_credit, send_size) < send_size)) {
+	unsigned int index;
+
+	index = atomic_fetch_add(&ses_rpc->ring_head, 1) % NR_LATENCY_INFO_SLOTS;
+	clock_gettime(CLOCK_MONOTONIC, &ses_rpc->latency_info_ring[index]);
+}
+
+static __always_inline unsigned int
+get_last_delay(struct session_rpc *ses_rpc)
+{
+	unsigned int index;
+	unsigned int interval_ns;
+	struct timespec *s, e;
+
+	index = atomic_fetch_add(&ses_rpc->ring_tail, 1) % NR_LATENCY_INFO_SLOTS;
+	s = &ses_rpc->latency_info_ring[index];
+
+	clock_gettime(CLOCK_MONOTONIC, &e);
+
+	if (likely(e.tv_sec == s->tv_sec))
+		interval_ns = e.tv_nsec - s->tv_nsec;
+	else
+		interval_ns = e.tv_nsec + 1000000000 - s->tv_nsec + (e.tv_sec - s->tv_sec - 1) * 1000000000;
+	
+	return interval_ns;
+}
+
+static __always_inline int
+consume_send_credit(struct per_board_send_state *send_state)
+{
+	if (unlikely(atomic_fetch_sub(&send_state->send_credit, 1) < 1)) {
 		struct timespec s, e;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		while (1) {
@@ -83,9 +126,10 @@ static int consume_send_credit(struct per_board_send_state *send_state, size_t s
 	return 0;
 }
 
-static int consume_recv_credit(size_t recv_size)
+static __always_inline int
+consume_recv_credit()
 {
-	if (unlikely(atomic_fetch_sub(&global_cc_states.recv_credit, recv_size) < recv_size)) {
+	if (unlikely(atomic_fetch_sub(&global_cc_states.recv_credit, 1) < 1)) {
 		struct timespec s, e;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		while (1) {
@@ -108,20 +152,29 @@ static int consume_recv_credit(size_t recv_size)
  * TODO: latency based congestion control
  * Adjust the send window based on the RTT of a request
  */
-static void adjust_send_window(struct per_board_send_state *send_state)
+static void adjust_send_window(struct per_board_send_state *send_state, unsigned int delay)
 {
+	if (delay < TARGET_DELAY_NS) {
+		if (atomic_load(&send_state->send_credit) < SEND_CREDIT_MAX)
+			atomic_fetch_add(&send_state->send_credit, ai);
+	} else {
+		int delta = delay - TARGET_DELAY_NS;
+		int cur_send_credit = atomic_load(&send_state->send_credit);
+		atomic_store(&send_state->send_credit,
+			     (int)(max(1 - beta * ((double)delta / (double)delay), md) * (double)cur_send_credit));
+	}
 }
 
 static __always_inline void
-refill_send_credit(struct per_board_send_state *send_state, size_t send_size)
+refill_send_credit(struct per_board_send_state *send_state)
 {
-	atomic_fetch_add(&send_state->send_credit, send_size);
+	atomic_fetch_add(&send_state->send_credit, 1);
 }
 
 static __always_inline void
-refill_recv_credit(size_t recv_size)
+refill_recv_credit()
 {
-	atomic_fetch_add(&global_cc_states.recv_credit, recv_size);
+	atomic_fetch_add(&global_cc_states.recv_credit, 1);
 }
 
 static int rpc_send_one(struct session_net *net, void *buf,
@@ -144,14 +197,14 @@ static int rpc_send_one(struct session_net *net, void *buf,
 	if (unlikely(test_management_session(net)))
 		goto send;
 
-	ret = consume_send_credit(ses->send_state, buf_size);
+	ret = consume_send_credit(ses->send_state);
 	if (ret)
 		return ret;
-	// TODO: figure out receive size
-	ret = consume_recv_credit(0);
+	ret = consume_recv_credit();
 	if (ret)
 		return ret;
 
+	set_send_timestamp(ses);
 send:
 	return raw_net_send(net, buf, buf_size, route);
 }
@@ -175,6 +228,7 @@ __rpc_receive_one(struct session_net *ses_net,
 	unsigned int rpc_sesid __maybe_unused;
 	struct session_net *rpc_ses_net __maybe_unused;
 	struct session_rpc *ses_rpc;
+	unsigned int delay_ns;
 
 retry:
 	ret = raw_net_receive_zerocopy(ses_net, &recv_buf, &recv_size);
@@ -204,9 +258,9 @@ retry:
 		ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 		dump_packet_headers(recv_buf, packet_dump_str);
 		dprintf_ERROR(
-			"RX wrong session. Calling session %u. Verbs: qpn: %u rx_udp_port %u \n\n"
+			"RX wrong session. Calling session %u. Resp session %u. Verbs: qpn: %u rx_udp_port %u \n\n"
 			"\t pkt -> %s \n\n",
-			get_local_session_id(ses_net), ses_verbs->qp->qp_num,
+			get_local_session_id(ses_net), rpc_sesid, ses_verbs->qp->qp_num,
 			ses_verbs->rx_udp_port, packet_dump_str);
 	}
 
@@ -214,11 +268,12 @@ retry:
 		goto deliver;
 	
 	ses_rpc = (struct session_rpc *)ses_net->transport_private;
-	// TODO: figure out send size
-	refill_send_credit(ses_rpc->send_state, 0);
-	refill_recv_credit(recv_size);
+	
+	delay_ns = get_last_delay(ses_rpc);
+	refill_send_credit(ses_rpc->send_state);
+	refill_recv_credit();
 
-	adjust_send_window(ses_rpc->send_state);
+	adjust_send_window(ses_rpc->send_state, delay_ns);
 
 deliver:
 	if (likely(zerocopy)) {
@@ -324,6 +379,8 @@ static int init_session_rpc(struct session_net *net, struct session_rpc *rpc)
 	/* increase the reference count */
 	atomic_fetch_add(&send_state->session_cnt, 1);
 	rpc->send_state = send_state;
+	atomic_init(&rpc->ring_head, 0);
+	atomic_init(&rpc->ring_tail, 0);
 
 	return 0;
 }
