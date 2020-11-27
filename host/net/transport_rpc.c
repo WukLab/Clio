@@ -29,11 +29,10 @@
 #define SEND_CREDIT_MAX			(4096)
 
 /* 
- * congestion control parameters
+ * AIMD congestion control parameters
  * ad-hoc value
  */
 unsigned int default_credit_send = 4096;
-unsigned int default_credit_recv = 4096;
 int ai = 1;
 double md = 0.5;
 double beta = 0.8;
@@ -59,13 +58,11 @@ struct per_board_send_state {
 } __aligned(64);
 
 /*
- * A global varible to store per host receive credits and per board congestion control
- * states. All sessions should refer to this variable when doing congestion
- * control.
+ * A global varible to store per board congestion control states.
+ * All sessions should refer to this variable when doing congestion control.
  */
 static struct congestion_control_states {
 	struct list_head	per_board_states;
-	atomic_int		recv_credit;
 	pthread_spinlock_t	lock;
 } __aligned(64) global_cc_states;
 
@@ -126,30 +123,8 @@ consume_send_credit(struct per_board_send_state *send_state)
 	return 0;
 }
 
-static __always_inline int
-consume_recv_credit()
-{
-	if (unlikely(atomic_fetch_sub(&global_cc_states.recv_credit, 1) < 1)) {
-		struct timespec s, e;
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		while (1) {
-			if (likely(atomic_load(&global_cc_states.recv_credit) >= 0))
-				break;
-			clock_gettime(CLOCK_MONOTONIC, &e);
-			if ((e.tv_sec - s.tv_sec) >=
-			    RPC_WAIT_CREDIT_TIMEOUT_S) {
-				rpc_info("Wait for receive credit timeout (%d s). "
-					"Probably there is no reply from other side",
-					RPC_WAIT_CREDIT_TIMEOUT_S);
-			}
-			return -ETIMEDOUT;
-		}
-	}
-	return 0;
-}
-
 /*
- * TODO: latency based congestion control
+ * AIMD latency based congestion control
  * Adjust the send window based on the RTT of a request
  */
 static void adjust_send_window(struct per_board_send_state *send_state, unsigned int delay)
@@ -169,12 +144,6 @@ static __always_inline void
 refill_send_credit(struct per_board_send_state *send_state)
 {
 	atomic_fetch_add(&send_state->send_credit, 1);
-}
-
-static __always_inline void
-refill_recv_credit()
-{
-	atomic_fetch_add(&global_cc_states.recv_credit, 1);
 }
 
 static int rpc_send_one(struct session_net *net, void *buf,
@@ -198,9 +167,6 @@ static int rpc_send_one(struct session_net *net, void *buf,
 		goto send;
 
 	ret = consume_send_credit(ses->send_state);
-	if (ret)
-		return ret;
-	ret = consume_recv_credit();
 	if (ret)
 		return ret;
 
@@ -271,7 +237,6 @@ retry:
 	
 	delay_ns = get_last_delay(ses_rpc);
 	refill_send_credit(ses_rpc->send_state);
-	refill_recv_credit();
 
 	adjust_send_window(ses_rpc->send_state, delay_ns);
 
@@ -456,7 +421,6 @@ static int rpc_init_once(struct endpoint_info *local_ei)
 
 	dprintf_INFO("Raw net has zerocopy: %s\n", raw_net_has_zerocopy ? "YES" : "NO");
 
-	atomic_init(&global_cc_states.recv_credit, default_credit_recv);
 	INIT_LIST_HEAD(&global_cc_states.per_board_states);
 	pthread_spin_init(&global_cc_states.lock, PTHREAD_PROCESS_PRIVATE);
 
