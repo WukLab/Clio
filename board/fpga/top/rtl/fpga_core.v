@@ -379,7 +379,9 @@ eth_axis_tx_inst (
     .busy()
 );
 
-udp_complete_64
+udp_complete_64 #(
+    .UDP_CHECKSUM_GEN_ENABLE(0)
+)
 udp_complete_inst (
     .clk(clk),
     .rst(rst),
@@ -456,9 +458,9 @@ udp_complete_inst (
     .s_udp_ip_ttl               (tx_udp_ip_ttl),
     .s_udp_ip_source_ip         (local_ip),
     .s_udp_ip_dest_ip           ({8'd192, 8'd168, tx_udp_ip_dest_ip[31: 16]}),
-    .s_udp_source_port          (tx_udp_source_port),
+    .s_udp_source_port          (16'd1234),
     .s_udp_dest_port            (tx_udp_ip_dest_ip[15: 0]),
-    .s_udp_length               (tx_udp_length),
+    .s_udp_length               (tx_udp_length + 8), // add size of udp header
     .s_udp_checksum             (tx_udp_checksum),
     .s_udp_payload_axis_tdata   (s_udp_payload_axis_tdata),
     .s_udp_payload_axis_tkeep   (s_udp_payload_axis_tkeep),
@@ -523,7 +525,7 @@ udp_complete_inst (
  * src ip at lowest position
  */
 assign m_udp_hdr_data = {
-    rx_udp_length,
+    rx_udp_length - 8,  // sub size of udp header
     rx_udp_dest_port,
     rx_udp_source_port,
     rx_udp_ip_dest_ip,
