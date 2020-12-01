@@ -872,6 +872,20 @@ struct session_net *find_or_alloc_vregion_session(struct legomem_context *ctx,
 	return __find_or_alloc_vregion_session(ctx, v);
 }
 
+#ifdef CONFIG_ENABLE_FENCE
+static inline void inc_outstanding_req(atomic_int *counter)
+{
+	atomic_fetch_add(counter, 1);
+}
+static inline void dec_outstanding_req(atomic_int *counter)
+{
+	atomic_fetch_sub(counter, 1);
+}
+#else
+static inline void inc_outstanding_req(atomic_int *counter) { }
+static inline void dec_outstanding_req(atomic_int *counter) { }
+#endif
+
 int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session_net *ses,
 				     struct msg_buf *send_mb, void *recv_buf,
 				     unsigned long __remote addr, size_t total_size)
@@ -909,7 +923,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 		}
 		nr_sent++;
 	} while (total_size);
-	atomic_fetch_add(&ses->outstanding_reads, 1);
+	inc_outstanding_req(&ses->outstanding_reads);
 
 	/* Shift to start of payload */
 	recv_buf += sizeof(*resp);
@@ -938,7 +952,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 		recv_buf += recv_size;
 #endif
 	}
-	atomic_fetch_sub(&ses->outstanding_reads, 1);
+	dec_outstanding_req(&ses->outstanding_reads);
 	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
 }
@@ -980,7 +994,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		}
 		nr_sent++;
 	} while (total_size);
-	atomic_fetch_add(&ses->outstanding_reads, 1);
+	inc_outstanding_req(&ses->outstanding_reads);
 
 	/* Shift to start of payload */
 	recv_buf += sizeof(*resp);
@@ -1007,7 +1021,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		memcpy(recv_buf, resp->ret.data, recv_size);
 		recv_buf += recv_size;
 	}
-	atomic_fetch_sub(&ses->outstanding_reads, 1);
+	dec_outstanding_req(&ses->outstanding_reads);
 	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
 }
@@ -1090,7 +1104,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 		}
 		nr_sent++;
 	} while (total_size);
-	atomic_fetch_add(&ses->outstanding_writes, 1);
+	inc_outstanding_req(&ses->outstanding_writes);
 
 	/* Restore the original pointer */
 	send_mb->buf = send_buf;
@@ -1118,7 +1132,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 		}
 #endif
 	}
-	atomic_fetch_sub(&ses->outstanding_writes, 1);
+	dec_outstanding_req(&ses->outstanding_writes);
 	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 	return 0;
 }
@@ -1168,7 +1182,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 		}
 		nr_sent++;
 	} while (total_size);
-	atomic_fetch_add(&ses->outstanding_writes, 1);
+	inc_outstanding_req(&ses->outstanding_writes);
 
 	/*
 	 * TODO: We need to decrease the outstanding_writes counter
@@ -1198,7 +1212,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 		}
 #endif
 	}
-	atomic_fetch_sub(&ses->outstanding_writes, 1);
+	dec_outstanding_req(&ses->outstanding_writes);
 	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 	return 0;
 }

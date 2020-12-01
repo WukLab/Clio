@@ -17,6 +17,7 @@
 #include "core.h"
 #include "net/net.h"
 
+#ifdef CONFIG_MEMORY_MODEL_ENABLE_DEPENDENCY_TRACKING
 void mc_wait_and_set_dependency(struct session_net *ses,
 				unsigned long __remote addr, size_t total_size, int op)
 {
@@ -63,3 +64,12 @@ void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
 		BUG();
 	}
 }
+#else
+void mc_wait_and_set_dependency(struct session_net *ses,
+				unsigned long __remote addr, size_t total_size, int op)
+{ }
+
+void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
+			 size_t total_size, int op)
+{ }
+#endif
