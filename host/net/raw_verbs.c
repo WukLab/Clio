@@ -458,7 +458,7 @@ static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 
 	recv_buf = mmap(0, recv_buf_size,
 			PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB,
+			MAP_SHARED | MAP_ANONYMOUS,
 			0, 0);
 	if (recv_buf == MAP_FAILED) {
 		perror("mmap");

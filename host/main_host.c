@@ -263,6 +263,11 @@ struct test_option test_options[] = {
 		.func	= test_legomem_rw_multiboard,
 	},
 	{
+		.name	= "rw_presetup",
+		.desc	= "alloc pid/va at board side before test",
+		.func	= test_legomem_rw_presetup,
+	},
+	{
 		.name	= "kvs_ycsb",
 		.desc	= "run kvs_ycsb",
 		.func	= test_run_ycsb,
