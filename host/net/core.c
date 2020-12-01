@@ -128,7 +128,7 @@ void __dump_packet_headers(void *packet, char *str_buf)
 	inet_ntop(AF_INET, &src_addr, src_ip, sizeof(src_ip));
 	inet_ntop(AF_INET, &dst_addr, dst_ip, sizeof(dst_ip));
 
-#ifdef TRANSPORT_USE_GBN
+#ifdef CONFIG_TRANSPORT_GBN
 	DUMP_PR("ip:port:gbn %s:%u:%u->%s:%u:%u (%s) ",
 		src_ip, ntohs(udp->src_port), get_gbn_src_session(gbn),
 		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),

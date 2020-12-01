@@ -16,6 +16,7 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "config.h"
 #include "api.h"
 
 #if 0

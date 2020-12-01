@@ -230,6 +230,7 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		dst_sesid = LEGOMEM_MGMT_SESSION_ID;
 		set_remote_session_id(ses, dst_sesid);
 	} else {
+#ifdef CONFIG_TRANSPORT_GBN
 		/*
 		 * Contact the remote party to open a network session.
 		 * If things go well, a remote session ID is returned.
@@ -257,7 +258,6 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 
 		req.op.session_id = get_local_session_id(ses);
 
-#ifdef TRANSPORT_USE_GBN
 		remote_mgmt_ses = get_board_mgmt_session(bi);
 		if (!remote_mgmt_ses) {
 			dump_boards();
@@ -269,15 +269,15 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		ret = net_send_and_receive_lock(remote_mgmt_ses, &req, sizeof(req),
 						&resp, sizeof(resp));
 		if (ret <= 0) {
-			dprintf_ERROR("Fail to contact remote party %s\n",
-				bi->name);
-			goto close_ses;
+			dprintf_ERROR("Fail to contact remote party %s\n", bi->name);
+			net_close_session(ses);
+			return NULL;
 		}
 
 		if (unlikely(resp.op.session_id == 0)) {
-			dprintf_DEBUG("remote fail to open session %s\n",
-				bi->name);
-			goto close_ses;
+			dprintf_DEBUG("remote fail to open session %s\n", bi->name);
+			net_close_session(ses);
+			return NULL;
 		}
 
 		dst_sesid = resp.op.session_id;
@@ -309,10 +309,6 @@ bookkeeping:
 
 	dump_net_sessions();
 	return ses;
-
-close_ses:
-	net_close_session(ses);
-	return NULL;
 }
 
 static pthread_spinlock_t open_ses_lock;
@@ -387,7 +383,7 @@ legomem_open_session_local_mgmt(struct board_info *bi)
 int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 {
 	struct board_info *bi;
-	int ret;
+	int ret __maybe_unused;
 
 	bi = ses->board_info;
 
@@ -397,7 +393,7 @@ int legomem_close_session(struct legomem_context *ctx, struct session_net *ses)
 	 * established without contacting them (check __legomem_open_session).
 	 * For all other normal user sessions, we need to contact remote.
 	 */
-#ifdef TRANSPORT_USE_GBN
+#ifdef CONFIG_TRANSPORT_GBN
 	if (!test_management_session(ses)) {
 		struct legomem_open_close_session_req req;
 		struct legomem_open_close_session_resp resp;

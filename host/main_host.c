@@ -50,7 +50,7 @@ static void
 worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 {
 	struct lego_header *lego_hdr;
-	struct gbn_header *gbn_hdr;
+	struct gbn_header *gbn_hdr __maybe_unused;
 	uint16_t opcode;
 	struct routing_info *ri;
 
@@ -112,7 +112,7 @@ worker_handle_request_inline(struct thpool_worker *tw, struct thpool_buffer *tb)
 		 * It will become 0 -> X
 		 * (X is larger than 0)
 		 */
-#ifdef TRANSPORT_USE_GBN
+#ifdef CONFIG_TRANSPORT_GBN
 		gbn_hdr = to_gbn_header(tb->rx);
 		swap_gbn_session(gbn_hdr);
 #endif
