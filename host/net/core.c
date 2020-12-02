@@ -18,7 +18,12 @@
 int sysctl_link_mtu = 1500;
 
 struct raw_net_ops *raw_net_ops = &raw_verbs_ops;
+
+#ifdef CONFIG_TRANSPORT_GBN
 struct transport_net_ops *transport_net_ops = &transport_gbn_ops;
+#else
+struct transport_net_ops *transport_net_ops = &transport_rpc_ops;
+#endif
 
 /*
  * Create a session between @local_ei and @remote_ei.

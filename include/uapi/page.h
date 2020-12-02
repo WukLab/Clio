@@ -14,6 +14,11 @@
 #include <uapi/compiler.h>
 
 /*
+ * Parameter: virtual address space width in number of bits
+ */
+#define VIRTUAL_ADDR_SHIFT	(40)
+
+/*
  * Current smallest page size is 4M
  */
 #define PAGE_SHIFT		(22)
@@ -31,5 +36,7 @@
 
 /* test whether an address is aligned to PAGE_SIZE */
 #define PAGE_ALIGNED(addr)	IS_ALIGNED((unsigned long)(addr), PAGE_SIZE)
+
+#define NR_VIRTUAL_PAGES	((1UL)<<(VIRTUAL_ADDR_SHIFT - PAGE_SHIFT))
 
 #endif /* _LEGOFPGA_UAPI_H_ */

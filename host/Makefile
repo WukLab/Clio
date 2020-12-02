@@ -20,6 +20,7 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rw_inline.c \
 	     $(TP)/test_rw_fault.c \
 	     $(TP)/test_rw_multiboard.c \
+	     $(TP)/test_rw_presetup.c \
 	     $(TP)/test_kvs_simple.c \
 	     $(TP)/test_kvs_ycsb.c \
 	     $(TP)/test_pointer_chasing.c
@@ -49,7 +50,9 @@ C_SRCS := board.c \
 	net/transport_bypass.c \
 	net/transport_gbn.c \
 	net/transport_rpc.c \
-	api_kvs.c
+	api_kvs.c \
+	memory_model.c \
+	lib/bitmap.c
 	#net/raw_socket.c \
 	#net/raw_udp_socket.c \
 

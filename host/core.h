@@ -11,10 +11,12 @@
 #include <uapi/list.h>
 #include <uapi/err.h>
 #include <uapi/thpool.h>
+#include <sys/types.h>
 #include "net/net.h"
 #include <limits.h>
 #include <time.h>
 #include <pthread.h>
+#include <stdatomic.h>
 
 #include "config.h"
 #include "api.h"
@@ -452,6 +454,7 @@ int test_legomem_rw_multiboard(char *_unused);
 int test_run_ycsb(char *unused);
 int test_kvs_simple(char *_unused);
 int test_pointer_chasing(char *_unused);
+int test_legomem_rw_presetup(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
@@ -500,5 +503,13 @@ dump_legomem_vregion(struct legomem_context *ctx, struct legomem_vregion *v)
 	}
 	pthread_rwlock_unlock(&v->rwlock);
 }
+
+#define MEMORY_MODEL_OP_READ	(0)
+#define MEMORY_MODEL_OP_WRITE	(1)
+
+void mc_wait_and_set_dependency(struct session_net *ses,
+				unsigned long __remote addr, size_t total_size, int op);
+void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
+			 size_t total_size, int op);
 
 #endif /* _HOST_CORE_H_ */

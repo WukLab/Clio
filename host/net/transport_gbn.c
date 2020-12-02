@@ -20,10 +20,6 @@
 #include "net.h"
 #include "../core.h"
 
-#if 0
-#define CONFIG_GBN_DUMP_RX
-#endif
-
 bool stop_gbn_poll_thread = false;
 
 /*
@@ -679,7 +675,7 @@ retry:
 			ses_verbs->qp->qp_num, ses_verbs->rx_udp_port, packet_dump_str);
 	}
 
-#ifdef CONFIG_GBN_DUMP_RX
+#ifdef CONFIG_NETWORK_DUMP_RX
 	{
 		char packet_dump_str[256];
 		dump_packet_headers(recv_buf, packet_dump_str);

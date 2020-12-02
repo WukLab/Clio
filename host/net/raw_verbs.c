@@ -22,10 +22,6 @@
 #include "net.h"
 #include "../core.h"
 
-#if 0
-# define CONFIG_RAW_VERBS_DUMP_TX
-#endif
-
 int ib_port = 1;
 struct ibv_context *ib_context;
 struct ibv_pd *ib_pd;
@@ -190,7 +186,7 @@ __raw_verbs_send(struct session_net *ses_net,
 	} else
 		signaled = false;
 
-#ifdef CONFIG_RAW_VERBS_DUMP_TX
+#ifdef CONFIG_NETWORK_DUMP_TX
 	char packet_dump_str[256];
 	dump_packet_headers(buf, packet_dump_str);
 	dprintf_INFO("\033[32m TX signaled=%d QPN=%u pkt: %s size %zu \033[0m\n",
@@ -466,7 +462,9 @@ static void initial_post_recvs(struct session_raw_verbs *ses_verbs)
 			0, 0);
 	if (recv_buf == MAP_FAILED) {
 		perror("mmap");
-		dprintf_ERROR("Fail to allocate memory %d\n", errno);
+		dprintf_ERROR("Fail to allocate memory %d.\n"
+			      "This mmap requires hugepage. "
+			      "It is very likely you have not setup hugepage yet, please see prepare.sh\n", errno);
 		exit(0);
 	}
 

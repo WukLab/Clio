@@ -230,6 +230,14 @@ retry:
 			ses_verbs->rx_udp_port, packet_dump_str);
 	}
 
+#ifdef CONFIG_NETWORK_DUMP_RX
+	{
+		char packet_dump_str[256];
+		dump_packet_headers(recv_buf, packet_dump_str);
+		dprintf_CRIT("RX: %s size: %zu\n", packet_dump_str, recv_size);
+	}
+#endif
+
 	if (unlikely(test_management_session(ses_net)))
 		goto deliver;
 	

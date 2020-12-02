@@ -5,11 +5,7 @@
 #define _INCLUDE_UAPI_VREGION_
 
 #include <uapi/rbtree.h>
-
-/*
- * Parameter: virtual address space width in number of bits
- */
-#define VIRTUAL_ADDR_SHIFT	(40)
+#include <uapi/page.h>
 
 /*
  * Parameter: vRegion size in number of bits

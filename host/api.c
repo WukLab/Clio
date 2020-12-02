@@ -10,6 +10,7 @@
 #include <uapi/page.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -338,7 +339,7 @@ __legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 struct session_net *
 legomem_open_session(struct legomem_context *ctx, struct board_info *bi)
 {
-	pid_t tid = gettid();
+	pid_t tid = syscall(SYS_gettid);
 
 	/* This is user-visiable API, thus both mgmt options are false */
 	return __legomem_open_session(ctx, bi, tid, false, false);
@@ -607,7 +608,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	unsigned long __remote addr;
 	bool new_session;
 
-	tid = gettid();
+	tid = syscall(SYS_gettid);
 
 	/*
 	 * Step I:
@@ -819,7 +820,7 @@ struct session_net *__find_or_alloc_vregion_session(struct legomem_context *ctx,
 	struct session_net *ses;
 	pid_t tid;
 
-	tid = gettid();
+	tid = syscall(SYS_gettid);
 	ses = find_vregion_session(v, tid);
 	if (likely(ses))
 		return ses;
@@ -871,6 +872,20 @@ struct session_net *find_or_alloc_vregion_session(struct legomem_context *ctx,
 	return __find_or_alloc_vregion_session(ctx, v);
 }
 
+#ifdef CONFIG_ENABLE_FENCE
+static inline void inc_outstanding_req(atomic_int *counter)
+{
+	atomic_fetch_add(counter, 1);
+}
+static inline void dec_outstanding_req(atomic_int *counter)
+{
+	atomic_fetch_sub(counter, 1);
+}
+#else
+static inline void inc_outstanding_req(atomic_int *counter) { }
+static inline void dec_outstanding_req(atomic_int *counter) { }
+#endif
+
 int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session_net *ses,
 				     struct msg_buf *send_mb, void *recv_buf,
 				     unsigned long __remote addr, size_t total_size)
@@ -886,6 +901,8 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 	tx_lego = to_lego_header(req);
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
+
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 
 	nr_sent = 0;
 	do {
@@ -906,6 +923,7 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 		}
 		nr_sent++;
 	} while (total_size);
+	inc_outstanding_req(&ses->outstanding_reads);
 
 	/* Shift to start of payload */
 	recv_buf += sizeof(*resp);
@@ -934,6 +952,8 @@ int legomem_read_with_session_msgbuf(struct legomem_context *ctx, struct session
 		recv_buf += recv_size;
 #endif
 	}
+	dec_outstanding_req(&ses->outstanding_reads);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
 }
 
@@ -952,6 +972,8 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 	tx_lego = to_lego_header(req);
 	tx_lego->pid = ctx->pid;
 	tx_lego->opcode = OP_REQ_READ;
+
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 
 	nr_sent = 0;
 	do {
@@ -972,6 +994,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		}
 		nr_sent++;
 	} while (total_size);
+	inc_outstanding_req(&ses->outstanding_reads);
 
 	/* Shift to start of payload */
 	recv_buf += sizeof(*resp);
@@ -998,6 +1021,8 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		memcpy(recv_buf, resp->ret.data, recv_size);
 		recv_buf += recv_size;
 	}
+	dec_outstanding_req(&ses->outstanding_reads);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
 }
 
@@ -1041,6 +1066,8 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 	int i, ret, nr_sent;
 	void *send_buf;
 
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
+
 	send_buf = send_mb->buf;
 	nr_sent = 0;
 	do {
@@ -1077,6 +1104,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 		}
 		nr_sent++;
 	} while (total_size);
+	inc_outstanding_req(&ses->outstanding_writes);
 
 	/* Restore the original pointer */
 	send_mb->buf = send_buf;
@@ -1104,6 +1132,8 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 		}
 #endif
 	}
+	dec_outstanding_req(&ses->outstanding_writes);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 	return 0;
 }
 
@@ -1117,6 +1147,8 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 	struct lego_header *tx_lego;
 	struct lego_header *rx_lego __maybe_unused;
 	int i, ret, nr_sent;
+
+	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 
 	nr_sent = 0;
 	do {
@@ -1150,7 +1182,13 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 		}
 		nr_sent++;
 	} while (total_size);
+	inc_outstanding_req(&ses->outstanding_writes);
 
+	/*
+	 * TODO: We need to decrease the outstanding_writes counter
+	 * when we receive the write reply. Not sure "who" should
+	 * do that. Are we relying on app's polling?
+	 */
 	if (flag == LEGOMEM_WRITE_ASYNC)
 		return 0;
 
@@ -1174,6 +1212,8 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 		}
 #endif
 	}
+	dec_outstanding_req(&ses->outstanding_writes);
+	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 	return 0;
 }
 
@@ -1324,7 +1364,7 @@ int legomem_migration_vregion(struct legomem_context *ctx,
 	 * First close the original session with the old board,
 	 * then open a new session with new board.
 	 */
-	tid = gettid();
+	tid = syscall(SYS_gettid);
 	ses = find_vregion_session(v, tid);
 	if (!ses) {
 		dprintf_ERROR("Fail to find the original session associated "
@@ -1551,4 +1591,22 @@ int legomem_dist_barrier(void)
 	__legomem_dist_barrier();
 
 	return 0;
+}
+
+void legomem_mfence(struct session_net *ses)
+{
+    while (atomic_load(&ses->outstanding_reads) || atomic_load(&ses->outstanding_writes))
+	;
+}
+
+void legomem_rfence(struct session_net *ses)
+{
+    while (atomic_load(&ses->outstanding_reads))
+	;
+}
+
+void legomem_wfence(struct session_net *ses)
+{
+    while (atomic_load(&ses->outstanding_writes))
+	;
 }

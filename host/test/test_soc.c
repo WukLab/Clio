@@ -50,7 +50,7 @@ int test_legomem_soc(char *board_ip_port_str)
 	ses_net->board_ip = remote_board->board_ip;
 	ses_net->udp_port = remote_board->udp_port;
 	ses_net->board_info = remote_board;
-	ses_net->tid = gettid();
+	ses_net->tid = syscall(SYS_gettid);
 
 	set_local_session_id(ses_net, DEFAULT_TEST_SESSION);
 	set_remote_session_id(ses_net, DEFAULT_TEST_SESSION);
