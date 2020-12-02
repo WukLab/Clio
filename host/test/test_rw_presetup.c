@@ -29,8 +29,8 @@
 /* Knobs */
 #define NR_RUN_PER_THREAD 1000000
 
-static int test_nr_threads[] = { 8 };
-static int test_size[] = { 1024 };
+static int test_nr_threads[] = { 2 };
+static int test_size[] = { 32*1024 };
 //static int test_nr_threads[] = { 1 };
 
 static inline void die(const char * str, ...)
@@ -79,9 +79,11 @@ static void *thread_func_read(void *_ti)
 	dprintf_INFO("Using board %s\n", bi->name);
 
 	ses = legomem_open_session_remote_mgmt(bi);
-	send_buf = net_get_send_buf(ses);
+	//send_buf = net_get_send_buf(ses);
+	send_buf = malloc(128*1024);
+	net_reg_send_buf(ses, send_buf, 128*1024);
 
-	recv_buf = malloc(4096);
+	recv_buf = malloc(128*1024);
 
 	double latency;
 
@@ -89,7 +91,7 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
-#if 0
+#if 1
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		j = 0;
 		while (1) {
@@ -99,9 +101,10 @@ static void *thread_func_read(void *_ti)
 					(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 					(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-				dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns\n",
+				dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Tput: %lf Mpbs\n",
 					ti->id, j, size,
-					latency / j);
+					latency / j,
+					(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
 
 				clock_gettime(CLOCK_MONOTONIC, &s);
 				j = 0;
@@ -126,9 +129,10 @@ static void *thread_func_read(void *_ti)
 					(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 					(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-				dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns\n",
+				dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Tput: %lf Mbps\n",
 					ti->id, j, size,
-					latency / j);
+					latency / j,
+					(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
 
 				clock_gettime(CLOCK_MONOTONIC, &s);
 				j = 0;
