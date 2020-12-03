@@ -172,7 +172,7 @@ and these came close:
  hashlittle() has to dance around fitting the key bytes into registers.
 --------------------------------------------------------------------
 */
-static uint32_t hashword(
+static inline uint32_t hashword(
 const uint32_t *k,                   /* the key, an array of uint32_t values */
 size_t          length,               /* the length of the key, in uint32_ts */
 uint32_t        initval)         /* the previous hash, or an arbitrary value */
@@ -216,7 +216,7 @@ both be initialized with seeds.  If you pass in (*pb)==0, the output
 (*pc) will be the same as the return value from hashword().
 --------------------------------------------------------------------
 */
-static void hashword2 (
+static inline void hashword2 (
 const uint32_t *k,                   /* the key, an array of uint32_t values */
 size_t          length,               /* the length of the key, in uint32_ts */
 uint32_t       *pc,                      /* IN: seed OUT: primary hash value */
@@ -281,7 +281,7 @@ acceptable.  Do NOT use for cryptographic purposes.
 -------------------------------------------------------------------------------
 */
 
-static uint32_t hashlittle( const void *key, size_t length, uint32_t initval)
+static inline uint32_t hashlittle( const void *key, size_t length, uint32_t initval)
 {
   uint32_t a,b,c;                                          /* internal state */
   union { const void *ptr; size_t i; } u;     /* needed for Mac Powerbook G4 */
@@ -461,7 +461,7 @@ static uint32_t hashlittle( const void *key, size_t length, uint32_t initval)
  * the key.  *pc is better mixed than *pb, so use *pc first.  If you want
  * a 64-bit value do something like "*pc + (((uint64_t)*pb)<<32)".
  */
-static void hashlittle2( 
+static inline void hashlittle2( 
   const void *key,       /* the key to hash */
   size_t      length,    /* length of the key */
   uint32_t   *pc,        /* IN: primary initval, OUT: primary hash */
@@ -643,7 +643,7 @@ static void hashlittle2(
  * from hashlittle() on all machines.  hashbig() takes advantage of
  * big-endian byte ordering. 
  */
-static uint32_t hashbig( const void *key, size_t length, uint32_t initval)
+static inline uint32_t hashbig( const void *key, size_t length, uint32_t initval)
 {
   uint32_t a,b,c;
   union { const void *ptr; size_t i; } u; /* to cast key to (size_t) happily */
@@ -766,4 +766,3 @@ static uint32_t hashbig( const void *key, size_t length, uint32_t initval)
 }
 
 #endif  /* _LOOKUP3_H_ */
-

@@ -37,6 +37,11 @@ void parse_trace(const char *fname, int nr_max_ops, struct test_op *ops)
 
 }
 
+/*
+ * 1. alloc size
+ * 2. nr retry
+ * 3. policy?
+ */
 void test_vm_conflict(void)
 {
 	struct proc_info *pi;
@@ -54,24 +59,87 @@ void test_vm_conflict(void)
 	dump_procs();
 
 	/* Prepare ops from trace file */
-	nr_max_ops = 128;
+	nr_max_ops = 15000;
 	ops = malloc(nr_max_ops * sizeof(*ops));
 	if (!ops) {
 		printf("OoM\n");
 		return;
 	}
 
+	printf("Address space bits: %d. VREGION_SIZE bits: %d. NR_VREGIONS: %ld",
+		VIRTUAL_ADDR_SHIFT, VREGION_SIZE_SHIFT, NR_VREGIONS);
+
+#if 0
 	const char fname[] = "trace.txt";
 	parse_trace(fname, nr_max_ops, ops);
+#endif
 
-	/* Do the work */
 	for (i = 0; i < nr_max_ops; i++) {
 		op = ops + i;
-		if (op->op == OP_ALLOC) {
-			alloc_va(pi, op->len, 0);
-		} else if (op->op == OP_FREE) {
-			free_va(pi, op->start, op->len);
-		} else
-			BUG();
+		op->op = OP_ALLOC;
+		//op->len = VREGION_SIZE/2;
+		op->len = PAGE_SIZE;
 	}
+
+	/* Do the work */
+	unsigned long ret;
+	int nr_retry;
+	int sum_nr_retry = 0;
+	/* for (i = 0; i < nr_max_ops; i++) { */
+	/*         double util; */
+        /*  */
+	/*         op = ops + i; */
+	/*         if (op->op == OP_ALLOC) { */
+	/*                 ret = alloc_va(pi, op->len, 0, &nr_retry); */
+	/*                 sum_nr_retry += nr_retry; */
+        /*  */
+	/*                 util  = ((double)nr_allocated_ptes / (double)FPGA_NUM_TOTAL_PTES) * 100; */
+	/*                 printf("%d %#lx nr_retry=%d. PTE Util: %#ld / %#ld, %lf \%\n", i, ret, nr_retry, nr_allocated_ptes, FPGA_NUM_TOTAL_PTES, util); */
+        /*  */
+	/*                 if (ret == -ENOMEM) { */
+	/*                         printf("%s: this alloc cannot be satisfied. i=%d\n", __func__, i); */
+	/*                         break; */
+	/*                 } */
+	/*         } else if (op->op == OP_FREE) { */
+	/*                 free_va(pi, op->start, op->len); */
+	/*         } else */
+	/*                 BUG(); */
+	/* } */
+
+	int agg_nr_retry = 0;
+	long percent = 0;
+
+	i = 0;
+	while (1) {
+		double util;
+
+		op = ops;
+		ret = alloc_va(pi, PAGE_SIZE * 100, 0, &nr_retry);
+		sum_nr_retry += nr_retry;
+
+		util  = ((double)nr_allocated_ptes / (double)FPGA_NUM_TOTAL_PTES) * 100;
+		long t1 = (long)util;
+
+		//printf("%ld %ld %d\n", t1, percent, (t1==percent));
+		if (t1 == percent) {
+			agg_nr_retry += nr_retry;
+		} else {
+			printf("%ld,%d\n", percent, agg_nr_retry);
+			percent = (long)util;
+			agg_nr_retry = nr_retry;
+		}
+
+		//printf("%d %#lx nr_retry=%d. PTE Util: %#ld / %#ld, %lf \%\n", i, ret, nr_retry, nr_allocated_ptes, FPGA_NUM_TOTAL_PTES, util);
+		/* if (nr_retry) */
+		/*         printf("%ld,%d\n", (long)util, nr_retry); */
+
+		if (ret == -ENOMEM) {
+			printf("%s: this alloc cannot be satisfied. i=%d\n", __func__, i);
+			break;
+		}
+		i++;
+	}
+
+	printf("%s: total nr_retry=%d.\n", __func__, sum_nr_retry);
+	dump_shadow_pgtable_util();
 }

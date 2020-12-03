@@ -29,7 +29,7 @@ struct board_info *monitor_bi;
 /*
  * Depends on MTU: sysctl_link_mtu
  */
-int max_lego_payload ____cacheline_aligned = 1300;
+int max_lego_payload ____cacheline_aligned = 1344;
 
 /*
  * Allocate a new process-local legomem context.
@@ -282,7 +282,8 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		}
 
 		dst_sesid = resp.op.session_id;
-#else
+
+#elif defined(CONFIG_TRANSPORT_RPC)
 		/*
 		 * If connectionless rpc, there is no destination session,
 		 * so we will set dst_sesid the same as local session id
@@ -483,7 +484,7 @@ ask_monitor_for_new_vregion(struct legomem_context *ctx, size_t size,
 		return -EIO;
 	}
 
-	dprintf_INFO("Monitor replied %d %d\n", resp.op.board_ip, resp.op.udp_port);
+	dprintf_INFO("Monitor replied with newly allocated vregion=%d\n", resp.op.vregion_idx);
 
 	if (resp.op.ret) {
 		dprintf_ERROR("Monitor fail to pick a new vRegion %d\n",
@@ -617,7 +618,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 	 * will contact monitor.
 	 */
 	v = find_vregion_candidate(ctx, size);
-	if (v) {
+	if (NULL) {
 		vregion_idx = legomem_vregion_to_index(ctx, v);
 		board_ip = v->board_ip;
 		udp_port = v->udp_port;
@@ -680,8 +681,8 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		 * into the per-context session hashtable,
 		 * thus visiable to context_find_session() afterwards.
 		 */
-	dprintf_CRIT("NEW SESSION selected vregion_idx %u, mapped to board: %s new_session: %d\n",
-			vregion_idx, bi->name, new_session);
+		dprintf_CRIT("NEW SESSION selected vregion_idx %u, mapped to board: %s new_session: %d\n",
+				vregion_idx, bi->name, new_session);
 
 		ses = __legomem_open_session(ctx, bi, tid, false, false);
 		if (!ses) {
@@ -694,6 +695,7 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 
 	dprintf_CRIT("selected vregion_idx %u, mapped to board: %s new_session: %d\n",
 			vregion_idx, bi->name, new_session);
+
 	/*
 	 * Step III:
 	 *
@@ -988,16 +990,16 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		req->op.size = sz;
 
 		ret = net_send(ses, req, sizeof(*req));
-		if (unlikely(ret < 0)) {
-			dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
-			break;
-		}
+		//if (unlikely(ret < 0)) {
+		//	dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
+		//	break;
+		//}
 		nr_sent++;
 	} while (total_size);
 	inc_outstanding_req(&ses->outstanding_reads);
 
 	/* Shift to start of payload */
-	recv_buf += sizeof(*resp);
+	// recv_buf += sizeof(*resp);
 	for (i = 0; i < nr_sent; i++) {
 		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
 		if (unlikely(ret <= 0)) {
@@ -1008,7 +1010,10 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		/* Sanity Checks */
 		rx_lego = to_lego_header(resp);
 		if (unlikely(rx_lego->req_status != 0)) {
-			dprintf_ERROR("errno: req_status=%x\n", rx_lego->req_status);
+			dprintf_ERROR("errno: opcode %x, lego size %d, va %lx, size %d, req_status=%x addr=%#lx addr=%#lx\n",
+				rx_lego->opcode, rx_lego->size, resp->ret.va, resp->ret.size,
+				rx_lego->req_status, resp->ret.va, addr + i * max_lego_payload
+				);
 			continue;
 		}
 		if (unlikely(rx_lego->opcode != OP_REQ_READ_RESP)) {
@@ -1016,11 +1021,13 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 				legomem_opcode_str(rx_lego->opcode));
 			continue;
 		}
+
 		/* Minus header to get lego payload size */
 		recv_size -= sizeof(*resp);
 		memcpy(recv_buf, resp->ret.data, recv_size);
 		recv_buf += recv_size;
 	}
+
 	dec_outstanding_req(&ses->outstanding_reads);
 	mc_clear_dependency(ses, addr, total_size, MEMORY_MODEL_OP_READ);
 	return 0;
@@ -1103,6 +1110,7 @@ int __legomem_write_with_session_msgbuf(struct legomem_context *ctx, struct sess
 			break;
 		}
 		nr_sent++;
+
 	} while (total_size);
 	inc_outstanding_req(&ses->outstanding_writes);
 
@@ -1148,6 +1156,11 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 	struct lego_header *rx_lego __maybe_unused;
 	int i, ret, nr_sent;
 
+	if (unlikely(total_size > MAX_RECV_BUFFER_SIZE)) {
+		printf("Total size is larger than the total recv buffer size.\n");
+		return -EINVAL;
+	}
+
 	mc_wait_and_set_dependency(ses, addr, total_size, MEMORY_MODEL_OP_WRITE);
 
 	nr_sent = 0;
@@ -1174,6 +1187,9 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 			tx_lego->opcode = OP_REQ_WRITE;
 		else if (flag == LEGOMEM_WRITE_ASYNC)
 			tx_lego->opcode = OP_REQ_WRITE_NOREPLY;
+
+		//printf("write i = %d sz =%d va %#lx\n", nr_sent, sz, req->op.va);
+		//dump_hex(req+1, sz);
 
 		ret = net_send(ses, req, sz + sizeof(*req));
 		if (unlikely(ret < 0)) {

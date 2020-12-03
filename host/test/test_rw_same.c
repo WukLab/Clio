@@ -21,7 +21,7 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1000000
+#define NR_RUN_PER_THREAD 100000
 
 static int test_nr_threads[] = { 1};
 static int test_size[] = { 16 };
@@ -52,7 +52,6 @@ static void *thread_func_read(void *_ti)
 {
 	unsigned long __remote addr;
 	unsigned long size;
-	void *send_buf, *recv_buf;
 	int i, j, nr_tests;
 	struct timespec s, e;
 	struct thread_info *ti = (struct thread_info *)_ti;
@@ -68,15 +67,6 @@ static void *thread_func_read(void *_ti)
 	legomem_getcpu(&cpu, &node);
 	dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu);
 
-	/*
-	 * This is tunable
-	 *
-	 * Either 1) all threads use same addr
-	 * 2) each thread use their own addr
-	 *
-	 * Of course, for best perf, each thread should use
-	 * their own vregion, to avoid the hashtable search.
-	 */
 #if 0
 	addr = legomem_alloc(ctx, 4 * OneM, 0);
 #else
@@ -86,68 +76,53 @@ static void *thread_func_read(void *_ti)
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
 
-#if 1
+#define NR_CONNECTION (2000)
+	struct session_net *ses_array;
+	void *send_buf, *recv_buf;
+
+	ses_array = malloc(sizeof(*ses_array) * NR_CONNECTION);
+
 	send_buf = malloc(4096);
 	net_reg_send_buf(ses, send_buf, 4096);
-#else
-	bi = ses->board_info;
-	ses = legomem_open_session_remote_mgmt(bi);
-	send_buf = net_get_send_buf(ses);
-#endif
+
+	/* Create artificial connections */
+	int base_sesid = get_local_session_id(ses);
+	for (i = 0; i < NR_CONNECTION; i++) {
+		ses_array[i] = *ses;
+		ses_array[i].session_id = base_sesid + i;
+	}
 
 	recv_buf = malloc(4096);
 
-	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
-		size = test_size[i];
+
+	static int session_array[] = { 1, 4, 8, 16, 32, 64, 128, 200, 300, 400, 500, 600, 700, 800, 900, 1000};
+
+	for (i = 0; i < ARRAY_SIZE(session_array); i++) {
+		int NR_MAX_SESSION = session_array[i];
+		size = 16;
 		nr_tests = NR_RUN_PER_THREAD;
 
-		pthread_barrier_wait(&thread_barrier);
-
 #if 1
-		legomem_write_sync(ctx, send_buf, addr, 0x10);
-
-		clock_gettime(CLOCK_MONOTONIC, &s);
+		latency_read_ns[ti->id][i] = 0;
 		for (j = 0; j < nr_tests; j++) {
+			ses = &ses_array[j % NR_MAX_SESSION];
+
+			clock_gettime(CLOCK_MONOTONIC, &s);
+			//ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
 			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
 			if (unlikely(ret < 0)) {
-				dprintf_ERROR(
-					"thread id %d fail at %d, error code %d\n",
-					ti->id, j, ret);
-				break;
+				dprintf_ERROR("thread id %d fail at %d, error code %d\n", ti->id, j, ret);
+				exit(0);
 			}
+			clock_gettime(CLOCK_MONOTONIC, &e);
+
+			latency_read_ns[ti->id][i] += 
+				(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+				(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
 
-		latency_write_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu avg_write: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
-			latency_write_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_write_ns[ti->id][i] / j) * size * 8 / 1000000));
-#endif
-		pthread_barrier_wait(&thread_barrier);
-
-
-#if 1
-		clock_gettime(CLOCK_MONOTONIC, &s);
-		for (j = 0; j < nr_tests; j++) {
-			ret = legomem_read_with_session(ctx, ses,
-							send_buf, recv_buf, addr, size);
-			if (unlikely(ret < 0)) {
-				dprintf_ERROR(
-					"thread id %d fail at %d, error code %d\n",
-					ti->id, j, ret);
-				break;
-			}
-		}
-		clock_gettime(CLOCK_MONOTONIC, &e);
-
-		latency_read_ns[ti->id][i] =
-			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
-			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
-		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
+		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu nr_sessions: %d avg_read: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size, NR_MAX_SESSION,
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
@@ -174,7 +149,7 @@ int test_legomem_rw_same(char *_unused)
 		return -1;
 	dump_legomem_contexts();
 
-	global_base_addr = legomem_alloc(ctx, 16 * OneM, LEGOMEM_VM_FLAGS_POPULATE);
+	global_base_addr = legomem_alloc(ctx, 4096, LEGOMEM_VM_FLAGS_POPULATE);
 	if (global_base_addr < 0) {
 		dprintf_ERROR("Fail to legomem alloc%d\n", 0);
 		exit(9);
@@ -234,3 +209,4 @@ int test_legomem_rw_same(char *_unused)
 
 	return 0;
 }
+

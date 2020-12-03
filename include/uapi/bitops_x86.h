@@ -333,4 +333,17 @@ static __always_inline unsigned long __fls(unsigned long word)
 	    : "rm" (word));
 	return word;
 }
+
+static __always_inline int fls(unsigned int x)
+{
+	return x ? sizeof(x) * 8 - __builtin_clz(x) : 0;
+}
+
+static __always_inline int fls64(__u64 x)
+{
+	if (x == 0)
+		return 0;
+	return __fls(x) + 1;
+}
+
 #endif /* _LEGOMEM_UAPI_ARCH_X86_BITOPS_H_ */

@@ -40,7 +40,7 @@ static inline unsigned long vma_compute_gap(struct vm_area_struct *vma)
 	return gap;
 }
 
-#define CONFIG_DEBUG_VM_RB
+//#define CONFIG_DEBUG_VM_RB
 #ifdef CONFIG_DEBUG_VM_RB
 static unsigned long vma_compute_subtree_gap(struct vm_area_struct *vma)
 {
@@ -1134,8 +1134,10 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 
 	BUG_ON(!proc || !vi);
 
-	if (len > VREGION_SIZE)
+	if (len > VREGION_SIZE) {
+		printf("ERROR: len %#lx VREGION_SIZE %#x\n", len, VREGION_SIZE);
 		return -ENOMEM;
+	}
 
 	low_limit = vregion_to_start_va(proc, vi);
 	high_limit = vregion_to_end_va(proc, vi);
@@ -1152,8 +1154,10 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 	else
 		addr = __find_va_range_bottomup(proc, vi, &info);
 
-	if (addr > high_limit - len)
+	if (addr > high_limit - len) {
+		dprintf_DEBUG("Failed here addr %#lx\n", addr);
 		return -ENOMEM;
+	}
 	return addr;
 }
 
@@ -1166,8 +1170,10 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
  *
  * Return 0 Failure. Not -ENOMEM!!
  */
+unsigned int cached_vregion_start = 0;
+
 static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
-				unsigned long len, unsigned long vm_flags)
+				unsigned long len, unsigned long vm_flags, int *p_nr_retry)
 {
 	unsigned long addr;
 	bool has_conflict;
@@ -1188,8 +1194,14 @@ retry:
 	 */
 	addr = __find_va_range(proc, vi, len);
 	if (IS_ERR_VALUE(addr)) {
+#if 0
 		dprintf_ERROR("nr_retry=%d Fail to alloc VA range. PID %u vregion_idx %lu\n",
 			nr_retry, proc->pid, vregion_to_index(proc, vi));
+#endif
+		//printf("cached_vregion_start %d ++ NR_VREGIONS %d\n", cached_vregion_start, NR_VREGIONS);
+		cached_vregion_start++;
+		if (p_nr_retry)
+			*p_nr_retry = nr_retry;
 		return 0;
 	}
 
@@ -1202,21 +1214,16 @@ retry:
 	 * Step 2:
 	 * Check if above [addr, addr+len] mapped PTEs
 	 * can be allocated from the shadow pgtable.
+	 *
+	 * If there are conflicts, this function will insert that into VMA trees.
 	 */
 	has_conflict = check_and_insert_shadow_conflicts(proc, vi, addr,
 							 PAGE_SIZE, PAGE_SHIFT, /* XXX User defined? */
 							 len);
 	if (has_conflict) {
 		nr_retry++;
-		/*
-		 * XXX
-		 * which range?
-		 * only a page, or the whole?? Maybe a page is enough?
-		 */
-		vma_tree_new(proc, vi, addr, len, LEGOMEM_VM_FLAGS_CONFLICT);
-
-		dprintf_DEBUG("VA alloc Conflict [%#lx-%#lx] nr_retry: %d\n",
-			addr, addr + len, nr_retry);
+		dprintf_DEBUG("VA alloc Conflict [%#lx-%#lx] nr_retry: %d. nr_total_ptes: %d nr_allocated_ptes: %d\n",
+			addr, addr + len, nr_retry, FPGA_NUM_TOTAL_PTES, nr_allocated_ptes);
 		goto retry;
 	}
 
@@ -1228,20 +1235,25 @@ retry:
 	if (IS_ERR_VALUE(addr)) {
 		dprintf_ERROR("Fail to update VMA tree. PID %u vregion_idx %lu\n",
 			proc->pid, vregion_to_index(proc, vi));
+		if (p_nr_retry)
+			*p_nr_retry = nr_retry;
 		return 0;
 	}
 
 	alloc_fpga_pte_range(proc, addr, addr + len, vm_flags, PAGE_SIZE);
+	if (p_nr_retry)
+		*p_nr_retry = nr_retry;
+
 	return addr;
 }
 
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
-			       unsigned long len, unsigned long vm_flags)
+			       unsigned long len, unsigned long vm_flags, int *nr_retry)
 {
 	unsigned long addr;
 
 	pthread_spin_lock(&vi->lock);
-	addr = __alloc_va(proc, vi, len, vm_flags);
+	addr = __alloc_va(proc, vi, len, vm_flags, nr_retry);
 	pthread_spin_unlock(&vi->lock);
 
 	return addr;
@@ -1260,12 +1272,13 @@ int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 }
 
 unsigned long alloc_va(struct proc_info *proc, unsigned long len,
-		       unsigned long vm_flags)
+		       unsigned long vm_flags, int *p_nr_retry)
 {
 	struct vregion_info *vi;
 	unsigned long addr;
 	int nr_vregions;
 	int i;
+	int nr_retry = 0, nr_retry_sum = 0;
 
 	if (!len || !proc)
 		return -EINVAL;
@@ -1283,18 +1296,24 @@ unsigned long alloc_va(struct proc_info *proc, unsigned long len,
 		 * Instead of scanning the array, we should keep
 		 * a list of available vregions, i.e., assigned by monitor.
 		 */
-		for (i = 0; i < NR_VREGIONS; i++) {
+		for (i = (cached_vregion_start % NR_VREGIONS); i < NR_VREGIONS; i++) {
 			vi = proc->vregion + i;
-			addr = alloc_va_vregion(proc, vi, len, vm_flags);
-			if (!IS_ERR_VALUE(addr))
+			addr = alloc_va_vregion(proc, vi, len, vm_flags, &nr_retry);
+			nr_retry_sum += nr_retry;
+			if (!IS_ERR_OR_NULL((void *)addr)) {
+				if (p_nr_retry)
+					*p_nr_retry = nr_retry_sum;
 				return addr;
+			}
 		}
 	} else {
 		printf("TODO\n");
 		BUG();
 	}
 
-	return 0;
+	if (p_nr_retry)
+		*p_nr_retry = nr_retry_sum;
+	return -ENOMEM;
 }
 
 /*

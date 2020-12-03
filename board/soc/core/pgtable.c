@@ -26,6 +26,8 @@
 void *devmem_pgtable_base;
 void *devmem_pgtable_limit;
 
+unsigned long global_spare_pfn;
+
 static inline struct lego_mem_pte *
 shadow_to_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte)
 {
@@ -44,9 +46,10 @@ shadow_to_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte)
 
 static inline void dump_pte(struct lego_mem_pte *pte, unsigned long va, bool shadow)
 {
-	dprintf_DEBUG("Dump %s PTE(%#lx) va=%#lx ppa=%#lx alloc=%d valid=%d tag=%#lx\n",
-		shadow ? "Shadow" : "FPGA",
-		(u64)pte, (u64)va, (u64)pte->ppa, pte->allocated, pte->valid, pte->tag);
+        dprintf_DEBUG("Dump %s PTE(soc_va=%#lx, fpga_pa=%#lx) va=%#lx ppa=%#lx alloc=%d valid=%d tag=%#lx\n",
+                shadow ? "Shadow" : "FPGA",
+                (u64)pte, ((u64)pte-(u64)devmem_pgtable_base) + FPGA_MEMORY_MAP_PGTABLE_START,
+                (u64)va, (u64)pte->ppa, pte->allocated, pte->valid, pte->tag);
 }
 
 /* Free a PTE entry */
@@ -153,9 +156,18 @@ alloc_one_fpga_pte(struct proc_info *pi, struct lego_mem_pte *soc_shadow_pte,
 		order = get_order(page_size);
 		pfn = alloc_pfn(order);
 		if (!pfn) {
-			dprintf_ERROR("User asked to prepopulate pgtables. \n"
-				      "But we are OOM! order %d. va %#lx\n", order, addr);
-			return NULL;
+			if (vm_flags & LEGOMEM_VM_FLAGS_USE_SPARE_PFN) {
+				if (global_spare_pfn == 0) {
+					printf("Spare PFN not valid!\n");
+					return NULL;
+				}
+				pfn = global_spare_pfn;
+				dprintf_DEBUG("OOM, but use spare PFN: %#lx va. %#lx\n", pfn, addr);
+			} else {
+				dprintf_ERROR("User asked to prepopulate pgtables. \n"
+					      "But we are OOM! order %d. va %#lx\n", order, addr);
+				return NULL;
+			}
 		}
 
 		/*
@@ -233,11 +245,11 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 		 */
 		pte = alloc_one_shadow_pte(pi, start, PAGE_SHIFT);
 		if (!pte) {
-			dprintf_ERROR("Fail to alloc shadow PTE. addr%#lx\n", start);
+			//dprintf_ERROR("Fail to alloc shadow PTE. addr%#lx\n", start);
 			continue;
 		}
 
-		alloc_one_fpga_pte(pi, pte, start, vm_flags, page_size);
+		//alloc_one_fpga_pte(pi, pte, start, vm_flags, page_size);
 	}
 }
 
@@ -294,7 +306,17 @@ void setup_proc_fpga_pgtable(struct proc_info *pi)
 void init_fpga_pgtable(void)
 {
 	int i, nr_pte;
+	unsigned long pfn;
 
+	pfn = alloc_pfn(0);
+	if (!pfn) {
+		printf("Fail to prepare the spare global pfn.\n");
+		exit(0);
+	}
+	global_spare_pfn = pfn;
+	printf("The global spare PFN is: %#lx \n", global_spare_pfn);
+
+#ifndef CONFIG_ARCH_X86
 	/*
 	 * mmap a portion of fpga physical dram.
 	 * See zynq_regmap.h for more details.
@@ -309,6 +331,17 @@ void init_fpga_pgtable(void)
 		dprintf_ERROR("Fail to mmap /dev/mem ret %d\n", errno);
 		exit(1);
 	}
+#else
+	devmem_pgtable_base = mmap(0,
+				   FPGA_MEMORY_MAP_PGTABLE_SIZE,
+				   PROT_READ | PROT_WRITE,
+				   MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+	if (devmem_pgtable_base == MAP_FAILED) {
+		perror("mmap");
+		dprintf_ERROR("Fail to mmap /dev/mem ret %d\n", errno);
+		exit(1);
+	}
+#endif
 
 #if 0
 	test_pgtable_access();

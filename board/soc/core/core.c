@@ -741,7 +741,7 @@ static void gather_sysinfo(void)
  */
 int devmem_fd;
 
-static void open_devmem(void)
+void open_devmem(void)
 {
 	devmem_fd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (devmem_fd < 0) {
@@ -761,7 +761,6 @@ int main(int argc, char **argv)
 
 #if 0
 	test_vm();
-#endif
 
 	open_devmem();
 
@@ -773,12 +772,18 @@ int main(int argc, char **argv)
 	init_stat_mapping();
 	init_migration_setup();
 	init_tlbflush_setup();
+#endif
 
 	/* Init buddy allocator for FPGA physical memory. */
 	init_buddy();
 
 	init_fpga_pgtable();
 	init_shadow_pgtable();
+
+#if 1
+	test_vm_conflict();
+	exit(0);
+#endif
 
 	/*
 	 * Init all FREEPAGE fifos.
@@ -790,6 +795,7 @@ int main(int argc, char **argv)
 	 * Launch a polling thread for CTRL FIFOs.
 	 */
 	init_ctrl_polling();
+
 
 	/*
 	 * Run the polling thread on the last CPU.

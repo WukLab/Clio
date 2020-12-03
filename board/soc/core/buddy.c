@@ -342,6 +342,7 @@ void dump_buddy(void)
 
 static void init_devmem_mapping(void)
 {
+#ifndef CONFIG_ARCH_X86
 	void *p;
 
 	/*
@@ -363,6 +364,9 @@ static void init_devmem_mapping(void)
 	}
 
 	fpga_mem_start_soc_va = (unsigned long)p;
+#else
+	fpga_mem_start_soc_va = 0;
+#endif
 }
 
 int init_buddy(void)

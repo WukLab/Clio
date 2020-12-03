@@ -20,9 +20,7 @@
 
 #include "core.h"
 
-#ifdef CONFIG_ARCH_ARM64
 #include "dma.h"
-#endif
 
 
 void *global_tlbflush_req;
