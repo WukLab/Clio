@@ -15,8 +15,9 @@
 struct remote_mem_legomem {
     struct remote_mem rmem;
     struct legomem_context *ctx;
-    struct session_net sess;
+    struct session_net *sess;
     void * wbuf;
+
     unsigned long __remote addr[16];
 };
 
@@ -39,7 +40,8 @@ int rclose(struct remote_mem * _rmem) {
     return 0;
 }
 
-void * rcreatebuf (struct remote_mem * _rmem, size_t size) {
+void * rcreatebuf (struct remote_mem * _rmem, size_t size)
+{
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
     void * buf;
 
@@ -51,20 +53,30 @@ void * rcreatebuf (struct remote_mem * _rmem, size_t size) {
     return buf;
 }
 
-int rread (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size) {
+int rread (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
+{
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
-    return legomem_read(rmem->ctx, rmem->ses, rmem->wbuf, buf, rmem->addr[0]+addr, size);
+
+    return legomem_read_with_session(rmem->ctx, rmem->ses, rmem->wbuf, buf, rmem->addr[0]+addr, size);
 }
 
-int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size) {
+int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
+{
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
+
     return legomem_write_sync(rmem->ctx, buf, rmem->addr[1], addr, size);
 }
 
-int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size) {
-    struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
-	rmem->addr[addr] = legomem_alloc(rmem->ctx, size, 0);
+int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
+{
+	struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
+	rmem->addr[addr] = legomem_alloc(rmem->ctx, size, 0);
+	if (rmem->addr[addr] < 0) {
+		printf("legomem alloc failed\n");
+		exit(0);
+	}
 	rmem->ses = find_or_alloc_vregion_session(ctx, addr);
+
     return addr
 }

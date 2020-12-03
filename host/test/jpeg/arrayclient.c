@@ -7,13 +7,16 @@
 #include "rmem.h"
 #include "rarray.h"
 
+#include "../../core.h"
+
 const int buffer_size = 1024*1024*4;
 const int num_iter = 1024;
 
 static int job(void * sbuf, void *tbuf);
 
 // program
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     void *rbuf, *wbuf;
     struct remote_mem *rarray, *warray;
     struct timespec tstart={0,0}, tend={0,0};
@@ -39,6 +42,7 @@ int main(int argc, char *argv[]) {
             fread(jpg, 1, jpg_size, jpg_file);
             fclose(jpg_file);
 
+	    // XXX
             memcpy(buf, jpg, jpg_size);
             rarray_write(rarray, wbuf, i, jpg_size);
             return 0;
