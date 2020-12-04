@@ -29,6 +29,7 @@ int create_context(struct epinfo *ep, struct rdma_conn *conn) {
         printf("create context fail\n");
         return -1;
     }
+    return 0;
 }
 
 int create_qp(struct rdma_conn *conn) {
@@ -49,11 +50,12 @@ int create_qp(struct rdma_conn *conn) {
         printf("create qp fail\n");
         return -1;
     }
+    return 0;
 }
 
 int create_mr(struct rdma_conn *conn, size_t size, int access) {
 
-    int ret;
+    //int ret;
     void * buffer = malloc(size);
     struct ibv_mr *mr;
 

@@ -282,6 +282,11 @@ struct test_option test_options[] = {
 		.desc	= "test pointer chasing",
 		.func	= test_pointer_chasing,
 	},
+	{
+		.name	= "test_jpeg",
+		.desc	= "test jpeg",
+		.func	= test_jpeg,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)

@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "../core.h"
+#include "../../core.h"
 #include "rmem.h"
 
 struct remote_mem_legomem {
@@ -22,6 +22,7 @@ struct remote_mem_legomem {
 };
 
 struct remote_mem * rinit(int access, size_t size, void *args) {
+    struct remote_mem_legomem * rmem;
     rmem = (struct remote_mem_legomem *)calloc(1, sizeof(struct remote_mem_legomem));
     rmem->rmem.access = access;
 
@@ -47,7 +48,7 @@ void * rcreatebuf (struct remote_mem * _rmem, size_t size)
 
     // only the send size (wbuf) will call this
     buf = malloc(size);
-    net_reg_send_buf(rmem->ses, buf, size);
+    net_reg_send_buf(rmem->sess, buf, size);
     rmem->wbuf = buf;
 
     return buf;
@@ -57,14 +58,14 @@ int rread (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
-    return legomem_read_with_session(rmem->ctx, rmem->ses, rmem->wbuf, buf, rmem->addr[0]+addr, size);
+    return legomem_read_with_session(rmem->ctx, rmem->sess, rmem->wbuf, buf, rmem->addr[0]+addr, size);
 }
 
 int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
-    return legomem_write_sync(rmem->ctx, buf, rmem->addr[1], addr, size);
+    return legomem_write_sync(rmem->ctx, buf, rmem->addr[1] + addr, size);
 }
 
 int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
@@ -76,7 +77,7 @@ int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
 		printf("legomem alloc failed\n");
 		exit(0);
 	}
-	rmem->ses = find_or_alloc_vregion_session(ctx, addr);
+	rmem->sess = find_or_alloc_vregion_session(rmem->ctx, addr);
 
-    return addr
+    return addr;
 }

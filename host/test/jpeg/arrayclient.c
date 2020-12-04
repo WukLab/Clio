@@ -15,15 +15,20 @@ const int num_iter = 1024;
 static int job(void * sbuf, void *tbuf);
 
 // program
-int main(int argc, char *argv[])
+//int main(int argc, char *argv[])
+int test_jpeg(char *unused)
 {
     void *rbuf, *wbuf;
     struct remote_mem *rarray, *warray;
     struct timespec tstart={0,0}, tend={0,0};
 
-    parse_config(argc, argv);
+    //parse_config(argc, argv);
+
+    printf("Start test_jpeg func.. make sure you have monitor started\n");
 
     if (config.legomem) {
+
+	printf("1 before rinit -> legomem_open_context\n");
         rarray = rinit(RMEM_ACCESS_READ | RMEM_ACCESS_WRITE,  (size_t)1024*1024*1024, NULL);
         warray = rarray;
 
@@ -43,13 +48,14 @@ int main(int argc, char *argv[])
             fclose(jpg_file);
 
 	    // XXX
-            memcpy(buf, jpg, jpg_size);
-            rarray_write(rarray, wbuf, i, jpg_size);
+            memcpy(wbuf, jpg, jpg_size);
+            rarray_write(rarray, wbuf, 0, jpg_size);
             return 0;
         }
 
     } else {
         // create array
+	printf("2 before rinit -> legomem_open_context\n");
         rarray = rinit(RMEM_ACCESS_READ,  (size_t)1024*1024*1024, config.server_rdma_read_url);
         rbuf = rcreatebuf(rarray, buffer_size);
 
@@ -78,6 +84,7 @@ int main(int argc, char *argv[])
 
     printf("%lu\n", ns);
 
+    return 0;
 }
 
 // simple copy..

@@ -11,6 +11,8 @@
 #include <uapi/list.h>
 #include <uapi/err.h>
 #include <uapi/thpool.h>
+#include <uapi/bitmap.h>
+#include <uapi/bitops.h>
 #include <sys/types.h>
 #include "net/net.h"
 #include <limits.h>
@@ -455,6 +457,7 @@ int test_run_ycsb(char *unused);
 int test_kvs_simple(char *_unused);
 int test_pointer_chasing(char *_unused);
 int test_legomem_rw_presetup(char *_unused);
+int test_jpeg(char *unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
