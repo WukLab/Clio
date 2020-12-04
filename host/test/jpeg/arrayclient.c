@@ -26,12 +26,13 @@ int test_jpeg(char *unused)
 
     printf("Start test_jpeg func.. make sure you have monitor started\n");
 
-    if (config.legomem) {
-
+    //if (config.legomem) {
+    if (1) {
 	printf("1 before rinit -> legomem_open_context\n");
         rarray = rinit(RMEM_ACCESS_READ | RMEM_ACCESS_WRITE,  (size_t)1024*1024*1024, NULL);
         warray = rarray;
 
+	printf("1 before ralloc\n");
         ralloc(rarray, NULL, 0, 1024*1024);
         ralloc(rarray, NULL, 1, 1024*1024);
 

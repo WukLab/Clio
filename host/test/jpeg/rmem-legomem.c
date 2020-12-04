@@ -21,14 +21,23 @@ struct remote_mem_legomem {
     unsigned long __remote addr[16];
 };
 
-struct remote_mem * rinit(int access, size_t size, void *args) {
+struct remote_mem * rinit(int access, size_t size, void *args)
+{
     struct remote_mem_legomem * rmem;
+    struct legomem_context *p;
     rmem = (struct remote_mem_legomem *)calloc(1, sizeof(struct remote_mem_legomem));
     rmem->rmem.access = access;
 
+#if 1
 	rmem->ctx = legomem_open_context();
-	if (!rmem->ctx)
-		return NULL;
+#else
+	p = malloc(sizeof(*p));
+	init_legomem_context(p);
+	p->pid = 1;
+	add_legomem_context(p);
+	rmem->ctx = p;
+#endif
+
 	dump_legomem_contexts();
 
     return (struct remote_mem *)rmem;
