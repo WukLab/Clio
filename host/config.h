@@ -9,10 +9,10 @@
  * Once enabled, the system will dump all transmitted/received packets.
  * Use git grep to find where they are used.
  */
-#if 0
+#if 1
 # define CONFIG_NETWORK_DUMP_TX
 #endif
-#if 0
+#if 1
 # define CONFIG_NETWORK_DUMP_RX
 #endif
 

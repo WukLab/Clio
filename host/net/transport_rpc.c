@@ -146,6 +146,19 @@ refill_send_credit(struct per_board_send_state *send_state)
 	atomic_fetch_add(&send_state->send_credit, 1);
 }
 
+static __always_inline void
+prepare_legomem_header_for_rpc(void *packet, size_t packet_size,
+			       unsigned int src_sesid, unsigned int dst_sesid)
+{
+	struct lego_header *p;
+
+	p = to_lego_header(packet);
+	p->size = (uint16_t)(packet_size - LEGO_HEADER_OFFSET);
+
+	p->src_sesid = src_sesid;
+	p->dst_sesid = dst_sesid;
+}
+
 static int rpc_send_one(struct session_net *net, void *buf,
 			size_t buf_size, void *route)
 {
@@ -157,7 +170,7 @@ static int rpc_send_one(struct session_net *net, void *buf,
 	 * But placing here ensures all msgs are properly formatted.
 	 * And could even be used to catch buggy callers.
 	 */
-	prepare_legomem_header_with_sesid(buf, buf_size, net->session_id);
+	prepare_legomem_header_for_rpc(buf, buf_size, net->session_id, net->remote_session_id);
 
 	ses = (struct session_rpc *)net->transport_private;
 	BUG_ON(!ses);
@@ -224,8 +237,8 @@ retry:
 		ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 		dump_packet_headers(recv_buf, packet_dump_str);
 		dprintf_ERROR(
-			"RX wrong session. Calling session %u. Resp session %u. Verbs: qpn: %u rx_udp_port %u \n\n"
-			"\t pkt -> %s \n\n",
+			"RX wrong session. Local polling session %u. Resp session %u. Verbs: qpn: %u rx_udp_port %u \n\n"
+			"\t pkt -> %s \n",
 			get_local_session_id(ses_net), rpc_sesid, ses_verbs->qp->qp_num,
 			ses_verbs->rx_udp_port, packet_dump_str);
 	}

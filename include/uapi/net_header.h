@@ -301,18 +301,6 @@ prepare_legomem_header(void *packet, size_t packet_size)
 	p->size = (uint16_t)(packet_size - LEGO_HEADER_OFFSET);
 }
 
-static __always_inline void
-prepare_legomem_header_with_sesid(void *packet, size_t packet_size,
-				  unsigned int sesid)
-{
-	struct lego_header *p;
-
-	p = to_lego_header(packet);
-	p->size = (uint16_t)(packet_size - LEGO_HEADER_OFFSET);
-	p->src_sesid = sesid;
-	p->dst_sesid = sesid;
-}
-
 /**
  * Compute the IPv4 header checksum efficiently.
  * iph: ipv4 header

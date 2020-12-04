@@ -24,7 +24,7 @@ struct remote_mem_legomem {
 struct remote_mem * rinit(int access, size_t size, void *args)
 {
     struct remote_mem_legomem * rmem;
-    struct legomem_context *p;
+    struct legomem_context *p __maybe_unused;
     rmem = (struct remote_mem_legomem *)calloc(1, sizeof(struct remote_mem_legomem));
     rmem->rmem.access = access;
 

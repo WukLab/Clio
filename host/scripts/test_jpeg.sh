@@ -7,7 +7,7 @@ set -e
 board_ip="192.168.1.23:1234"
 
 monitor_port=10000
-monitor_ip="192.168.1.2"
+monitor_ip="192.168.1.5"
 
 if [ "$1" == "1" ]; then
 	./monitor.o \

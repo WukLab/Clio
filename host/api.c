@@ -282,7 +282,8 @@ ____legomem_open_session(struct legomem_context *ctx, struct board_info *bi,
 		}
 
 		dst_sesid = resp.op.session_id;
-#else
+
+#elif defined(CONFIG_TRANSPORT_RPC)
 		/*
 		 * If connectionless rpc, there is no destination session,
 		 * so we will set dst_sesid the same as local session id
