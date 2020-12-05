@@ -22,7 +22,7 @@ int test_jpeg(char *unused)
     struct remote_mem *rarray, *warray;
     struct timespec tstart={0,0}, tend={0,0};
 
-    //parse_config(argc, argv);
+    parse_config(0, NULL);
 
     printf("Start test_jpeg func.. make sure you have monitor started\n");
 
@@ -40,18 +40,22 @@ int test_jpeg(char *unused)
         wbuf = rcreatebuf(rarray, buffer_size);
 
         // one special client will write the cat image...
-        if (config.program != NULL) {
+        if (1) {
             int jpg_size = config.jpg_size;
             void * jpg = malloc(config.array_cell_size);
-            FILE *jpg_file = fopen("./data/cat.jpg", "r");
+            FILE *jpg_file = fopen("./test/jpeg/data/cat.jpg", "r");
+	    if (jpg_file == NULL) {
+	    	printf("no file find!\n");
+		exit(0);
+	    }
 
             fread(jpg, 1, jpg_size, jpg_file);
             fclose(jpg_file);
 
 	    // XXX
             memcpy(wbuf, jpg, jpg_size);
-            rarray_write(rarray, wbuf, 0, jpg_size);
-            return 0;
+            rarray_write(rarray, wbuf, 0, jpg_size, 0);
+            //return 0;
         }
 
     } else {
@@ -67,7 +71,7 @@ int test_jpeg(char *unused)
 
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     for (size_t i = 0; i < num_iter; i++) {
-        rarray_read(rarray, rbuf, i, config.jpg_size);
+        rarray_read(rarray, rbuf, 0, config.jpg_size, 0);
 
         // printf("get cat at %p, %02x %02x\n", rbuf, ((char*)rbuf)[0], ((char*)rbuf)[1]);
 
@@ -75,7 +79,7 @@ int test_jpeg(char *unused)
 
         // printf("decode size %d\n", output_size);
 
-        rarray_write(warray, wbuf, i, output_size);
+        rarray_write(warray, wbuf, 0, output_size, 0);
     }
     clock_gettime(CLOCK_MONOTONIC, &tend);
 

@@ -6,7 +6,7 @@
 // array apis
 #define RARRAY_SZ_CELL 0
 
-int rarray_read(struct remote_mem *mem, void * lbuf, size_t index, size_t size);
-int rarray_write(struct remote_mem *mem, void * lbuf, size_t index, size_t size);
+int rarray_read(struct remote_mem *mem, void * lbuf, size_t index, size_t size, int buffer_index);
+int rarray_write(struct remote_mem *mem, void * lbuf, size_t index, size_t size, int buffer_index);
 
 #endif

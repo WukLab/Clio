@@ -19,8 +19,8 @@ struct remote_mem * rinit(int access, size_t size, void *args);
 int rclose(struct remote_mem * rmem);
 
 void * rcreatebuf (struct remote_mem * rmem, size_t size);
-int rread (struct remote_mem * rmem, void *buf, uint64_t addr, size_t size);
-int rwrite (struct remote_mem * rmem, void *buf, uint64_t addr, size_t size);
+int rread (struct remote_mem * rmem, void *buf, uint64_t addr, size_t size, int buffer_index);
+int rwrite (struct remote_mem * rmem, void *buf, uint64_t addr, size_t size, int buffer_index);
 int ralloc (struct remote_mem * rmem, void *buf, uint64_t addr, size_t size);
 
 #endif

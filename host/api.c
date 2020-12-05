@@ -989,11 +989,11 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		req->op.size = sz;
 
 		ret = net_send(ses, req, sizeof(*req));
-		if (unlikely(ret < 0)) {
-			dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
-			break;
-		}
-		nr_sent++;
+		//if (unlikely(ret < 0)) {
+		//	dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
+		//	break;
+		//}
+		//nr_sent++;
 	} while (total_size);
 	inc_outstanding_req(&ses->outstanding_reads);
 

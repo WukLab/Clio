@@ -27,10 +27,10 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 1000000
+#define NR_RUN_PER_THREAD 1
 
 static int test_nr_threads[] = { 2 };
-static int test_size[] = { 32*1024 };
+static int test_size[] = { 1024 };
 //static int test_nr_threads[] = { 1 };
 
 static inline void die(const char * str, ...)

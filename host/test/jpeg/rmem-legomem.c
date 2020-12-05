@@ -63,30 +63,34 @@ void * rcreatebuf (struct remote_mem * _rmem, size_t size)
     return buf;
 }
 
-int rread (struct remote_mem * _rmem, void *rbuf, uint64_t addr, size_t size)
+int rread (struct remote_mem * _rmem, void *rbuf, uint64_t addr, size_t size, int buffer_index)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
     unsigned long raddr;
-    raddr = rmem->addr[0]+addr;
 
-    size = 1024;
+    raddr = rmem->addr[buffer_index]+addr;
+
     printf("rread: raddr %#lx size %#lx\n", raddr, size);
     return legomem_read_with_session(rmem->ctx, rmem->sess, rmem->wbuf, rbuf, raddr, size);
 }
 
-int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
+int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size, int buffer_index)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
+    unsigned long raddr;
 
-    return legomem_write_sync(rmem->ctx, buf, rmem->addr[1] + addr, size);
+    raddr = rmem->addr[buffer_index] + addr;
+
+    printf("rwrite: raddr %#lx size %#lx\n", raddr, size);
+    return legomem_write_sync(rmem->ctx, buf, raddr, size);
 }
 
 int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
 {
 	struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
-	rmem->addr[addr] = legomem_alloc(rmem->ctx, size, 0);
+	rmem->addr[addr] = legomem_alloc(rmem->ctx, size, LEGOMEM_VM_FLAGS_POPULATE);
 	if (rmem->addr[addr] < 0) {
 		printf("legomem alloc failed\n");
 		exit(0);

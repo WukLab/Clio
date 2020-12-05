@@ -179,9 +179,9 @@ static int rpc_send_one(struct session_net *net, void *buf,
 	if (unlikely(test_management_session(net)))
 		goto send;
 
-	ret = consume_send_credit(ses->send_state);
-	if (ret)
-		return ret;
+	//ret = consume_send_credit(ses->send_state);
+	//if (ret)
+	//	return ret;
 
 	set_send_timestamp(ses);
 send:
@@ -257,9 +257,9 @@ retry:
 	ses_rpc = (struct session_rpc *)ses_net->transport_private;
 	
 	delay_ns = get_last_delay(ses_rpc);
-	refill_send_credit(ses_rpc->send_state);
+	//refill_send_credit(ses_rpc->send_state);
 
-	adjust_send_window(ses_rpc->send_state, delay_ns);
+	//adjust_send_window(ses_rpc->send_state, delay_ns);
 
 deliver:
 	if (likely(zerocopy)) {
