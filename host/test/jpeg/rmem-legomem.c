@@ -63,11 +63,16 @@ void * rcreatebuf (struct remote_mem * _rmem, size_t size)
     return buf;
 }
 
-int rread (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
+int rread (struct remote_mem * _rmem, void *rbuf, uint64_t addr, size_t size)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
-    return legomem_read_with_session(rmem->ctx, rmem->sess, rmem->wbuf, buf, rmem->addr[0]+addr, size);
+    unsigned long raddr;
+    raddr = rmem->addr[0]+addr;
+
+    size = 1024;
+    printf("rread: raddr %#lx size %#lx\n", raddr, size);
+    return legomem_read_with_session(rmem->ctx, rmem->sess, rmem->wbuf, rbuf, raddr, size);
 }
 
 int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
@@ -86,7 +91,9 @@ int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
 		printf("legomem alloc failed\n");
 		exit(0);
 	}
-	rmem->sess = find_or_alloc_vregion_session(rmem->ctx, addr);
+	printf("ralloc: index: %ld, addr allocated: %#lx\n", addr, rmem->addr[addr]);
+
+	rmem->sess = find_or_alloc_vregion_session(rmem->ctx, rmem->addr[addr]);
 
     return addr;
 }

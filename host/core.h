@@ -43,7 +43,7 @@
 	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 #define dprintf_CRIT(fmt, ...) \
-	printf("\033[1;33m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 extern atomic_long	nr_online_hosts;
 extern atomic_long	nr_online_boards;

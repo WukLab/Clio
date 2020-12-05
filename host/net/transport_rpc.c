@@ -237,8 +237,8 @@ retry:
 		ses_verbs = (struct session_raw_verbs *)ses_net->raw_net_private;
 		dump_packet_headers(recv_buf, packet_dump_str);
 		dprintf_ERROR(
-			"RX wrong session. Local polling session %u. Resp session %u. Verbs: qpn: %u rx_udp_port %u \n\n"
-			"\t pkt -> %s \n",
+			"RX wrong session. Local polling session %u. Resp session %u. Verbs: qpn: %u rx_udp_port %u \n"
+			"\t Dumped pkt -> %s \n",
 			get_local_session_id(ses_net), rpc_sesid, ses_verbs->qp->qp_num,
 			ses_verbs->rx_udp_port, packet_dump_str);
 	}
