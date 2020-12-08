@@ -12,7 +12,7 @@
 #include "external.h"
 #include "buddy.h"
 
-#if 1
+#if 0
 # define LEGOMEM_DEBUG
 #endif
 

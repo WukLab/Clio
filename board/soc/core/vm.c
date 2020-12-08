@@ -1134,8 +1134,10 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 
 	BUG_ON(!proc || !vi);
 
-	if (len > VREGION_SIZE)
+	if (len > VREGION_SIZE) {
+		printf("ERROR: len %#lx VREGION_SIZE %#x\n", len, VREGION_SIZE);
 		return -ENOMEM;
+	}
 
 	low_limit = vregion_to_start_va(proc, vi);
 	high_limit = vregion_to_end_va(proc, vi);
@@ -1152,8 +1154,10 @@ unsigned long __find_va_range(struct proc_info *proc, struct vregion_info *vi,
 	else
 		addr = __find_va_range_bottomup(proc, vi, &info);
 
-	if (addr > high_limit - len)
+	if (addr > high_limit - len) {
+		dprintf_DEBUG("Failed here addr %#lx\n", addr);
 		return -ENOMEM;
+	}
 	return addr;
 }
 
@@ -1178,6 +1182,7 @@ static unsigned long __alloc_va(struct proc_info *proc, struct vregion_info *vi,
 	 * to cover a whole PTE range.
 	 */
 	len = PAGE_ALIGN(len);
+	//dprintf_DEBUG("len %#lx vregion sz %#lx\n", len, VREGION_SIZE);
 	BUG_ON(len > VREGION_SIZE);
 
 retry:
@@ -1214,9 +1219,7 @@ retry:
 		 * only a page, or the whole?? Maybe a page is enough?
 		 */
 		vma_tree_new(proc, vi, addr, len, LEGOMEM_VM_FLAGS_CONFLICT);
-
-		dprintf_DEBUG("VA alloc Conflict [%#lx-%#lx] nr_retry: %d\n",
-			addr, addr + len, nr_retry);
+		dprintf_INFO("VA alloc Conflict [%#lx-%#lx] nr_retry: %d\n", addr, addr + len, nr_retry);
 		goto retry;
 	}
 

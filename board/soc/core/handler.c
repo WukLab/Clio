@@ -237,7 +237,6 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 		struct lego_header lego_header;
 		struct op_read_migration op;
 	} *req;
-	int i, nr_rounds;
 
 	/* Get prepared DMA-able req */
 	req = get_migration_req();
@@ -268,6 +267,7 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	printf("%s: after sending migration dma to fpga...\n", __func__);
 
 #if 0
+	int i, nr_rounds;
 	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
 
 	struct timespec ts, te;
