@@ -21,7 +21,7 @@
 #define OneM 1024*1024
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 100000
+#define NR_RUN_PER_THREAD 1000000
 
 static int test_nr_threads[] = { 1};
 static int test_size[] = { 16 };
@@ -76,7 +76,7 @@ static void *thread_func_read(void *_ti)
 	ses = find_or_alloc_vregion_session(ctx, addr);
 	BUG_ON(!ses);
 
-#define NR_CONNECTION (2000)
+#define NR_CONNECTION (10)
 	struct session_net *ses_array;
 	void *send_buf, *recv_buf;
 
@@ -89,40 +89,32 @@ static void *thread_func_read(void *_ti)
 	int base_sesid = get_local_session_id(ses);
 	for (i = 0; i < NR_CONNECTION; i++) {
 		ses_array[i] = *ses;
-		ses_array[i].session_id = base_sesid + i;
+		ses_array[i]->session_id = base_sesid + i;
+
+		printf("i %d sesid %d\n", i, ses_array[i]->session_id);
 	}
 
 	recv_buf = malloc(4096);
 
-
-	static int session_array[] = { 1, 4, 8, 16, 32, 64, 128, 200, 300, 400, 500, 600, 700, 800, 900, 1000};
-
-	for (i = 0; i < ARRAY_SIZE(session_array); i++) {
-		int NR_MAX_SESSION = session_array[i];
-		size = 16;
+	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+		size = test_size[i];
 		nr_tests = NR_RUN_PER_THREAD;
 
 #if 1
-		latency_read_ns[ti->id][i] = 0;
 		for (j = 0; j < nr_tests; j++) {
-			ses = &ses_array[j % NR_MAX_SESSION];
+			ses = &ses_array[j % NR_CONNECTION];
 
 			clock_gettime(CLOCK_MONOTONIC, &s);
-			//ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
-			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
-			if (unlikely(ret < 0)) {
-				dprintf_ERROR("thread id %d fail at %d, error code %d\n", ti->id, j, ret);
-				exit(0);
-			}
+			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
 			clock_gettime(CLOCK_MONOTONIC, &e);
 
-			latency_read_ns[ti->id][i] += 
+			latency_read_ns[ti->id][i] =
 				(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 				(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 		}
 
-		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu nr_sessions: %d avg_read: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size, NR_MAX_SESSION,
+		dprintf_INFO("thread id %d nr_tests: %d read_size: %lu avg_read: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size,
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
 #endif
@@ -137,7 +129,7 @@ static void *thread_func_read(void *_ti)
  * 3) Collect latency numbers
  * 4) Change number of concurrent threads, repeat 1-3 steps.
  */
-int test_legomem_rw_same(char *_unused)
+int test_rw_same(char *_unused)
 {
 	int k, i, j, ret;
 	int nr_threads;
@@ -149,7 +141,7 @@ int test_legomem_rw_same(char *_unused)
 		return -1;
 	dump_legomem_contexts();
 
-	global_base_addr = legomem_alloc(ctx, 4096, LEGOMEM_VM_FLAGS_POPULATE);
+	global_base_addr = legomem_alloc(ctx, 16 * OneM, LEGOMEM_VM_FLAGS_POPULATE);
 	if (global_base_addr < 0) {
 		dprintf_ERROR("Fail to legomem alloc%d\n", 0);
 		exit(9);
@@ -209,4 +201,3 @@ int test_legomem_rw_same(char *_unused)
 
 	return 0;
 }
-

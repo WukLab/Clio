@@ -66,7 +66,7 @@ SRCS := $(C_SRCS)
 INCLUDE := -I../include
 CLIBS := -libverbs -lrt -pthread -ljpeg
 
-EXTRA_CFLAGS := -O2 -Wall
+EXTRA_CFLAGS := -O3 -Wall
 EXTRA_CFLAGS += -DCONFIG_ARCH_X86 -DCONFIG_PROFILING_POINTS
 EXTRA_CFLAGS += -rdynamic
 

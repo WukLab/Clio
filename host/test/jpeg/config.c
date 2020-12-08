@@ -44,7 +44,8 @@ int parse_config(int argc, char *argv[]) {
     config.server_rdma_write_url = "tcp://wuklab-01.ucsd.edu:5301";
 
     config.array_cell_size = 1024 * 1024;
-    config.jpg_size = 20016;
+    config.jpg_size = 20116;
+    //config.jpg_size = 1024;
 
     // parse arg
     int opt;

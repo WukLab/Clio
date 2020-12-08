@@ -515,4 +515,18 @@ void mc_wait_and_set_dependency(struct session_net *ses,
 void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
 			 size_t total_size, int op);
 
+static inline void dump_hex(void *buf, size_t size)
+{
+#define NR_PER_LINE	8
+	int i;
+	char *_buf = buf;
+
+	for (i = 0; i < size; i++) {
+		if (i % NR_PER_LINE == 0 && i > 0)
+			printf("\n");
+		printf("%02hhx ", _buf[i]);
+	}
+	printf("\n");
+}
+
 #endif /* _HOST_CORE_H_ */

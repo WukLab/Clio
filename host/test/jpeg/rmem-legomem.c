@@ -12,13 +12,17 @@
 #include "../../core.h"
 #include "rmem.h"
 
+#define NR_THREADS	(1024)
+
+unsigned long __remote global_addr[NR_THREADS][2];
+   
 struct remote_mem_legomem {
     struct remote_mem rmem;
     struct legomem_context *ctx;
-    struct session_net *sess;
-    void * wbuf;
+    struct session_net *sess[NR_THREADS];
+    void * wbuf[NR_THREADS];
 
-    unsigned long __remote addr[16];
+    unsigned long __remote addr[NR_THREADS][2];
 };
 
 struct remote_mem * rinit(int access, size_t size, void *args)
@@ -50,54 +54,57 @@ int rclose(struct remote_mem * _rmem) {
     return 0;
 }
 
-void * rcreatebuf (struct remote_mem * _rmem, size_t size)
+void * rcreatebuf (struct remote_mem * _rmem, size_t size, int thread_id)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
     void * buf;
 
     // only the send size (wbuf) will call this
     buf = malloc(size);
-    net_reg_send_buf(rmem->sess, buf, size);
-    rmem->wbuf = buf;
+    net_reg_send_buf(rmem->sess[thread_id], buf, size);
+    rmem->wbuf[thread_id] = buf;
 
     return buf;
 }
 
-int rread (struct remote_mem * _rmem, void *rbuf, uint64_t addr, size_t size, int buffer_index)
+int rread (struct remote_mem * _rmem, void *rbuf, uint64_t addr, size_t size, int buffer_index, int thread_id)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
     unsigned long raddr;
 
-    raddr = rmem->addr[buffer_index]+addr;
+    raddr = global_addr[thread_id][buffer_index] + addr;
 
-    printf("rread: raddr %#lx size %#lx\n", raddr, size);
-    return legomem_read_with_session(rmem->ctx, rmem->sess, rmem->wbuf, rbuf, raddr, size);
+    legomem_read_with_session(rmem->ctx, rmem->sess[thread_id], rmem->wbuf[thread_id], rbuf, raddr, size);
+
+    return 0;
 }
 
-int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size, int buffer_index)
+int rwrite (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size, int buffer_index, int thread_id)
 {
     struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
     unsigned long raddr;
 
-    raddr = rmem->addr[buffer_index] + addr;
+    raddr = global_addr[thread_id][buffer_index] + addr;
 
-    printf("rwrite: raddr %#lx size %#lx\n", raddr, size);
     return legomem_write_sync(rmem->ctx, buf, raddr, size);
 }
 
-int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size)
+int ralloc (struct remote_mem * _rmem, void *buf, uint64_t addr, size_t size, int thread_id)
 {
 	struct remote_mem_legomem * rmem = (struct remote_mem_legomem *)_rmem;
 
-	rmem->addr[addr] = legomem_alloc(rmem->ctx, size, LEGOMEM_VM_FLAGS_POPULATE);
-	if (rmem->addr[addr] < 0) {
+	rmem->addr[thread_id][addr] = legomem_alloc(rmem->ctx, size, LEGOMEM_VM_FLAGS_POPULATE);
+	if (rmem->addr[thread_id][addr] <= 0) {
 		printf("legomem alloc failed\n");
 		exit(0);
 	}
-	printf("ralloc: index: %ld, addr allocated: %#lx\n", addr, rmem->addr[addr]);
+	printf("ralloc: index: %ld, addr allocated: %#lx thread_id: %d\n",
+		addr, rmem->addr[thread_id][addr], thread_id);
 
-	rmem->sess = find_or_alloc_vregion_session(rmem->ctx, rmem->addr[addr]);
+	global_addr[thread_id][addr] = rmem->addr[thread_id][addr];
+
+	rmem->sess[thread_id] = find_or_alloc_vregion_session(rmem->ctx, rmem->addr[thread_id][addr]);
 
     return addr;
 }

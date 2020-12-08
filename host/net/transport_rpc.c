@@ -76,15 +76,18 @@ struct session_rpc {
 static __always_inline void
 set_send_timestamp(struct session_rpc *ses_rpc)
 {
+#if 0
 	unsigned int index;
 
 	index = atomic_fetch_add(&ses_rpc->ring_head, 1) % NR_LATENCY_INFO_SLOTS;
 	clock_gettime(CLOCK_MONOTONIC, &ses_rpc->latency_info_ring[index]);
+#endif
 }
 
 static __always_inline unsigned int
 get_last_delay(struct session_rpc *ses_rpc)
 {
+#if 0
 	unsigned int index;
 	unsigned int interval_ns;
 	struct timespec *s, e;
@@ -100,11 +103,15 @@ get_last_delay(struct session_rpc *ses_rpc)
 		interval_ns = e.tv_nsec + 1000000000 - s->tv_nsec + (e.tv_sec - s->tv_sec - 1) * 1000000000;
 	
 	return interval_ns;
+#else
+	return 0;
+#endif
 }
 
 static __always_inline int
 consume_send_credit(struct per_board_send_state *send_state)
 {
+#if 0
 	if (unlikely(atomic_fetch_sub(&send_state->send_credit, 1) < 1)) {
 		struct timespec s, e;
 		clock_gettime(CLOCK_MONOTONIC, &s);
@@ -120,6 +127,7 @@ consume_send_credit(struct per_board_send_state *send_state)
 			return -ETIMEDOUT;
 		}
 	}
+#endif
 	return 0;
 }
 
@@ -129,6 +137,7 @@ consume_send_credit(struct per_board_send_state *send_state)
  */
 static void adjust_send_window(struct per_board_send_state *send_state, unsigned int delay)
 {
+#if 0
 	if (delay < TARGET_DELAY_NS) {
 		if (atomic_load(&send_state->send_credit) < SEND_CREDIT_MAX)
 			atomic_fetch_add(&send_state->send_credit, ai);
@@ -138,12 +147,15 @@ static void adjust_send_window(struct per_board_send_state *send_state, unsigned
 		atomic_store(&send_state->send_credit,
 			     (int)(max(1 - beta * ((double)delta / (double)delay), md) * (double)cur_send_credit));
 	}
+#endif
 }
 
 static __always_inline void
 refill_send_credit(struct per_board_send_state *send_state)
 {
+#if 0
 	atomic_fetch_add(&send_state->send_credit, 1);
+#endif
 }
 
 static __always_inline void
@@ -163,7 +175,6 @@ static int rpc_send_one(struct session_net *net, void *buf,
 			size_t buf_size, void *route)
 {
 	struct session_rpc *ses;
-	int ret;
 
 	/*
 	 * This is not the best place to run this function.
@@ -179,9 +190,8 @@ static int rpc_send_one(struct session_net *net, void *buf,
 	if (unlikely(test_management_session(net)))
 		goto send;
 
-	//ret = consume_send_credit(ses->send_state);
-	//if (ret)
-	//	return ret;
+	if (consume_send_credit(ses->send_state))
+		return -ETIMEDOUT;
 
 	set_send_timestamp(ses);
 send:
@@ -225,6 +235,7 @@ retry:
 	/* sanity check */
 	rpc_sesid = lego_hdr->src_sesid;
 	rpc_ses_net = find_net_session(rpc_sesid);
+#if 0
 	if (unlikely(rpc_ses_net != ses_net)) {
 		char packet_dump_str[256];
 		struct session_raw_verbs *ses_verbs;
@@ -242,6 +253,7 @@ retry:
 			get_local_session_id(ses_net), rpc_sesid, ses_verbs->qp->qp_num,
 			ses_verbs->rx_udp_port, packet_dump_str);
 	}
+#endif
 
 #ifdef CONFIG_NETWORK_DUMP_RX
 	{
@@ -257,9 +269,9 @@ retry:
 	ses_rpc = (struct session_rpc *)ses_net->transport_private;
 	
 	delay_ns = get_last_delay(ses_rpc);
-	//refill_send_credit(ses_rpc->send_state);
+	refill_send_credit(ses_rpc->send_state);
 
-	//adjust_send_window(ses_rpc->send_state, delay_ns);
+	adjust_send_window(ses_rpc->send_state, delay_ns);
 
 deliver:
 	if (likely(zerocopy)) {
