@@ -97,7 +97,7 @@ static void *thread_func_read(void *_ti)
 	 *
 	 * => 2^7 (128) nr_pages to cover all physical memory
 	 */
-	static int nr_pte_array[] = {  2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 1<<11, 1<<12, 1<<13};
+	static int nr_pte_array[] = {  2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<16, 1<<17, 1<<18, 1<<19, 1<<20};
 	//static int nr_pte_array[] = {  2};
 
 	for (i = 0; i < ARRAY_SIZE(nr_pte_array); i++) {
@@ -110,10 +110,12 @@ static void *thread_func_read(void *_ti)
 		latency = 0;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			//addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
-			addr = global_base_addr;
-			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
-			//ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
+			addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
+			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
+			if (ret < 0) {
+				dprintf_ERROR("ret %d\n", ret);
+				exit(0);
+			}
 
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
@@ -121,7 +123,37 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d write_size: %lu nr_pte: %10d avg_read: %lf ns Throughput: %lf Mbps\n",
+		dprintf_INFO("thread id %d nr_tests: %d size: %lu nr_pte: %10d avg_WRITE: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size, NR_MAX_PTE,
+			latency / j,
+			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
+#endif
+	}
+
+	for (i = 0; i < ARRAY_SIZE(nr_pte_array); i++) {
+		int NR_MAX_PTE = nr_pte_array[i];
+		size = 16;
+#define NR_RUN_PER_THREAD 100000
+		nr_tests = NR_RUN_PER_THREAD;
+
+#if 1
+		latency = 0;
+		clock_gettime(CLOCK_MONOTONIC, &s);
+		for (j = 0; j < nr_tests; j++) {
+			addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
+			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
+			if (ret < 0) {
+				dprintf_ERROR("ret %d\n", ret);
+				exit(0);
+			}
+
+		}
+		clock_gettime(CLOCK_MONOTONIC, &e);
+		latency =
+			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+
+		dprintf_INFO("thread id %d nr_tests: %d size: %lu nr_pte: %10d avg_READ: %lf ns Throughput: %lf Mbps\n",
 			ti->id, j, size, NR_MAX_PTE,
 			latency / j,
 			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
