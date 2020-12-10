@@ -24,7 +24,7 @@ struct linkedlist {
 #define KEYBASE (0x00000000ABCD0000ULL)
 #define NR_MAX_ENTRIES (256)
 
-int test_pointer_chasing(char *_unused)
+int test_data_frame(char *_unused)
 {
 	struct legomem_context *ctx;
 	unsigned long __remote base_remote_va;
@@ -84,12 +84,12 @@ int test_pointer_chasing(char *_unused)
 	legomem_write_sync(ctx, buf, base_remote_va, ll_size);
 	legomem_read(ctx, buf, read_buf, base_remote_va, ll_size);
 
-	struct linkedlist *tmp = read_buf + sizeof(struct legomem_read_write_resp);
-	for (i = 0; i < NR_MAX_ENTRIES; i++) {
-		struct linkedlist *p = tmp + i;
-		printf("rd [%3d] key %#lx next %#lx value %#lx\n",
-			i, p->key, p->next, p->value);
-	}
+	/* struct linkedlist *tmp = read_buf + sizeof(struct legomem_read_write_resp); */
+	/* for (i = 0; i < NR_MAX_ENTRIES; i++) { */
+	/*         struct linkedlist *p = tmp + i; */
+	/*         printf("rd [%3d] key %#lx next %#lx value %#lx\n", */
+	/*                 i, p->key, p->next, p->value); */
+	/* } */
 
 	int chase_length[] = {4, 8, 16, 32, 64};
 

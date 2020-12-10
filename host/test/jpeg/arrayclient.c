@@ -68,7 +68,7 @@ static void *thread_func(void *_ti)
 	 * this test requires smaller vregion size
 	 * adjust at all 3 places: cn, monitor and soc core.o
 	 */
-	BUILD_BUG_ON(VREGION_SIZE != PAGE_SIZE);
+	BUG_ON(VREGION_SIZE != PAGE_SIZE);
 
 	// alloc read/write arrays per thread
 	ralloc(rarray, NULL, 0, VREGION_SIZE, ti->id);

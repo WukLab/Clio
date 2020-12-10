@@ -454,6 +454,7 @@ int test_kvs_simple(char *_unused);
 int test_pointer_chasing(char *_unused);
 int test_legomem_rw_presetup(char *_unused);
 int test_jpeg(char *unused);
+int test_data_frame(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,

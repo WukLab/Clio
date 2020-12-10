@@ -287,6 +287,11 @@ struct test_option test_options[] = {
 		.desc	= "test jpeg",
 		.func	= test_jpeg,
 	},
+	{
+		.name	= "test_dataframe",
+		.desc	= "test dataframe",
+		.func	= test_data_frame,
+	},
 };
 
 static struct test_option *find_test_option(const char *s)
