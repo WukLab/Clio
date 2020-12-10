@@ -475,6 +475,7 @@ static void prepare_onboard_va(void)
 		if (!addr) {
 			dprintf_ERROR("ERROR: fail to alloc for vregion_idx=%d, VA @[%#lx-%#lx]\n",
 				vregion_idx, addr, addr + size);
+			return;
 		} else {
 			dprintf_INFO("SUCCESS: allocated for PID %u  VA @[%#lx-%#lx] vregion_idx=%3d NR_PTES=%ld\n",
 				pid, addr, addr + size, vregion_idx, VREGION_SIZE/PAGE_SIZE);
@@ -507,7 +508,7 @@ static void *ctrl_poll_func(void *_unused)
 
 	//prepare_multiversion(rx, tx);
 	//prepare_100g_test();
-	prepare_onboard_va();
+	//prepare_onboard_va();
 
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
