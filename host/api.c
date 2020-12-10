@@ -1518,6 +1518,11 @@ int legomem_pointer_chasing(struct legomem_context *ctx,
 		return ret;
 	}
 #if 0
+	int ssize = (recv_size-sizeof(struct legomem_read_write_resp));
+	dprintf_INFO("reply size %zu\n", ssize);
+	dump_hex((resp+1), ssize);
+#endif
+#if 0
 	{
 		struct lego_header *rx_lego;
 		rx_lego = to_lego_header(resp);

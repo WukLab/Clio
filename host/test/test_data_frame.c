@@ -84,6 +84,9 @@ int test_data_frame(char *_unused)
 	legomem_write_sync(ctx, buf, base_remote_va, ll_size);
 	legomem_read(ctx, buf, read_buf, base_remote_va, ll_size);
 
+	/* dump_hex(read_buf, ll_size); */
+	/* printf("finished dumping readback data...\n"); */
+
 	/* struct linkedlist *tmp = read_buf + sizeof(struct legomem_read_write_resp); */
 	/* for (i = 0; i < NR_MAX_ENTRIES; i++) { */
 	/*         struct linkedlist *p = tmp + i; */
@@ -96,7 +99,7 @@ int test_data_frame(char *_unused)
 	//XXX
 	int valuesize = 8;
 
-#define NR_RUN_PER_TEST (10000)
+#define NR_RUN_PER_TEST (1)
 
 	for (i = 0; i < ARRAY_SIZE(chase_length); i++) {
 		int key_goal;
