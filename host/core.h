@@ -23,10 +23,6 @@
 #include "config.h"
 #include "api.h"
 
-#if 0
-# define LEGOMEM_DEBUG
-#endif
-
 #ifdef LEGOMEM_DEBUG
 # define dprintf_DEBUG(fmt, ...) \
 	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)

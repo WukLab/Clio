@@ -11,8 +11,14 @@
 
 #include "../../core.h"
 
+/*
+ * XXX Tune me
+ * The number of created threads
+ */
+static int test_nr_threads[] = { 25 };
+
 const int buffer_size = 1024*1024*4;
-const int num_iter = 1024*16;
+const int num_iter = 1024 * 4;
 
 static int job(void * sbuf, void *tbuf);
 
@@ -45,16 +51,24 @@ static void *thread_func(void *_ti)
 {
 	struct thread_info *ti = (struct thread_info *)_ti;
 	int cpu, node;
-	void *rbuf, *wbuf, *ibuf;
+	void *rbuf, *wbuf;
 	struct timespec tstart={0,0}, tend={0,0};
 
-	/** if (pin_cpu(ti->cpu)) */
-	/**         die("can not pin to cpu %d\n", ti->cpu); */
-	/** legomem_getcpu(&cpu, &node); */
-	/** dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu); */
+	if (pin_cpu(ti->cpu))
+		die("can not pin to cpu %d\n", ti->cpu);
+	legomem_getcpu(&cpu, &node);
+	dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu);
+	pthread_barrier_wait(&thread_barrier);
 
 	//usleep(ti->id * 5000);
 	sleep(ti->id);
+
+	/*
+	 * XXX
+	 * this test requires smaller vregion size
+	 * adjust at all 3 places: cn, monitor and soc core.o
+	 */
+	BUILD_BUG_ON(VREGION_SIZE != PAGE_SIZE);
 
 	// alloc read/write arrays per thread
 	ralloc(rarray, NULL, 0, VREGION_SIZE, ti->id);
@@ -78,7 +92,6 @@ static void *thread_func(void *_ti)
 
 	clock_gettime(CLOCK_MONOTONIC, &tstart);
 	for (size_t i = 0; i < num_iter; i++) {
-		// printf("Before read\n");
 
 	/** clock_gettime(CLOCK_MONOTONIC, &tstart); */
 		rarray_read(rarray, rbuf, 0, config.jpg_size, 0, ti->id);
@@ -160,8 +173,6 @@ int test_jpeg(char *unused)
 	if (!tid || !ti)
 		die("OOM");
 
-	static int test_nr_threads[] = { 50 };
-
 	for (k = 0; k < ARRAY_SIZE(test_nr_threads); k++) {
 		nr_threads = test_nr_threads[k];
 
@@ -202,7 +213,7 @@ static void job(void * sbuf, void *tbuf) {
 }
 #endif
 
-static int job(void * sbuf, void *tbuf) {
+__used static int job(void * sbuf, void *tbuf) {
 	struct jpeg_error_mgr jerr;
 	struct jpeg_decompress_struct cinfo;
 

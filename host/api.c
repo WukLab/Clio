@@ -644,7 +644,6 @@ legomem_alloc(struct legomem_context *ctx, size_t size, unsigned long vm_flags)
 		init_legomem_vregion(v);
 		v->board_ip = board_ip;
 		v->udp_port = udp_port;
-		dprintf_CRIT("idx %#lx v %#lx\n", vregion_idx, v);
 
 		/*
 		 * Insert newly allocated ones into HEAD

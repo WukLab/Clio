@@ -29,7 +29,6 @@
 /* Knobs */
 
 static int test_nr_threads[] = { 1 };
-static int test_size[] = { 0x30000 };
 //static int test_nr_threads[] = { 1 };
 
 static inline void die(const char * str, ...)
@@ -97,23 +96,23 @@ static void *thread_func_read(void *_ti)
 	 *
 	 * => 2^7 (128) nr_pages to cover all physical memory
 	 */
-	static int nr_pte_array[] = {  2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 1<<11, 1<<12, 1<<13};
+	static int nr_pte_array[] = {1,  1<<4, 1<<8, 1<<12, 1<<16, 1<<17, 1<<18, 1<<19, 1<<20, 1<<21, 1<<22};
 	//static int nr_pte_array[] = {  2};
 
 	for (i = 0; i < ARRAY_SIZE(nr_pte_array); i++) {
 		int NR_MAX_PTE = nr_pte_array[i];
 		size = 16;
-#define NR_RUN_PER_THREAD 100000
+#define NR_RUN_PER_THREAD 1024*1024
 		nr_tests = NR_RUN_PER_THREAD;
 
 #if 1
 		latency = 0;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			//addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
-			addr = global_base_addr;
-			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
-			//ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
+			addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
+			// addr = global_base_addr;
+			// ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
+			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
 
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
