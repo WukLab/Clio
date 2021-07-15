@@ -11,6 +11,7 @@
 #include <uapi/hashtable.h>
 
 #include <errno.h>
+#include <sys/mman.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,10 +66,14 @@ alloc_proc(unsigned int pid, char *proc_name, unsigned int host_ip)
 	struct proc_info *old;
 	unsigned key;
 
-	new = malloc(sizeof(*new));
-	if (!new)
+	new = mmap(0, sizeof(*new), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	if (new == MAP_FAILED) {
+		perror("mmap");
+		printf("%s: fail to alloc pi %lx\n", __func__, sizeof(*new));
 		return NULL;
+	}
 	init_proc_info(new);
+	printf("passed here\n");
 
 	new->pid = pid;
 

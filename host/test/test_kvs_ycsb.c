@@ -390,9 +390,9 @@ int legomem_setup(void)
 
 int test_run_ycsb(char *unused)
 {
-	//char *fname = "ycsb/workloada_parsed";
-	//char *fname = "ycsb/workloadb_parsed";
-	char *fname = "ycsb/workloadc_parsed";
+	//char *fname = "test/ycsb_datasets/workloada_parsed";
+	//char *fname = "test/ycsb_datasets/workloadb_parsed";
+	char *fname = "test/ycsb_datasets/workloadc_parsed";
 
 	int nr_boards, nr_threads;
 	int value_size;

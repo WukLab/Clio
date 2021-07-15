@@ -133,7 +133,8 @@ struct op_membership_new_node {
 #define LEGOMEM_VM_FLAGS_WRITE		(0x1)
 #define LEGOMEM_VM_FLAGS_POPULATE	(0x2)
 #define LEGOMEM_VM_FLAGS_ZERO		(0x4)
-#define LEGOMEM_VM_FLAGS_CONFLICT	(0x8) /* internal */
+#define LEGOMEM_VM_FLAGS_CONFLICT	(0x8)	/* internal */
+#define LEGOMEM_VM_FLAGS_USE_SPARE_PFN	(0x10)	/* internal */
 
 struct op_alloc_free {
 	unsigned long	addr;

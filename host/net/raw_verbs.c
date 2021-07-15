@@ -189,7 +189,7 @@ __raw_verbs_send(struct session_net *ses_net,
 #ifdef CONFIG_NETWORK_DUMP_TX
 	char packet_dump_str[256];
 	dump_packet_headers(buf, packet_dump_str);
-	dprintf_INFO("\033[32m TX signaled=%d QPN=%u pkt: %s size %zu \033[0m\n",
+	dprintf_INFO("TX: signaled=%d QPN=%u pkt: %s size %zu\n",
 		signaled, qp->qp_num, packet_dump_str, buf_size);
 #endif
 

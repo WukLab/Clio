@@ -94,7 +94,7 @@ repeat:
 	 * In case page fifo is not filled, or we are doing on-board test.
 	 * This is not normal use path anyway.
 	 */
-	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE | vm_flags);
+	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE | vm_flags, NULL);
 	if (unlikely(!addr)) {
 		dprintf_DEBUG("PID %u vregion_idx %u is full, move to next one.\n",
 			pi->pid, vregion_idx);
@@ -432,7 +432,7 @@ static void prepare_100g_test(void)
 	size = PAGE_SIZE * 8;
 	vregion_idx = 0;
 	vi = index_to_vregion(pi, vregion_idx);
-	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE);
+	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE, NULL);
 	if (!addr) {
 		dprintf_ERROR("Cannot allocate va vregion %d\n", vregion_idx);
 		return;
@@ -441,6 +441,45 @@ static void prepare_100g_test(void)
 	dprintf_INFO("\n\n"
 		"\t Testing module is safe to use PID %u  VA@[%#lx-%#lx]\n\n",
 		pid, addr, addr + size);
+}
+
+__used
+static void prepare_onboard_va(void)
+{
+	struct proc_info *pi;
+	pid_t pid;
+	unsigned long addr, size;
+	struct vregion_info *vi;
+	int vregion_idx;
+	unsigned long vm_flags;
+
+	pid = 1;
+	pi = alloc_proc(pid, NULL, 0);
+	if (!pi) {
+		dprintf_ERROR("Cannot allocate PID %d for testing\n", pid);
+		return;
+	}
+
+	/*
+	 * The key is to use SPARE_PFN.
+	 * It will reuse a reserved PFN if there is no physical memory left.
+	 * Just used for testing.
+	 */
+	vm_flags = LEGOMEM_VM_FLAGS_POPULATE | LEGOMEM_VM_FLAGS_USE_SPARE_PFN;
+
+	for (vregion_idx = 1; vregion_idx < NR_VREGIONS; vregion_idx++) {
+		size = VREGION_SIZE;
+		vi = index_to_vregion(pi, vregion_idx);
+
+		addr = alloc_va_vregion(pi, vi, size, vm_flags, NULL);
+		if (!addr) {
+			dprintf_ERROR("ERROR: fail to alloc for vregion_idx=%d, VA @[%#lx-%#lx]\n",
+				vregion_idx, addr, addr + size);
+		} else {
+			dprintf_INFO("SUCCESS: allocated for PID %u  VA @[%#lx-%#lx] vregion_idx=%3d NR_PTES=%ld\n",
+				pid, addr, addr + size, vregion_idx, VREGION_SIZE/PAGE_SIZE);
+		}
+	}
 }
 
 /*
@@ -468,6 +507,7 @@ static void *ctrl_poll_func(void *_unused)
 
 	//prepare_multiversion(rx, tx);
 	//prepare_100g_test();
+	prepare_onboard_va();
 
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
@@ -538,6 +578,7 @@ static void *ctrl_poll_func(void *_unused)
 
 int init_ctrl_polling(void)
 {
+#ifndef CONFIG_ARCH_X86
 	int ret;
 	pthread_t t;
 
@@ -546,5 +587,6 @@ int init_ctrl_polling(void)
 		dprintf_ERROR("Fail to launch CTRL poll func %d\n", ret);
 		exit(1);
 	}
+#endif
 	return 0;
 }

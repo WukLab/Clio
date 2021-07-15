@@ -8,6 +8,7 @@
 #include <uapi/list.h>
 #include <uapi/thpool.h>
 #include <fpga/pgtable.h>
+#include <fpga/lookup3.h>
 #include <fpga/lego_mem_ctrl.h>
 #include <fpga/fpga_memory_map.h>
 #include <stdio.h>
@@ -36,23 +37,24 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 void zap_shadow_pte(struct proc_info *pi, struct lego_mem_pte *pte,
 		    unsigned long page_size);
 
-// TODO replace this with lookup3
 static inline unsigned long
-hash_lower_bits(unsigned long fullTag, int shift)
+hash_lower_bits(unsigned long addr, int shift)
 {
-	return (fullTag >> shift) & ((0x1UL << FPGA_BUCKET_NUMBER_LENGTH) - 1);
+	uint32_t val1, val2;
+	unsigned long key;
+
+	key = addr >> shift;
+	val1 = hashlittle(&key, sizeof(key), 0);
+	val2 = val1 & ((0x1UL << FPGA_BUCKET_NUMBER_LENGTH) - 1);
+	//printf("%s addr %#lx shift %#lx val1 %#x val2 %#x\n", __func__, addr, shift, val1, val2);
+
+	return val2;
 }
 
 static inline unsigned int
 addr_to_bucket_index(unsigned long addr, unsigned long page_size_shift)
 {
-	unsigned int index;
-
-	/*
-	 * TODO: Hash function
-	 */
-	index = hash_lower_bits(addr, page_size_shift);
-	return index;
+	return hash_lower_bits(addr, page_size_shift);
 }
 
 static inline struct lego_mem_bucket *
@@ -162,5 +164,7 @@ bool check_and_insert_shadow_conflicts(struct proc_info *pi,
 				       unsigned long page_size,
 				       unsigned long page_size_shift,
 				       unsigned long len);
+
+void dump_shadow_pgtable_conflicts(void);
 
 #endif /* _PGTABLE_H_ */

@@ -672,7 +672,7 @@ static void handle_join_cluster(struct thpool_buffer *tb)
 	 * side network stack or sth.. need to compare monitor/host
 	 * difference.
 	 */
-#if 1
+#if 0
 	/*
 	 * Step 2:
 	 * Notify all other online nodes about this new born

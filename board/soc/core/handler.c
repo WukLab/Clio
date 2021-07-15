@@ -21,10 +21,7 @@
 #include <stdatomic.h>
 
 #include "core.h"
-
-#ifdef CONFIG_ARCH_ARM64
 #include "dma.h"
-#endif
 
 /*
  * Handle alloc/free requests from _host_.
@@ -156,7 +153,7 @@ void board_soc_handle_alloc_free(struct thpool_buffer *tb, bool is_alloc)
 			 * Normal case, requests came from hosts.
 			 */
 			vi = index_to_vregion(pi, vregion_idx);
-			addr = alloc_va_vregion(pi, vi, len, vm_flags);
+			addr = alloc_va_vregion(pi, vi, len, vm_flags, NULL);
 			if (unlikely(IS_ERR_VALUE(addr))) {
 				resp->op.ret = -ENOMEM;
 				resp->op.addr = 0xdeadbeef;
@@ -237,7 +234,6 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 		struct lego_header lego_header;
 		struct op_read_migration op;
 	} *req;
-	int i, nr_rounds;
 
 	/* Get prepared DMA-able req */
 	req = get_migration_req();
@@ -268,6 +264,7 @@ static void do_read_migration(pid_t pid, int dst_board_ip, unsigned int vregion_
 	printf("%s: after sending migration dma to fpga...\n", __func__);
 
 #if 0
+	int i, nr_rounds;
 	nr_rounds = VREGION_SIZE / READ_MIGRATION_SIZE;
 
 	struct timespec ts, te;
@@ -404,7 +401,7 @@ void board_soc_handle_migration_recv(struct thpool_buffer *tb)
 	 * make sure coremem pipeline is informed within.
 	 */
 	vi = index_to_vregion(pi, op->vregion_index);
-	addr = alloc_va_vregion(pi, vi, VREGION_SIZE, LEGOMEM_VM_FLAGS_POPULATE);
+	addr = alloc_va_vregion(pi, vi, VREGION_SIZE, LEGOMEM_VM_FLAGS_POPULATE, NULL);
 	if (IS_ERR_VALUE(addr)) {
 		dprintf_ERROR("Fail to prepare the vRegion %#lx\n", addr);
 		resp->op.ret = -ENOMEM;

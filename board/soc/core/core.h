@@ -12,7 +12,7 @@
 #include "external.h"
 #include "buddy.h"
 
-#if 1
+#if 0
 # define LEGOMEM_DEBUG
 #endif
 
@@ -35,10 +35,11 @@ extern int devmem_fd;
 
 /* VM */
 unsigned long alloc_va_vregion(struct proc_info *proc, struct vregion_info *vi,
-			       unsigned long len, unsigned long vm_flags);
+			       unsigned long len, unsigned long vm_flags, int *nr_retry);
 int free_va_vregion(struct proc_info *proc, struct vregion_info *vi,
 	    unsigned long start, unsigned long len);
-unsigned long alloc_va(struct proc_info *proc, unsigned long len, unsigned long vm_flags);
+unsigned long alloc_va(struct proc_info *proc, unsigned long len,
+		       unsigned long vm_flags, int *p_nr_retry);
 int free_va(struct proc_info *proc, unsigned long start, unsigned long len);
 int __free_va(struct proc_info *proc, struct vregion_info *vi,
 	      unsigned long start, unsigned long len);
@@ -103,5 +104,11 @@ void dump_boards(void);
 
 void handle_ctrl_freepage_ack(struct lego_mem_ctrl *rx,
 			      struct lego_mem_ctrl *tx);
+
+
+void test_vm_conflict(void);
+
+extern unsigned long nr_allocated_ptes;
+void dump_shadow_pgtable_util(void);
 
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

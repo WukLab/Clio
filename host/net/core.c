@@ -139,6 +139,12 @@ void __dump_packet_headers(void *packet, char *str_buf)
 		dst_ip, ntohs(udp->dst_port), get_gbn_dst_session(gbn),
 		gbn_pkt_type_str(gbn->type));
 #endif
+#ifdef CONFIG_TRANSPORT_RPC
+	DUMP_PR("ip:port:rpc %s:%u:%u->%s:%u:%u (%s) ",
+		src_ip, ntohs(udp->src_port), lego->src_sesid,
+		dst_ip, ntohs(udp->dst_port), lego->dst_sesid,
+		gbn_pkt_type_str(gbn->type));
+#endif
 
 	DUMP_PR("lego pid=%u tag=%#x opcode=%#x sesid=%u (%s)",
 		lego->pid, lego->tag, lego->opcode, lego->src_sesid,

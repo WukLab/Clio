@@ -11,6 +11,8 @@
 #include <uapi/list.h>
 #include <uapi/err.h>
 #include <uapi/thpool.h>
+#include <uapi/bitmap.h>
+#include <uapi/bitops.h>
 #include <sys/types.h>
 #include "net/net.h"
 #include <limits.h>
@@ -20,10 +22,6 @@
 
 #include "config.h"
 #include "api.h"
-
-#if 0
-# define LEGOMEM_DEBUG
-#endif
 
 #ifdef LEGOMEM_DEBUG
 # define dprintf_DEBUG(fmt, ...) \
@@ -41,7 +39,7 @@
 	printf("\033[1;31m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 #define dprintf_CRIT(fmt, ...) \
-	printf("\033[1;33m[%s/%s()/%d]: " fmt "\033[0m", __FILE__, __func__, __LINE__, __VA_ARGS__)
+	printf("[%s/%s()/%d]: " fmt, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 extern atomic_long	nr_online_hosts;
 extern atomic_long	nr_online_boards;
@@ -455,6 +453,8 @@ int test_run_ycsb(char *unused);
 int test_kvs_simple(char *_unused);
 int test_pointer_chasing(char *_unused);
 int test_legomem_rw_presetup(char *_unused);
+int test_jpeg(char *unused);
+int test_data_frame(char *_unused);
 
 int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type);
 int manually_add_new_node(unsigned int ip, unsigned int udp_port,
@@ -511,5 +511,19 @@ void mc_wait_and_set_dependency(struct session_net *ses,
 				unsigned long __remote addr, size_t total_size, int op);
 void mc_clear_dependency(struct session_net *ses, unsigned long __remote addr,
 			 size_t total_size, int op);
+
+static inline void dump_hex(void *buf, size_t size)
+{
+#define NR_PER_LINE	8
+	int i;
+	char *_buf = buf;
+
+	for (i = 0; i < size; i++) {
+		if (i % NR_PER_LINE == 0 && i > 0)
+			printf("\n");
+		printf("%02hhx ", _buf[i]);
+	}
+	printf("\n");
+}
 
 #endif /* _HOST_CORE_H_ */

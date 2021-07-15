@@ -59,7 +59,7 @@ void test_vm(void)
 			int idx;
 
 			idx = i * nr_allocs_per_vregion + j;
-			addr[idx] = alloc_va_vregion(pi, vi, alloc_size, 0);		
+			addr[idx] = alloc_va_vregion(pi, vi, alloc_size, 0, NULL);
 			if (!addr[idx]) {
 				dprintf_DEBUG("i %d j %d failed\n", i, j);
 				exit(0);

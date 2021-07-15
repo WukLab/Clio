@@ -67,6 +67,7 @@ static inline void print_backtrace(void)
 
 #define BUG()					\
 	do {					\
+		printf("Location: %s %s:%d\n", __FILE__, __func__, __LINE__); \
 		print_backtrace();		\
 		assert(0);			\
 	} while (0)

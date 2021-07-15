@@ -32,6 +32,8 @@
 
 void *soc_shadow_pgtable;
 
+unsigned long nr_allocated_ptes = 0;
+
 struct conflict_info {
 	struct list_head list;
 	struct proc_info *pi;
@@ -74,6 +76,7 @@ bool check_and_insert_shadow_conflicts(struct proc_info *pi,
 	unsigned long start, end;
 	struct shadow_bucket_info *info;
 	int index;
+	bool has_conflict;
 
 	/*
 	 * Both addr and len are page aligned,
@@ -82,8 +85,10 @@ bool check_and_insert_shadow_conflicts(struct proc_info *pi,
 	start = addr;
 	end = start + len;
 
+	has_conflict = false;
+
 	for ( ; start < end; start += page_size) {
-		index = addr_to_bucket_index(addr, page_size_shift);
+		index = addr_to_bucket_index(start, page_size_shift);
 		info = index_to_shadow_bucket_info(index);
 
 		if (unlikely(atomic_load(&info->nr_free) == 0)) {
@@ -100,13 +105,18 @@ bool check_and_insert_shadow_conflicts(struct proc_info *pi,
 			info->nr_conflicts++;
 			pthread_spin_unlock(&info->lock);
 
+			/*
+			 * Mark this page in the VMA tree.
+			 */
+			vma_tree_new(pi, vi, start, page_size, LEGOMEM_VM_FLAGS_CONFLICT);
+
 			dprintf_DEBUG("New conflict. index=%d insert: pid=%d addr=%#lx nr=%d\n",
 				index, pi->pid, start, info->nr_conflicts);
 
-			return true;
+			has_conflict = true;
 		}
 	}
-	return false;
+	return has_conflict;
 }
 
 static void free_all_conflicts(struct shadow_bucket_info *info)
@@ -166,6 +176,7 @@ void zap_shadow_pte(struct proc_info *pi, struct lego_mem_pte *pte,
 	info = index_to_shadow_bucket_info(index);
 
 	atomic_fetch_add(&info->nr_free, 1);
+	nr_allocated_ptes--;
 	free_all_conflicts(info);
 
 	pte->tag = 0;
@@ -212,9 +223,20 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 		pte->valid = 0;
 
 		atomic_fetch_sub(&info->nr_free, 1);
+		nr_allocated_ptes++;
 		return pte;
 	}
 	return NULL;
+}
+
+void dump_shadow_pgtable_conflicts(void)
+{
+	int i;
+	struct shadow_bucket_info *info;
+
+	for (i = 0; i < FPGA_NUM_PGTABLE_BUCKETS; i++) {
+		info = index_to_shadow_bucket_info(i);
+	}
 }
 
 int init_shadow_pgtable(void)
@@ -243,5 +265,17 @@ int init_shadow_pgtable(void)
 		(unsigned long)soc_shadow_pgtable,
 		(unsigned long)(soc_shadow_pgtable + FPGA_MEMORY_MAP_PGTABLE_SIZE));
 
+	dprintf_INFO("FPGA_NUM_PGTABLE_BUCKETS: %d, FPGA_NUM_PTE_PER_BUCKET: %d, total coverd physical size: %#lx\n",
+		FPGA_NUM_PGTABLE_BUCKETS, FPGA_NUM_PTE_PER_BUCKET,
+		(FPGA_NUM_PTE_PER_BUCKET * FPGA_NUM_PGTABLE_BUCKETS) * PAGE_SIZE);
+
 	return 0;
+}
+
+void dump_shadow_pgtable_util(void)
+{
+	double util;
+
+	util  = ((double)nr_allocated_ptes / (double)FPGA_NUM_TOTAL_PTES) * 100;
+	printf("PTE Util: %#ld / %#ld, %lf \%\n", nr_allocated_ptes, FPGA_NUM_TOTAL_PTES, util);
 }
