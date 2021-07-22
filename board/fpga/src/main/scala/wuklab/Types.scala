@@ -89,6 +89,7 @@ object LegoMem {
     def EP_MULTIVERSION = U"4'h3"
     def EP_KEYVALUE     = U"4'h3"
     def EP_POINTERCHASE = U"4'h4"
+    def EP_DATAFRAME    = U"4'h5"
     def EP_PINGPONG     = U"4'h6"
   }
 }
@@ -426,6 +427,64 @@ case class LegoMemAccessHeader(virtAddrWidth : Int) extends Bundle with Header[L
     bits
   }
 }
+
+// Data Frame
+case class DataFrameKernelParameter() extends Bundle {
+  val dfOp      = UInt(8 bits)
+  val parameter16 = UInt(16 bits)
+  val parameter32 = UInt(64 bits)
+}
+
+case class DataFrameHeader() extends Bundle with Header[DataFrameHeader]{
+  val header    = LegoMemHeader()
+  val addr      = UInt(64 bits)
+  val length    = UInt(32 bits)
+  val dfOp      = UInt(8 bits)
+  val flags     = UInt(8 bits)
+  val parameter16 = UInt(16 bits)
+  val parameter32 = UInt(64 bits)
+  val targetAddr = UInt(64 bits)
+
+  override val packedWidth = 256 + header.packedWidth
+  override def getSize = header.size
+  override def fromWiderBits(bits: Bits) = {
+    assert(bits.getWidth >= packedWidth)
+    val next = cloneOf(this)
+    next.header := LegoMemHeader.apply(bits)
+    next.addr   := bits(header.packedWidth, 64 bits).asUInt
+    next.length := bits(header.packedWidth + 64, 32 bits).asUInt
+    next.dfOp   := bits(header.packedWidth + 96, 8 bits).asUInt
+    next.flags  := bits(header.packedWidth + 104, 8 bits).asUInt
+    next.parameter16 := bits(header.packedWidth + 112, 16 bits).asUInt
+    next.parameter32 := bits(header.packedWidth + 128, 64 bits).asUInt
+    next.targetAddr  := bits(header.packedWidth + 196, 64 bits).asUInt
+    next
+  }
+  override def asBits: Bits = {
+    val bits = Bits(packedWidth bits)
+    bits := 0
+    bits.allowOverride
+    bits(0, header.packedWidth bits) := header.asBits
+    bits(header.packedWidth, 64 bits) := addr.asBits
+    bits(header.packedWidth + 64, 32 bits) := length.asBits
+    bits(header.packedWidth + 96, 8 bits)   := dfOp.asBits
+    bits(header.packedWidth + 104, 8 bits)  := flags.asBits
+    bits(header.packedWidth + 112, 16 bits) := parameter16.asBits
+    bits(header.packedWidth + 128, 64 bits) := parameter32.asBits
+    bits(header.packedWidth + 196, 64 bits) := targetAddr.asBits
+
+    bits
+  }
+
+  def toKernelParameter : DataFrameKernelParameter = {
+    val param = DataFrameKernelParameter()
+    param.dfOp := dfOp
+    param.parameter16 := parameter16
+    param.parameter32 := parameter32
+    param
+  }
+}
+
 
 case class PointerChasingHeader() extends Bundle with Header[PointerChasingHeader]{
   val header      = LegoMemHeader()

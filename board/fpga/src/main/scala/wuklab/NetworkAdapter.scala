@@ -176,8 +176,8 @@ class NetworkAdapter(implicit config : LegoMemConfig) extends Component {
     io.seq.dataOut.last := widthConverter.io.internal.dataOut.last
     val replacedFirst = LegoMemHeader.assignToBitsOperation(header => {
       header.destIp := headerStream.ip_source_ip
-      header.destPort := headerStream.source_port(7 downto 0)
-      header.srcPort := headerStream.dest_port(7 downto 0)
+      // header.destPort := 0
+      // header.srcPort := 0
     })(dataStreamIn.fragment)
     io.seq.dataOut.fragment := Mux(dataStreamIn.first, replacedFirst, dataStreamIn.fragment)
     io.seq.dataOut.valid := Mux(dataStreamIn.first, headerStream.valid && dataStreamIn.valid, dataStreamIn.valid)

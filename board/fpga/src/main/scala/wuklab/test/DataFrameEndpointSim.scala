@@ -1,16 +1,13 @@
 package wuklab.test
 
-import spinal.core._
+import scodec.bits.ByteVector
 import spinal.core.sim._
 import wuklab._
 import wuklab.sim._
-import scodec.bits.ByteVector
 
-import scala.util.Random
-
-object PointerChasingEndpointSim {
-  import SimConversions._
+object DataFrameEndpointSim {
   import CoreMemSimContext._
+  import SimConversions._
 
   // The struct is
   // {
@@ -18,14 +15,14 @@ object PointerChasingEndpointSim {
   //    next : uint64,
   //    value : uint64 -> 16 bytes
   // }
-  def pc_cmd(addr : Long, key : Long, useDepth : Boolean = false, depth : Int = 0) = pointerChasingHeaderCodec.encode(
+  def pc_cmd(addr : Long, key : Long, len : Int = 24, useDepth : Boolean = false, depth : Int = 0) = pointerChasingHeaderCodec.encode(
     PointerChasingHeaderSim(
       LegoMemHeaderSim(
         pid = 0xdead, tag = 0, reqType = 0x71, size = 80,
         destIp = 0x70a800a0, destPort = 2333, cont = 0xFF01
       ),
       addr = addr, key = key,
-      structSize = 24, valueSize = 16,
+      structSize = len, valueSize = 16,
       keyOffset = 0, valueOffset = 16, depth = depth,
       nextOffset = 1,
       useDepth = useDepth, linkValue = useDepth, useKey = useDepth
@@ -45,7 +42,7 @@ object PointerChasingEndpointSim {
 
   def main(args: Array[String]): Unit = {
     LegoMemSimConfig.doSim(
-      new PointerChasingEndpoint
+      new DataFrameEndpoint
     ) { dut =>
       dut.clockDomain.forkStimulus(5)
 
@@ -68,42 +65,30 @@ object PointerChasingEndpointSim {
         // Wait for ctrl to setup
         dut.clockDomain.waitRisingEdge(30)
 
-        println(f"Start testing, normal")
+        println(f"Start testing, filter")
 
-        {
-          val iter = 16
-          dataStream #= BitAxisDataGen(pc_cmd(0xcc1234, 0x1ab+iter-1))
+        for (i <- 2 until 32) {
+
+          dataStream #= BitAxisDataGen(pc_cmd(0xcc1234, 0, i * 64))
           dut.clockDomain.waitRisingEdge(30)
 
-          for (i <- 0 until iter)
-            dataStream #= BitAxisDataGen(rd_repl(0, section(0x1ab + i, 0x2cd + i, 0x3ef + i)))
+          dataStream #= BitAxisDataGen(rd_repl(0, ByteVector(
+            Array.fill(i * 64 - 64)(0).map(_.toByte) ++ Array.fill(64)(1).map(_.toByte)
+          )))
         }
+
         dut.clockDomain.waitRisingEdge(100)
 
         println(f"Start testing, Null")
 
-        {
-          val iter = 16
-          val iterNull = 5
-          dataStream #= BitAxisDataGen(pc_cmd(0xcc1234, 0x1ab+iter-1))
+        for (i <- 1 until 16) {
+          val data_len = i * 64
+          dataStream #= BitAxisDataGen(pc_cmd(0xcc1234, 1, data_len))
           dut.clockDomain.waitRisingEdge(30)
 
-          for (i <- 0 until iterNull)
-              dataStream #= BitAxisDataGen(rd_repl(0, section(0x1ab + i, 0x2cd + i, 0x3ef + i)))
-          dataStream #= BitAxisDataGen(rd_repl(0, section(0x1ab + iterNull, 0, 0x3ef + iterNull)))
+          dataStream #= BitAxisDataGen(rd_repl(0, ByteVector(Array.fill(data_len)(1).map(_.toByte))))
         }
-        dut.clockDomain.waitRisingEdge(100)
 
-        println(f"Start testing, depth")
-
-        {
-          val iter = 16
-          dataStream #= BitAxisDataGen(pc_cmd(0xcc1234, 0x1ab+iter, true, depth = iter))
-          dut.clockDomain.waitRisingEdge(30)
-
-          for (i <- 0 until iter)
-            dataStream #= BitAxisDataGen(rd_repl(0, section(0x1ab + i, 0x2cd + i, 0x3ef + i)))
-        }
         dut.clockDomain.waitRisingEdge(100)
       }
 
