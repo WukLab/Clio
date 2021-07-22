@@ -80,8 +80,10 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 set obj [get_filesets sources_1]
 set_property "ip_repo_paths" "
 	[file normalize "$origin_dir/../generated_ip"]
-	[file normalize "/data/ip/legomem"]
 	" $obj
+
+#	[file normalize "/data/ip/legomem"]
+
 update_ip_catalog -rebuild
 
 # Set 'sources_1' fileset object
