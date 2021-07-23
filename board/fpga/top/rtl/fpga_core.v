@@ -457,6 +457,11 @@ udp_complete_inst (
     .s_udp_ip_ecn               (tx_udp_ip_ecn),
     .s_udp_ip_ttl               (tx_udp_ip_ttl),
     .s_udp_ip_source_ip         (local_ip),
+
+    // HACK
+    // Due to our hack, the sender's IP must be 192.168.XX.XX
+    // The source UDP port is hardcoded to 1234.
+    // The dest UDP port will be the original packet's source port.
     .s_udp_ip_dest_ip           ({8'd192, 8'd168, tx_udp_ip_dest_ip[31: 16]}),
     .s_udp_source_port          (16'd1234),
     .s_udp_dest_port            (tx_udp_ip_dest_ip[15: 0]),
@@ -523,6 +528,11 @@ udp_complete_inst (
  * bundle input UDP header info
  * udp length at highest position,
  * src ip at lowest position
+ *
+ * HACK for Clio
+ * The source UDP port is saved into the higher portion of the source ip.
+ * We need this info when we send packets back!
+ * The raw Ethernet QP relies on UDP ports.
  */
 assign m_udp_hdr_data = {
     rx_udp_length - 8,  // sub size of udp header
@@ -531,6 +541,7 @@ assign m_udp_hdr_data = {
     rx_udp_ip_dest_ip,
     {rx_udp_ip_source_ip[15: 0], rx_udp_source_port}
 };
+
 // bundle output UDP header info
 assign {
     tx_udp_length,
@@ -541,4 +552,3 @@ assign {
 } = s_udp_hdr_data;
 
 endmodule
-
