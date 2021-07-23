@@ -2,7 +2,7 @@
 # Copyright (c) 2020, Wuklab, UCSD.
 #
 
-VIVADO = vivado
+VIVADO = /tools/Xilinx/Vivado/2019.1/bin/vivado
 FLAGS ?= release
 
 all:

@@ -15,7 +15,7 @@ TARGET_BOARD=zcu106
 HLS_IP=$1
 
 # Change the absolute path to your own one.
-VIVADO_HLS='vivado_hls'
+VIVADO_HLS=' /tools/Xilinx/Vivado/2019.1/bin/vivado_hls'
 
 # Hardcoded through projects
 GENERATED_HLS_PROJECT="generated_hls_project"

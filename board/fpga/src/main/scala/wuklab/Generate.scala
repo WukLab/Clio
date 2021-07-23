@@ -67,6 +67,7 @@ object KeyValueGenerateContext {
 
 //Define a custom SpinalHDL configuration with synchronous reset instead of the default asynchronous one. This configuration can be resued everywhere
 object MySpinalConfig extends SpinalConfig(
+  targetDirectory = "generated_rtl/",
   defaultConfigForClockDomains = ClockDomainConfig(
     resetKind = SYNC,
     resetActiveLevel = LOW
@@ -124,7 +125,7 @@ object MonitorRegistersReadGenerator {
   }
 }
 
-object MonitorRegisterWriteGenerator {
+object MonitorRegistersWriteGenerator {
   def main(args: Array[String]) {
     import GenerateContext._
     MySpinalConfig.generateVerilog(new monitor.MonitorRegisters(0, 3, BigInt("A000C000", 16)))
