@@ -936,4 +936,4 @@ set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files ex_sim.bd ]
 # Expose our relnet BD
 #
 ipx::package_project -root_dir ../generated_ip/net_top_relnet_zcu106 -vendor wuklab -library user -taxonomy UserIP -module relnet -import_files
-exit
+exit 0
