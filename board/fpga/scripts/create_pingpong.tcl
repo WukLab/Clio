@@ -10,7 +10,7 @@ import_files -force -norecurse
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1
 
-ipx::package_project  -root_dir ${IP_FOLDER}
+ipx::package_project  -root_dir ${PROJECT_FOLDER}
 set_property library {user} [ipx::current_core]
 set_property vendor_display_name {Wuklab} [ipx::current_core]
 set_property company_url {http://www.wuklab.io} [ipx::current_core]

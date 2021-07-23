@@ -7,6 +7,8 @@
 RTL_SRC=generated_rtl
 VERILOG_LIB_DIR=src/lib/verilog
 
+VIVADO = /tools/Xilinx/Vivado/2020.2/bin/vivado
+
 all: gen_rtl package_ip net vivado_top
 
 # Step 1: Generate RTL from Scala
@@ -21,12 +23,12 @@ gen_rtl gen:
 
 # Step 2: Package IPs
 package_ip ip:
-	vivado -mode tcl -source scripts/create_system.tcl
-	vivado -mode tcl -source scripts/create_pingpong.tcl
-	vivado -mode tcl -source scripts/create_monitor.tcl
-	vivado -mode tcl -source scripts/create_ip.tcl -tclargs kv_physcial $(RTL_SRC)/KeyValuePhysicalEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
-	vivado -mode tcl -source scripts/create_ip.tcl -tclargs kv_virtual  $(RTL_SRC)/KeyValueVirtualEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
-	# vivado -mode tcl -source scripts/create_ip.tcl -tclargs $(RTL_SRC)/kv_virtual  $(RTL_SRC)/kv_virtual.v  $(RTL_SRC)/legomem_system_lib.v
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_system.tcl
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_pingpong.tcl
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_monitor.tcl
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_physcial $(RTL_SRC)/KeyValuePhysicalEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_virtual  $(RTL_SRC)/KeyValueVirtualEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
+	#
 	# vivado -mode tcl -source scripts/create_ip.tcl -tclargs pointer_chasing pointer_chasing.v
 	# vivado -mode tcl -source scripts/create_ip.tcl -tclargs data_frame data_frame.v
 
