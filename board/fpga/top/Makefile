@@ -2,14 +2,16 @@
 # Copyright (c) 2020, Wuklab, UCSD.
 #
 
-VIVADO = /tools/Xilinx/Vivado/2019.1/bin/vivado
+.DEFAULT_GOAL := all
+
+VIVADO = /tools/Xilinx/Vivado/2020.2/bin/vivado
 FLAGS ?= release
 
 all:
-	$(VIVADO) -mode tcl -source scripts/run_vivado.tcl
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/run_vivado.tcl
 
 g:
-	$(VIVADO) generated_vivado_project/generated_vivado_project.xpr &
+	$(VIVADO) -nojournal -nolog generated_vivado_project/generated_vivado_project.xpr &
 
 clean:
 	find ./ -name "generated_hls_project" | xargs rm -rf

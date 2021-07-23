@@ -2,7 +2,7 @@ set IP_FOLDER generated_ip
 set PROJECT_FOLDER ${IP_FOLDER}/package_core_mem
 
 set SOURCE {
-    LegoMemSystemLib.v
+    src/lib/verilog/legomem_system_lib.v
     generated_rtl/LegoMemSystem.v
 }
 

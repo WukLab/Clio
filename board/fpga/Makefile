@@ -7,10 +7,10 @@
 RTL_SRC=generated_rtl
 VERILOG_LIB_DIR=src/lib/verilog
 
-all: gen_rtl package_ip net top
+all: gen_rtl package_ip net vivado_top
 
 # Step 1: Generate RTL from Scala
-gen_rtl:
+gen_rtl gen:
 	mkdir -p generated_rtl
 	sbt "runMain wuklab.LegoMemSystemGenerate"
 	sbt "runMain wuklab.MonitorRegistersGenerator"
@@ -20,7 +20,7 @@ gen_rtl:
 	sbt "runMain wuklab.KeyValueVirtualInterfaceGenerate"
 
 # Step 2: Package IPs
-package_ip:
+package_ip ip:
 	vivado -mode tcl -source scripts/create_system.tcl
 	vivado -mode tcl -source scripts/create_pingpong.tcl
 	vivado -mode tcl -source scripts/create_monitor.tcl
@@ -35,8 +35,8 @@ net:
 	make -C net_reliable
 
 # Step 4: Generate Top
-top:
-	make -C top
+vivado_top top:
+	make -C top all
 
 clean:
 	rm -rf generated_rtl/
