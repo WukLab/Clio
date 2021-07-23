@@ -1,10 +1,10 @@
 set IP_FOLDER generated_ip
-set PROJECT_NAME package_monitor_registers
+set PROJECT_NAME package_monitor_registers_read
 set PROJECT_FOLDER ${IP_FOLDER}/${PROJECT_NAME}
 
 create_project ${PROJECT_NAME} ${PROJECT_FOLDER} -part xczu7ev-ffvc1156-2-e -force
 
-add_files -norecurse generated_rtl/MonitorRegisters.v
+add_files -norecurse src/lib/verilog/MonitorRegistersRead.v
 import_files -force -norecurse
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1

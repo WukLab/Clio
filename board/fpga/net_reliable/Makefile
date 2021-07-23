@@ -5,7 +5,7 @@
 VIVADO = vivado
 GCC = gcc
 
-HLS_IP_CORES	:= hls_rx,hls_tx,state_table,setup_manager,hls_timer,tx_arbiter,unacked_buffer
+HLS_IP_CORES	:= hls_rx,hls_tx,state_table,setup_manager,hls_timer,tx_arbiter,unacked_buffer,broadcast_filter
 
 all:
 	$(Q)./generate_hls.sh $(HLS_IP_CORES)
