@@ -23,8 +23,8 @@ gen_rtl gen:
 
 # Step 2: Package IPs
 package_ip ip:
-	# $(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_system.tcl
-	# $(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_pingpong.tcl
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_system.tcl
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_pingpong.tcl
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_monitor_write.tcl
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_monitor_read.tcl
 	# $(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_physcial $(RTL_SRC)/KeyValuePhysicalEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v

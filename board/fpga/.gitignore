@@ -1,5 +1,4 @@
-project/project/
-project/metals.sbt
+project/
 
 generated_ip/
 generated_rtl/
