@@ -9,6 +9,23 @@ VERILOG_LIB_DIR=src/lib/verilog
 
 VIVADO = /tools/Xilinx/Vivado/2020.2/bin/vivado
 
+help h:
+	@echo ""
+	@echo "************************************************************************************"
+	@echo "Clio Build Help"
+	@echo ""
+	@echo "  [Default]"
+	@echo "    make or make all             -> Build everything sequentially"
+	@echo "         This include: gen_rtl, package_ip, net, and top"
+	@echo ""
+	@echo "  [Single Step]"
+	@echo "    make gen_rtl or make gen     -> Compile SpinalHDL into RTL"
+	@echo "    make package_ip or make ip   -> Package compiled RTL into Vivado IPs"
+	@echo "    make net                     -> Compile and package the reliable transport layer"
+	@echo "    make vivado_top or make top  -> Build the top Vivado"
+	@echo "************************************************************************************"
+	@echo ""
+
 all: gen_rtl package_ip net vivado_top
 
 # Step 1: Generate RTL from Scala
