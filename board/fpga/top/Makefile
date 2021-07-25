@@ -2,9 +2,10 @@
 # Copyright (c) 2020, Wuklab, UCSD.
 #
 
+include ../Makefile.mk
+
 .DEFAULT_GOAL := all
 
-VIVADO = /tools/Xilinx/Vivado/2020.2/bin/vivado
 FLAGS ?= release
 
 all:

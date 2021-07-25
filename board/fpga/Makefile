@@ -2,12 +2,12 @@
 # Copyright (c) 2020-2021, Wuklab, UCSD.
 #
 
+include Makefile.mk
+
 .DEFAULT_GOAL := all
 
 RTL_SRC=generated_rtl
 VERILOG_LIB_DIR=src/lib/verilog
-
-VIVADO = /tools/Xilinx/Vivado/2020.2/bin/vivado
 
 help h:
 	@echo ""
