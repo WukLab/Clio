@@ -1,12 +1,10 @@
 #
-# Copyright (c) 2020, Wuklab, UCSD.
+# Copyright (c) 2020-2021, Wuklab, UCSD.
 #
 
 include ../Makefile.mk
 
 .DEFAULT_GOAL := all
-
-FLAGS ?= release
 
 all:
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/run_vivado.tcl

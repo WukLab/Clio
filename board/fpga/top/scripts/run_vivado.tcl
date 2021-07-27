@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2020-2021, Wuklab, UCSD.
+#
+
 # Set the reference directory for source file relative paths (by default the value is script directory path)
 set origin_dir "."
 
@@ -249,6 +253,6 @@ set obj [get_filesets utils_1]
 # Set 'utils_1' fileset properties
 set obj [get_filesets utils_1]
 
-source scripts/legomem_system_release.tcl
+source scripts/legomem_system_no_relnet.tcl
 
 exit
