@@ -49,7 +49,7 @@ int ibdev2netdev(const char *ibdev, char *ndev, size_t ndev_buf_size)
 	struct dirent *dirp;
 	int ret;
 
-	sprintf(dev_dir, "/sys/class/infiniband/%s/device/net", ibdev);
+	snprintf(dev_dir, 128, "/sys/class/infiniband/%s/device/net", ibdev);
 
 	dp = opendir(dev_dir);
 	if (!dp)
@@ -91,13 +91,13 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 		unsigned char *mac)
 {
 	FILE *fp;
-	char ping_cmd[128];
-	char ip_neigh_cmd[128];
-	char line[1024];
+	char *ping_cmd;
+	char *ip_neigh_cmd;
+	char *line;
 	int ret;
-	unsigned char dev_mac[6];
 	char dev_ip_str[INET_ADDRSTRLEN];
 	int dev_ip;
+	unsigned char dev_mac[6];
 
 	if (ip == 0x7f000001) {
 		/*
@@ -112,7 +112,11 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	 * In case arp cache was empty,
 	 * we run ping to get it discovred.
 	 */
-	sprintf(ping_cmd, "ping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
+	ping_cmd = malloc(128);
+	ip_neigh_cmd = malloc(128);
+	line = malloc(1024);
+
+	snprintf(ping_cmd, 128, "ping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
 	fp = popen(ping_cmd, "r");
 	if (!fp) {
 		perror("popen ping");
@@ -120,7 +124,7 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	}
 	pclose(fp);
 
-	sprintf(ping_cmd, "arping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
+	snprintf(ping_cmd, 128, "arping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
 	fp = popen(ping_cmd, "r");
 	if (!fp) {
 		perror("popen arping");
@@ -128,7 +132,8 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	}
 	pclose(fp);
 
-	sprintf(ip_neigh_cmd, "ip neigh show %s", ip_str);
+	snprintf(ip_neigh_cmd, 128, "ip neigh show %s", ip_str);
+	printf("%s(): %s\n", __func__, ip_neigh_cmd);
 	fp = popen(ip_neigh_cmd, "r");
 	if (!fp) {
 		perror("popen ip neigh");
@@ -139,21 +144,30 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	 * The output format of: ip neight show <ip>
 	 * 192.168.1.5 dev p4p1 lladdr e4:1d:2d:e4:81:51 STALE
 	 */
-	ret = -1;
-	while (fgets(line, sizeof(line), fp)) {
-		char t_ip[32], t_d[8], t_name[32], t_a[8],
-		     t_status[8];
-
+	return 0;
+	while (fgets(line, 1024, fp)) {
+		char t_ip[32], t_d[32], t_name[32], t_a[32],
+		     t_status[32];
+		int tmp_mac[6];
+	
+		printf("%s(): %s\n", __func__, line);
 		sscanf(line, "%s %s %s %s %x:%x:%x:%x:%x:%x %s\n",
 		       t_ip, t_d, t_name, t_a,
-		       (unsigned int *)&mac[0], (unsigned int *)&mac[1],
-		       (unsigned int *)&mac[2], (unsigned int *)&mac[3],
-		       (unsigned int *)&mac[4], (unsigned int *)&mac[5],
+		       (int *)&tmp_mac[0], (int *)&tmp_mac[1],
+		       (int *)&tmp_mac[2], (int *)&tmp_mac[3],
+		       (int *)&tmp_mac[4], (int *)&tmp_mac[5],
 		       t_status);
-
+	
+		mac[0] = (char)tmp_mac[0];
+		mac[1] = (char)tmp_mac[1];
+		mac[2] = (char)tmp_mac[2];
+		mac[3] = (char)tmp_mac[3];
+		mac[4] = (char)tmp_mac[4];
+		mac[5] = (char)tmp_mac[5];
 		ret = 0;
 		break;
 	}
+	free(line);
 	pclose(fp);
 
 	/* We found one from ip neigh */
@@ -423,7 +437,7 @@ int manually_add_new_node(unsigned int ip, unsigned int udp_port,
 	/* Cook the name */
 	get_ip_str(ip, ip_str);
 	if (node_type == BOARD_INFO_FLAGS_BOARD) {
-		sprintf(new_name, "t_board_%s:%u", ip_str, udp_port);
+		snprintf(new_name, BOARD_NAME_LEN, "t_board_%s:%u", ip_str, udp_port);
 
 		atomic_fetch_add(&nr_online_boards, 1);
 	} else {
@@ -465,8 +479,11 @@ int manually_add_new_node_str(const char *ip_port_str, unsigned int node_type)
 {
 	int ip, port;
 	int ip1, ip2, ip3, ip4;
+	int ret;
 
 	sscanf(ip_port_str, "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
 	ip = ip1 << 24 | ip2 << 16 | ip3 << 8 | ip4;
-	return manually_add_new_node(ip, port, node_type);
+	ret = manually_add_new_node(ip, port, node_type);
+
+	return ret;
 }

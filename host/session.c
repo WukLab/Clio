@@ -98,8 +98,8 @@ void dump_net_sessions(void)
 	int bkt;
 	struct session_net *ses;
 	struct board_info *bi;
-	char ip_str[INET_ADDRSTRLEN];
-	char ip_port_str[20];
+	char ip_str[64];
+	char ip_port_str[64];
 
 	dprintf_CRIT("Dump All Sessions %d\n", 0);
 	printf("  bucket   ses_local    ses_remote   ip:port_remote       remote_name\n"); 
@@ -113,7 +113,7 @@ void dump_net_sessions(void)
 
 		bi = ses->board_info;
 		get_ip_str(ses->board_ip, ip_str);
-		sprintf(ip_port_str, "%s:%d", ip_str, bi ? bi->udp_port : 0);
+		snprintf(ip_port_str, 64, "%s:%d", ip_str, bi ? bi->udp_port : 0);
 
 		printf("  %-8d %-12u %-12u %-20s %-30s\n",
 			bkt,

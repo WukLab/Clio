@@ -77,7 +77,7 @@ EXTRA_CFLAGS += -rdynamic
 #
 #EXTRA_CFLAGS += -DCONFIG_DEBUG_STAT -DCONFIG_DEBUG_WATCHDOG
 
-CFLAG_DISABLE_WARN := -Wno-stringop-truncation -Wno-unused-but-set-variable
+CFLAG_DISABLE_WARN := -Wno-stringop-truncation -Wno-unused-but-set-variable -Wno-address-of-packed-member -Wno-format-truncation
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g
@@ -85,8 +85,8 @@ DEBUG := -g
 
 all: $(SRCS) 
 	gcc $(DEBUG) $(EXTRA_CFLAGS) -o host.o $(INCLUDE) main_host.c $(SRCS) $(TEST_SRCS) $(CLIBS)
-	gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
-	gcc -o test/test_rdma_mr.o test/test_rdma_mr.c $(CLIBS)
+	# gcc $(DEBUG) $(EXTRA_CFLAGS) -o monitor.o $(INCLUDE) main_monitor.c $(SRCS) $(CLIBS)
+	# gcc -o test/test_rdma_mr.o test/test_rdma_mr.c $(CLIBS)
 	#gcc $(DEBUG) $(EXTRA_CFLAGS) -o board_emulator.o $(INCLUDE) main_board.c $(SRCS) $(BOARD_SRCS) $(CLIBS)
 
 clean:

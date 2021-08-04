@@ -214,8 +214,8 @@ find_board(unsigned int ip, unsigned int port)
 void dump_boards(void)
 {
 	struct board_info *bi;
-	char ip_str[INET_ADDRSTRLEN];
-	char ip_port_str[20];
+	char ip_str[64];
+	char ip_port_str[64];
 	int i;
 
 	dprintf_CRIT("Dump All Boards (nr_max_board_id %d)\n", nr_max_board_id);
@@ -225,10 +225,10 @@ void dump_boards(void)
 	pthread_rwlock_rdlock(&board_lock);
 	for (i = 0; i <= nr_max_board_id; i++) {
 		bi = board_info_map + i;
-
+	
 		get_ip_str(bi->board_ip, ip_str);
-		sprintf(ip_port_str, "%s:%d", ip_str, bi->udp_port);
-
+		snprintf(ip_port_str, 64, "%s:%d", ip_str, bi->udp_port);
+	
 		printf("  %-10d %-30s %-20s %-10s\n",
 			bi->board_id, bi->name, ip_port_str,
 			board_info_type_str(bi->flags));
