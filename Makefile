@@ -66,6 +66,7 @@ PHONY += tags
 tags:
 	ctags -R --exclude="generated_vivado_project" \
 		 --exclude="generated_ip" \
+		 --exclude="board/fpga/generated_rtl" \
 		 --exclude="generated_hls_project" \
 		 --exclude="board/soc/linux/golden"
 

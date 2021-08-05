@@ -19,6 +19,8 @@
  * Request/Response Packet Layout:
  * [ETH/IP/UDP/GBN/Lego/op_kvs_req/value../]
  *
+ * (If we use RPC interface there won't be any GBN headers)
+ *
  * We are using lego->opcode field for KVS opcodes as well.
  * op_kvs_req describes kv pairs. Please refer to include/uapi/opcode.h.
  */

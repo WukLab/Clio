@@ -44,8 +44,8 @@ package_ip ip:
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_pingpong.tcl
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_monitor_write.tcl
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_monitor_read.tcl
-	# $(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_physcial $(RTL_SRC)/KeyValuePhysicalEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
-	# $(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_virtual  $(RTL_SRC)/KeyValueVirtualEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_physcial $(RTL_SRC)/KeyValuePhysicalEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
+	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_ip.tcl -tclargs kv_virtual  $(RTL_SRC)/KeyValueVirtualEndpoint.v $(VERILOG_LIB_DIR)/legomem_system_lib.v
 	#
 	# vivado -mode tcl -source scripts/create_ip.tcl -tclargs pointer_chasing pointer_chasing.v
 	# vivado -mode tcl -source scripts/create_ip.tcl -tclargs data_frame data_frame.v
