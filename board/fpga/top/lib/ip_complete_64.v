@@ -202,8 +202,14 @@ wire arp_tx_eth_payload_axis_tuser;
 
 /*
  * Input classifier (eth_type)
+ *
+ * HACK by Yizhou Shan
+ * This is the input path. We allow normal 0800 ipv4 packets.
+ * We also allow couple SuperNIC specific types
+ * - A003
  */
-wire s_select_ip = (s_eth_type == 16'h0800);
+wire s_select_ip = (s_eth_type == 16'h0800 || s_eth_type == 16'hA003);
+
 wire s_select_arp = (s_eth_type == 16'h0806);
 wire s_select_none = !(s_select_ip || s_select_arp);
 

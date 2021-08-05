@@ -214,7 +214,14 @@ ip_eth_tx_64_inst (
     .s_ip_hdr_ready(outgoing_ip_hdr_ready),
     .s_eth_dest_mac(outgoing_eth_dest_mac_reg),
     .s_eth_src_mac(local_mac),
-    .s_eth_type(16'h0800),
+
+    //
+    // HACK by Yizhou Shan
+    // This is the outgoing path
+    //
+    .s_eth_type(16'hA003),
+    //.s_eth_type(16'h0800),
+
     .s_ip_dscp(s_ip_dscp),
     .s_ip_ecn(s_ip_ecn),
     .s_ip_length(s_ip_length),
