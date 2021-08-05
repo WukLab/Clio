@@ -6,7 +6,7 @@ import wuklab.kv._
 object GenerateContext {
   val ddrBaseAddr = BigInt("500000000", 16)
   implicit val config : CoreMemConfig = new CoreMemConfig {
-    val debug = false
+    val debug = true
 
     val physicalAddrWidth = 40
     val virtualAddrWidth = 64

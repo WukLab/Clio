@@ -33,7 +33,6 @@ gen_rtl gen:
 	mkdir -p generated_rtl
 	sbt "runMain wuklab.LegoMemSystemGenerate"
 	sbt "runMain wuklab.MonitorRegistersGenerator"
-	sbt "runMain wuklab.LegoMemSystem512Generate"
 	sbt "runMain wuklab.PingPongGenerate"
 	sbt "runMain wuklab.KeyValuePhysicalInterfaceGenerate"
 	sbt "runMain wuklab.KeyValueVirtualInterfaceGenerate"
