@@ -55,7 +55,7 @@ static inline struct shadow_bucket_info *
 index_to_shadow_bucket_info(int index)
 {
 	if (unlikely(index >= FPGA_NUM_PGTABLE_BUCKETS)) {
-		dprintf_ERROR("index = %d max = %d\n",
+		dprintf_ERROR("index = %d max = %ld\n",
 			index, FPGA_NUM_PGTABLE_BUCKETS);
 		BUG();
 	}
@@ -231,12 +231,12 @@ alloc_one_shadow_pte(struct proc_info *pi, unsigned long addr,
 
 void dump_shadow_pgtable_conflicts(void)
 {
-	int i;
-	struct shadow_bucket_info *info;
-
-	for (i = 0; i < FPGA_NUM_PGTABLE_BUCKETS; i++) {
-		info = index_to_shadow_bucket_info(i);
-	}
+	/* int i; */
+	/* struct shadow_bucket_info *info; */
+        /*  */
+	/* for (i = 0; i < FPGA_NUM_PGTABLE_BUCKETS; i++) { */
+	/*         info = index_to_shadow_bucket_info(i); */
+	/* } */
 }
 
 int init_shadow_pgtable(void)
@@ -265,7 +265,7 @@ int init_shadow_pgtable(void)
 		(unsigned long)soc_shadow_pgtable,
 		(unsigned long)(soc_shadow_pgtable + FPGA_MEMORY_MAP_PGTABLE_SIZE));
 
-	dprintf_INFO("FPGA_NUM_PGTABLE_BUCKETS: %d, FPGA_NUM_PTE_PER_BUCKET: %d, total coverd physical size: %#lx\n",
+	dprintf_INFO("FPGA_NUM_PGTABLE_BUCKETS: %ld, FPGA_NUM_PTE_PER_BUCKET: %ld, total coverd physical size: %#lx\n",
 		FPGA_NUM_PGTABLE_BUCKETS, FPGA_NUM_PTE_PER_BUCKET,
 		(FPGA_NUM_PTE_PER_BUCKET * FPGA_NUM_PGTABLE_BUCKETS) * PAGE_SIZE);
 
@@ -277,5 +277,5 @@ void dump_shadow_pgtable_util(void)
 	double util;
 
 	util  = ((double)nr_allocated_ptes / (double)FPGA_NUM_TOTAL_PTES) * 100;
-	printf("PTE Util: %#ld / %#ld, %lf \%\n", nr_allocated_ptes, FPGA_NUM_TOTAL_PTES, util);
+	printf("PTE Util: %ld / %ld, %lf \n", nr_allocated_ptes, FPGA_NUM_TOTAL_PTES, util);
 }

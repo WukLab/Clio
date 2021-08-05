@@ -111,4 +111,7 @@ void test_vm_conflict(void);
 extern unsigned long nr_allocated_ptes;
 void dump_shadow_pgtable_util(void);
 
+unsigned long vma_tree_new(struct proc_info *proc, struct vregion_info *vi,
+			   unsigned long addr, unsigned long len,
+			   unsigned long vm_flags);
 #endif /* _LEGOPGA_BOARD_SOC_CORE_H_ */

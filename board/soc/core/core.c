@@ -759,11 +759,10 @@ int main(int argc, char **argv)
 
 	gather_sysinfo();
 
-#if 0
-	test_vm();
+	/* test_vm(); */
 
+#if 1
 	open_devmem();
-
 	ret = init_dma();
 	if (ret) {
 		printf("Fail to init dma\n");
@@ -774,13 +773,11 @@ int main(int argc, char **argv)
 	init_tlbflush_setup();
 #endif
 
-	/* Init buddy allocator for FPGA physical memory. */
 	init_buddy();
-
 	init_fpga_pgtable();
 	init_shadow_pgtable();
 
-#if 1
+#if 0
 	test_vm_conflict();
 	exit(0);
 #endif

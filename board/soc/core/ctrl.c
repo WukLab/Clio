@@ -487,6 +487,7 @@ static void prepare_onboard_va(void)
  * It will dispatch events to different handlers
  * depending on the rx->addr field.
  */
+__maybe_unused
 static void *ctrl_poll_func(void *_unused)
 {
 	struct lego_mem_ctrl *rx;
@@ -506,8 +507,8 @@ static void *ctrl_poll_func(void *_unused)
 	//prepare_kvs_virt(rx, tx);
 
 	//prepare_multiversion(rx, tx);
-	//prepare_100g_test();
-	prepare_onboard_va();
+	prepare_100g_test();
+	//prepare_onboard_va();
 
 	while (1) {
 		while (dma_ctrl_recv_blocking(rx, CTRL_BUFFER_SIZE) < 0)
