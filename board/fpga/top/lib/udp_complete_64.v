@@ -529,6 +529,52 @@ ip_complete_64_inst (
     .clear_arp_cache(clear_arp_cache)
 );
 
+// udp tx output
+// it goes into an arbiter then becomes the ip_tx_in
+/* ila_0 */
+/* udp_tx_ip_out ( */
+/*     .clk(clk), */
+/*     .probe0(udp_tx_ip_payload_axis_tvalid), */
+/*     .probe1(udp_tx_ip_payload_axis_tdata), */
+/*     .probe2(udp_tx_ip_payload_axis_tkeep), */
+/*     .probe3(udp_tx_ip_payload_axis_tready), */
+/*     .probe4(udp_tx_ip_payload_axis_tlast), */
+/*     .probe5(0), */
+/*     .probe6(0), */
+/*     .probe7(0), */
+/*     .probe8(0) */
+/* ); */
+
+// ip_complete_64 tx input
+/* ila_0 */
+/* ip_tx_in ( */
+/*     .clk(clk), */
+/*     .probe0(ip_tx_ip_payload_axis_tvalid), */
+/*     .probe1(ip_tx_ip_payload_axis_tdata), */
+/*     .probe2(ip_tx_ip_payload_axis_tkeep), */
+/*     .probe3(ip_tx_ip_payload_axis_tready), */
+/*     .probe4(ip_tx_ip_payload_axis_tlast), */
+/*     .probe5(0), */
+/*     .probe6(0), */
+/*     .probe7(0), */
+/*     .probe8(0) */
+/* ); */
+
+// ip_complete_64 tx ouput to eth
+/* ila_0 */
+/* ip_tx_out ( */
+/*     .clk(clk), */
+/*     .probe0(m_eth_payload_axis_tvalid), */
+/*     .probe1(m_eth_payload_axis_tdata), */
+/*     .probe2(m_eth_payload_axis_tkeep), */
+/*     .probe3(m_eth_payload_axis_tready), */
+/*     .probe4(m_eth_payload_axis_tlast), */
+/*     .probe5(0), */
+/*     .probe6(0), */
+/*     .probe7(0), */
+/*     .probe8(0) */
+/* ); */
+
 /*
  * UDP interface
  */
