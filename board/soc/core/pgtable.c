@@ -249,7 +249,7 @@ void alloc_fpga_pte_range(struct proc_info *pi,
 			continue;
 		}
 
-		//alloc_one_fpga_pte(pi, pte, start, vm_flags, page_size);
+		alloc_one_fpga_pte(pi, pte, start, vm_flags, page_size);
 	}
 }
 

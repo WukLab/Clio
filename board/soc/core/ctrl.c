@@ -504,10 +504,10 @@ static void *ctrl_poll_func(void *_unused)
 	 * Only one handler at a time..
 	 */
 	//prepare_kvs_phys(rx, tx);
-	//prepare_kvs_virt(rx, tx);
+	prepare_kvs_virt(rx, tx);
 
 	//prepare_multiversion(rx, tx);
-	prepare_100g_test();
+	//prepare_100g_test();
 	//prepare_onboard_va();
 
 	while (1) {
@@ -531,8 +531,8 @@ static void *ctrl_poll_func(void *_unused)
 			break;
 		case CMD_LEGOMEM_KVS_ALLOC:
 		case CMD_LEGOMEM_KVS_ALLOC_BOTH:
-			handle_kvs_alloc_phys(rx, tx);
-			//handle_kvs_alloc_virt(rx, tx);
+			/* handle_kvs_alloc_phys(rx, tx); */
+			handle_kvs_alloc_virt(rx, tx);
 			break;
 		default:
 			dprintf_ERROR("Unknow cmd %#x\n", rx->cmd);

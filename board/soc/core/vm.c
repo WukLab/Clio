@@ -1222,7 +1222,7 @@ retry:
 							 len);
 	if (has_conflict) {
 		nr_retry++;
-		dprintf_DEBUG("VA alloc Conflict [%#lx-%#lx] nr_retry: %d. nr_total_ptes: %d nr_allocated_ptes: %d\n",
+		dprintf_DEBUG("VA alloc Conflict [%#lx-%#lx] nr_retry: %d. nr_total_ptes: %ld nr_allocated_ptes: %ld\n",
 			addr, addr + len, nr_retry, FPGA_NUM_TOTAL_PTES, nr_allocated_ptes);
 		goto retry;
 	}

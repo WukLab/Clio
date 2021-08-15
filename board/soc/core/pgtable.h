@@ -40,6 +40,11 @@ void zap_shadow_pte(struct proc_info *pi, struct lego_mem_pte *pte,
 static inline unsigned long
 hash_lower_bits(unsigned long addr, int shift)
 {
+#if 0
+	/*
+	 * This is for lookup3
+	 * used for our soc vm conflict testing
+	 */
 	uint32_t val1, val2;
 	unsigned long key;
 
@@ -47,8 +52,10 @@ hash_lower_bits(unsigned long addr, int shift)
 	val1 = hashlittle(&key, sizeof(key), 0);
 	val2 = val1 & ((0x1UL << FPGA_BUCKET_NUMBER_LENGTH) - 1);
 	//printf("%s addr %#lx shift %#lx val1 %#x val2 %#x\n", __func__, addr, shift, val1, val2);
-
 	return val2;
+#else
+	return (addr >> shift) & ((0x1UL << FPGA_BUCKET_NUMBER_LENGTH) - 1);
+#endif
 }
 
 static inline unsigned int
