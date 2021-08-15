@@ -286,45 +286,40 @@ always @* begin
 
     case (state_reg)
         STATE_IDLE: begin
-            /* // wait for outgoing packet */
-            /* if (s_ip_hdr_valid) begin */
-            /*     // initiate ARP request */
-            /*     arp_request_valid_next = 1'b1; */
-            /*     arp_response_ready_next = 1'b1; */
-            /*     state_next = STATE_ARP_QUERY; */
-            /* end else begin */
-            /*     state_next = STATE_IDLE; */
-            /* end */
-
-            /*
-             * HACK by Yizhou Shan
-             * We always use the same mac address!
-             */
-            s_ip_hdr_ready_next = 1'b1;
-            outgoing_ip_hdr_valid_next = 1'b1;
-            outgoing_eth_dest_mac_next =  48'he4_1d_2d_b2_08_08;
-            state_next = STATE_IDLE;
+            // wait for outgoing packet
+            if (s_ip_hdr_valid) begin
+                // initiate ARP request
+                /* arp_request_valid_next = 1'b1; */
+                /* arp_response_ready_next = 1'b1; */
+                state_next = STATE_ARP_QUERY;
+            end else begin
+                state_next = STATE_IDLE;
+            end
         end
         STATE_ARP_QUERY: begin
             arp_response_ready_next = 1'b1;
 
-            if (arp_response_valid) begin
-                // wait for ARP reponse
-                if (arp_response_error) begin
-                    // did not get MAC address; drop packet
-                    s_ip_hdr_ready_next = 1'b1;
-                    drop_packet_next = 1'b1;
-                    state_next = STATE_WAIT_PACKET;
-                end else begin
-                    // got MAC address; send packet
-                    s_ip_hdr_ready_next = 1'b1;
-                    outgoing_ip_hdr_valid_next = 1'b1;
-                    outgoing_eth_dest_mac_next = arp_response_mac;
-                    state_next = STATE_WAIT_PACKET;
-                end
-            end else begin
-                state_next = STATE_ARP_QUERY;
-            end
+            s_ip_hdr_ready_next = 1'b1;
+            outgoing_ip_hdr_valid_next = 1'b1;
+            outgoing_eth_dest_mac_next = 48'he4_1d_2d_b2_08_08;
+            state_next = STATE_WAIT_PACKET;
+
+            /*     // wait for ARP reponse */
+            /*     if (arp_response_error) begin */
+            /*         // did not get MAC address; drop packet */
+            /*         s_ip_hdr_ready_next = 1'b1; */
+            /*         drop_packet_next = 1'b1; */
+            /*         state_next = STATE_WAIT_PACKET; */
+            /*     end else begin */
+            /*         // got MAC address; send packet */
+            /*         s_ip_hdr_ready_next = 1'b1; */
+            /*         outgoing_ip_hdr_valid_next = 1'b1; */
+            /*         outgoing_eth_dest_mac_next = arp_response_mac; */
+            /*         state_next = STATE_WAIT_PACKET; */
+            /*     end */
+            /* end else begin */
+            /*     state_next = STATE_ARP_QUERY; */
+            /* end */
         end
         STATE_WAIT_PACKET: begin
             drop_packet_next = drop_packet_reg;

@@ -276,6 +276,35 @@ assign led = led_reg;
 assign sfp_2_txd = 64'h0707070707070707;
 assign sfp_2_txc = 8'hff;
 
+ila_0
+eth_mac_tx_ila (
+    .clk(clk),
+    .probe0(tx_axis_tvalid),
+    .probe1(tx_axis_tdata),
+    .probe2(tx_axis_tkeep),
+    .probe3(tx_axis_tready),
+    .probe4(tx_axis_tlast),
+    .probe5(0),
+    .probe6(0),
+    .probe7(0),
+    .probe8(0)
+);
+
+
+ila_0
+eth_mac_rx_ila (
+    .clk(clk),
+    .probe0(rx_axis_tvalid),
+    .probe1(rx_axis_tdata),
+    .probe2(rx_axis_tkeep),
+    .probe3(rx_axis_tready),
+    .probe4(rx_axis_tlast),
+    .probe5(0),
+    .probe6(0),
+    .probe7(0),
+    .probe8(0)
+);
+
 eth_mac_10g_fifo #(
     .ENABLE_PADDING(1),
     .ENABLE_DIC(1),
