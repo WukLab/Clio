@@ -201,7 +201,8 @@ prepare_eth_header(struct eth_hdr *hdr, unsigned char *src_mac,
 {
 	memcpy(hdr->src_mac, src_mac, 6);
 	memcpy(hdr->dst_mac, dst_mac, 6);
-	hdr->eth_type = htons(0x0800);
+	/* hdr->eth_type = htons(0x0800); */
+	hdr->eth_type = htons(0xA003);
 }
 
 static inline void *get_op_struct(void *packet)

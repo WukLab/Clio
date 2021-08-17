@@ -543,13 +543,25 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	spec_tcp_udp = &flow_attr.spec_tcp_udp;
 
 	/* Fill ibv_flow_attr */
+#if 1
 	attr->comp_mask = 0;
 	attr->type = IBV_FLOW_ATTR_NORMAL;
+	/* attr->type = IBV_FLOW_ATTR_ALL_DEFAULT; */
 	attr->size = sizeof(flow_attr);
 	attr->priority = 1;
 	attr->num_of_specs = 3;
 	attr->port = qp_ib_port;
 	attr->flags = 0;
+#else
+	attr->type = IBV_FLOW_ATTR_ALL_DEFAULT;
+	/* attr->type = IBV_FLOW_ATTR_SNIFFER; */
+	attr->size = sizeof(struct ibv_flow_attr);
+	attr->port = qp_ib_port;
+	eth_flow = ibv_create_flow(qp, &flow_attr.attr);
+	if (!eth_flow)
+		perror("Create_flow: ");
+	return eth_flow;
+#endif
 
 	/* Fill ibv_flow_spec_eth */
 	spec_eth->type = IBV_FLOW_SPEC_ETH;

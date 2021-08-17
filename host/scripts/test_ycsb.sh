@@ -2,4 +2,6 @@
 set -e
 set -x
 
-./host.o -m 192.168.1.2:20000 -p 80000 -d ens4 --run_test=kvs_ycsb
+BOARD_IP=192.168.255.4:1234
+
+sudo ./host.o -m 192.168.1.2:20000 --skip_join -p 10000 -d ens5f0 --run_test=kvs_ycsb --add_board=$BOARD_IP
