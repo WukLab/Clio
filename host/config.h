@@ -5,7 +5,7 @@
 #ifndef _HOST_CONFIG_H_
 #define _HOST_CONFIG_H_
 
-#if 1
+#if 0
 # define LEGOMEM_DEBUG
 #endif
 
@@ -13,10 +13,10 @@
  * Once enabled, the system will dump all transmitted/received packets.
  * Use git grep to find where they are used.
  */
-#if 1
+#if 0
 # define CONFIG_NETWORK_DUMP_TX
 #endif
-#if 1
+#if 0
 # define CONFIG_NETWORK_DUMP_RX
 #endif
 

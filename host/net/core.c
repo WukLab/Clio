@@ -123,6 +123,7 @@ void __dump_packet_headers(void *packet, char *str_buf)
 		else
 			DUMP_PR("%x ", eth->dst_mac[i]);
 	}
+	DUMP_PR("eth_type=%#x ", eth->eth_type);
 
 	/*
 	 * The packet handed over should be in network order
@@ -146,9 +147,12 @@ void __dump_packet_headers(void *packet, char *str_buf)
 		gbn_pkt_type_str(gbn->type));
 #endif
 
-	DUMP_PR("lego pid=%u tag=%#x opcode=%#x sesid=%u (%s)",
+	DUMP_PR("lego pid=%u tag=%#x opcode=%#x sesid=%u (%s) req_status=%d ip_tot_len=%u udp_len=%u ",
 		lego->pid, lego->tag, lego->opcode, lego->src_sesid,
-		legomem_opcode_str(lego->opcode));
+		legomem_opcode_str(lego->opcode),
+		lego->req_status,
+		ntohs(ipv4->tot_len),
+		ntohs(udp->len));
 
 	if (!str_buf)
 		printf("\n");

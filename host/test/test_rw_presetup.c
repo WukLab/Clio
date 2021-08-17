@@ -83,34 +83,29 @@ static void *thread_func_read(void *_ti)
 
 	ses = legomem_open_session_remote_mgmt(bi);
 	//send_buf = net_get_send_buf(ses);
-	send_buf = malloc(1024);
-	net_reg_send_buf(ses, send_buf, 1024);
+	send_buf = malloc(8192);
+	net_reg_send_buf(ses, send_buf, 8192);
 
-	recv_buf = malloc(1024);
+	recv_buf = malloc(8192);
 
 	double latency;
 
-	/*
-	 * 2^29=512MB
-	 * 2^22=4MB page
-	 *
-	 * => 2^7 (128) nr_pages to cover all physical memory
-	 */
-	/* static int nr_pte_array[] = {  2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<16, 1<<17, 1<<18, 1<<19, 1<<20}; */
-	static int nr_pte_array[] = {  2 };
+	/* static int test_size[] = {4,16,64,256,512,1024}; */
 
-	for (i = 0; i < ARRAY_SIZE(nr_pte_array); i++) {
-		int NR_MAX_PTE = nr_pte_array[i];
-		size = 16;
-/* #define NR_RUN_PER_THREAD 1024*1024 */
-#define NR_RUN_PER_THREAD 1
-		nr_tests = NR_RUN_PER_THREAD;
+#define NR_RUN_PER_THREAD 100
+	/* static int test_size[] = {128}; */
+	/* static int test_size[] = {4,16,64,256,512,1024}; */
+	static int test_size[] = {4};
 
 #if 1
+	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+		size = test_size[i];
+
+		nr_tests = NR_RUN_PER_THREAD;
 		latency = 0;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
+			addr = global_base_addr;
 			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
 			if (ret < 0) {
 				dprintf_ERROR("ret %d\n", ret);
@@ -123,24 +118,23 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d size: %lu nr_pte: %10d avg_WRITE: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size, NR_MAX_PTE,
+		dprintf_INFO("thread id %d nr_tests: %d size: %lu avg_WRITE: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size,
 			latency / j,
 			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
-#endif
 	}
-
-	for (i = 0; i < ARRAY_SIZE(nr_pte_array); i++) {
-		int NR_MAX_PTE = nr_pte_array[i];
-		size = 16;
-#define NR_RUN_PER_THREAD 100000
-		nr_tests = NR_RUN_PER_THREAD;
+#endif
 
 #if 0
+	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+		size = test_size[i];
+
+		nr_tests = NR_RUN_PER_THREAD;
+
 		latency = 0;
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			addr = global_base_addr + (j % NR_MAX_PTE) * PAGE_SIZE;
+			addr = global_base_addr;
 			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
 			if (ret < 0) {
 				dprintf_ERROR("ret %d\n", ret);
@@ -153,12 +147,12 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d size: %lu nr_pte: %10d avg_READ: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size, NR_MAX_PTE,
+		dprintf_INFO("thread id %d nr_tests: %d size: %lu avg_READ: %lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size,
 			latency / j,
 			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
-#endif
 	}
+#endif
 	return NULL;
 }
 
