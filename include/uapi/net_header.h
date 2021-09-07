@@ -49,6 +49,12 @@ struct udp_hdr {
 /*
  * This is our layer's header.
  * See uapi/opcode.h for opcode definitions.
+ *
+ * eth/ipv4/udp are 42B, [0, 41)
+ *
+ * pid 43 44
+ * tag 45
+ * opcode 46th byte
  */
 struct lego_header {
 	uint16_t	pid;
