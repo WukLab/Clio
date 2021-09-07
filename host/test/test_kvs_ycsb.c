@@ -393,9 +393,9 @@ int legomem_setup(void)
 
 int test_run_ycsb(char *unused)
 {
-	char *fname = "test/ycsb_datasets/workloada_parsed";
+	/* char *fname = "test/ycsb_datasets/workloada_parsed"; */
 	/* char *fname = "test/ycsb_datasets/workloadb_parsed"; */
-	/* char *fname = "test/ycsb_datasets/workloadc_parsed"; */
+	char *fname = "test/ycsb_datasets/workloadc_parsed";
 
 	int nr_boards, nr_threads;
 	int value_size;
@@ -409,10 +409,14 @@ int test_run_ycsb(char *unused)
 
 	legomem_setup();
 
-	value_size = 1024;
+	value_size = 1000;
 
+	/* run_ycsb_workload(fname, NR_TOTAL_THREADS, value_size, 2, 100 * 1000); */
+
+	/*
+	 * This is the one used for both Clio and SuperNIC Eval.
+	 */
 	run_ycsb_workload(fname, NR_TOTAL_THREADS, value_size, 100 * 1000, 100 * 1000);
-	//run_ycsb_workload(fname, nr_threads * nr_boards, value_size, 100, 100);
 
 	return 0;
 }

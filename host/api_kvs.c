@@ -47,6 +47,14 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	tx_lego->opcode = opcode;
 	tx_lego->pid = ctx->pid;
 
+	/*
+	 * SuperNIC Specific
+	 * Copy the 8B to this location so
+	 * that the whole key is contained within the
+	 * first 64B flit.
+	 */
+	*(unsigned long *)(&tx_lego->cont) = (unsigned long)key;
+
 	/* Cook KVS-specific headers */
 	op = &req->op;
 	op->key_size = key_size;
@@ -60,16 +68,20 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	 */
 	//memcpy(op->value, value, value_size);
 
-	ret = net_send(ses, req, sizeof(*req) + value_size);
-	if (ret < 0) {
-		dprintf_ERROR("Net send error %d\n", ret);
-		return ret;
+	net_send(ses, req, sizeof(*req) + value_size);
+	net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+#if 0
+	if (opcode == OP_REQ_KVS_CREATE) {
+		net_send(ses, req, sizeof(*req) + value_size);
+		net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+	} else {
+		net_send(ses, req, sizeof(*req) + value_size);
+		net_send(ses, req, sizeof(*req) + value_size);
+		net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+		net_receive_zerocopy(ses, (void **)&resp, &recv_size);
 	}
-	ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
-	if (ret < 0) {
-		dprintf_ERROR("Net recv error %d\n", ret);
-		return ret;
-	}
+#endif
+
 	return 0;
 }
 

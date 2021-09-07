@@ -77,7 +77,8 @@ int test_kvs_simple(char *_unused)
 
 #define NR_RUN (1)
 
-	int tsize[] = {4, 16, 64, 128, 256, 1024 };
+	/* int tsize[] = {4, 16, 64, 128, 256, 1024 }; */
+	int tsize[] = {1000};
 	for (int i = 0; i < ARRAY_SIZE(tsize); i++) {
 		int _ts = tsize[i];
 
