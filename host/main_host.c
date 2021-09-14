@@ -196,6 +196,8 @@ struct test_option {
 	int (*func)(char *);
 };
 
+int test_snic(char *board_ip_port_str);
+
 struct test_option test_options[] = {
 	{
 		.name	= "session",
@@ -210,7 +212,7 @@ struct test_option test_options[] = {
 	{
 		.name	= "relnet_mgmt",
 		.desc	= "w/ and w/o --add_board are both okay (monitor optional)",
-		.func	= test_rel_net_mgmt,
+		.func	= test_snic,
 	},
 	{
 		.name	= "alloc_free",
@@ -282,11 +284,11 @@ struct test_option test_options[] = {
 		.desc	= "test pointer chasing",
 		.func	= test_pointer_chasing,
 	},
-	{
-		.name	= "test_jpeg",
-		.desc	= "test jpeg",
-		.func	= test_jpeg,
-	},
+	/* { */
+	/*         .name	= "test_jpeg", */
+	/*         .desc	= "test jpeg", */
+	/*         .func	= test_jpeg, */
+	/* }, */
 	{
 		.name	= "test_dataframe",
 		.desc	= "test dataframe",
@@ -513,11 +515,11 @@ int main(int argc, char **argv)
 
 	create_watchdog_thread();
 
-	ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL);
-	if (ret) {
-		dprintf_ERROR("Fail to create mgmt thread %d\n", errno);
-		exit(-1);
-	}
+	/* ret = pthread_create(&mgmt_session->thread, NULL, dispatcher, NULL); */
+	/* if (ret) { */
+	/*         dprintf_ERROR("Fail to create mgmt thread %d\n", errno); */
+	/*         exit(-1); */
+	/* } */
 
 	dprintf_INFO("gbn_header: %zu B, lego_header: %zu B, eth/ip/udp/gbn/lego: %zu B\n",
 		GBN_HEADER_SIZE, LEGO_HEADER_SIZE, sizeof(struct legomem_common_headers));

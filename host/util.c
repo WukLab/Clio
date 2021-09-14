@@ -116,21 +116,21 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	ip_neigh_cmd = malloc(128);
 	line = malloc(1024);
 
-	snprintf(ping_cmd, 128, "ping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
-	fp = popen(ping_cmd, "r");
-	if (!fp) {
-		perror("popen ping");
-		return -1;
-	}
-	pclose(fp);
-
-	snprintf(ping_cmd, 128, "arping -w 1 -c 1 -I %s %s", global_net_dev, ip_str);
-	fp = popen(ping_cmd, "r");
-	if (!fp) {
-		perror("popen arping");
-		return -1;
-	}
-	pclose(fp);
+	/* snprintf(ping_cmd, 128, "ping -w 1 -c 1 -I %s %s", global_net_dev, ip_str); */
+	/* fp = popen(ping_cmd, "r"); */
+	/* if (!fp) { */
+	/*         perror("popen ping"); */
+	/*         return -1; */
+	/* } */
+	/* pclose(fp); */
+        /*  */
+	/* snprintf(ping_cmd, 128, "arping -w 1 -c 1 -I %s %s", global_net_dev, ip_str); */
+	/* fp = popen(ping_cmd, "r"); */
+	/* if (!fp) { */
+	/*         perror("popen arping"); */
+	/*         return -1; */
+	/* } */
+	/* pclose(fp); */
 
 	snprintf(ip_neigh_cmd, 128, "ip neigh show %s", ip_str);
 	printf("%s(): %s\n", __func__, ip_neigh_cmd);
@@ -144,7 +144,6 @@ int get_mac_of_remote_ip(int ip, char *ip_str, char *dev,
 	 * The output format of: ip neight show <ip>
 	 * 192.168.1.5 dev p4p1 lladdr e4:1d:2d:e4:81:51 STALE
 	 */
-	return 0;
 	while (fgets(line, 1024, fp)) {
 		char t_ip[32], t_d[32], t_name[32], t_a[32],
 		     t_status[32];

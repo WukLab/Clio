@@ -15,7 +15,7 @@
 
 #include "../core.h"
 
-#define NR_RUN_PER_THREAD 100000
+#define NR_RUN_PER_THREAD 1000000
 
 static struct board_info *remote_board;
 static pthread_barrier_t thread_barrier;
@@ -30,6 +30,10 @@ static int test_size[] = { 1024 };
 static int test_nr_threads[] = { TMP_NR_THREADS };
 static double latency_ns[128][128];
 static double tput[128][128];
+
+pthread_spinlock_t LOCK;
+volatile int NR_TOTAL_REQS = 0;
+volatile int NR_THRESHOLD = (NR_RUN_PER_THREAD * TMP_NR_THREADS);
 
 static inline void die(const char * str, ...)
 {
@@ -96,14 +100,11 @@ static void *thread_func(void *_ti)
 			nr_tests = NR_RUN_PER_THREAD;
 
 			int k = 0;
-			int nr_con = 4;
+			int nr_con = 1;
 			clock_gettime(CLOCK_MONOTONIC, &s);
 			for (j = 0; j < nr_tests; j++) {
-				/* net_send_and_receive_zerocopy(ses, req, send_size, (void **)&resp, &recv_size); */
-				for (k = 0; k < nr_con; k++)
-					net_send(ses, req, send_size);
-				for (k = 0; k < nr_con; k++)
-					net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+				net_send(ses, req, send_size);
+				/* net_receive_zerocopy(ses, (void **)&resp, &recv_size); */
 			}
 			clock_gettime(CLOCK_MONOTONIC, &e);
 
@@ -113,7 +114,6 @@ static void *thread_func(void *_ti)
 			latency_ns[ti->id][i] = lat_ns;
 
 #if 1
-			nr_tests = nr_tests * nr_con;
 			/* dprintf_INFO("thread id %d nr_tests: %d send_size: %u payload_size: %u avg: %f ns Throughput: %lf Gbps\n", */
 			/*         ti->id, */
 			/*         nr_tests, send_size, test_size[i], lat_ns / nr_tests, */
@@ -123,16 +123,22 @@ static void *thread_func(void *_ti)
 			tput[ti->id][i] = (NSEC_PER_SEC / (lat_ns / nr_tests) * send_size * 8 /1000000)/1000;
 #endif
 		}
+
+		pthread_spin_lock(&LOCK);
+		NR_TOTAL_REQS += nr_tests;
+		pthread_spin_unlock(&LOCK);
+
 		/* Sync for every round */
 		pthread_barrier_wait(&thread_barrier);
-		double sum = 0;
-		for (i = 0; i < TMP_NR_THREADS; i++) {
-			sum += tput[i][0];
-		}
-		if (ti->id == 0)
-			printf("%lf\n", sum);
+		/* double sum = 0; */
+		/* for (i = 0; i < TMP_NR_THREADS; i++) { */
+		/*         sum += tput[i][0]; */
+		/* } */
+		/* if (ti->id == 0) */
+		/*         printf("%lf\n", sum); */
 
 	}
+
 	legomem_close_session(NULL, ses);
 
 	while (1) ;
@@ -142,12 +148,14 @@ static void *thread_func(void *_ti)
 /*
  * We run test against monitor rel stack.
  */
-int test_rel_net_mgmt(char *board_ip_port_str)
+int test_snic(char *board_ip_port_str)
 {
 	int k, i, j, ret;
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
+
+	pthread_spin_init(&LOCK, PTHREAD_PROCESS_PRIVATE);
 
 	if (board_ip_port_str) {
 		unsigned int ip, port;
@@ -188,6 +196,36 @@ int test_rel_net_mgmt(char *board_ip_port_str)
 			ret = pthread_create(&tid[i], NULL, thread_func, &ti[i]);
 			if (ret)
 				die("fail to create test thread");
+		}
+
+		// HACK
+		// Print tput at runtime
+		int nr_cycle = 0;
+		struct timespec s, e;
+		double lat_ns;
+		int nr_tests = NR_THRESHOLD;
+		int nr_last_record = 0;
+		while (1) {
+			clock_gettime(CLOCK_MONOTONIC, &s);
+			while (1) {
+				volatile int tmp_NR = NR_TOTAL_REQS;
+				volatile int RD = tmp_NR % NR_THRESHOLD;
+				if ((RD==0)&&(tmp_NR>0) && (tmp_NR > nr_last_record)) {
+					nr_last_record = tmp_NR;
+					break;
+				}
+			}
+			clock_gettime(CLOCK_MONOTONIC, &e);
+			
+			lat_ns = (e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
+				 (s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
+
+			dprintf_INFO("cycle=%d nr_tests=%d AvgLatency: %f ns, IOPS = %lf (K) NR_TOTAL_THREADS=%d\n",
+				nr_cycle, nr_tests, lat_ns / nr_tests,
+				(NSEC_PER_SEC / (lat_ns / nr_tests)) / 1000,
+				NR_TOTAL_REQS);
+
+			nr_cycle ++;
 		}
 
 		for (i = 0; i < nr_threads; i++) {

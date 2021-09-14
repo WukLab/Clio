@@ -543,7 +543,7 @@ qp_create_flow(struct ibv_qp *qp, struct endpoint_info *local,
 	spec_tcp_udp = &flow_attr.spec_tcp_udp;
 
 	/* Fill ibv_flow_attr */
-#if 1
+#if 0
 	attr->comp_mask = 0;
 	attr->type = IBV_FLOW_ATTR_NORMAL;
 	/* attr->type = IBV_FLOW_ATTR_ALL_DEFAULT; */

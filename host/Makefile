@@ -10,6 +10,7 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_migration.c \
 	     $(TP)/test_raw_net.c \
 	     $(TP)/test_rel_net_mgmt.c \
+	     $(TP)/test_snic.c \
 	     $(TP)/test_rel_net_normal.c \
 	     $(TP)/test_board.c \
 	     $(TP)/test_soc.c \
@@ -24,12 +25,12 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_kvs_simple.c \
 	     $(TP)/test_kvs_ycsb.c \
 	     $(TP)/test_pointer_chasing.c \
-	     $(TP)/test_data_frame.c \
-	     $(TP)/jpeg/arrayclient.c \
-	     $(TP)/jpeg/config.c \
-	     $(TP)/jpeg/common.c \
-	     $(TP)/jpeg/rarray.c \
-	     $(TP)/jpeg/rmem-legomem.c
+	     $(TP)/test_data_frame.c
+	     # $(TP)/jpeg/arrayclient.c \
+	     # $(TP)/jpeg/config.c \
+	     # $(TP)/jpeg/common.c \
+	     # $(TP)/jpeg/rarray.c \
+	     # $(TP)/jpeg/rmem-legomem.c
 
 # Board emulator files linked to soc files
 BP := board_emulator
@@ -65,7 +66,7 @@ C_SRCS := board.c \
 SRCS := $(C_SRCS)
 
 INCLUDE := -I../include
-CLIBS := -libverbs -lrt -pthread -ljpeg
+CLIBS := -libverbs -lrt -pthread
 
 EXTRA_CFLAGS := -O3 -Wall
 EXTRA_CFLAGS += -DCONFIG_ARCH_X86 -DCONFIG_PROFILING_POINTS
