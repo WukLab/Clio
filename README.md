@@ -8,7 +8,7 @@ You can find a pre-publication version [here](https://arxiv.org/pdf/2108.03492.p
 ## Run Clio
 
 
-**ASPLOS'22 Artifact Evaluators, please follow the instructons here to reproduce the results in the paper: [Documentation/asplos-ae.md](./asplos-ae.md).**
+**ASPLOS'22 Artifact Evaluators, please see [Documentation/asplos-ae.md](./Documentation/asplos-ae.md).**
 
 Clio system has three major parts: the FPGA bitstream part, the ARM SoC part, and the host-side software.
 
