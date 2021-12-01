@@ -31,3 +31,31 @@ XXX
 ### Figure 9 and Figure 10 (End-to-End Read/Write Latency)
 
 XXX
+
+## Notes and Troubleshooting
+
+Board-3126 info:
+- FPGA IP:      192.168.1.26
+- FPGA ARM IP:  192.168.0.26
+- Host serial console (on wuklab-11): `sudo minicom -D /dev/ttyUSB0`
+
+Before you load the bitstream into the FPGA, first open the serial console to the board. While PetaLinux is downloading the bitstream into the board, you can see various messages printed in the serial console. At one point, type `run netboot` in the serial console to boot Linux on ARM. Then use `username: root` & `password: root` to login. Finally, run the following script to configure FPGA chip's IP and MAC address.
+
+```bash
+#
+# Board-3126
+#
+cat > test.sh <<EOF
+ip addr del 192.168.0.10/24 dev eth0
+ip addr add 192.168.0.26/24 dev eth0 # ARM's IP
+insmod /lib/modules/4.19.0/extra/xilinx-axidma.ko
+# Change FPGA IP 192.168.1.26
+devmem 0xA000C000 32 0xC0A8FF04
+devmem 0xA000C004 32 0xf0e0c01A
+EOF
+bash test.sh
+```
+
+The following GIF showcases the whole boot flow:
+
+[TODO GIF]()
