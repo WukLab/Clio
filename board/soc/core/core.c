@@ -826,6 +826,7 @@ int main(int argc, char **argv)
 	 * Thus it does not make any sense to have thpool anymore.
 	 * Anyway, we kept this code, and do inline handling by default.
 	 */
+#if 0
 	if (0) {
 		for (i = 0; i < NR_THPOOL_WORKERS; i++) {
 			struct thpool_worker *tw;
@@ -847,6 +848,8 @@ int main(int argc, char **argv)
 		polling_dispather();
 	} else
 		polling_inline_handle();
+#endif
+	while (1) ;
 
 	return 0;
 }
