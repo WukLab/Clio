@@ -13,7 +13,7 @@ Next, we will discuss each part in detail.
 
 ## FPGA Bitstream
 
-Software Prerequisite: **Vivado v2020.2 (64-bit)**.
+Software Prerequisite: **Vivado v2020.2 (64-bit)** and **`Scala`**.
 We use this version in our devlopment.
 If you use other Vivado versions, the TCL scripts might fail due to mismatched
 Vivado IP version numbers. If that happens, you can update the TCL scripts 
@@ -27,6 +27,28 @@ The overall compilation flow is:
 3. Inside Vivado GUI, run Synthesis and Implementation to produce the bitstream.
 4. Copy the produced the bitstream into an easy to access folder. **By default**, the bitstream can be found at `board/fpga/top/generated_vivado_project/generated_vivado_project.runs/impl_1/fpga.bit`.
 Later on, we will use PetaLinux to load this bitstream into the FPGA board
+
+Alternatively, you can also build Clio step by step:
+```bash
+# Compile SpinalHDL into RTL
+make gen_rtl
+
+# Package the generated RTL into Vivaod IP packages
+make package_ip
+
+# Compile HLS-based Network Stack into Vivado IP packages
+make net
+
+# Generate the top Vivado project consists of everything
+make top
+
+# (Use a GUI environment, e.g., VNC)
+cd top && make g
+```
+
+Once you are in Vivado GUI, you could check out the Block Design for the complete design. To compile, click the Synthesis, Implementation,and Generate Bitstream options in the red box.
+
+![image](./vivado-screenshot.png)
 
 ## ARM SoC Code
 
