@@ -7,9 +7,15 @@ There are three major parts:
 2. ARM SoC code running inside FPGA board
 3. Host side software
 
+The following image shows the repo org and how it maps to various hardware.
+
+![repo-org](./repo-org.png)
+
 FPGA compilation is the most time-consuming part also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence easy to compile.
 
 Next, we will discuss each part in detail.
+
+
 
 ## FPGA Bitstream
 
