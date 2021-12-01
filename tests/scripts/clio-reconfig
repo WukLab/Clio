@@ -1,0 +1,22 @@
+#!/bin/bash
+
+SCRIPT=`realpath ${BASH_SOURCE[0]}`
+SCRIPTPATH=`dirname $SCRIPT`
+ARTIFACTS=~/artifacts
+
+if [ -z "$1" ]; then
+  echo "usage: $0 <artifact-config>"
+  echo "reconfig FPGA board for clio"
+  echo "ERROR: parameter artifact-config missing"
+  exit 1
+fi
+
+COREO=$ARTIFACTS/$1/core.o
+FPGABIT=$ARTIFACTS/$1/fpga.bit
+
+# copy the core.o
+cp $COREO /tftpboot
+
+# reconfig the bitstream
+BITSTREAM=$FPGABIT make -C $CLIO_PETAPATH
+bash $CLIO_PETAPATH/board_init.sh

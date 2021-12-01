@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source /tools/Xilinx/petalinux/2019.1/settings.sh
+
+SCRIPT=`realpath ${BASH_SOURCE[0]}`
+SCRIPTPATH=`dirname $SCRIPT`
+
+export PATH=$SCRIPTPATH:$PATH
+export CLIO_PETAPATH=/data/petalinux/freq-250
+

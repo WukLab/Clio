@@ -1,0 +1,39 @@
+#!/bin/bash
+
+echo "      ___           ___                   ___      "
+echo "     /\  \         /\__\      ___        /\  \     "
+echo "    /::\  \       /:/  /     /\  \      /::\  \    "
+echo "   /:/\:\  \     /:/  /      \:\  \    /:/\:\  \   "
+echo "  /:/  \:\  \   /:/  /       /::\__\  /:/  \:\  \  "
+echo " /:/__/ \:\__\ /:/__/     __/:/\/__/ /:/__/ \:\__\ "
+echo " \:\  \  \/__/ \:\  \    /\/:/  /    \:\  \ /:/  / "
+echo "  \:\  \        \:\  \   \::/__/      \:\  /:/  /  "
+echo "   \:\  \        \:\  \   \:\__\       \:\/:/  /   "
+echo "    \:\__\        \:\__\   \/__/        \::/  /    "
+echo "     \/__/         \/__/                 \/__/     "
+echo ""
+echo "Clio testing script."
+echo "==================================================="
+
+
+if [ -z "$1" ]; then
+  echo "usage: $0 <test-id>"
+  echo ""
+  echo "avaliable tests:"
+  echo "1. Read Test"
+  echo "2. Write Latency Test"
+  echo "ERROR: test id missing!"
+  exit 1
+fi
+
+echo "running test $1"
+echo "==================================================="
+
+case $1 in
+  1)
+    clio-reconfig default
+    ;;
+  2)
+    clio-reconfig default
+    ;;
+esac
