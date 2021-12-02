@@ -27,12 +27,16 @@ int test_kvs_simple(char *_unused)
 
 	dprintf_CRIT("\n\n\tRunning KVS Simple test... %d\n",0);
 
-	ctx = legomem_open_context();
-	if (!ctx) {
-		dprintf_ERROR("Fail to open contxt %d\n", 0);
-		return -EPERM;
-	}
+	/* ctx = legomem_open_context(); */
+	/* if (!ctx) { */
+	/*         dprintf_ERROR("Fail to open contxt %d\n", 0); */
+	/*         return -EPERM; */
+	/* } */
+	ctx = (struct legomem_context *)malloc(sizeof(*ctx));
+	ctx->pid = 1;
 
+	// HACK! Tuneme during runtime.
+	// Usually 3 is the board.
 	board = find_board_by_id(3);
 	if (!board) {
 		printf("No board\n");
@@ -40,6 +44,8 @@ int test_kvs_simple(char *_unused)
 	}
 	dprintf_CRIT("Using board: %s\n", board->name);
 
+	// This is remote session so we won't send
+	// any requests. Just some local bookkeeping.
 	ses = legomem_open_session_remote_mgmt(board);
 	if (!ses) {
 		printf("fail top open session\n");
@@ -64,14 +70,15 @@ int test_kvs_simple(char *_unused)
 	printf("before creatred...\n");
 	legomem_kvs_create(ctx, ses, 8, (char *)key, value_size, buf);
 	printf("after create..\n");
-	sleep(5);
+	sleep(30);
 #endif
 
 	struct timespec ts, te;
 
-#define NR_RUN (10000)
+#define NR_RUN (1)
 
-	int tsize[] = {4, 16, 64, 128, 256, 1024 };
+	/* int tsize[] = {4, 16, 64, 128, 256, 1024 }; */
+	int tsize[] = {1000};
 	for (int i = 0; i < ARRAY_SIZE(tsize); i++) {
 		int _ts = tsize[i];
 

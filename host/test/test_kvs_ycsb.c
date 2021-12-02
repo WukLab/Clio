@@ -44,8 +44,8 @@ void gen_random_value(char *buf, int size)
 	}
 }
 
-#define NR_BOARDS (4)
-#define NR_TOTAL_THREADS (16)
+#define NR_BOARDS (1)
+#define NR_TOTAL_THREADS (8)
 
 int nr_total_sessions = NR_TOTAL_THREADS;
 
@@ -105,6 +105,9 @@ void *ycsb_workload_run_phase(void *input)
 			my_thread_id, cpu);
 
 #if 0
+	/*
+	 * Enable this if you are using multiple clients
+	 */
 	int _r;
 	_r = pthread_barrier_wait(&thread_barrier);
 	if (_r == PTHREAD_BARRIER_SERIAL_THREAD)
@@ -185,6 +188,7 @@ int ycsb_workload_load_phase()
 
 		for (i = 0; i < total_num_load_reqs; i++) {
 #if 1
+			if (i % 500 == 0)
 			dprintf_INFO("CREATE board=%d nr=%5d key=%#lx value_size %5d session_index %d ses id %d ses->board: %s\n",
 				j, i, load_reqs[i], value_size, session_id, 
 				get_local_session_id(ses),
@@ -303,9 +307,6 @@ int run_ycsb_workload(char* filename, int thread_num, int input_value_size,
 	dprintf_CRIT("Loading (create) phase started, wait .. %d\n", 0);
 	ycsb_workload_load_phase();
 	dprintf_CRIT("Loading (create) phase finished ..%d\n", 0);
-	//sleep(30);
-#else
-	sleep(10);
 #endif
 
 	double tput_sum;
@@ -341,7 +342,9 @@ int legomem_setup(void)
 	struct board_info *board;
 	void *buf;
 
-	legomem_ctx = legomem_open_context();
+	/* legomem_ctx = legomem_open_context(); */
+	legomem_ctx = (struct legomem_context *)malloc(sizeof(*legomem_ctx));
+	legomem_ctx->pid = 1;
 
 	for (i = 0; i < NR_BOARDS; i++) {
 
@@ -390,8 +393,8 @@ int legomem_setup(void)
 
 int test_run_ycsb(char *unused)
 {
-	//char *fname = "test/ycsb_datasets/workloada_parsed";
-	//char *fname = "test/ycsb_datasets/workloadb_parsed";
+	/* char *fname = "test/ycsb_datasets/workloada_parsed"; */
+	/* char *fname = "test/ycsb_datasets/workloadb_parsed"; */
 	char *fname = "test/ycsb_datasets/workloadc_parsed";
 
 	int nr_boards, nr_threads;
@@ -406,10 +409,14 @@ int test_run_ycsb(char *unused)
 
 	legomem_setup();
 
-	value_size = 1024;
+	value_size = 1000;
 
+	/* run_ycsb_workload(fname, NR_TOTAL_THREADS, value_size, 2, 100 * 1000); */
+
+	/*
+	 * This is the one used for both Clio and SuperNIC Eval.
+	 */
 	run_ycsb_workload(fname, NR_TOTAL_THREADS, value_size, 100 * 1000, 100 * 1000);
-	//run_ycsb_workload(fname, nr_threads * nr_boards, value_size, 100, 100);
 
 	return 0;
 }
