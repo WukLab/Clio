@@ -73,7 +73,7 @@ static void *thread_func_read(void *_ti)
 	 * XXX
 	 * CHeck the soc output log
 	 */
-	global_base_addr = 0x3e000000;
+	global_base_addr = 0x40000000;
 	addr = global_base_addr;
 
 	// HACK! Tuneme during runtime.

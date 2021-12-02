@@ -282,11 +282,11 @@ struct test_option test_options[] = {
 		.desc	= "test pointer chasing",
 		.func	= test_pointer_chasing,
 	},
-	{
-		.name	= "test_jpeg",
-		.desc	= "test jpeg",
-		.func	= test_jpeg,
-	},
+	/* { */
+	/*         .name	= "test_jpeg", */
+	/*         .desc	= "test jpeg", */
+	/*         .func	= test_jpeg, */
+	/* }, */
 	{
 		.name	= "test_dataframe",
 		.desc	= "test dataframe",
