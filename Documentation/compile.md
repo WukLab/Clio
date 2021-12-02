@@ -1,25 +1,23 @@
 # Compilation
 
-This file document the steps required to compile various components in the Clio system.
+This file documents the steps required to compile the Clio system.
 
 There are three major parts:
 1. FPGA bitstream
 2. ARM SoC code running inside FPGA board
 3. Host side software
 
-The following image shows the repo org and how it maps to various hardware.
+This image shows the major folders and the hardware they run on.
 
 ![repo-org](./repo-org.png)
 
-FPGA compilation is the most time-consuming part also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence easy to compile.
+FPGA compilation is the most time-consuming also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence easy to compile.
 
 Next, we will discuss each part in detail.
 
+## Part 1: FPGA Bitstream
 
-
-## FPGA Bitstream
-
-Software Prerequisite: **Vivado v2020.2 (64-bit)** and **`Scala`**.
+Software Prerequisite: **Vivado v2019.1.3 (64-bit)** and **Scala**.
 We use this version in our devlopment.
 If you use other Vivado versions, the TCL scripts might fail due to mismatched
 Vivado IP version numbers. If that happens, you can update the TCL scripts 
@@ -56,7 +54,7 @@ Once you are in Vivado GUI, you could check out the Block Design for the complet
 
 ![image](./vivado-screenshot.png)
 
-## ARM SoC Code
+## Part 2: ARM SoC Code
 
 Software Prerequisite: **aarch64 cross compilation software**.
 
@@ -66,10 +64,10 @@ Compilation is simple, go to `board/soc/core` and run `make` directly.
 It produces an aarch64 binary named `core.o`. Later on, we will copy this
 binary into the FPGA board. 
 
-## Host-Side Code
+## Part 3: Host-Side Code
 
-Software Prerequisite: **x86 compilation software**, **`libibverbs`**.
-We use Ubuntu 20.04 in our development.
+Software Prerequisite: **x86 compilation software, GCC version 8 and above**, **`libibverbs`**.
+We used both CentOS 7 and Ubuntu 20.04 in our development. If you are in CentOS 7, try run `scl enable devtoolset-8 -- bash` to enable GCC 8.
 
 Source coed: `host/`.
 
