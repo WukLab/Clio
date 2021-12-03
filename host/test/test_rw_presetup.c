@@ -73,7 +73,8 @@ static void *thread_func_read(void *_ti)
 	 * XXX
 	 * CHeck the soc output log
 	 */
-	global_base_addr = 0x40000000;
+	//global_base_addr = 0x40000000;
+	global_base_addr = 0x3e000000;
 	addr = global_base_addr;
 
 	// HACK! Tuneme during runtime.
@@ -82,7 +83,6 @@ static void *thread_func_read(void *_ti)
 	dprintf_INFO("Using board %s\n", bi->name);
 
 	ses = legomem_open_session_remote_mgmt(bi);
-	//send_buf = net_get_send_buf(ses);
 	send_buf = malloc(8192);
 	net_reg_send_buf(ses, send_buf, 8192);
 
@@ -92,9 +92,9 @@ static void *thread_func_read(void *_ti)
 
 	/* static int test_size[] = {4,16,64,256,512,1024}; */
 
-#define NR_RUN_PER_THREAD 100
+#define NR_RUN_PER_THREAD 1000
 	/* static int test_size[] = {128}; */
-	/* static int test_size[] = {4,16,64,256,512,1024}; */
+	//static int test_size[] = {4,16,64,256,512,1024};
 	static int test_size[] = {4};
 
 #if 1
@@ -111,7 +111,7 @@ static void *thread_func_read(void *_ti)
 				dprintf_ERROR("ret %d\n", ret);
 				exit(0);
 			}
-
+			printf("size=%d nr_req=%d\n", size, j);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 		latency =

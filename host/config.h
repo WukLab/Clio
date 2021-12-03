@@ -13,7 +13,7 @@
  * Once enabled, the system will dump all transmitted/received packets.
  * Use git grep to find where they are used.
  */
-#if 1
+#if 0
 # define CONFIG_NETWORK_DUMP_TX
 #endif
 #if 1

@@ -508,8 +508,8 @@ static void *ctrl_poll_func(void *_unused)
 	/* prepare_kvs_virt(rx, tx); */
 
 	//prepare_multiversion(rx, tx);
-	//prepare_100g_test();
-	prepare_onboard_va();
+	prepare_100g_test();
+	//prepare_onboard_va();
 	return NULL;
 
 	while (1) {

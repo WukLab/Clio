@@ -37,7 +37,6 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	struct lego_header *tx_lego;
 	struct op_kvs_req *op;
 	struct legomem_kvs_resp *resp;
-	int ret;
 	size_t recv_size;
 
 	req = net_get_send_buf(ses);
@@ -53,7 +52,7 @@ __legomem_kvs_write(struct legomem_context *ctx, struct session_net *ses, uint16
 	 * that the whole key is contained within the
 	 * first 64B flit.
 	 */
-	*(unsigned long *)(&tx_lego->cont) = (unsigned long)key;
+	*(unsigned long *)(&(tx_lego->cont)) = (unsigned long)key;
 
 	/* Cook KVS-specific headers */
 	op = &req->op;

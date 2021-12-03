@@ -77,7 +77,7 @@ EXTRA_CFLAGS += -rdynamic
 #
 #EXTRA_CFLAGS += -DCONFIG_DEBUG_STAT -DCONFIG_DEBUG_WATCHDOG
 
-CFLAG_DISABLE_WARN := -Wno-stringop-truncation -Wno-unused-but-set-variable -Wno-address-of-packed-member -Wno-format-truncation
+CFLAG_DISABLE_WARN := -Wno-stringop-truncation -Wno-unused-but-set-variable -Wno-format-truncation
 EXTRA_CFLAGS += $(CFLAG_DISABLE_WARN)
 
 # or -g
