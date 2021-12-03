@@ -755,7 +755,6 @@ void open_devmem(void)
 int main(int argc, char **argv)
 {
 	int ret;
-	int i;
 
 	gather_sysinfo();
 
