@@ -259,7 +259,7 @@ retry:
 	{
 		char packet_dump_str[256];
 		dump_packet_headers(recv_buf, packet_dump_str);
-		dprintf_CRIT("RX: %s size: %zu\n", packet_dump_str, recv_size);
+		dprintf_CRIT("RX: %s Size: %zu\n", packet_dump_str, recv_size);
 	}
 #endif
 

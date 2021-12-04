@@ -16,7 +16,7 @@
 #if 0
 # define CONFIG_NETWORK_DUMP_TX
 #endif
-#if 1
+#if 0
 # define CONFIG_NETWORK_DUMP_RX
 #endif
 

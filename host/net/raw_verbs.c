@@ -194,7 +194,7 @@ __raw_verbs_send(struct session_net *ses_net,
 #endif
 
 	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (unlikely(ret < 0)) {
+	if (unlikely(ret)) {
 		dprintf_ERROR("Fail to post send WQE %d\n", errno);
 		goto out;
 	}

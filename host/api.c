@@ -309,7 +309,7 @@ bookkeeping:
 	dprintf_DEBUG("remote=%s src_sesid=%u, dst_sesid=%u\n",
 		bi->name, get_local_session_id(ses), dst_sesid);
 
-	dump_net_sessions();
+	//dump_net_sessions();
 	return ses;
 }
 
@@ -1222,7 +1222,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 			continue;
 		}
 		if (unlikely(rx_lego->opcode != OP_REQ_WRITE_RESP)) {
-			dprintf_ERROR("errnor: invalid resp msg %s. at %dth reply\n",
+			dprintf_ERROR("error: invalid resp msg %s. at %dth reply\n",
 				legomem_opcode_str(rx_lego->opcode), i);
 			continue;
 		}

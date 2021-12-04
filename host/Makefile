@@ -15,7 +15,7 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_soc.c \
 	     $(TP)/test_pingpong_soc.c \
 	     $(TP)/test_legomem_pte.c \
-	     $(TP)/test_rw_same.c \
+	     $(TP)/test_rw_processes.c \
 	     $(TP)/test_rw_tlb.c \
 	     $(TP)/test_rw_inline.c \
 	     $(TP)/test_rw_fault.c \

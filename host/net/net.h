@@ -46,12 +46,12 @@ struct session_udp_socket {
 /*
  * Raw Verbs
  */
-#define BUFFER_SIZE			(4096)	/* maximum size of each send buffer */
-#define NR_BUFFER_DEPTH			(256)
+#define BUFFER_SIZE			(2048)	/* maximum size of each send buffer */
+#define NR_BUFFER_DEPTH			(1024)
 #define MAX_RECV_BUFFER_SIZE		(BUFFER_SIZE * NR_BUFFER_DEPTH)
-#define NR_MAX_OUTSTANDING_SEND_WR	(64)
-#define NR_BATCH_POST_RECV		(64)
-#define NR_MAX_RECV_BATCH		(64)
+#define NR_MAX_OUTSTANDING_SEND_WR	(32)
+#define NR_BATCH_POST_RECV		(32)
+#define NR_MAX_RECV_BATCH		(32)
 
 struct session_raw_verbs {
 	struct ibv_pd *pd;

@@ -444,7 +444,7 @@ int test_legomem_alloc_free(char *);
 int test_legomem_soc(char *);
 int test_pingpong_soc(char *board_ip_port_str);
 int test_legomem_pte(char *board_ip_port_str);
-int test_legomem_rw_same(char *);
+int test_legomem_rw_processes(char *);
 int test_legomem_rw_tlb(char *_unused);
 int test_legomem_rw_fault(char *_unused);
 int test_legomem_rw_inline(char *_unused);

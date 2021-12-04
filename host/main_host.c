@@ -238,9 +238,9 @@ struct test_option test_options[] = {
 		.func	= test_legomem_pte,
 	},
 	{
-		.name	= "rw_same",
-		.desc	= "test legomem_read/write same pte",
-		.func	= test_legomem_rw_same,
+		.name	= "rw_processes",
+		.desc	= "test legomem_read/write number of processes",
+		.func	= test_legomem_rw_processes,
 	},
 	{
 		.name	= "rw_tlb",
