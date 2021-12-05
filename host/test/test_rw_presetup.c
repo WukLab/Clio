@@ -67,7 +67,7 @@ static void *thread_func_read(void *_ti)
 		die("can not pin to cpu %d\n", ti->cpu);
 
 	legomem_getcpu(&cpu, &node);
-	dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu);
+	/* dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu); */
 
 	/*
 	 * XXX
@@ -80,7 +80,7 @@ static void *thread_func_read(void *_ti)
 	// HACK! Tuneme during runtime.
 	// Usually 3 is the board.
 	bi = find_board_by_id(3);
-	dprintf_INFO("Using board %s\n", bi->name);
+	/* dprintf_INFO("Using board %s\n", bi->name); */
 
 	ses = legomem_open_session_remote_mgmt(bi);
 	send_buf = malloc(8192);
@@ -92,7 +92,7 @@ static void *thread_func_read(void *_ti)
 
 #define NR_RUN_PER_THREAD 128
 
-	static int test_size[] = {4,16,64,256,1024,4096};
+	static int test_size[] = {4,64,256,1024,4096};
 	// static int test_size[] = {4};
 
 #if 1
@@ -112,8 +112,8 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d size: %lu avg_WRITE: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
+		dprintf_INFO("size: %5lu avg_WRITE: %12lf ns Throughput: %lf Mbps\n",
+			size,
 			latency / j,
 			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
 	}
@@ -136,8 +136,8 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d size: %lu avg_READ: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size,
+		dprintf_INFO("size: %5lu avg_READ: %12lf ns Throughput: %lf Mbps\n",
+			size,
 			latency / j,
 			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000));
 	}
@@ -192,5 +192,8 @@ int test_legomem_rw_presetup(char *_unused)
 			pthread_join(tid[i], NULL);
 		}
 	}
+
+	printf("All tests are done.\n");
+	exit(0);
 	return 0;
 }

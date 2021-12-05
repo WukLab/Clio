@@ -21,6 +21,7 @@ TEST_SRCS := $(TP)/test_session.c \
 	     $(TP)/test_rw_fault.c \
 	     $(TP)/test_rw_multiboard.c \
 	     $(TP)/test_rw_presetup.c \
+	     $(TP)/test_rw_threads.c \
 	     $(TP)/test_kvs_simple.c \
 	     $(TP)/test_kvs_ycsb.c \
 	     $(TP)/test_pointer_chasing.c \

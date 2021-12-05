@@ -2,6 +2,12 @@
  * Copyright (c) 2020 Wuklab, UCSD. All rights reserved.
  */
 
+/*
+ * Different from all other RW tests, in this one
+ * the PID and Addr were already prepared by the board!
+ * (see soc ctrl.c)
+ */
+
 #include <uapi/vregion.h>
 #include <uapi/compiler.h>
 #include <uapi/sched.h>
@@ -16,11 +22,15 @@
 
 #include "../core.h"
 
-static int test_nr_threads[] = { 1};
-
 #define NR_MAX 128
 static double latency_read_ns[NR_MAX][NR_MAX];
-//static double latency_write_ns[NR_MAX][NR_MAX];
+static double latency_write_ns[NR_MAX][NR_MAX];
+static double latency_read_tput[NR_MAX][NR_MAX];
+static double latency_write_tput[NR_MAX][NR_MAX];
+
+static int test_size[] = {1024};
+static int test_nr_threads[] = { 1, 2, 4};
+#define NR_RUN_PER_THREAD 256
 
 static inline void die(const char * str, ...)
 {
@@ -36,7 +46,7 @@ struct thread_info {
 	int cpu;
 };
 
-static struct legomem_context *ctx;
+struct legomem_context *ctx;
 unsigned long global_base_addr;
 static pthread_barrier_t thread_barrier;
 
@@ -44,6 +54,7 @@ static void *thread_func_read(void *_ti)
 {
 	unsigned long __remote addr;
 	unsigned long size;
+	void *send_buf, *recv_buf;
 	int i, j, nr_tests;
 	struct timespec s, e;
 	struct thread_info *ti = (struct thread_info *)_ti;
@@ -57,102 +68,68 @@ static void *thread_func_read(void *_ti)
 		die("can not pin to cpu %d\n", ti->cpu);
 
 	legomem_getcpu(&cpu, &node);
-	dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu);
+	/* dprintf_CRIT("thread id %d running on CPU %d\n", ti->id, cpu); */
 
+	/*
+	 * XXX
+	 * CHeck the soc output log
+	 */
+	//global_base_addr = 0x40000000;
 	global_base_addr = 0x3e000000;
 	addr = global_base_addr;
-
-#define NR_CONNECTION (1000)
-
-	struct session_net **ses_array;
-	void **send_buf, *recv_buf;
 
 	// HACK! Tuneme during runtime.
 	// Usually 3 is the board.
 	bi = find_board_by_id(3);
-	dprintf_INFO("Using board %s\n", bi->name);
+	/* dprintf_INFO("Using board %s\n", bi->name); */
 
-	ses_array = malloc(sizeof(struct session_net *) * NR_CONNECTION);
-	send_buf = malloc(4096);
+	ses = legomem_open_session_remote_mgmt(bi);
+	send_buf = malloc(8192);
+	net_reg_send_buf(ses, send_buf, 8192);
 
-	void *mr;
-	for (i = 0; i < NR_CONNECTION; i++) {
-		ses_array[i] = legomem_open_session_remote_mgmt(bi);
-		if (ses_array[i] == NULL) {
-			printf("Fail to create session on %d\n", i);
-			exit(0);
-		}
-		if (i == 0) {
-			net_reg_send_buf(ses_array[i], send_buf, 4096);
-			struct session_raw_verbs *ses_verbs = (struct session_raw_verbs *)ses_array[i]->raw_net_private;
-			mr = ses_verbs->send_mr;
-		} else {
-			struct session_raw_verbs *ses_verbs = (struct session_raw_verbs *)ses_array[i]->raw_net_private;
-			ses_verbs->send_mr = mr;
-			ses_verbs->send_buf = send_buf;
-			ses_verbs->send_buf_size = 4096;
-		}
-	}
+	recv_buf = malloc(8192);
 
-	recv_buf = malloc(4096);
+	double latency;
 
-	//static int session_array[] = { 1 };
-	static int session_array[] = { 1, 8, 100, 400, 700, 1000};
+	nr_tests = NR_RUN_PER_THREAD;
 
-/* Knobs */
-#define NR_RUN_PER_THREAD 128
-
-	printf("All sessions created, start read/write test..\n");
-	for (i = 0; i < ARRAY_SIZE(session_array); i++) {
-		//int NR_MAX_SESSION = session_array[i];
-		int NR_MAX_SESSION = 1;
-		size = 16;
-		nr_tests = NR_RUN_PER_THREAD;
-
-		latency_read_ns[ti->id][i] = 0;
+	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+		size = test_size[i];
+		latency_write_ns[ti->id][i] = 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			void *buf = send_buf;
-			ses = ses_array[j % NR_MAX_SESSION];
-			//ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
-			ret = __legomem_write_with_session(ctx, ses, buf, addr, size, LEGOMEM_WRITE_SYNC);
+			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
-		latency_read_ns[ti->id][i] += 
+
+		latency_write_ns[ti->id][i] += 
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("nr_sessions: %4d avg_Write: %12lf ns Throughput: %lf Mbps\n",
-			session_array[i],
-			latency_read_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
+		latency = latency_write_ns[ti->id][i];
+		latency_write_tput[ti->id][i] +=
+			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000);
 	}
 
 #if 1
-	for (i = 0; i < ARRAY_SIZE(session_array); i++) {
-		//int NR_MAX_SESSION = session_array[i];
-		int NR_MAX_SESSION = 1;
-		size = 16;
-		nr_tests = NR_RUN_PER_THREAD;
-
+	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+		size = test_size[i];
 		latency_read_ns[ti->id][i] = 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			void *buf = send_buf;
-			ses = ses_array[j % NR_MAX_SESSION];
-			ret = legomem_read_with_session(ctx, ses, buf, recv_buf, addr, size);
+			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
+
 		latency_read_ns[ti->id][i] += 
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("nr_sessions: %4d avg_Read: %12lf ns Throughput: %lf Mbps\n",
-			session_array[i],
-			latency_read_ns[ti->id][i] / j,
-			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
+		latency = latency_read_ns[ti->id][i];
+		latency_read_tput[ti->id][i] +=
+			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000);
 	}
 #endif
 	return NULL;
@@ -165,24 +142,17 @@ static void *thread_func_read(void *_ti)
  * 3) Collect latency numbers
  * 4) Change number of concurrent threads, repeat 1-3 steps.
  */
-int test_legomem_rw_processes(char *_unused)
+int test_legomem_rw_threads(char *_unused)
 {
-	int k, i, ret;
+	int k, i,j, ret;
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
 
-	//ctx = legomem_open_context();
-	//if (!ctx)
-	//	return -1;
-	//dump_legomem_contexts();
-
-	//global_base_addr = legomem_alloc(ctx, 4096, LEGOMEM_VM_FLAGS_POPULATE);
-	//if (global_base_addr < 0) {
-	//	dprintf_ERROR("Fail to legomem alloc%d\n", 0);
-	//	exit(9);
-	//}
-
+	/*
+	 * Prepare ctx and addr
+	 * Check soc log.
+	 */
 	ctx = (struct legomem_context *)malloc(sizeof(*ctx));
 	ctx->pid = 1;
 
@@ -211,10 +181,32 @@ int test_legomem_rw_processes(char *_unused)
 		for (i = 0; i < nr_threads; i++) {
 			pthread_join(tid[i], NULL);
 		}
+
+		/*
+		 * Aggregate all stats
+		 */
+		for (i = 0; i < ARRAY_SIZE(test_size); i++) {
+			double sum = 0, avg_read, avg_write;
+			double sum_tput_read = 0, sum_tput_write = 0;
+
+			for (j = 0, sum = 0; j < nr_threads; j++) {
+				sum += latency_read_ns[j][i];
+				sum_tput_read += latency_read_tput[j][i];
+			}
+			avg_read = sum / nr_threads / NR_RUN_PER_THREAD;
+
+			for (j = 0, sum = 0; j < nr_threads; j++) {
+				sum += latency_write_ns[j][i];
+				sum_tput_write += latency_write_tput[j][i];
+			}
+			avg_write = sum / nr_threads / NR_RUN_PER_THREAD;
+
+			printf("#nr_theads=%3d Latency read=%10lf write=%10lf ns. Throughput read=%10lf write=%10lf Mbps\n",
+				     nr_threads, avg_read, avg_write, sum_tput_read, sum_tput_write);
+		}
 	}
 
 	printf("All tests are done.\n");
 	exit(0);
 	return 0;
 }
-

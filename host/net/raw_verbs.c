@@ -700,7 +700,8 @@ raw_verbs_open_session(struct session_net *ses_net,
 	ses_verbs->nr_delayed_recvs = 0;
 	initial_post_recvs(ses_verbs);
 
-	dprintf_CRIT("New QP/UDP pair created: QPN=%u rx_udp_port=%d\n", qp->qp_num, rx_udp_port);
+	dprintf_DEBUG("New QP/UDP pair created: QPN=%u rx_udp_port=%d\n", qp->qp_num, rx_udp_port);
+
 	return 0;
 }
 

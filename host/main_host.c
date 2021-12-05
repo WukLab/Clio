@@ -268,6 +268,11 @@ struct test_option test_options[] = {
 		.func	= test_legomem_rw_presetup,
 	},
 	{
+		.name	= "rw_threads",
+		.desc	= "Test Threads",
+		.func	= test_legomem_rw_threads,
+	},
+	{
 		.name	= "kvs_ycsb",
 		.desc	= "run kvs_ycsb",
 		.func	= test_run_ycsb,
