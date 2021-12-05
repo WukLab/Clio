@@ -74,9 +74,18 @@ nr_sessions: 1000 avg_Read:  3909.632812 ns Throughput: 32.739647 Mbps
 All tests are done.
 ```
 
-### Figure 5 (PTE/MR Scalability)
+### Figure 5 (Memory Scalability)
 
-XXX
+This test reprodues paper Figure 5, the memory scalability.
+RDMA NIC caches Memory Region (MR) and Page Table Entry (PTE) inside
+the on-board cache. RDMA NIC communicates with host DRAM via PCIe.
+In contrast, Clio only has PTE.
+In addition, the link between on-board SRAM and back-up DRAM is faster than PCIe. As a result, Clio scales better than RDMA.
+
+To test, run the following command to invoke the testing script:
+```bash
+$ ./scripts/test_rw_pte_mr.sh
+```
 
 ### Figure 8 (End-to-End Throughput)
 
