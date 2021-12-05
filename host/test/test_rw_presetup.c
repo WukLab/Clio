@@ -90,12 +90,10 @@ static void *thread_func_read(void *_ti)
 
 	double latency;
 
-	/* static int test_size[] = {4,16,64,256,512,1024}; */
+#define NR_RUN_PER_THREAD 128
 
-#define NR_RUN_PER_THREAD 10
-	/* static int test_size[] = {128}; */
-	//static int test_size[] = {4,16,64,256,512,1024};
-	static int test_size[] = {4};
+	static int test_size[] = {4,16,64,256,1024,4096};
+	// static int test_size[] = {4};
 
 #if 1
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
@@ -107,7 +105,6 @@ static void *thread_func_read(void *_ti)
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
-			//printf("size=%d nr_req=%d\n", size, j);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC, &e);
@@ -122,24 +119,19 @@ static void *thread_func_read(void *_ti)
 	}
 #endif
 
-#if 0
+#if 1
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
 
 		nr_tests = NR_RUN_PER_THREAD;
-
 		latency = 0;
+
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			addr = global_base_addr;
 			ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
-			if (ret < 0) {
-				dprintf_ERROR("ret %d\n", ret);
-				exit(0);
-			}
-
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
+
 		latency =
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);

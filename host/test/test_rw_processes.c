@@ -16,17 +16,11 @@
 
 #include "../core.h"
 
-#define NR_MAX 128
-
-#define OneM 1024*1024
-
-
 static int test_nr_threads[] = { 1};
-static int test_size[] = { 16 };
-//static int test_nr_threads[] = { 1 };
 
+#define NR_MAX 128
 static double latency_read_ns[NR_MAX][NR_MAX];
-static double latency_write_ns[NR_MAX][NR_MAX];
+//static double latency_write_ns[NR_MAX][NR_MAX];
 
 static inline void die(const char * str, ...)
 {
@@ -69,22 +63,6 @@ static void *thread_func_read(void *_ti)
 	addr = global_base_addr;
 
 #define NR_CONNECTION (1000)
-#if 0
-	struct session_net *ses_array;
-	void *send_buf, *recv_buf;
-
-	ses_array = malloc(sizeof(*ses_array) * NR_CONNECTION);
-
-	send_buf = malloc(4096);
-	net_reg_send_buf(ses, send_buf, 4096);
-
-	/* Create artificial connections */
-	int base_sesid = get_local_session_id(ses);
-	for (i = 0; i < NR_CONNECTION; i++) {
-		ses_array[i] = *ses;
-		ses_array[i].session_id = base_sesid + i;
-	}
-#endif
 
 	struct session_net **ses_array;
 	void **send_buf, *recv_buf;
@@ -95,37 +73,47 @@ static void *thread_func_read(void *_ti)
 	dprintf_INFO("Using board %s\n", bi->name);
 
 	ses_array = malloc(sizeof(struct session_net *) * NR_CONNECTION);
-	send_buf = malloc(sizeof(void *) * NR_CONNECTION);
+	send_buf = malloc(4096);
+
+	void *mr;
 	for (i = 0; i < NR_CONNECTION; i++) {
 		ses_array[i] = legomem_open_session_remote_mgmt(bi);
 		if (ses_array[i] == NULL) {
 			printf("Fail to create session on %d\n", i);
 			exit(0);
 		}
-		send_buf[i] = malloc(4096);
-		net_reg_send_buf(ses_array[i], send_buf[i], 4096);
+		if (i == 0) {
+			net_reg_send_buf(ses_array[i], send_buf, 4096);
+			struct session_raw_verbs *ses_verbs = (struct session_raw_verbs *)ses_array[i]->raw_net_private;
+			mr = ses_verbs->send_mr;
+		} else {
+			struct session_raw_verbs *ses_verbs = (struct session_raw_verbs *)ses_array[i]->raw_net_private;
+			ses_verbs->send_mr = mr;
+			ses_verbs->send_buf = send_buf;
+			ses_verbs->send_buf_size = 4096;
+		}
 	}
 
 	recv_buf = malloc(4096);
 
-	//static int session_array[] = { 1, 4, 8, 16, 32, 64, 128, 200, 300, 400, 500, 600, 700, 800, 900, 1000};
-	static int session_array[] = { 1, 4, 8, 16, 32};
+	//static int session_array[] = { 1 };
+	static int session_array[] = { 1, 8, 100, 400, 700, 1000};
 
 /* Knobs */
-#define NR_RUN_PER_THREAD 100
+#define NR_RUN_PER_THREAD 128
 
 	printf("All sessions created, start read/write test..\n");
 	for (i = 0; i < ARRAY_SIZE(session_array); i++) {
-		int NR_MAX_SESSION = session_array[i];
+		//int NR_MAX_SESSION = session_array[i];
+		int NR_MAX_SESSION = 1;
 		size = 16;
 		nr_tests = NR_RUN_PER_THREAD;
 
-#if 1
 		latency_read_ns[ti->id][i] = 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			void *buf = send_buf[j % NR_MAX_SESSION];
+			void *buf = send_buf;
 			ses = ses_array[j % NR_MAX_SESSION];
 			//ret = legomem_read_with_session(ctx, ses, send_buf, recv_buf, addr, size);
 			ret = __legomem_write_with_session(ctx, ses, buf, addr, size, LEGOMEM_WRITE_SYNC);
@@ -135,34 +123,38 @@ static void *thread_func_read(void *_ti)
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d size: %lu nr_sessions: %d avg_Write: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size, NR_MAX_SESSION,
+		dprintf_INFO("thread id %2d nr_tests: %2d size: %5lu nr_sessions: %4d avg_Write: %12lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size, session_array[i],
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
-#endif
+	}
 
 #if 1
+	for (i = 0; i < ARRAY_SIZE(session_array); i++) {
+		//int NR_MAX_SESSION = session_array[i];
+		int NR_MAX_SESSION = 1;
+		size = 16;
+		nr_tests = NR_RUN_PER_THREAD;
+
 		latency_read_ns[ti->id][i] = 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
-			void *buf = send_buf[j % NR_MAX_SESSION];
+			void *buf = send_buf;
 			ses = ses_array[j % NR_MAX_SESSION];
 			ret = legomem_read_with_session(ctx, ses, buf, recv_buf, addr, size);
-			//ret = __legomem_write_with_session(ctx, ses, buf, addr, size, LEGOMEM_WRITE_SYNC);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &e);
 		latency_read_ns[ti->id][i] += 
 			(e.tv_sec * NSEC_PER_SEC + e.tv_nsec) -
 			(s.tv_sec * NSEC_PER_SEC + s.tv_nsec);
 
-		dprintf_INFO("thread id %d nr_tests: %d size: %lu nr_sessions: %d avg_Read: %lf ns Throughput: %lf Mbps\n",
-			ti->id, j, size, NR_MAX_SESSION,
+		dprintf_INFO("thread id %2d nr_tests: %2d size: %5lu nr_sessions: %4d avg_Read: %12lf ns Throughput: %lf Mbps\n",
+			ti->id, j, size, session_array[i],
 			latency_read_ns[ti->id][i] / j,
 			(NSEC_PER_SEC / (latency_read_ns[ti->id][i] / j) * size * 8 / 1000000));
-#endif
 	}
-	printf("%s(): All tests donw.\n", __func__);
+#endif
 	return NULL;
 }
 
@@ -175,7 +167,7 @@ static void *thread_func_read(void *_ti)
  */
 int test_legomem_rw_processes(char *_unused)
 {
-	int k, i, j, ret;
+	int k, i, ret;
 	int nr_threads;
 	pthread_t *tid;
 	struct thread_info *ti;
@@ -219,33 +211,10 @@ int test_legomem_rw_processes(char *_unused)
 		for (i = 0; i < nr_threads; i++) {
 			pthread_join(tid[i], NULL);
 		}
-
-		/*
-		 * Aggregate all stats
-		 */
-		for (i = 0; i < ARRAY_SIZE(test_size); i++) {
-			int send_size = test_size[i];
-			double sum, avg_read, avg_write;
-
-			for (j = 0, sum = 0; j < nr_threads; j++) {
-				sum += latency_read_ns[j][i];
-			}
-			avg_read = sum / nr_threads / NR_RUN_PER_THREAD;
-
-			for (j = 0, sum = 0; j < nr_threads; j++) {
-				sum += latency_write_ns[j][i];
-			}
-			avg_write = sum / nr_threads / NR_RUN_PER_THREAD;
-
-			dprintf_INFO("#tests_per_thread=%10d #nr_theads=%3d #alloc_size=%8d "
-				     "avg_read_RTT: %10lf ns avg_write_RTT: %10lf ns\n",
-					NR_RUN_PER_THREAD, nr_threads, send_size, avg_read, avg_write);
-		}
 	}
 
-	while (1);
-	legomem_close_context(ctx);
-
+	printf("All tests are done.\n");
+	exit(0);
 	return 0;
 }
 

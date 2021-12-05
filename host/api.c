@@ -990,10 +990,10 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		req->op.size = sz;
 
 		ret = net_send(ses, req, sizeof(*req));
-		//if (unlikely(ret < 0)) {
-		//	dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
-		//	break;
-		//}
+		if (unlikely(ret < 0)) {
+			dprintf_ERROR("Fail to send read at nr_sent: %d\n", nr_sent);
+			break;
+		}
 		nr_sent++;
 	} while (total_size);
 	inc_outstanding_req(&ses->outstanding_reads);
@@ -1214,7 +1214,7 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 			dprintf_ERROR("Fail to recv write at %dth reply\n", i);
 			continue;
 		}
-#if 0
+#if 1
 		/* Sanity Checks */
 		rx_lego = to_lego_header(resp);
 		if (unlikely(rx_lego->req_status != 0)) {
