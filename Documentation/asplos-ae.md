@@ -80,7 +80,21 @@ XXX
 
 ### Figure 8 (End-to-End Throughput)
 
-XXX
+This test reprodues paper Figure 8, end-to-end throughput with increasing number of threads.
+
+To test, run the following command to invoke the testing script:
+```bash
+$ ./scripts/test_rw_threads.sh
+```
+
+Below is the expected output.
+```bash
+...
+#nr_theads=  1 Latency read=7215.429688 write=6099.238281 ns. Throughput read=1135.344720 write=1343.118537 Mbps
+#nr_theads=  2 Latency read=7110.617188 write=6389.923828 ns. Throughput read=3439.671127 write=3913.087754 Mbps
+#nr_theads=  4 Latency read=7105.646484 write=6569.178711 ns. Throughput read=8051.636528 write=8915.159984 Mbps
+All tests are done.
+```
 
 ### Figure 9 and Figure 10 (End-to-End Read/Write Latency)
 
