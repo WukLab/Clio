@@ -43,6 +43,14 @@ drwxrwxr-x. 2 asplos-ae asplos-ae 4096 Dec  2 14:05 scripts
 [asplos-ae@wuklab-11 host]$ pwd
 /home/asplos-ae/Clio-asplosae/host
 ```
+4. Test connection to FPGA. The FPGA board can be reached at `192.168.1.26`. Run `arping` to test connection:
+```bash
+$ arping -I p4p1 192.168.1.26
+
+ARPING 192.168.1.26 from 192.168.1.11 p4p1
+Unicast reply from 192.168.1.26 [DE:AD:00:00:DE:AD]  0.567ms
+Unicast reply from 192.168.1.26 [DE:AD:00:00:DE:AD]  0.597ms
+```
 
 ### Figure 4 (Process Scalability)
 
@@ -130,7 +138,14 @@ size:  4096 avg_READ: 12328.343750 ns Throughput: 2657.940163 Mbps
 All tests are done.
 ```
 
-## Notes and Troubleshooting
+## Troubleshooting
+
+### The tests can not finish successfully
+
+1. Try to test the connection to FPGA first, see whether it is still alive (See the Prepare section).
+2. If the board is alive but the tests cannot run, please reach out to us on HotCRP. The board might be down.
+
+## Dev  Notes
 
 Board-3126 (named so in our old script) info:
 - FPGA IP:      192.168.1.26
