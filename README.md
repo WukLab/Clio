@@ -21,15 +21,15 @@ To debug Clio, see [Documentation/debug.md](./Documentation/debug.md).
 
 High-level layout:
 
-<img src="Documentation/repo-org.png" alt="drawing" width="400"/>
+<img src="Documentation/repo-org.png" alt="drawing" width="500"/>
 
 FPGA side stack layout:
 
-<img src="Documentation/repo-org-fpga.png" alt="drawing" width="400"/>
+<img src="Documentation/repo-org-fpga.png" alt="drawing" width="600"/>
 
 Host side stack layout:
 
-<img src="Documentation/repo-org-host.png" alt="drawing" width="400"/>
+<img src="Documentation/repo-org-host.png" alt="drawing" width="600"/>
 
 ## Help
 
