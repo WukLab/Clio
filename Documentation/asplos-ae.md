@@ -26,6 +26,16 @@ If you'd like to try out the compilation process, please checkout [Documentation
 
 ### Prepare
 
+The following image shows the testbed setup.
+We have one single host (wuklab-11) and an FPGA board connected to the same 100Gbps switch.
+The link between FPGA and switch is limited to 10Gbps (zcu106 board limitation).
+As an evaluator, you will run test scripts on the host.
+
+<img src="testbed.png" alt="drawing" width="400"/>
+
+
+Please follow these steps before testing Clio:
+
 1. Use the instructions we posted on HotCRP to login into our server (wuklab-11).
 2. Once login, we could see three folders. The `artifcats/` folder has the pre-generated FPGA bitstreams and ARM binaries. The `scripts/` folder has bash scripts used to configure FPGA. The `Clio-asplosae/` folder is a freshly cloned Clio repo from Github. You will use this folder only.
 ```bash
@@ -43,7 +53,7 @@ drwxrwxr-x. 2 asplos-ae asplos-ae 4096 Dec  2 14:05 scripts
 [asplos-ae@wuklab-11 host]$ pwd
 /home/asplos-ae/Clio-asplosae/host
 ```
-4. Test connection to FPGA. The FPGA board can be reached at `192.168.1.26`. Run `arping` to test connection:
+4. Test connection to FPGA. The FPGA board can be reached at `192.168.1.26`. Run `arping` to test connection. If `arping` failed, please ping us at HotCRP.
 ```bash
 $ arping -I p4p1 192.168.1.26
 
