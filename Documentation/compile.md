@@ -9,15 +9,15 @@ Reminder that there are three major parts in Clio:
 
 This following image shows the repo layout and hardware mapping at a high-level.
 
-<img src="repo-org.png" alt="drawing" width="400"/>
+<img src="repo-org.png" alt="drawing" width="500"/>
 
 Zoom-in, the following image shows the FPGA side stack layout.
 
-<img src="repo-org-fpga.png" alt="drawing" width="400"/>
+<img src="repo-org-fpga.png" alt="drawing" width="600"/>
 
 Finally, the host side stack layout.
 
-<img src="repo-org-host.png" alt="drawing" width="400"/>
+<img src="repo-org-host.png" alt="drawing" width="600"/>
 
 FPGA compilation is the most time-consuming also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence quick to compile.
 
