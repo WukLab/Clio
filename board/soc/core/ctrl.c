@@ -461,6 +461,23 @@ static void prepare_onboard_va(void)
 	}
 
 	/*
+	 * This piece is copied from the prepare_100g_test().
+	 * Prepare the 0x3e0000.. - 0x4000..
+	 */
+	size = PAGE_SIZE * 8;
+	vregion_idx = 0;
+	vi = index_to_vregion(pi, vregion_idx);
+	addr = alloc_va_vregion(pi, vi, size, LEGOMEM_VM_FLAGS_POPULATE, NULL);
+	if (!addr) {
+		dprintf_ERROR("Cannot allocate va vregion %d\n", vregion_idx);
+		return;
+	}
+
+	dprintf_INFO("\n\n"
+		"\t Testing module is safe to use PID %u  VA@[%#lx-%#lx]\n\n",
+		pid, addr, addr + size);
+
+	/*
 	 * The key is to use SPARE_PFN.
 	 * It will reuse a reserved PFN if there is no physical memory left.
 	 * Just used for testing.
@@ -508,8 +525,8 @@ static void *ctrl_poll_func(void *_unused)
 	/* prepare_kvs_virt(rx, tx); */
 
 	//prepare_multiversion(rx, tx);
-	prepare_100g_test();
-	//prepare_onboard_va();
+	//prepare_100g_test();
+	prepare_onboard_va();
 	return NULL;
 
 	while (1) {

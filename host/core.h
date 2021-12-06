@@ -454,6 +454,7 @@ int test_kvs_simple(char *_unused);
 int test_pointer_chasing(char *_unused);
 int test_legomem_rw_presetup(char *_unused);
 int test_legomem_rw_threads(char *_unused);
+int test_legomem_rw_pte_mr(char *_unused);
 int test_jpeg(char *unused);
 int test_data_frame(char *_unused);
 

@@ -273,6 +273,11 @@ struct test_option test_options[] = {
 		.func	= test_legomem_rw_threads,
 	},
 	{
+		.name	= "rw_pte_mr",
+		.desc	= "Test PTE MR Scalability",
+		.func	= test_legomem_rw_pte_mr,
+	},
+	{
 		.name	= "kvs_ycsb",
 		.desc	= "run kvs_ycsb",
 		.func	= test_run_ycsb,
