@@ -1,17 +1,25 @@
-# Compilation
+# Clio Compilation
 
 This file documents the steps required to compile the Clio system.
 
-There are three major parts:
+Reminder that there are three major parts in Clio:
 1. FPGA bitstream
 2. ARM SoC code running inside FPGA board
 3. Host side software
 
-This image shows the major folders and the hardware they run on.
+This following image shows the repo layout and hardware mapping at a high-level.
 
 <img src="repo-org.png" alt="drawing" width="400"/>
 
-FPGA compilation is the most time-consuming also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence easy to compile.
+Zoom-in, the following image shows the FPGA side stack layout.
+
+<img src="repo-org-fpga.png" alt="drawing" width="400"/>
+
+Finally, the host side stack layout.
+
+<img src="repo-org-host.png" alt="drawing" width="400"/>
+
+FPGA compilation is the most time-consuming also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence quick to compile.
 
 Next, we will discuss each part in detail.
 

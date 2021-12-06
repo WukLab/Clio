@@ -17,6 +17,20 @@ To run Clio, see [Documentation/run.md](./Documentation/run.md).
 
 To debug Clio, see [Documentation/debug.md](./Documentation/debug.md).
 
+## Repo Layout
+
+High-level layout:
+
+<img src="Documentation/repo-org.png" alt="drawing" width="400"/>
+
+FPGA side stack layout:
+
+<img src="Documentation/repo-org-fpga.png" alt="drawing" width="400"/>
+
+Host side stack layout:
+
+<img src="Documentation/repo-org-host.png" alt="drawing" width="400"/>
+
 ## Help
 
 Please use [Github Issues](https://github.com/WukLab/Clio/issues).
