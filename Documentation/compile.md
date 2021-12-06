@@ -9,7 +9,7 @@ There are three major parts:
 
 This image shows the major folders and the hardware they run on.
 
-![repo-org](./repo-org.png)
+<img src="repo-org.png" alt="drawing" width="400"/>
 
 FPGA compilation is the most time-consuming also the most complicated part. We need to first compile Scala into Verilog, then run Vivado scripts to compile design files into the final bitstream. The last two parts (SoC and Host) are just generic C code hence easy to compile.
 

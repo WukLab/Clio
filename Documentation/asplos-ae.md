@@ -26,10 +26,10 @@ If you'd like to try out the compilation process, please checkout [Documentation
 
 ### Prepare
 
-The following image shows the testbed setup.
-We have one single host (wuklab-11) and an FPGA board connected to the same 100Gbps switch.
+Testbed: we have one single host (wuklab-11) and an FPGA board connected to the same 100Gbps switch.
 The link between FPGA and switch is limited to 10Gbps (zcu106 board limitation).
 As an evaluator, you will run test scripts on the host.
+This image shows the testbed setup.
 
 <img src="testbed.png" alt="drawing" width="400"/>
 
@@ -105,6 +105,25 @@ To test, run the following command to invoke the testing script:
 $ ./scripts/test_rw_pte_mr.sh
 ```
 
+Below is the expected output:
+```bash
+...
+nr_pte_order:     0 avg_WRITE:  4083.429688
+nr_pte_order:     1 avg_WRITE:  3988.875000
+nr_pte_order:     7 avg_WRITE:  4106.453125
+nr_pte_order:    12 avg_WRITE:  4061.046875
+nr_pte_order:    18 avg_WRITE:  4110.210938
+nr_pte_order:    22 avg_WRITE:  4089.554688
+nr_pte_order:     0 avg_READ:  4167.734375 ns
+nr_pte_order:     1 avg_READ:  4219.687500 ns
+nr_pte_order:     7 avg_READ:  4289.898438 ns
+nr_pte_order:    12 avg_READ:  4347.742188 ns
+nr_pte_order:    18 avg_READ:  4324.835938 ns
+nr_pte_order:    22 avg_READ:  4238.007812 ns
+All tests are done.
+
+```
+
 ### Figure 8 (End-to-End Throughput)
 
 This test reprodues paper Figure 8, end-to-end throughput with increasing number of threads.
@@ -154,6 +173,10 @@ All tests are done.
 
 1. Try to test the connection to FPGA first, see whether it is still alive (See the Prepare section).
 2. If the board is alive but the tests cannot run, please reach out to us on HotCRP. The board might be down.
+
+### The performance numbers are different from papers
+
+1. We have recently retired our 40Gbps Mellanox switch and started using a FS 100Gbps switch. For reasons unknown yet, we get worse latency numbers with this new setup. Prior, Clio's end-to-end latency runs around `~2us`. Now, they are around `~4us`. We are still investigating.
 
 ## Dev  Notes
 
