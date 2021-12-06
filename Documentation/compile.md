@@ -19,9 +19,9 @@ Next, we will discuss each part in detail.
 
 Software Prerequisite: **Vivado v2019.1.3 (64-bit)** and **Scala**.
 We use this version in our devlopment.
-If you use other Vivado versions, the TCL scripts might fail due to mismatched
-Vivado IP version numbers. If that happens, you can update the TCL scripts 
-to using appropriate versions. Nonetheless, we recommend v2020.2 to compile Clio.
+If you have to use other Vivado versions, the TCL scripts might fail due to mismatched
+Vivado IP version numbers. To make it work, you have to update the TCL scripts
+to using appropriate IP versions. Nonetheless, we stronly recommend Vivado v2019.1 for compiling Clio.
 
 Source code: FPGA related files are under `board/fpga/`.
 
