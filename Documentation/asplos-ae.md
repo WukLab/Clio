@@ -26,6 +26,16 @@ If you'd like to try out the compilation process, please checkout [Documentation
 
 ### Prepare
 
+The following image shows the testbed setup.
+We have one single host (wuklab-11) and an FPGA board connected to the same 100Gbps switch.
+The link between FPGA and switch is limited to 10Gbps (zcu106 board limitation).
+As an evaluator, you will run test scripts on the host.
+
+<img src="testbed.png" alt="drawing" width="400"/>
+
+
+Please follow these steps before testing Clio:
+
 1. Use the instructions we posted on HotCRP to login into our server (wuklab-11).
 2. Once login, we could see three folders. The `artifcats/` folder has the pre-generated FPGA bitstreams and ARM binaries. The `scripts/` folder has bash scripts used to configure FPGA. The `Clio-asplosae/` folder is a freshly cloned Clio repo from Github. You will use this folder only.
 ```bash
@@ -42,6 +52,14 @@ drwxrwxr-x. 2 asplos-ae asplos-ae 4096 Dec  2 14:05 scripts
 [asplos-ae@wuklab-11 ~]$ cd Clio-asplosae/host/
 [asplos-ae@wuklab-11 host]$ pwd
 /home/asplos-ae/Clio-asplosae/host
+```
+4. Test connection to FPGA. The FPGA board can be reached at `192.168.1.26`. Run `arping` to test connection. If `arping` failed, please ping us at HotCRP.
+```bash
+$ arping -I p4p1 192.168.1.26
+
+ARPING 192.168.1.26 from 192.168.1.11 p4p1
+Unicast reply from 192.168.1.26 [DE:AD:00:00:DE:AD]  0.567ms
+Unicast reply from 192.168.1.26 [DE:AD:00:00:DE:AD]  0.597ms
 ```
 
 ### Figure 4 (Process Scalability)
@@ -74,13 +92,36 @@ nr_sessions: 1000 avg_Read:  3909.632812 ns Throughput: 32.739647 Mbps
 All tests are done.
 ```
 
-### Figure 5 (PTE/MR Scalability)
+### Figure 5 (Memory Scalability)
 
-XXX
+This test reprodues paper Figure 5, the memory scalability.
+RDMA NIC caches Memory Region (MR) and Page Table Entry (PTE) inside
+the on-board cache. RDMA NIC communicates with host DRAM via PCIe.
+In contrast, Clio only has PTE.
+In addition, the link between on-board SRAM and back-up DRAM is faster than PCIe. As a result, Clio scales better than RDMA.
+
+To test, run the following command to invoke the testing script:
+```bash
+$ ./scripts/test_rw_pte_mr.sh
+```
 
 ### Figure 8 (End-to-End Throughput)
 
-XXX
+This test reprodues paper Figure 8, end-to-end throughput with increasing number of threads.
+
+To test, run the following command to invoke the testing script:
+```bash
+$ ./scripts/test_rw_threads.sh
+```
+
+Below is the expected output.
+```bash
+...
+#nr_theads=  1 Latency read=7215.429688 write=6099.238281 ns. Throughput read=1135.344720 write=1343.118537 Mbps
+#nr_theads=  2 Latency read=7110.617188 write=6389.923828 ns. Throughput read=3439.671127 write=3913.087754 Mbps
+#nr_theads=  4 Latency read=7105.646484 write=6569.178711 ns. Throughput read=8051.636528 write=8915.159984 Mbps
+All tests are done.
+```
 
 ### Figure 9 and Figure 10 (End-to-End Read/Write Latency)
 
@@ -107,7 +148,14 @@ size:  4096 avg_READ: 12328.343750 ns Throughput: 2657.940163 Mbps
 All tests are done.
 ```
 
-## Notes and Troubleshooting
+## Troubleshooting
+
+### The tests can not finish successfully
+
+1. Try to test the connection to FPGA first, see whether it is still alive (See the Prepare section).
+2. If the board is alive but the tests cannot run, please reach out to us on HotCRP. The board might be down.
+
+## Dev  Notes
 
 Board-3126 (named so in our old script) info:
 - FPGA IP:      192.168.1.26
