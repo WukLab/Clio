@@ -31,6 +31,18 @@ Host side stack layout:
 
 <img src="Documentation/repo-org-host.png" alt="drawing" width="600"/>
 
+## Disclaimer
+
+This is a research prototype. Use at your own risk.
+
+
+## Authors
+
+- Zhiyuan Guo
+- Xuhao Luo
+- Yutong Huang
+- Yizhou Shan
+
 ## Help
 
 Please use [Github Issues](https://github.com/WukLab/Clio/issues).
