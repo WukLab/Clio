@@ -37,7 +37,7 @@ HOSTCXXFLAGS = -O2
 export CONFIG_SHELL HOSTCC HOSTCXX HOSTCFLAGS HOSTCXXFLAGS
 
 # Configure Board
-DEFAULT_BOARD = vcu118
+DEFAULT_BOARD = zcu106
 
 ifeq ("$(origin board)", "command line")
   TARGET_BOARD = $(board)
@@ -47,7 +47,7 @@ ifndef TARGET_BOARD
   DEFAULT_BOARD_USED = 1
 endif
 
-VALID_TARGET_BOARD = vcu108 vcu118
+VALID_TARGET_BOARD = vcu108 vcu118 zcu106
 
 ifeq ($(findstring $(TARGET_BOARD), $(VALID_TARGET_BOARD)), )
   $(error Target board [$(TARGET_BOARD)] not found. Supported boards: $(VALID_TARGET_BOARD))

@@ -25,11 +25,11 @@ Next, we will discuss each part in detail.
 
 ## Part 1: FPGA Bitstream
 
-Software Prerequisite: **Vivado v2019.1.3 (64-bit)** and **Scala**.
+Software Prerequisite: **Vivado v2019.1.3 (64-bit)**, **Vivado HLS v2019.1.3 (64-bit)**, and **Scala**.
 We use this version in our devlopment.
 If you have to use other Vivado versions, the TCL scripts might fail due to mismatched
 Vivado IP version numbers. To make it work, you have to update the TCL scripts
-to using appropriate IP versions. Nonetheless, we stronly recommend Vivado v2019.1 for compiling Clio.
+to using appropriate IP versions (simply specify the latest version). Nonetheless, we stronly recommend Vivado v2019.1 for compiling Clio. NOTE: to change Vivado PATH, see `board/fpga/Makefile.mk`.
 
 Source code: FPGA related files are under `board/fpga/`.
 
@@ -65,6 +65,7 @@ Once you are in Vivado GUI, you could check out the Block Design for the complet
 ## Part 2: ARM SoC Code
 
 Software Prerequisite: **aarch64 cross compilation software**.
+This set of software usually comes with Vivado, hence you can run the following command to gain access to aarch64 compilers: `source /tools/Xilinx/Vivado/2019.1/settings64.sh` (change to your Vivado installation path).
 
 Source code: `board/soc/core`.
 

@@ -184,8 +184,15 @@ Board-3126 (named so in our old script) info:
 - FPGA IP:      192.168.1.26
 - FPGA ARM IP:  192.168.0.26
 - Host serial console: `sudo minicom -D /dev/ttyUSB0`
-- hw_server 3121 (hw_server -s tcp::3121 -e set jtag-port-filter 13276)
+- hw_server 3121 (`hw_server -s tcp::3121 -e set jtag-port-filter 13276`)
 - vivado localhost:3121
+
+Board-3122 info:
+- FPGA IP: 192.168.1.26
+- FPGA ARM IP: 192.168.0.22
+- Host serial console: `sudo minicom -D /dev/ttyUSB4`
+- hw_server 3122 (`hw_server -s tcp::3122 -e "set jtag-port-filter 11603" &`)
+- vivado localhost:3122
 
 Before you load the bitstream into the FPGA, first open the serial console to the board. While PetaLinux is downloading the bitstream into the board, you can see various messages printed in the serial console. At one point, type `run netboot` in the serial console to boot Linux on ARM. Then use `username: root` & `password: root` to login. Finally, run the following script to configure FPGA chip's IP and MAC address.
 
@@ -202,11 +209,22 @@ devmem 0xA000C000 32 0xC0A8011A
 #devmem 0xA000C004 32 0xf0e0c01A
 EOF
 bash test.sh
+
+
+
+#
+# Board-3122
+#
+cat > test.sh <<EOF
+ip addr del 192.168.0.10/24 dev eth0
+ip addr add 192.168.0.22/24 dev eth0
+insmod /lib/modules/4.19.0/extra/xilinx-axidma.ko
+# Change FPGA IP 192.168.1.26
+devmem 0xA000C000 32 0xC0A8011A
+#devmem 0xA000C004 32 0xf0e0c01A
+EOF
+bash test.sh
 ```
-
-The following GIF showcases the whole boot flow:
-
-[TODO GIF]()
 
 ### Default ARM SoC Setup
 

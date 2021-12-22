@@ -35,14 +35,6 @@ Host side stack layout:
 
 This is a research prototype. Use at your own risk.
 
-
-## Authors
-
-- Zhiyuan Guo
-- Xuhao Luo
-- Yutong Huang
-- Yizhou Shan
-
 ## Help
 
 Please use [Github Issues](https://github.com/WukLab/Clio/issues).
