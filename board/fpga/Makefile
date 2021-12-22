@@ -26,9 +26,11 @@ help h:
 	@echo "************************************************************************************"
 	@echo ""
 
+PHONY += all
 all: gen_rtl package_ip net vivado_top
 
 # Step 1: Generate RTL from Scala
+PHONY += gen_rtl gen
 gen_rtl gen:
 	mkdir -p generated_rtl
 	sbt "runMain wuklab.LegoMemSystemGenerate"
@@ -38,6 +40,7 @@ gen_rtl gen:
 	sbt "runMain wuklab.KeyValueVirtualInterfaceGenerate"
 
 # Step 2: Package IPs
+PHONY += package_ip ip
 package_ip ip:
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_system.tcl
 	$(VIVADO) -nojournal -nolog -mode tcl -source scripts/create_pingpong.tcl
@@ -50,13 +53,16 @@ package_ip ip:
 	# vivado -mode tcl -source scripts/create_ip.tcl -tclargs data_frame data_frame.v
 
 # Step 3: Generate reliable network
+PHONY += net
 net:
 	make -C net_reliable
 
 # Step 4: Generate Top
+PHONY += top vivado_top
 vivado_top top:
-	make -C top all
+	make -C top
 
+PHONY += clean
 clean:
 	rm -rf generated_rtl/
 	rm -rf generated_ip/
@@ -67,3 +73,5 @@ clean:
 	find ./ -name "*.str" | xargs rm -rf
 	find ./ -name ".Xil" | xargs rm -rf
 	find ./ -name "awsver.txt" | xargs rm -rf
+
+.PHONY: $(PHONY)
