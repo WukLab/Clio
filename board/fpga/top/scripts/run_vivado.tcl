@@ -255,4 +255,14 @@ set obj [get_filesets utils_1]
 
 source scripts/legomem_system_no_relnet.tcl
 
+# Synthesis
+launch_runs -jobs 6 synth_1
+wait_on_run synth_1
+
+# Implementation
+launch_runs -jobs 6 impl_1
+wait_on_run impl_1
+
+open_run impl_1
+write_bitstream -force fpga.bit
 exit
