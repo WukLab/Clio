@@ -37,28 +37,50 @@ The overall compilation flow is:
 1. Go to `board/fpga/`. Run `make` directly. This step will compile Scala into Verilog, compile the HLS-based network work, and produce the top project. Please check the Makefile for more details
 2. Go to `board/fpga/top/`. Run `make g` to open Vivado GUI.
 3. Inside Vivado GUI, run Synthesis and Implementation to produce the bitstream.
-4. Copy the produced the bitstream into an easy to access folder. **By default**, the bitstream can be found at `board/fpga/top/generated_vivado_project/generated_vivado_project.runs/impl_1/fpga.bit`.
+4. Copy the produced the bitstream into an easy to access folder. **By default**, the bitstream can be found at `board/fpga/top/generated_vivado_project/generated_vivado_project.runs/impl_1/fpga.bit`, or maybe at `board/fpga/top/fpga.bit`, depends on how it is generated.
 Later on, we will use PetaLinux to load this bitstream into the FPGA board
 
 Alternatively, you can also build Clio step by step:
 ```bash
+#
 # Compile SpinalHDL into RTL
+#
 make gen_rtl
 
+#
 # Package the generated RTL into Vivaod IP packages
+#
 make package_ip
 
+#
 # Compile HLS-based Network Stack into Vivado IP packages
+#
 make net
 
-# Generate the top Vivado project consists of everything
+#
+# Generate the top Vivado project
+#
+# Run Synthesis, Implementation, and Generate Bitstream
+# Note that this step may take an hour or more, depends on your setup
+# In the end, expect to find an `fpga.bit` in `board/fpga/top`.
+#
+# Check board/fpga/top/scripts/run_vivado.tcl for details.
+# 
 make top
-
-# (Use a GUI environment, e.g., VNC)
-cd top && make g
 ```
 
-Once you are in Vivado GUI, you could check out the Block Design for the complete design. To compile, click the Synthesis, Implementation,and Generate Bitstream options in the red box.
+### Vivado GUI
+
+The default building process does not require Vivado GUI.
+If you wish to examine Clio core block diagram design, or runtime debug using ILA,
+or explore more synthesis and implementation strategies, you may want to use Vivado GUI.
+
+In general, you can simply go to `board/fpga/top` and run `make g` or `make gui` to bring up GUI.
+This works if you are using a local desktop (with a proper DISPLAY setup in your terminal).
+However, if you are building Clio on a remote machine, you may have to use certain remote desktop software
+(e.g., VNC).
+
+The following image is a screenshort of the Clio board diagram design.
 
 ![image](./vivado-screenshot.png)
 
