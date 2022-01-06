@@ -46,9 +46,9 @@ In the second setup, `wuklab-14` has no proper Vivado setup hence only supports 
 Please follow these steps before testing Clio:
 
 1. Use the instructions we posted on HotCRP to login into our server.
-        - See HotCRP comment `@A11`.
-        - For Setup 1, login into `wuklab-11`.
-        - For Setup 2, login into `wuklab-14` (login into wuklab-11 first then ssh into wuklab-14).
+    1. See HotCRP comment `@A11`.
+    2. For Setup 1, login into `wuklab-11`.
+    3. For Setup 2, login into `wuklab-14` (login into wuklab-11 first then ssh into wuklab-14).
 2. Once login, we could see three folders. The `artifcats/` folder has the pre-generated FPGA bitstreams and ARM binaries. The `scripts/` folder has bash scripts used to configure FPGA. The `Clio-asplosae/` folder is a freshly cloned Clio repo from Github. You will use this folder only.
 ```bash
 [asplos-ae@wuklab-11]~% pwd
