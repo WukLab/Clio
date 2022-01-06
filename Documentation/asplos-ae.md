@@ -24,19 +24,30 @@ Nonetheless, we believe reproducing the scalability, latency, and throughput num
 
 If you'd like to try out the compilation process, please checkout [Documentation/compile.md](./compile.md).
 
+### Testbeds
+
+<img src="testbed2.png" alt="drawing" width="800"/>
+
+We prepared two testbeds.
+In the first setup, all endpoints are connected to a central switch. 
+In the second setup, the host and board have back-to-back connection.
+
+The first setup has worse performance mainly because
+we used a 1-to-4 split cable to connect the board to the switch.
+In our experiments, we found this cable introduced non-trivial latency.
+Hence we then prepared the second setup.
+Note that if your switch has native 10Gbps support,
+you don't need this split cable and would have better performance.
+
+In the second setup, `wuklab-14` has no proper Vivado setup hence only supports performance testing. If you wish to build the FPGA part, you must do so in `wuklab-11`.
+
 ### Prepare
-
-Testbed: we have one single host (wuklab-11) and an FPGA board connected to the same 100Gbps switch.
-The link between FPGA and switch is limited to 10Gbps (zcu106 board limitation).
-As an evaluator, you will run test scripts on the host.
-This image shows the testbed setup.
-
-<img src="testbed.png" alt="drawing" width="400"/>
-
 
 Please follow these steps before testing Clio:
 
-1. Use the instructions we posted on HotCRP to login into our server (wuklab-11).
+1. Use the instructions we posted on HotCRP to login into our server.
+   1. For Setup 1, login into `wuklab-11`.
+   2. For Setup 2, login into `wuklab-14`.
 2. Once login, we could see three folders. The `artifcats/` folder has the pre-generated FPGA bitstreams and ARM binaries. The `scripts/` folder has bash scripts used to configure FPGA. The `Clio-asplosae/` folder is a freshly cloned Clio repo from Github. You will use this folder only.
 ```bash
 [asplos-ae@wuklab-11]~% pwd
