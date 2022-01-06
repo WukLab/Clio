@@ -29,8 +29,8 @@ If you'd like to try out the compilation process, please checkout [Documentation
 <img src="testbed2.png" alt="drawing" width="800"/>
 
 We prepared two testbeds.
-In the 1st setup, all endpoints are connected to a central switch. 
-In the 2rd setup, the host and board have back-to-back connection.
+- In the 1st setup, all endpoints are connected to a central switch. 
+- In the 2rd setup, the host and board have back-to-back connection.
 
 The first setup has worse performance mainly because
 we used a 1-to-4 split cable to connect the board to the switch.
@@ -67,7 +67,7 @@ drwxrwxr-x. 2 asplos-ae asplos-ae 4096 Dec  2 14:05 scripts
 ```
 4. Test connection to FPGA. The FPGA board can be reached at `192.168.1.26`. Run `arping` to test connection. If `arping` failed, please ping us at HotCRP.
 ```bash
-$ arping -I p4p1 192.168.1.26
+$ arping -I p4p1 192.168.1.26    # replace p4p1 with your local NIC name
 
 ARPING 192.168.1.26 from 192.168.1.11 p4p1
 Unicast reply from 192.168.1.26 [DE:AD:00:00:DE:AD]  0.567ms
