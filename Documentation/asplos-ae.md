@@ -24,19 +24,31 @@ Nonetheless, we believe reproducing the scalability, latency, and throughput num
 
 If you'd like to try out the compilation process, please checkout [Documentation/compile.md](./compile.md).
 
+### Testbeds
+
+<img src="testbed2.png" alt="drawing" width="800"/>
+
+We prepared two testbeds.
+- In the 1st setup, all endpoints are connected to a central switch. 
+- In the 2rd setup, the host and board have back-to-back connection.
+
+The first setup has worse performance mainly because
+we used a 1-to-4 split cable to connect the board to the switch.
+In our experiments, we found this cable introduced non-trivial latency.
+Hence we then prepared the second setup.
+Note that if your switch has native 10Gbps support,
+you don't need this split cable and would have better performance.
+
+In the second setup, `wuklab-14` has no proper Vivado setup hence only supports performance testing. If you wish to build the FPGA part, you must do so in `wuklab-11`.
+
 ### Prepare
-
-Testbed: we have one single host (wuklab-11) and an FPGA board connected to the same 100Gbps switch.
-The link between FPGA and switch is limited to 10Gbps (zcu106 board limitation).
-As an evaluator, you will run test scripts on the host.
-This image shows the testbed setup.
-
-<img src="testbed.png" alt="drawing" width="400"/>
-
 
 Please follow these steps before testing Clio:
 
-1. Use the instructions we posted on HotCRP to login into our server (wuklab-11).
+1. Use the instructions we posted on HotCRP to login into our server.
+    1. See HotCRP comment `@A11`.
+    2. For Setup 1, login into `wuklab-11`.
+    3. For Setup 2, login into `wuklab-14` (login into wuklab-11 first then ssh into wuklab-14).
 2. Once login, we could see three folders. The `artifcats/` folder has the pre-generated FPGA bitstreams and ARM binaries. The `scripts/` folder has bash scripts used to configure FPGA. The `Clio-asplosae/` folder is a freshly cloned Clio repo from Github. You will use this folder only.
 ```bash
 [asplos-ae@wuklab-11]~% pwd
@@ -55,7 +67,7 @@ drwxrwxr-x. 2 asplos-ae asplos-ae 4096 Dec  2 14:05 scripts
 ```
 4. Test connection to FPGA. The FPGA board can be reached at `192.168.1.26`. Run `arping` to test connection. If `arping` failed, please ping us at HotCRP.
 ```bash
-$ arping -I p4p1 192.168.1.26
+$ arping -I p4p1 192.168.1.26    # replace p4p1 with your local NIC name
 
 ARPING 192.168.1.26 from 192.168.1.11 p4p1
 Unicast reply from 192.168.1.26 [DE:AD:00:00:DE:AD]  0.567ms
@@ -77,18 +89,18 @@ Below is the expected output. The read/write latencies stay flat.
 ```bash
 ...
 All sessions created, start read/write test..
-nr_sessions:    1 avg_Write:  3959.578125 ns Throughput: 32.326676 Mbps
-nr_sessions:    8 avg_Write:  3736.976562 ns Throughput: 34.252289 Mbps
-nr_sessions:  100 avg_Write:  3710.851562 ns Throughput: 34.493430 Mbps
-nr_sessions:  400 avg_Write:  3720.109375 ns Throughput: 34.407591 Mbps
-nr_sessions:  700 avg_Write:  3702.250000 ns Throughput: 34.573570 Mbps
-nr_sessions: 1000 avg_Write:  3735.078125 ns Throughput: 34.269698 Mbps
-nr_sessions:    1 avg_Read:  3918.640625 ns Throughput: 32.664389 Mbps
-nr_sessions:    8 avg_Read:  3920.921875 ns Throughput: 32.645384 Mbps
-nr_sessions:  100 avg_Read:  3903.953125 ns Throughput: 32.787279 Mbps
-nr_sessions:  400 avg_Read:  3910.218750 ns Throughput: 32.734742 Mbps
-nr_sessions:  700 avg_Read:  3904.187500 ns Throughput: 32.785311 Mbps
-nr_sessions: 1000 avg_Read:  3909.632812 ns Throughput: 32.739647 Mbps
+nr_sessions:    1 avg_Write:  1993.539062 ns Throughput: 64.207420 Mbps
+nr_sessions:    8 avg_Write:  1888.851562 ns Throughput: 67.766045 Mbps
+nr_sessions:  100 avg_Write:  1881.070312 ns Throughput: 68.046367 Mbps
+nr_sessions:  400 avg_Write:  1881.523438 ns Throughput: 68.029979 Mbps
+nr_sessions:  700 avg_Write:  1913.484375 ns Throughput: 66.893674 Mbps
+nr_sessions: 1000 avg_Write:  1884.867188 ns Throughput: 67.909294 Mbps
+nr_sessions:    1 avg_Read:  2082.679688 ns Throughput: 61.459283 Mbps
+nr_sessions:    8 avg_Read:  2078.031250 ns Throughput: 61.596764 Mbps
+nr_sessions:  100 avg_Read:  2048.820312 ns Throughput: 62.474976 Mbps
+nr_sessions:  400 avg_Read:  2005.617188 ns Throughput: 63.820753 Mbps
+nr_sessions:  700 avg_Read:  2012.039062 ns Throughput: 63.617055 Mbps
+nr_sessions: 1000 avg_Read:  2009.648438 ns Throughput: 63.692732 Mbps
 All tests are done.
 ```
 
@@ -108,20 +120,19 @@ $ ./scripts/test_rw_pte_mr.sh
 Below is the expected output:
 ```bash
 ...
-nr_pte_order:     0 avg_WRITE:  4083.429688
-nr_pte_order:     1 avg_WRITE:  3988.875000
-nr_pte_order:     7 avg_WRITE:  4106.453125
-nr_pte_order:    12 avg_WRITE:  4061.046875
-nr_pte_order:    18 avg_WRITE:  4110.210938
-nr_pte_order:    22 avg_WRITE:  4089.554688
-nr_pte_order:     0 avg_READ:  4167.734375 ns
-nr_pte_order:     1 avg_READ:  4219.687500 ns
-nr_pte_order:     7 avg_READ:  4289.898438 ns
-nr_pte_order:    12 avg_READ:  4347.742188 ns
-nr_pte_order:    18 avg_READ:  4324.835938 ns
-nr_pte_order:    22 avg_READ:  4238.007812 ns
+nr_pte_order:     0 avg_WRITE:  1870.289062
+nr_pte_order:     1 avg_WRITE:  1902.945312
+nr_pte_order:     7 avg_WRITE:  1939.851562
+nr_pte_order:    12 avg_WRITE:  1939.000000
+nr_pte_order:    18 avg_WRITE:  1959.398438
+nr_pte_order:    22 avg_WRITE:  1970.945312
+nr_pte_order:     0 avg_READ:  2018.070312 ns
+nr_pte_order:     1 avg_READ:  2049.742188 ns
+nr_pte_order:     7 avg_READ:  2171.218750 ns
+nr_pte_order:    12 avg_READ:  2157.304688 ns
+nr_pte_order:    18 avg_READ:  2151.273438 ns
+nr_pte_order:    22 avg_READ:  2153.398438 ns
 All tests are done.
-
 ```
 
 ### Figure 8 (End-to-End Throughput)
@@ -136,9 +147,9 @@ $ ./scripts/test_rw_threads.sh
 Below is the expected output.
 ```bash
 ...
-#nr_theads=  1 Latency read=7215.429688 write=6099.238281 ns. Throughput read=1135.344720 write=1343.118537 Mbps
-#nr_theads=  2 Latency read=7110.617188 write=6389.923828 ns. Throughput read=3439.671127 write=3913.087754 Mbps
-#nr_theads=  4 Latency read=7105.646484 write=6569.178711 ns. Throughput read=8051.636528 write=8915.159984 Mbps
+#nr_theads=  1 Latency read=4685.632812 write=3185.238281 ns. Throughput read=1748.323082 write=2571.864105 Mbps
+#nr_theads=  2 Latency read=4718.240234 write=3666.972656 ns. Throughput read=5220.980647 write=7095.573646 Mbps
+#nr_theads=  4 Latency read=4861.271484 write=4162.446289 ns. Throughput read=11963.518062 write=15137.270581 Mbps
 All tests are done.
 ```
 
@@ -154,16 +165,16 @@ $ ./scripts/test_rw_presetup.sh
 Below is the expected output.
 ```bash
 ...
-size:     4 avg_WRITE:  3881.570312 ns Throughput: 8.244086 Mbps
-size:    64 avg_WRITE:  4663.929688 ns Throughput: 109.778670 Mbps
-size:   256 avg_WRITE:  4822.085938 ns Throughput: 424.712464 Mbps
-size:  1024 avg_WRITE:  5730.507812 ns Throughput: 1429.541721 Mbps
-size:  4096 avg_WRITE: 12935.218750 ns Throughput: 2533.238953 Mbps
-size:     4 avg_READ:  4013.015625 ns Throughput: 7.974053 Mbps
-size:    64 avg_READ:  4112.539062 ns Throughput: 124.497298 Mbps
-size:   256 avg_READ:  4633.179688 ns Throughput: 442.029047 Mbps
-size:  1024 avg_READ:  6788.617188 ns Throughput: 1206.725873 Mbps
-size:  4096 avg_READ: 12328.343750 ns Throughput: 2657.940163 Mbps
+size:     4 avg_WRITE:  1866.296875 ns Throughput: 17.146254 Mbps
+size:    64 avg_WRITE:  2279.406250 ns Throughput: 224.619898 Mbps
+size:   256 avg_WRITE:  2464.367188 ns Throughput: 831.044988 Mbps
+size:  1024 avg_WRITE:  3194.648438 ns Throughput: 2564.288422 Mbps
+size:  4096 avg_WRITE: 10318.382812 ns Throughput: 3175.691443 Mbps
+size:     4 avg_READ:  2034.742188 ns Throughput: 15.726808 Mbps
+size:    64 avg_READ:  2212.593750 ns Throughput: 231.402624 Mbps
+size:   256 avg_READ:  2705.500000 ns Throughput: 756.976529 Mbps
+size:  1024 avg_READ:  4699.718750 ns Throughput: 1743.083030 Mbps
+size:  4096 avg_READ: 10098.554688 ns Throughput: 3244.820770 Mbps
 All tests are done.
 ```
 
