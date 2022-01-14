@@ -28,7 +28,7 @@ static double latency_write_ns[NR_MAX][NR_MAX];
 static double latency_read_tput[NR_MAX][NR_MAX];
 static double latency_write_tput[NR_MAX][NR_MAX];
 
-static int test_size[] = {1024};
+static int test_size[] = {512};
 static int test_nr_threads[] = { 1, 2, 4};
 #define NR_RUN_PER_THREAD 256
 
@@ -97,6 +97,9 @@ static void *thread_func_read(void *_ti)
 		size = test_size[i];
 		latency_write_ns[ti->id][i] = 0;
 
+		/* Sync for every round */
+		pthread_barrier_wait(&thread_barrier);
+
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
 			ret = __legomem_write_with_session(ctx, ses, send_buf, addr, size, LEGOMEM_WRITE_SYNC);
@@ -109,13 +112,16 @@ static void *thread_func_read(void *_ti)
 
 		latency = latency_write_ns[ti->id][i];
 		latency_write_tput[ti->id][i] +=
-			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000);
+			(NSEC_PER_SEC / (latency / j) * size * 8 / 1024 / 1024);
 	}
 
 #if 1
 	for (i = 0; i < ARRAY_SIZE(test_size); i++) {
 		size = test_size[i];
 		latency_read_ns[ti->id][i] = 0;
+
+		/* Sync for every round */
+		pthread_barrier_wait(&thread_barrier);
 
 		clock_gettime(CLOCK_MONOTONIC, &s);
 		for (j = 0; j < nr_tests; j++) {
@@ -129,7 +135,7 @@ static void *thread_func_read(void *_ti)
 
 		latency = latency_read_ns[ti->id][i];
 		latency_read_tput[ti->id][i] +=
-			(NSEC_PER_SEC / (latency / j) * size * 8 / 1000000);
+			(NSEC_PER_SEC / (latency / j) * size * 8 / 1024 / 1024);
 	}
 #endif
 	return NULL;
@@ -201,8 +207,8 @@ int test_legomem_rw_threads(char *_unused)
 			}
 			avg_write = sum / nr_threads / NR_RUN_PER_THREAD;
 
-			printf("#nr_theads=%3d Latency read=%10lf write=%10lf ns. Throughput read=%10lf write=%10lf Mbps\n",
-				     nr_threads, avg_read, avg_write, sum_tput_read, sum_tput_write);
+			printf("#nr_theads=%3d Latency read=%10lf write=%10lf ns. Throughput read=%10lf write=%10lf Gbps\n",
+				     nr_threads, avg_read, avg_write, sum_tput_read/1024, sum_tput_write/1024);
 		}
 	}
 

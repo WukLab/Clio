@@ -29,7 +29,7 @@ struct board_info *monitor_bi;
 /*
  * Depends on MTU: sysctl_link_mtu
  */
-int max_lego_payload ____cacheline_aligned = 1344;
+int max_lego_payload ____cacheline_aligned = 1450;
 
 /*
  * Allocate a new process-local legomem context.
@@ -1002,6 +1002,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 	// recv_buf += sizeof(*resp);
 	for (i = 0; i < nr_sent; i++) {
 		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+#if 0
 		if (unlikely(ret <= 0)) {
 			dprintf_ERROR("Fail to recv read at %dth reply\n", i);
 			continue;
@@ -1026,6 +1027,7 @@ int legomem_read_with_session(struct legomem_context *ctx, struct session_net *s
 		recv_size -= sizeof(*resp);
 		memcpy(recv_buf, resp->ret.data, recv_size);
 		recv_buf += recv_size;
+#endif
 	}
 
 	dec_outstanding_req(&ses->outstanding_reads);
@@ -1210,11 +1212,11 @@ int __legomem_write_with_session(struct legomem_context *ctx, struct session_net
 
 	for (i = 0; i < nr_sent; i++) {
 		ret = net_receive_zerocopy(ses, (void **)&resp, &recv_size);
+#if 0
 		if (unlikely(ret <= 0)) {
 			dprintf_ERROR("Fail to recv write at %dth reply\n", i);
 			continue;
 		}
-#if 1
 		/* Sanity Checks */
 		rx_lego = to_lego_header(resp);
 		if (unlikely(rx_lego->req_status != 0)) {
