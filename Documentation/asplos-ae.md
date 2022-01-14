@@ -147,9 +147,9 @@ $ ./scripts/test_rw_threads.sh
 Below is the expected output.
 ```bash
 ...
-#nr_theads=  1 Latency read=4685.632812 write=3185.238281 ns. Throughput read=1748.323082 write=2571.864105 Mbps
-#nr_theads=  2 Latency read=4718.240234 write=3666.972656 ns. Throughput read=5220.980647 write=7095.573646 Mbps
-#nr_theads=  4 Latency read=4861.271484 write=4162.446289 ns. Throughput read=11963.518062 write=15137.270581 Mbps
+#nr_theads=  1 Latency read=3345.902344 write=2684.632812 ns. Throughput read=  1.140110 write=  1.420938 Gbps
+#nr_theads=  2 Latency read=3401.101562 write=2774.675781 ns. Throughput read=  3.383323 write=  4.170591 Gbps
+#nr_theads=  4 Latency read=3754.487305 write=3773.461914 ns. Throughput read=  7.447477 write=  8.214307 Gbps
 All tests are done.
 ```
 
