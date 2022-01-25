@@ -1,11 +1,17 @@
-# Clio Artifact
+# Clio System
 
-Clio is a Hardware-Software Co-Designed Disaggregated Memory System.
-The paper has been accepted to ASPLOS'22.
-We are still working on the final version.
-You can find a pre-publication version [here](https://arxiv.org/pdf/2108.03492.pdf).
+Clio is a disaggregated memory system that virtualizes,
+protects, and manages disaggregated memory at hardware-based
+memory nodes. More details in our ASPLOS'22 paper [here](https://arxiv.org/pdf/2108.03492.pdf).
 
-**ASPLOS'22 Artifact Evaluators, please see [Documentation/asplos-ae.md](./Documentation/asplos-ae.md).**
+This repo contains Clio's FPGA hardware design, host side software, and testing program.
+
+## System Architetcure
+
+The Clio hardware includes a new virtual memory
+system, a customized network system, and a framework for computation offloading
+
+<img src="Documentation/arch.png" alt="drawing" width="500"/>
 
 ## Documentation
 
@@ -16,6 +22,8 @@ To compile Clio, see [Documentation/compile.md](./Documentation/compile.md).
 To run Clio, see [Documentation/run.md](./Documentation/run.md).
 
 To debug Clio, see [Documentation/debug.md](./Documentation/debug.md).
+
+**ASPLOS'22 Artifact Evaluators, please see [Documentation/asplos-ae.md](./Documentation/asplos-ae.md).**
 
 ## Repo Layout
 
