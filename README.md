@@ -39,6 +39,11 @@ Host side stack layout:
 
 <img src="Documentation/repo-org-host.png" alt="drawing" width="600"/>
 
+
+## License
+
+MIT
+
 ## Disclaimer
 
 This is a research prototype. Use at your own risk.
